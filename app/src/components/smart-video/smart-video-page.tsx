@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -26,7 +27,7 @@ import { cn } from '@/lib/utils';
 import type { VideoFormat, VideoLook } from '@/lib/smart-video/types';
 import { SMART_VIDEO_MAX_EDIT_FILES, SMART_VIDEO_MAX_FILE_MB, type SmartVideoJob, type SmartVideoJobStatus } from '@/types/smart-video';
 import { cleanLink, describeLink } from '@/lib/smart-video/link';
-import { PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
+import { PHANTOM_PRESENTER_CHANGE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import { useSmartVideo } from './hooks/use-smart-video';
 import { PhantomMark } from './phantom-mark';
 import { PhantomExamples, PhantomTips } from './phantom-examples';
@@ -383,6 +384,11 @@ function InputPanel({ smart }: { smart: ReturnType<typeof useSmartVideo> }) {
   );
 }
 
+/** Words in an edit note that probably mean the person on camera: the note alone never changes them, the checkbox does. */
+const PERSON_WORDS = /\b(presenter|woman|man|girl|guy|lady|gentleman|actor|actress|spokesperson|influencer)\b/i;
+/** A note about the narrator's voice is free (the director changes the voice): no hint about the presenter for it. */
+const VOICE_WORDS = /\b(voice|voices|voice-over|voiceover|narrator|narration)\b/i;
+
 function OutputPanel({
   job,
   uploading,
@@ -402,7 +408,7 @@ function OutputPanel({
   onReset: () => void;
   onRetryEdit: (failed: SmartVideoJob) => Promise<boolean>;
   onTryAgain: (failed: SmartVideoJob) => void;
-  onRevise: (note: string, added: File[], sound?: { voiceOver: boolean; music: boolean }) => Promise<boolean>;
+  onRevise: (note: string, added: File[], sound?: { voiceOver: boolean; music: boolean }, presenter?: string) => Promise<boolean>;
   revising: boolean;
   onOpen: (jobId: string) => void;
   versions: SmartVideoJob[];
@@ -415,12 +421,28 @@ function OutputPanel({
   // The sound of the next version starts as the sound of the video on screen
   const has = { voiceOver: job?.voiceOver !== false, music: job?.music !== false };
   const [sound, setSound] = useState(has);
+  // "Change the presenter": its own choice with its own price, never read from the note (owner 2026-10-13).
+  const [presenterOn, setPresenterOn] = useState(false);
+  const [presenterWho, setPresenterWho] = useState('');
   const shownJobId = job?.id;
   useEffect(() => {
     setSound({ voiceOver: has.voiceOver, music: has.music });
+    setPresenterOn(false);
+    setPresenterWho('');
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when another video is opened
   }, [shownJobId]);
   const soundChanged = sound.voiceOver !== has.voiceOver || sound.music !== has.music;
+  // Only vertical videos that are not listing videos have a presenter (the same rule as a new video's switch), and
+  // never one that opens with the client's own talking clip.
+  const opener = job?.script?.[0];
+  const ownOpening = Boolean(opener?.speaker && opener.presenter === false);
+  const canHavePresenter = job?.format !== 'horizontal' && !job?.listing && !ownOpening;
+  // Older videos saved only that a person says the first scene.
+  const hasPresenter = Boolean(opener?.presenter ?? opener?.speaker);
+  const presenterLabel = hasPresenter ? 'Change the presenter' : 'Add a presenter';
+  const wantsPresenter = canHavePresenter && presenterOn;
+  const editCredits = PHANTOM_REVISION_CREDITS + (wantsPresenter ? PHANTOM_PRESENTER_CHANGE_CREDITS : 0);
+  const canEdit = wantsPresenter ? presenterWho.trim().length >= 3 : note.trim().length >= 3 || soundChanged;
   const addInput = useRef<HTMLInputElement>(null);
   const addFiles = (picked: File[]) => {
     const tooBig = picked.filter((f) => f.size > SMART_VIDEO_MAX_FILE_MB * 1024 * 1024);
@@ -490,6 +512,11 @@ function OutputPanel({
               className="min-h-[90px]"
               disabled={revising}
             />
+            {canHavePresenter && !presenterOn && PERSON_WORDS.test(note) && !VOICE_WORDS.test(note) && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {hasPresenter ? 'To put a different person on camera' : 'To put a person on camera'}, tick {presenterLabel} below.
+              </p>
+            )}
             <input
               ref={addInput}
               type="file"
@@ -518,6 +545,42 @@ function OutputPanel({
               <Upload className="w-4 h-4 mr-2" />
               Add a new photo, logo or clip
             </Button>
+            {canHavePresenter && (
+              <div className="space-y-2 rounded-md border p-3">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="smart-edit-presenter"
+                    className="mt-0.5"
+                    checked={presenterOn}
+                    onCheckedChange={(checked) => setPresenterOn(checked === true)}
+                    disabled={revising}
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="smart-edit-presenter">
+                      {presenterLabel} (+{PHANTOM_PRESENTER_CHANGE_CREDITS} credits)
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {hasPresenter ? 'A new person' : 'A person'} opens the video and says the first line on camera. The credits come back if the presenter cannot be made.
+                    </p>
+                  </div>
+                </div>
+                {presenterOn && (
+                  <div className="space-y-1 pl-7">
+                    <Label htmlFor="smart-edit-presenter-who" className="text-xs">
+                      Who should be on camera?
+                    </Label>
+                    <Input
+                      id="smart-edit-presenter-who"
+                      value={presenterWho}
+                      onChange={(e) => setPresenterWho(e.target.value)}
+                      maxLength={300}
+                      placeholder={hasPresenter ? 'A man in his 60s' : 'A woman in her 40s'}
+                      disabled={revising}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
             <SoundSwitches
               id="smart-edit-sound"
               voiceOver={sound.voiceOver}
@@ -531,16 +594,18 @@ function OutputPanel({
               <Button
                 size="sm"
                 className="flex-shrink-0"
-                disabled={revising || (note.trim().length < 3 && !soundChanged)}
+                disabled={revising || !canEdit}
                 onClick={async () => {
-                  if (await onRevise(note, added, soundChanged ? sound : undefined)) {
+                  if (await onRevise(note, added, soundChanged ? sound : undefined, wantsPresenter ? presenterWho.trim() : undefined)) {
                     setNote('');
                     setAdded([]);
+                    setPresenterOn(false);
+                    setPresenterWho('');
                   }
                 }}
               >
                 {revising ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Pencil className="w-4 h-4 mr-2" />}
-                Make the edit · {PHANTOM_REVISION_CREDITS} credits
+                Make the edit · {editCredits} credits
               </Button>
             </div>
           </div>
@@ -555,7 +620,7 @@ function OutputPanel({
             <div className="flex flex-wrap gap-2">
               <Button disabled={revising} onClick={() => onRetryEdit(job)}>
                 {revising ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
-                Try the edit again · {PHANTOM_REVISION_CREDITS} credits
+                Try the edit again · {PHANTOM_REVISION_CREDITS + (job.presenterRequest ? PHANTOM_PRESENTER_CHANGE_CREDITS : 0)} credits
               </Button>
               <Button variant="outline" onClick={() => onOpen(job.parentId as string)}>
                 Back to the video
@@ -657,8 +722,12 @@ function OutputPanel({
               </button>
             ))}
           </div>
-          {job.note ? (
-            <p className="text-sm text-muted-foreground">Your edit: &ldquo;{job.note}&rdquo;</p>
+          {job.note || job.presenterRequest ? (
+            <p className="text-sm text-muted-foreground">
+              Your edit: {job.note && <>&ldquo;{job.note}&rdquo;</>}
+              {job.note && job.presenterRequest && ', and '}
+              {job.presenterRequest && <>a new presenter, &ldquo;{job.presenterRequest}&rdquo;</>}
+            </p>
           ) : (
             job.parentId && <p className="text-sm text-muted-foreground">Your edit: the sound ({soundLabel(job)})</p>
           )}

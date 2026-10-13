@@ -195,10 +195,10 @@ export async function refundClip(job: SmartVideoJob, assetId: string): Promise<n
 /** The AI presenter's own charge, under its own reference like a listing clip (never under the job id). */
 export const presenterReference = (jobId: string) => `${jobId}-presenter`;
 
-export async function chargePresenter(userId: string, jobId: string): Promise<boolean> {
+export async function chargePresenter(userId: string, jobId: string, credits = PHANTOM_PRESENTER_CREDITS): Promise<boolean> {
   const { data, error } = await createAdminClient().rpc('deduct_user_credits', {
     p_user_id: userId,
-    p_amount: PHANTOM_PRESENTER_CREDITS,
+    p_amount: credits,
     p_operation: 'phantom-presenter',
     p_metadata: { batch_id: presenterReference(jobId), video: jobId },
   });
@@ -377,6 +377,7 @@ export function scriptOf(plan: DirectorPlan): SmartVideoScriptScene[] {
   return plan.scenes.map((scene) => ({
     say: scene.narration,
     speaker: Boolean(scene.speaker),
+    presenter: scene.speaker?.asset === PRESENTER_ASSET,
     show: scene.blocks.flatMap((block) => {
       if ('items' in block) return block.items.map((item) => ('text' in item ? item.text : `${item.top} ${item.big}`));
       if (block.type === 'number') return [`${block.prefix || ''}${block.value}${block.suffix || ''}`];

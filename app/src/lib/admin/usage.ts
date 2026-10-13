@@ -11,6 +11,7 @@
 export const TOOL_NAMES: Record<string, string> = {
   // The Phantom, and ReelEstate's automatic listing video (the same engine)
   'smart-video': 'The Phantom',
+  'phantom-presenter': 'The Phantom: AI presenter',
   'listing-video': 'ReelEstate Automatic: video',
   'listing-video-clip': 'ReelEstate Automatic: animated photo',
 

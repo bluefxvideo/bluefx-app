@@ -145,7 +145,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   // "Leave a note": the change becomes a new job that reuses the finished video's files.
   const [revising, setRevising] = useState(false);
   const revise = useCallback(
-    async (note: string, added: File[] = [], sound?: { voiceOver: boolean; music: boolean }) => {
+    async (note: string, added: File[] = [], sound?: { voiceOver: boolean; music: boolean }, presenter?: string) => {
       if (!jobId) return false;
       setRevising(true);
       try {
@@ -161,7 +161,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
           uploadJobId = requested.data.jobId;
           uploads = requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path }));
         }
-        const revised = await reviseSmartVideoJob({ jobId, note, ...sound, uploadJobId, uploads });
+        const revised = await reviseSmartVideoJob({ jobId, note, ...sound, uploadJobId, uploads, presenter });
         if (!revised.success) throw new Error(revised.error);
         setJobId(revised.data.jobId);
         queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
@@ -184,7 +184,14 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
       if (!failed.parentId) return false;
       setRevising(true);
       try {
-        const revised = await reviseSmartVideoJob({ jobId: failed.parentId, note: failed.note || '', voiceOver: failed.voiceOver, music: failed.music, uploads: [] });
+        const revised = await reviseSmartVideoJob({
+          jobId: failed.parentId,
+          note: failed.note || '',
+          voiceOver: failed.voiceOver,
+          music: failed.music,
+          uploads: [],
+          presenter: failed.presenterRequest,
+        });
         if (!revised.success) throw new Error(revised.error);
         setJobId(revised.data.jobId);
         queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });

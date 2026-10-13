@@ -1,8 +1,10 @@
+import { z } from 'zod';
 import { DirectorPlanSchema, type DirectorPlan, type SmartAsset, type VideoFormat, type VideoLength } from './types';
 import type { StyleName } from './types';
 import { asListingPlan, checkListingPlan, listingPhotoCount, listingRecipe, type ListingOptions } from './listing';
 import { usage } from './usage';
 import { SCRIPT_RULES } from './script-rules';
+import { PRESENTER_ASSET, PRESENTER_MAX_WORDS } from './presenter';
 
 const DIRECTOR_MODEL = 'gemini-3.1-pro-preview';
 /**
@@ -211,7 +213,9 @@ async function askDirector(
   parts: unknown[],
   check: (plan: DirectorPlan, lastChance: boolean) => string | null,
   timeoutMs: number,
-  writer?: DirectorOptions
+  writer?: DirectorOptions,
+  /** Gets every answer that parsed, as it came, with the fields the plan schema leaves out (an edit's newPresenter). */
+  seen?: (raw: Record<string, unknown>) => void
 ): Promise<DirectorPlan> {
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) throw new Error('Google AI key not configured');
@@ -235,7 +239,9 @@ async function askDirector(
     const text: string = (json.candidates?.[0]?.content?.parts || []).map((p: { text?: string }) => p.text || '').join('');
 
     try {
-      const plan = DirectorPlanSchema.parse(JSON.parse(text));
+      const raw = JSON.parse(text);
+      if (raw && typeof raw === 'object') seen?.(raw);
+      const plan = DirectorPlanSchema.parse(raw);
       const problem = check(plan, attempt === ATTEMPTS);
       if (!problem) return plan;
       feedback = `\n\nYour previous plan had a problem: ${problem}\nReturn the corrected full JSON.`;
@@ -248,9 +254,34 @@ async function askDirector(
 }
 
 /**
+ * The new AI presenter an edit casts (owner 2026-10-13: "change the woman in this video with a 60 year old man" only
+ * changed the voice-over). Only the client's "Change the presenter" choice asks for one, with its own price, never
+ * the note alone. `same`: the same person, filmed again saying scene 1's new words. Otherwise `photo` and `action`
+ * describe the new person in the casting's terms (presenter.ts castPersona). Kept out of the saved plan: the next edit
+ * must not see it and cast again.
+ */
+const NewPresenterSchema = z.object({
+  same: z.boolean().nullish(),
+  photo: z.string().nullish(),
+  action: z.string().nullish(),
+});
+export type NewPresenter = z.infer<typeof NewPresenterSchema>;
+
+/** What an edit may do with the AI presenter: only vertical videos that are not listing videos have one. */
+export interface RevisePresenter {
+  /** The video opens with an AI presenter now (asset PRESENTER_ASSET says scene 1). */
+  current: boolean;
+  /** The current presenter's photo, shown to the director so a new person keeps the place, the prop and the framing. */
+  photo: Buffer | null;
+  /** The client ticked "Change the presenter" (or "Add a presenter") and wrote who should be on camera; null = not ticked. */
+  request: string | null;
+}
+
+/**
  * A revision: the saved plan plus the client's note. The video's own files are
  * not re-sent (the plan already says what each one is); files the client adds
- * with the note are shown to the director, who may use them.
+ * with the note are shown to the director, who may use them. With `presenter`, the director may ask for a new AI
+ * presenter (newPresenter), which the pipeline films.
  */
 export async function reviseVideo(
   plan: DirectorPlan,
@@ -260,9 +291,14 @@ export async function reviseVideo(
   format: VideoFormat = 'vertical',
   added: SmartAsset[] = [],
   /** The video is an automatic listing video: the edit keeps its recipe. */
-  listing: ListingOptions | null = null
-): Promise<DirectorPlan> {
-  const ids = Object.keys(existing).filter((id) => !id.endsWith('-motion'));
+  listing: ListingOptions | null = null,
+  /** Null: this video cannot have a presenter (horizontal, or a listing video). */
+  presenter: RevisePresenter | null = null
+): Promise<{ plan: DirectorPlan; newPresenter: NewPresenter | null; removePresenter: boolean }> {
+  // The AI presenter's clip is a file the director may keep only while it opens the video and is not being replaced: an
+  // old clip left in the media (removed or replaced earlier) must not come back for free with the old words.
+  const keepsPresenter = Boolean(presenter?.current && !presenter.request);
+  const ids = Object.keys(existing).filter((id) => !id.endsWith('-motion') && (id !== PRESENTER_ASSET || keepsPresenter));
   const cutouts = ids.filter((id) => existing[id].cutoutUrl);
   const instructions =
     BRIEF.replace('{{LENGTH}}', 'Keep the current length unless the note asks otherwise.') +
@@ -273,12 +309,14 @@ export async function reviseVideo(
     'YOU ALREADY MADE THIS VIDEO. The client watched it and left a note. Return the full plan again with ONLY the changes the note asks for.',
     '- Keep every narration sentence word for word unless the note requires different spoken words: unchanged narration keeps the recorded voice.',
     '- Keep musicPrompt and signatureSound exactly as they are unless the note is about music or sound.',
+    '- Keep "voice" exactly as it is unless the note is about the voice-over, the narrator, the pace or the tone.',
     `- You can only use these files: ${[...ids, ...added.map((a) => a.id)].join(', ')}. Do not add lifestyleShots or animate entries that are not already in the plan. In a whiteboard video you may add or change drawings: a drawing whose prompt changed is drawn again. cutout:true is only possible for: ${[...cutouts, ...added.filter((a) => a.kind === 'image').map((a) => a.id)].join(', ') || 'none'}.`,
     ...(added.length
       ? [
           `- NEW FILES came with the note (shown after this text): ${added.map((a) => a.id).join(', ')}. Look at each one, add it to "assets" with its role, and use it the way the note asks. When the note does not say where, put it where it helps most: a new logo replaces the old logo everywhere, a new photo replaces the weakest or most repeated picture, a new talking clip becomes a speaker scene. A new file the note clearly does not want shown gets role "skip".`,
         ]
       : []),
+    ...(presenter ? presenterTask(presenter) : []),
     '- If the note gives a fact (a phone number, a price, a name), use it exactly. Update "warnings" to match the new state.',
     '- You can only use the blocks, backgrounds and looks described above. When the note asks for an effect that does not exist (a new kind of animation, zooming into a detail, text that changes colour...), do the closest thing that does exist and say plainly in "warnings" what could not be done, so the client is not left guessing.',
     '',
@@ -293,13 +331,61 @@ export async function reviseVideo(
   ].join('\n');
   const assets = [...(ids.map((id) => ({ id, kind: existing[id].kind })) as SmartAsset[]), ...added];
   const parts: unknown[] = [{ text: `${instructions}\n${task}` }];
+  if (presenter?.current && presenter.photo) {
+    parts.push({ text: '\n\nTHE CURRENT AI PRESENTER, the photo their clip was made from:' });
+    parts.push({ inlineData: { mimeType: 'image/jpeg', data: presenter.photo.toString('base64') } });
+  }
   if (added.length) parts.push({ text: '\n\nNEW FILES:' });
   for (const asset of added) {
     parts.push({ text: describe(asset) });
     parts.push({ inlineData: { mimeType: asset.mimeType, data: asset.data.toString('base64') } });
   }
-  const revised = await askDirector(parts, (candidate) => checkPlan(candidate, assets, brief, 'auto', true, false, null, listing), 280_000);
-  return listing ? asListingPlan(revised) : revised;
+  // The casting of the latest answer that gave one: a corrected plan sometimes leaves it out. "The same person" needs
+  // their photo, so it counts only when the photo was shown.
+  let newPresenter: NewPresenter | null = null;
+  let removePresenter = false;
+  const sameAllowed = Boolean(presenter?.current && presenter.photo);
+  const revised = await askDirector(
+    parts,
+    (candidate, lastChance) => checkPlan(candidate, assets, brief, 'auto', true, lastChance, null, listing, false, Boolean(presenter?.request)),
+    280_000,
+    undefined,
+    (answer) => {
+      if (presenter?.request) {
+        const asked = NewPresenterSchema.safeParse(answer.newPresenter ?? null);
+        if (asked.success && asked.data && ((asked.data.same && sameAllowed) || asked.data.photo?.trim())) newPresenter = { ...asked.data, same: asked.data.same && sameAllowed };
+      } else if (keepsPresenter) {
+        removePresenter = answer.removePresenter === true;
+      }
+    }
+  );
+  return { plan: listing ? asListingPlan(revised) : revised, newPresenter, removePresenter };
+}
+
+/**
+ * The edit's lines about the AI presenter. Ticked: cast a made-up person who fits the client's words (or film the same
+ * person again), with scene 1 written as a narrated scene the presenter takes over. Not ticked: the presenter's scene
+ * stays as it was filmed, unless the note asks to remove them.
+ */
+function presenterTask({ current, photo, request }: RevisePresenter): string[] {
+  if (request) {
+    return [
+      ...(current
+        ? [`- This video opens with an AI presenter${photo ? ' (their photo is shown after this text)' : ''}: a person the AI Media Machine generated and filmed saying scene 1 on camera.`]
+        : []),
+      `- THE CLIENT TICKED "${current ? 'Change the presenter' : 'Add a presenter'}" AND WROTE WHO SHOULD BE ON CAMERA: "${request.replace(/"/g, "'")}". Return, at the top level of the JSON next to "scenes": "newPresenter": {"photo": "one sentence describing their photo: gender, age, look, clothes, the place, the prop, a vertical smartphone selfie or a phone on a stand, mouth closed", "action": "one sentence: the small movement they make while saying their first words"}. Cast a made-up everyday person who fits those words: never a real, named or famous person, and never the client or anyone they name. When the words name a real or famous person, cast a made-up person of the same gender, age and look, and add to "warnings": "The presenter is a made-up person who looks the part, not the person you named."${current && photo ? ' Keep the place, the prop and the framing of the current photo unless the client\'s words change them. When the client wants the same person (for example "the same woman", "same person"), return "newPresenter": {"same": true} instead: they are filmed again saying scene 1.' : ''}`,
+      `- Write scene 1 as a normal narrated scene (speaker null, its own background and blocks, following the scene recipes) of at most ${PRESENTER_MAX_WORDS} words: shorten a longer line and keep its meaning; otherwise keep scene 1's words unless the note changes them. The presenter is filmed saying it and takes the scene over; if filming fails, your scene 1 plays with the narrator.`,
+    ];
+  }
+  return current
+    ? [
+        `- Asset "${PRESENTER_ASSET}" is the AI presenter of this video: a person the AI Media Machine generated and filmed saying scene 1 on camera. Keep scene 1 exactly as it is: the same words, speaker "${PRESENTER_ASSET}", no blocks. Show the presenter in no other scene.`,
+        '- Who the AI presenter is and what they say change only with the client\'s "Change the presenter" option, never with this note. When the note asks for another person on camera or new words in scene 1, keep scene 1 as it is and add to "warnings": "To put a different person on camera or change what the presenter says, tick Change the presenter." A note about the voice, the voice-over, the narrator, the pace or the tone is about the narrator who says the other scenes: change "voice" for it.',
+        '- When the note asks to remove the presenter, return "removePresenter": true at the top level of the JSON, next to "scenes", and write scene 1 as a normal narrated scene with its own background and blocks.',
+      ]
+    : [
+        '- This video has no AI presenter. An AI presenter (a person the AI Media Machine generates to say the first line on camera) is added only with the client\'s "Add a presenter" option, never with this note: when the note asks for one, add to "warnings": "To add a person on camera, tick Add a presenter." The client\'s own talking clips still become speaker scenes as usual.',
+      ];
 }
 
 // Things the renderer cannot fix by construction.
@@ -313,7 +399,9 @@ function checkPlan(
   look: StyleName | null = null,
   listing: ListingOptions | null = null,
   /** The free video funnel's looser taste rules (DirectorOptions.looseRules). */
-  loose = false
+  loose = false,
+  /** An edit that films a new AI presenter: scene 1 must be a narrated scene the presenter takes over. */
+  refilm = false
 ): string | null {
   // The look the client picked is a promise, like their exact words.
   if (look && plan.style !== look) return `the client chose the look "${look}": "style" must be "${look}".`;
@@ -327,6 +415,18 @@ function checkPlan(
     const used = [scene.background.asset, ...scene.blocks.flatMap((b) => ('asset' in b ? [b.asset] : 'assets' in b ? b.assets : []))].filter(Boolean) as string[];
     const unknown = used.find((id) => !ids.has(id));
     if (unknown) return `scene ${i + 1} uses asset "${unknown}", which does not exist. Valid ids: ${[...ids].join(', ')}.`;
+    // A new presenter takes scene 1 over: it is written as a narrated scene short enough for them to say.
+    if (refilm && i === 0 && scene.speaker) return 'scene 1 is the new presenter\'s line: write it as a normal narrated scene (speaker null) with its own background and blocks.';
+    if (refilm && i === 0 && !lastChance && scene.narration.split(/\s+/).filter(Boolean).length > PRESENTER_MAX_WORDS) {
+      return `scene 1 is the new presenter's line: at most ${PRESENTER_MAX_WORDS} words. Shorten it and keep its meaning.`;
+    }
+    // The AI presenter's clip only ever plays as the person saying scene 1: anywhere else it is a muted face moving its lips.
+    const presenterHere = used.includes(PRESENTER_ASSET) || scene.speaker?.asset === PRESENTER_ASSET;
+    if (presenterHere && (refilm || i > 0 || scene.speaker?.asset !== PRESENTER_ASSET)) {
+      return refilm
+        ? `scene ${i + 1}: a new presenter is being filmed, so asset "${PRESENTER_ASSET}" appears in no scene; write scene 1 as a normal narrated scene with its own background and blocks.`
+        : `scene ${i + 1}: asset "${PRESENTER_ASSET}" only appears as scene 1's speaker; give this scene another background and blocks.`;
+    }
     if (scene.background.type !== 'brand' && !scene.background.asset) return `scene ${i + 1} background "${scene.background.type}" needs an asset.`;
     if (scene.background.type === 'drawing' && plan.style !== 'whiteboard') return `scene ${i + 1}: a "drawing" background exists only in the whiteboard style.`;
     if (scene.background.type === 'drawing' && !drawingIds.has(scene.background.asset || '')) return `scene ${i + 1}: its drawing "${scene.background.asset}" must be listed in "drawings".`;
@@ -341,7 +441,9 @@ function checkPlan(
     // A drawing carries its scene the way a full-frame photo does.
     // A listing's room photos carry no text at all.
     // Looser rules (free video ads): a title alone carries a scene; each extra required block cost a 30-70 s rewrite.
-    const minimum = listing && scene.background.type === 'mediaFull' ? 0 : loose ? 1 : scene.background.type === 'drawing' ? 1 : scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : 3;
+    // The AI presenter's scene carries no text (pipeline.ts addPresenter): the person and the prop stay clear.
+    const presenterScene = scene.speaker?.asset === PRESENTER_ASSET;
+    const minimum = presenterScene || (listing && scene.background.type === 'mediaFull') ? 0 : loose ? 1 : scene.background.type === 'drawing' ? 1 : scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : 3;
     if (scene.blocks.length < minimum) return `scene ${i + 1} has only ${scene.blocks.length} blocks; it needs at least ${minimum} (see the scene recipes).`;
   }
   // A listing video has its own recipe; the general taste rules below (word floor, file spread) do not fit it.

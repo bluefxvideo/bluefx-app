@@ -15,6 +15,12 @@ export const PHANTOM_REVISION_CREDITS = 10;
  * rate as ReelEstate's animated photos). Charged on its own and given back when the presenter does not make it into the video.
  */
 export const PHANTOM_PRESENTER_CREDITS = 10;
+/**
+ * An edit with "Change the presenter" (or "Add a presenter"): a new AI presenter, or the same one saying new words
+ * (owner 2026-10-13: its own choice and its own price, never decided from the note). On top of
+ * PHANTOM_REVISION_CREDITS, charged before the edit starts and given back when the presenter does not make it in.
+ */
+export const PHANTOM_PRESENTER_CHANGE_CREDITS = 30;
 
 /** The automatic listing video (ReelEstate): the video itself, plus each photo that becomes a moving clip. */
 export const LISTING_CREDITS = 25;

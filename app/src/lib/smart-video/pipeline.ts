@@ -132,6 +132,13 @@ export interface SmartVideoResult {
   usage: UsageEntry[];
   /** Notes for the client about things only they can fix (e.g. no contact detail). */
   warnings: string[];
+  /** An edit with "Change the presenter": whether the new presenter is in the video, and if not, what the client is told. */
+  newPresenter?: { made: boolean; why?: string };
+}
+
+export interface ReviseOptions {
+  /** The client ticked "Change the presenter" (or "Add a presenter") and wrote who should be on camera. Paid before the edit starts. */
+  presenter?: string;
 }
 
 export interface SmartVideoOptions {
@@ -450,7 +457,8 @@ async function animateListingPhotos(
 /**
  * Changes a finished video from a note in plain words. Only what the note
  * touches is redone: the voice when the spoken words change, the music or the
- * signature sound when their prompts change. Everything else is reused.
+ * signature sound when their prompts change, the AI presenter when the note asks
+ * for another person on camera or new words in their scene. Everything else is reused.
  */
 export async function reviseSmartVideo(
   previous: { plan: DirectorPlan; media: SmartVideoMedia },
@@ -460,13 +468,73 @@ export async function reviseSmartVideo(
   onStage: (stage: SmartVideoStage) => void = () => {},
   added: SmartAsset[] = [],
   /** Voice-over and music as the client wants them now; absent = as they were. */
-  soundNow?: SmartVideoSound
+  soundNow?: SmartVideoSound,
+  options: ReviseOptions = {}
 ): Promise<SmartVideoResult> {
   const { result, usage } = await trackUsage(async () => {
     const sound = soundNow ?? previous.media.sound ?? FULL_SOUND;
     onStage('directing');
+    // Only a vertical video that is not a listing video can have an AI presenter (as in produce), and never one that
+    // opens with the client's own talking clip: their real person is not replaced by a generated one.
+    const listing = previous.media.listing ?? null;
+    const opener = previous.plan.scenes[0]?.speaker;
+    const ownOpening = Boolean(opener && opener.asset !== PRESENTER_ASSET && previous.media.clipWords?.[opener.asset]);
+    const presenterAllowed = previous.media.format !== 'horizontal' && !listing && !ownOpening;
+    const kept = opener?.asset === PRESENTER_ASSET && previous.media.assets[PRESENTER_ASSET] ? previous.plan.scenes[0] : null;
+    const asked = options.presenter?.trim() || null;
+    const request = presenterAllowed ? asked : null;
+    // The director sees the current presenter, so a new person keeps the place, the prop and the framing.
+    const oldPhoto = request && kept ? await presenterPhotoOf(previous.media.assets[PRESENTER_ASSET].url) : null;
     // A change of the sound alone needs no new plan: the same video is rendered with another soundtrack.
-    const plan = note.trim() ? await reviseVideo(previous.plan, note, brief, previous.media.assets, previous.media.format, added, previous.media.listing ?? null) : previous.plan;
+    const revised =
+      note.trim() || request
+        ? await reviseVideo(previous.plan, note, brief, previous.media.assets, previous.media.format, added, listing, presenterAllowed ? { current: Boolean(kept), photo: oldPhoto, request } : null)
+        : { plan: previous.plan, newPresenter: null, removePresenter: false };
+    const plan = revised.plan;
+    const warnings: string[] = [];
+    // Without "Change the presenter" the presenter's scene stays as it was filmed (their clip says the old words),
+    // unless the note asked to remove them.
+    if (kept && !request) {
+      const opening = plan.scenes[0];
+      const removed = revised.removePresenter && opening && opening.speaker?.asset !== PRESENTER_ASSET;
+      if (!removed) {
+        if (opening && sameWords(opening.narration) !== sameWords(kept.narration)) {
+          warnings.push('The first line is said by the presenter, so it stays as it was. To change what the presenter says or who it is, tick Change the presenter.');
+        } else if (opening?.speaker?.asset === PRESENTER_ASSET && opening.blocks.length) {
+          warnings.push("The presenter's scene stays as it was filmed, with nothing over the person.");
+        }
+        plan.scenes[0] = kept;
+      }
+    }
+    // Why no presenter is filmed, when that is known before filming.
+    let blocked: string | undefined = asked && !presenterAllowed ? (ownOpening ? 'The video opens with your own talking clip, so no presenter was added' : 'Only a vertical video can have a presenter') : undefined;
+    let presenterJob: Promise<{ clip: Buffer; url: string } | null> | null = null;
+    if (request) {
+      const cast = revised.newPresenter;
+      const line = plan.scenes[0].narration.trim();
+      if (!cast) blocked = 'The presenter could not be cast from your words';
+      else if (line.split(/\s+/).filter(Boolean).length > PRESENTER_MAX_WORDS) blocked = `The first line has more than ${PRESENTER_MAX_WORDS} words, too long for a presenter to say`;
+      else {
+        console.log(`🎭 New presenter: ${cast.same ? 'the same person' : cast.photo} | says: "${line}"`);
+        presenterJob = (async () => {
+          // The photo service now and then refuses a plain description once and takes it the next time (2026-10-13).
+          const photo =
+            cast.same && oldPhoto
+              ? oldPhoto
+              : await castPresenter(String(cast.photo)).catch((error) => {
+                  console.warn('⚠️ Presenter photo failed, one more try:', String(error).slice(0, 160));
+                  return castPresenter(String(cast.photo));
+                });
+          // Beside the clip, so a later edit finds the person again.
+          await store(photo, 'presenter.jpg', 'image/jpeg');
+          const clip = await talkingPresenter(photo, line, cast.action?.trim() || '');
+          return { clip, url: await store(clip, 'presenter.mp4', 'video/mp4') };
+        })().catch((error) => {
+          console.warn('⚠️ New presenter not made:', String(error).slice(0, 160));
+          return null;
+        });
+      }
+    }
     onStage('producing');
     const media = { ...previous.media, sound, assets: { ...previous.media.assets }, clipWords: { ...(previous.media.clipWords || {}) } };
     await addFiles(plan, media, added, store);
@@ -476,18 +544,30 @@ export async function reviseSmartVideo(
     const before = new Map((previous.plan.drawings || []).map((d) => [d.id, d.prompt]));
     const redraw = (plan.drawings || []).filter((d) => !media.assets[d.id] || before.get(d.id) !== d.prompt);
     for (const [id, asset] of await makeDrawings(redraw, store)) media.assets[id] = asset;
-    // Only the narrator's lines are recorded; a speaker scene needs the clip's saved word timings.
-    const clipWordsSaved = media.clipWords || {};
-    const spoken = (p: DirectorPlan) => p.scenes.filter((scene) => !(scene.speaker && clipWordsSaved[scene.speaker.asset])).map((scene) => scene.narration);
-    if (JSON.stringify(spoken(plan)) !== JSON.stringify(spoken(previous.plan)) || plan.voice.gender !== previous.plan.voice.gender) {
-      const fit = previous.media.listing ? listingFit(previous.media.listing, spoken(plan).length) : undefined;
-      media.voice = spoken(plan).length ? await recordVoice(spoken(plan), LANGUAGE_NAMES.of(plan.language) || plan.language, plan, store, fit) : null;
+    // The narrator says every scene that nobody in a clip says (a speaker scene needs the clip's saved word timings).
+    // The recording is kept when it already holds those lines in the same voice; otherwise they are recorded again.
+    const clipWords = media.clipWords || {};
+    const needed = plan.scenes.map((_, i) => i).filter((i) => !(plan.scenes[i].speaker && clipWords[plan.scenes[i].speaker!.asset]));
+    const held = heldScenes(previous, plan);
+    const sameVoice = plan.voice.gender === previous.plan.voice.gender && sameWords(plan.voice.direction) === sameWords(previous.plan.voice.direction);
+    if (held && sameVoice && needed.every((i) => held.includes(i))) {
+      // Its lines found again in this plan: scenes added, removed or moved by the edit cannot shift them (2026-10-13).
+      media.voice = { ...media.voice!, scenes: held };
+    } else {
+      const lines = needed.map((i) => plan.scenes[i].narration);
+      const fit = previous.media.listing ? listingFit(previous.media.listing, lines.length) : undefined;
+      const recorded = lines.length ? await recordVoice(lines, LANGUAGE_NAMES.of(plan.language) || plan.language, plan, store, fit) : null;
+      // Saved as a new video saves it: a new presenter takes scene 1 over without the narrator saying it twice, and the
+      // music sits under the voice by measured loudness (edits saved neither before 2026-10-13).
+      media.voice = recorded ? { ...recorded, scenes: needed, lufs: await measureLufs(recorded.url) } : null;
     }
     // Music is made when the plan asks for other music, or when it is switched on for a video made without.
     if (sound.music && (plan.musicPrompt !== previous.plan.musicPrompt || !media.musicUrl)) {
       media.musicUrl = await generateMusic(plan.musicPrompt, plan.style)
         .then((mp3) => store(mp3, 'music.mp3', 'audio/mpeg'))
         .catch(() => previous.media.musicUrl);
+      // The mix sets the music under the voice by the song's own loudness.
+      if (media.musicUrl && media.musicUrl !== previous.media.musicUrl) media.musicLufs = await measureLufs(media.musicUrl);
     }
     const wantsSignature = Boolean(plan.signatureSound) && (sound.voiceOver || sound.music);
     if (plan.signatureSound?.prompt !== previous.plan.signatureSound?.prompt || (wantsSignature && !media.soundUrl)) {
@@ -500,10 +580,75 @@ export async function reviseSmartVideo(
     // Lines that are new in this edit (or a video made before captions showed digits) are read for numbers.
     const unread = showsCaptions(plan, sound) ? plan.scenes.map((scene) => scene.narration).filter((line) => !(line.trim() in (media.digits || {}))) : [];
     if (unread.length) media.digits = { ...media.digits, ...(await captionDigits(unread, LANGUAGE_NAMES.of(plan.language) || plan.language)) };
+    let made = false;
+    let why: string | undefined;
+    if (presenterJob) {
+      await addPresenter(plan, media, presenterJob);
+      // The new clip is saved in this edit's own folder: the old presenter's url means the new one did not make it.
+      made = plan.scenes[0]?.speaker?.asset === PRESENTER_ASSET && media.assets[PRESENTER_ASSET]?.url !== previous.media.assets[PRESENTER_ASSET]?.url;
+    }
+    if (asked && !made) {
+      // The current presenter stays when their words did not change (their clip and timings are still here); otherwise
+      // the narrator, who recorded scene 1 too, says it.
+      const keepOld = Boolean(request && kept && !plan.scenes[0].speaker && sameWords(plan.scenes[0].narration) === sameWords(kept.narration));
+      if (keepOld && kept) plan.scenes[0] = kept;
+      const outcome = !request ? '' : keepOld ? ', so the current presenter stays' : ', so the narrator says the first line';
+      why = `${blocked ?? 'The new presenter could not be made'}${outcome}.`;
+    }
     const props = buildProps(plan, media);
-    return { props, plan, media, durationSeconds: props.duration, warnings: clientWarnings(plan) };
+    return {
+      props,
+      plan,
+      media,
+      durationSeconds: props.duration,
+      warnings: [...clientWarnings(plan), ...warnings],
+      ...(asked ? { newPresenter: { made, why } } : {}),
+    };
   });
   return { ...result, usage };
+}
+
+/** Narration compared word for word: spacing, case, punctuation and quote styles do not count as a change. */
+const sameWords = (line: string) =>
+  line
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[’‘`]/g, "'")
+    .replace(/[^\p{L}\p{N}']+/gu, ' ')
+    .trim();
+
+/**
+ * The scenes of the edited plan that the current recording holds, in its order: each recorded line found again in the
+ * new plan. Null when there is no recording or one of its lines is gone (the voice is then recorded again).
+ */
+function heldScenes(previous: { plan: DirectorPlan; media: SmartVideoMedia }, plan: DirectorPlan): number[] | null {
+  const voice = previous.media.voice;
+  if (!voice) return null;
+  const clipWords = previous.media.clipWords || {};
+  // Older videos saved no list: their recording holds the scenes nobody in a clip says.
+  const recorded = voice.scenes ?? previous.plan.scenes.map((_, i) => i).filter((i) => !(previous.plan.scenes[i].speaker && clipWords[previous.plan.scenes[i].speaker!.asset]));
+  const found: number[] = [];
+  let from = 0;
+  for (const i of recorded) {
+    const line = previous.plan.scenes[i]?.narration;
+    const k = line === undefined ? -1 : plan.scenes.findIndex((scene, j) => j >= from && scene.narration === line);
+    if (k < 0) return null;
+    found.push(k);
+    from = k + 1;
+  }
+  return found;
+}
+
+/** The photo an AI presenter's clip was made from: presenter.jpg beside presenter.mp4, or null when it is not there. */
+async function presenterPhotoOf(clipUrl: string): Promise<Buffer | null> {
+  const url = clipUrl.replace(/presenter\.mp4(\?.*)?$/, 'presenter.jpg');
+  if (url === clipUrl) return null;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+    return res.ok ? Buffer.from(await res.arrayBuffer()) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

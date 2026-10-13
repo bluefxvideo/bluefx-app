@@ -5,11 +5,13 @@ import { randomUUID } from 'node:crypto';
 import { after } from 'next/server';
 import { ZodError } from 'zod';
 import { createAdminClient, createClient } from '@/app/supabase/server';
+import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
 import { transcribeWords } from '@/lib/smart-video/audio';
 import { reviseSmartVideo, type SmartVideoMedia } from '@/lib/smart-video/pipeline';
-import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
+import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_PRESENTER_CHANGE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
 import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount, type ListingOptions } from '@/lib/smart-video/listing';
 import { prepareAssets, type ClientFile } from '@/lib/smart-video/prepare-assets';
+import { PRESENTER_ASSET } from '@/lib/smart-video/presenter';
 import {
   BUCKET,
   DEAD_JOB,
@@ -23,7 +25,9 @@ import {
   jobDir,
   jobsTable,
   readJob,
+  presenterReference,
   readPlan,
+  refundPresenter,
   runSmartVideoJob,
   runningJobs,
   safeName,
@@ -209,8 +213,23 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
     if (!parent || parent.status !== 'done') return createApiError('Only a finished video can be changed');
     const sound = { voiceOver: parsed.voiceOver ?? soundOf(parent).voiceOver, music: parsed.music ?? soundOf(parent).music };
     const sameSound = sound.voiceOver === soundOf(parent).voiceOver && sound.music === soundOf(parent).music;
-    if (!parsed.note && sameSound && !parsed.uploads.length) return createApiError('Write what to change, or switch the voice-over or the music');
+    const presenterRequest = parsed.presenter || undefined;
+    if (!parsed.note && sameSound && !parsed.uploads.length && !presenterRequest) return createApiError('Write what to change, or switch the voice-over or the music');
+    // A presenter opens vertical videos only, and never a listing video (the same rule as startSmartVideo).
+    if (presenterRequest && (parent.listing || parent.format === 'horizontal')) return createApiError('Only a vertical video can have a presenter');
+    // Nor a video that opens with the client's own talking clip: their real person is not replaced by a generated one.
+    if (presenterRequest) {
+      const opener = (await readPlan(userId, parent.id)).plan.scenes[0]?.speaker;
+      if (opener && opener.asset !== PRESENTER_ASSET) return createApiError('This video opens with your own talking clip, so it cannot get a presenter.');
+    }
     if ((await runningJobs(userId)) >= MAX_RUNNING_JOBS) return createApiError(TOO_MANY);
+    if (presenterRequest) {
+      const balance = await availableCredits(userId);
+      const needed = PHANTOM_REVISION_CREDITS + PHANTOM_PRESENTER_CHANGE_CREDITS;
+      if (balance < needed) {
+        return createApiError(`This edit needs ${needed} credits: ${PHANTOM_REVISION_CREDITS} for the edit and ${PHANTOM_PRESENTER_CHANGE_CREDITS} for the presenter. You have ${balance}.`);
+      }
+    }
 
     // With new files the edit takes the id its files were uploaded under.
     const jobId = parsed.uploads.length && parsed.uploadJobId ? parsed.uploadJobId : randomUUID();
@@ -218,9 +237,18 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
     if (parsed.uploads.length && (await readJob(userId, jobId))) return createApiError('This edit was already started');
     const chargeError = await charge(userId, jobId, PHANTOM_REVISION_CREDITS);
     if (chargeError) return createApiError(chargeError);
+    // The presenter is paid before the edit starts, on its own reference, so it can be given back on its own.
+    if (presenterRequest && !(await chargePresenter(userId, jobId, PHANTOM_PRESENTER_CHANGE_CREDITS))) {
+      const back = await refundFailedGeneration({ userId, referenceIds: [jobId], operation: 'Phantom edit' });
+      if (!back.refunded) console.error(`❌ Edit ${jobId}: the presenter was not paid and the edit's credits did not come back:`, back.reason);
+      return createApiError(
+        `The presenter needs ${PHANTOM_PRESENTER_CHANGE_CREDITS} credits more than the edit and your balance does not cover them.${back.refunded ? ' Nothing was charged.' : ''}`
+      );
+    }
 
     const now = new Date().toISOString();
-    const job = await createJob({
+    // A job that could not be saved has no row for the dead-job settlement to find: its credits come back here.
+    const created = createJob({
       id: jobId,
       userId,
       status: 'directing',
@@ -235,9 +263,15 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
       ...(parent.listing ? { listing: parent.listing } : {}),
       parentId: parent.id,
       note: parsed.note,
-      creditsUsed: PHANTOM_REVISION_CREDITS,
+      ...(presenterRequest ? { presenter: true, presenterRequest } : {}),
+      creditsUsed: PHANTOM_REVISION_CREDITS + (presenterRequest ? PHANTOM_PRESENTER_CHANGE_CREDITS : 0),
       createdAt: now,
       updatedAt: now,
+    });
+    const job = await created.catch(async (error) => {
+      await refundFailedGeneration({ userId, referenceIds: [jobId], operation: 'Phantom edit' });
+      if (presenterRequest) await refundFailedGeneration({ userId, referenceIds: [presenterReference(jobId)], operation: 'Phantom AI presenter' });
+      throw error;
     });
     after(() => runRevision(job, parent, parsed.uploads));
     return createApiSuccess({ jobId });
@@ -270,8 +304,17 @@ async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob, upload
         writeJob(job).catch(() => undefined);
       },
       added,
-      soundOf(job)
+      soundOf(job),
+      { presenter: job.presenter ? job.presenterRequest : undefined }
     );
+    // A paid presenter who did not make it into the edit: credits back. A refund that did not go through keeps the
+    // flag, so a later failure of this job still settles it (failAndRefund).
+    if (result.newPresenter && !result.newPresenter.made) {
+      const back = job.presenter ? await refundPresenter(job).catch(() => 0) : 0;
+      if (back) job = { ...job, presenter: false, creditsUsed: Math.max(0, (job.creditsUsed ?? 0) - back) };
+      else if (job.presenter) console.error(`❌ The presenter of edit ${job.id} was not made and its credits did not come back`);
+      result.warnings.push(`${result.newPresenter.why ?? 'The new presenter could not be made.'}${back ? ` ${refundSentence(back)}` : ''}`);
+    }
     await finish(job, result, saved.brief || parent.brief, (next) => {
       job = next;
     });
@@ -303,8 +346,9 @@ export async function getSmartVideoJob(jobId: string): Promise<SmartVideoJob | n
   const job = await readJob(userId, jobId);
   if (!job) return null;
   if (isDead(job)) return forViewer(await failAndRefund(job, DEAD_JOB));
-  // Videos finished before the script was saved with the job: read it from their plan once.
-  if (job.status === 'done' && !job.script) {
+  // Videos finished before the script was saved with the job (or before it said whether the AI presenter opens the
+  // video, which the edit form needs): read it from their plan once.
+  if (job.status === 'done' && (!job.script || (job.script[0]?.speaker && job.script[0].presenter === undefined))) {
     try {
       const saved = await readPlan(userId, jobId);
       return forViewer(await writeJob(job, { script: scriptOf(saved.plan) }));
