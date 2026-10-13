@@ -50,15 +50,17 @@ export const SmartVideoReviseSchema = z
     // Files added with the note were uploaded under their own job id; the edit then takes that id.
     uploadJobId: z.string().uuid().optional(),
     uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_EDIT_FILES).default([]),
-    // "Change the presenter" (or "Add a presenter") ticked: who should be on camera. Absent = not ticked.
+    // "Change the presenter" (or "Add a presenter") ticked: who should be on camera, in words, and/or the client's own
+    // photo of the person (uploaded like the edit's files). Both absent = not ticked.
     presenter: z.string().trim().max(300).optional(),
+    presenterPhoto: z.object({ name: z.string().max(200), path: z.string().max(500) }).optional(),
   })
   // An edit is a note, a switch of the sound, a new presenter, or any of them together.
-  .refine((edit) => edit.note.length >= 3 || edit.voiceOver !== undefined || edit.music !== undefined || edit.presenter !== undefined, {
-    message: 'Write what to change',
-    path: ['note'],
-  })
-  .refine((edit) => edit.presenter === undefined || edit.presenter.length >= 3, {
+  .refine(
+    (edit) => edit.note.length >= 3 || edit.voiceOver !== undefined || edit.music !== undefined || edit.presenter !== undefined || edit.presenterPhoto !== undefined,
+    { message: 'Write what to change', path: ['note'] }
+  )
+  .refine((edit) => edit.presenter === undefined || edit.presenter.length >= 3 || edit.presenterPhoto !== undefined, {
     message: 'Write who should be on camera',
     path: ['presenter'],
   });
@@ -91,6 +93,8 @@ export interface SmartVideoJob {
   presenter?: boolean;
   /** An edit with "Change the presenter": who the client wants on camera, in their words (a retry sends it again). */
   presenterRequest?: string;
+  /** An edit with "Change the presenter": the client's own photo of the person, in their storage (a retry sends it again). */
+  presenterPhoto?: { name: string; path: string };
   /** Set on ReelEstate's automatic listing videos. */
   listing?: ListingOptions;
   /** Listing video: the photos whose animation was charged (6 credits each), by asset id. */

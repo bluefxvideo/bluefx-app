@@ -57,7 +57,7 @@ import {
   scriptOf,
   writeJob,
 } from '@/lib/smart-video/jobs';
-import type { SmartVideoMedia, SmartVideoOptions, SmartVideoResult } from '@/lib/smart-video/pipeline';
+import { presenterSubtitlesOnly, type SmartVideoMedia, type SmartVideoOptions, type SmartVideoResult } from '@/lib/smart-video/pipeline';
 import type { DirectorPlan, SmartAsset } from '@/lib/smart-video/types';
 import { AD_NOTES_USAGE } from '@/lib/smart-video/usage';
 import type { FreeVideoLead, FreeVideoLeadStatus, FreeVideoLive } from '@/types/free-video';
@@ -356,20 +356,7 @@ export function withWatermark(result: SmartVideoResult): SmartVideoResult {
   };
 }
 
-/**
- * Subtitles only while a person talks on screen, the presenter's opening line (owner 2026-10-06: "on the part where
- * we have the explainer video, no subtitle is needed"): the whiteboard's handwriting carries the rest, and its
- * scenes keep their full-size drawings (the renderer leaves room for subtitles only in a scene that has them).
- */
-export function presenterSubtitlesOnly(result: SmartVideoResult): SmartVideoResult {
-  const props = result.props as { scenes?: { start: number; end: number; speaker?: boolean }[]; captions?: { words: { start: number }[] } };
-  if (!props.captions) return result;
-  const talking = (props.scenes ?? []).filter((scene) => scene.speaker);
-  const words = props.captions.words.filter((word) => talking.some((scene) => word.start >= scene.start - 0.05 && word.start < scene.end));
-  return { ...result, props: { ...result.props, captions: words.length ? { ...props.captions, words } : undefined } };
-}
-
-/** What a free video ad renders: subtitles only on the presenter, then the watermark and the end card. */
+/** What a free video ad renders: subtitles only on the presenter (pipeline.ts presenterSubtitlesOnly), then the watermark and the end card. */
 export const freeRender = (result: SmartVideoResult): SmartVideoResult => withWatermark(presenterSubtitlesOnly(result));
 
 /** P1: up to 4 of the visitor's photos on the status page while the job works. Fire and forget. */

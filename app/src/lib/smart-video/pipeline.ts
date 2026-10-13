@@ -31,7 +31,7 @@ import {
   listingVoiceEnd,
   type ListingOptions,
 } from './listing';
-import { extractAudio, measureLufs } from './prepare-assets';
+import { extractAudio, framePresenterPhoto, measureLufs } from './prepare-assets';
 import type { DirectorBlock, DirectorPlan, SmartAsset, StoreFile, StyleName, VideoFormat, VideoLength } from './types';
 import { trackUsage, type UsageEntry } from './usage';
 
@@ -139,6 +139,8 @@ export interface SmartVideoResult {
 export interface ReviseOptions {
   /** The client ticked "Change the presenter" (or "Add a presenter") and wrote who should be on camera. Paid before the edit starts. */
   presenter?: string;
+  /** The client ticked it and uploaded their own photo of the person (prepare-assets presenterPhotoFromUpload): filmed as it is. */
+  presenterPhoto?: Buffer;
 }
 
 export interface SmartVideoOptions {
@@ -481,14 +483,25 @@ export async function reviseSmartVideo(
     const ownOpening = Boolean(opener && opener.asset !== PRESENTER_ASSET && previous.media.clipWords?.[opener.asset]);
     const presenterAllowed = previous.media.format !== 'horizontal' && !listing && !ownOpening;
     const kept = opener?.asset === PRESENTER_ASSET && previous.media.assets[PRESENTER_ASSET] ? previous.plan.scenes[0] : null;
-    const asked = options.presenter?.trim() || null;
-    const request = presenterAllowed ? asked : null;
+    const words = options.presenter?.trim() || null;
+    const asked = Boolean(words || options.presenterPhoto);
+    const request = presenterAllowed && asked;
+    const uploaded = request ? options.presenterPhoto ?? null : null;
     // The director sees the current presenter, so a new person keeps the place, the prop and the framing.
-    const oldPhoto = request && kept ? await presenterPhotoOf(previous.media.assets[PRESENTER_ASSET].url) : null;
+    const oldPhoto = request && kept && !uploaded ? await presenterPhotoOf(previous.media.assets[PRESENTER_ASSET].url) : null;
     // A change of the sound alone needs no new plan: the same video is rendered with another soundtrack.
     const revised =
       note.trim() || request
-        ? await reviseVideo(previous.plan, note, brief, previous.media.assets, previous.media.format, added, listing, presenterAllowed ? { current: Boolean(kept), photo: oldPhoto, request } : null)
+        ? await reviseVideo(
+            previous.plan,
+            note,
+            brief,
+            previous.media.assets,
+            previous.media.format,
+            added,
+            listing,
+            presenterAllowed ? { current: Boolean(kept), photo: oldPhoto, request: request ? words : null, uploaded } : null
+          )
         : { plan: previous.plan, newPresenter: null, removePresenter: false };
     const plan = revised.plan;
     const warnings: string[] = [];
@@ -510,21 +523,24 @@ export async function reviseSmartVideo(
     let blocked: string | undefined = asked && !presenterAllowed ? (ownOpening ? 'The video opens with your own talking clip, so no presenter was added' : 'Only a vertical video can have a presenter') : undefined;
     let presenterJob: Promise<{ clip: Buffer; url: string } | null> | null = null;
     if (request) {
-      const cast = revised.newPresenter;
+      // The client's own photo needs no casting: the director only gives the action, and may not even do that.
+      const cast = revised.newPresenter ?? (uploaded ? { action: '' } : null);
       const line = plan.scenes[0].narration.trim();
       if (!cast) blocked = 'The presenter could not be cast from your words';
       else if (line.split(/\s+/).filter(Boolean).length > PRESENTER_MAX_WORDS) blocked = `The first line has more than ${PRESENTER_MAX_WORDS} words, too long for a presenter to say`;
       else {
-        console.log(`🎭 New presenter: ${cast.same ? 'the same person' : cast.photo} | says: "${line}"`);
+        console.log(`🎭 New presenter: ${uploaded ? "the client's photo" : cast.same ? 'the same person' : cast.photo} | says: "${line}"`);
         presenterJob = (async () => {
           // The photo service now and then refuses a plain description once and takes it the next time (2026-10-13).
-          const photo =
-            cast.same && oldPhoto
-              ? oldPhoto
-              : await castPresenter(String(cast.photo)).catch((error) => {
-                  console.warn('⚠️ Presenter photo failed, one more try:', String(error).slice(0, 160));
-                  return castPresenter(String(cast.photo));
-                });
+          let photo: Buffer;
+          if (uploaded) photo = await framePresenterPhoto(uploaded, faceOf(cast.face));
+          else if (cast.same && oldPhoto) photo = oldPhoto;
+          else {
+            photo = await castPresenter(String(cast.photo)).catch((error) => {
+              console.warn('⚠️ Presenter photo failed, one more try:', String(error).slice(0, 160));
+              return castPresenter(String(cast.photo));
+            });
+          }
           // Beside the clip, so a later edit finds the person again.
           await store(photo, 'presenter.jpg', 'image/jpeg');
           const clip = await talkingPresenter(photo, line, cast.action?.trim() || '');
@@ -606,6 +622,42 @@ export async function reviseSmartVideo(
     };
   });
   return { ...result, usage };
+}
+
+/**
+ * Subtitles only while a person talks on camera, the presenter's opening line (owner 2026-10-06: "on the part where
+ * we have the explainer video, no subtitle is needed"): the whiteboard's handwriting carries the rest, and its scenes
+ * keep their full-size drawings (the renderer leaves room for subtitles only in a scene that has them). The free video
+ * ad's look (free-video/runner.ts freeRender), kept by the edits of its copies; a video nobody talks in on camera shows none.
+ */
+export function presenterSubtitlesOnly(result: SmartVideoResult): SmartVideoResult {
+  const props = result.props as { scenes?: { start: number; end: number; speaker?: boolean }[]; captions?: { words: { start: number }[] } };
+  if (!props.captions) return result;
+  const talking = (props.scenes ?? []).filter((scene) => scene.speaker);
+  const words = props.captions.words.filter((word) => talking.some((scene) => word.start >= scene.start - 0.05 && word.start < scene.end));
+  return { ...result, props: { ...result.props, captions: words.length ? { ...props.captions, words } : undefined } };
+}
+
+/** An edit keeps the subtitle look of the video it changes: subtitles only on the presenter stay so, unless the note is about the subtitles. */
+export function withSubtitleLook(result: SmartVideoResult, previous: { props: Record<string, unknown>; plan: DirectorPlan }, note: string): SmartVideoResult {
+  return showsPresenterSubtitlesOnly(previous.props, previous.plan) && !/\b(subtitles?|captions?)\b/i.test(note) ? presenterSubtitlesOnly(result) : result;
+}
+
+/** True when a finished video shows its subtitles only while a person talks on camera (presenterSubtitlesOnly): its edits keep that look. */
+export function showsPresenterSubtitlesOnly(props: Record<string, unknown>, plan: DirectorPlan): boolean {
+  if (!plan.captions) return false;
+  const shown = props as { scenes?: { start: number; end: number; speaker?: boolean }[]; captions?: { words: { start: number }[] } };
+  const scenes = shown.scenes ?? [];
+  if (!scenes.some((scene) => !scene.speaker)) return false;
+  const talking = scenes.filter((scene) => scene.speaker);
+  return (shown.captions?.words ?? []).every((word) => talking.some((scene) => word.start >= scene.start - 0.05 && word.start < scene.end));
+}
+
+/** Where the face is in the client's photo, from the director's "x% y%" (fractions); the upper middle when it gave none. */
+function faceOf(face: string | null | undefined): { x: number; y: number } {
+  const match = /^\s*(\d{1,3}(?:\.\d+)?)%\s+(\d{1,3}(?:\.\d+)?)%\s*$/.exec(face || '');
+  const [x, y] = match ? [Number(match[1]) / 100, Number(match[2]) / 100] : [0.5, 0.35];
+  return x <= 1 && y <= 1 ? { x, y } : { x: 0.5, y: 0.35 };
 }
 
 /** Narration compared word for word: spacing, case, punctuation and quote styles do not count as a change. */

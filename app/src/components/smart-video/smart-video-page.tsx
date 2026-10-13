@@ -408,7 +408,7 @@ function OutputPanel({
   onReset: () => void;
   onRetryEdit: (failed: SmartVideoJob) => Promise<boolean>;
   onTryAgain: (failed: SmartVideoJob) => void;
-  onRevise: (note: string, added: File[], sound?: { voiceOver: boolean; music: boolean }, presenter?: string) => Promise<boolean>;
+  onRevise: (note: string, added: File[], sound?: { voiceOver: boolean; music: boolean }, presenter?: { who?: string; photo?: File }) => Promise<boolean>;
   revising: boolean;
   onOpen: (jobId: string) => void;
   versions: SmartVideoJob[];
@@ -424,11 +424,14 @@ function OutputPanel({
   // "Change the presenter": its own choice with its own price, never read from the note (owner 2026-10-13).
   const [presenterOn, setPresenterOn] = useState(false);
   const [presenterWho, setPresenterWho] = useState('');
+  const [presenterPhoto, setPresenterPhoto] = useState<File | null>(null);
+  const presenterInput = useRef<HTMLInputElement>(null);
   const shownJobId = job?.id;
   useEffect(() => {
     setSound({ voiceOver: has.voiceOver, music: has.music });
     setPresenterOn(false);
     setPresenterWho('');
+    setPresenterPhoto(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when another video is opened
   }, [shownJobId]);
   const soundChanged = sound.voiceOver !== has.voiceOver || sound.music !== has.music;
@@ -442,7 +445,7 @@ function OutputPanel({
   const presenterLabel = hasPresenter ? 'Change the presenter' : 'Add a presenter';
   const wantsPresenter = canHavePresenter && presenterOn;
   const editCredits = PHANTOM_REVISION_CREDITS + (wantsPresenter ? PHANTOM_PRESENTER_CHANGE_CREDITS : 0);
-  const canEdit = wantsPresenter ? presenterWho.trim().length >= 3 : note.trim().length >= 3 || soundChanged;
+  const canEdit = wantsPresenter ? presenterWho.trim().length >= 3 || Boolean(presenterPhoto) : note.trim().length >= 3 || soundChanged;
   const addInput = useRef<HTMLInputElement>(null);
   const addFiles = (picked: File[]) => {
     const tooBig = picked.filter((f) => f.size > SMART_VIDEO_MAX_FILE_MB * 1024 * 1024);
@@ -565,18 +568,49 @@ function OutputPanel({
                   </div>
                 </div>
                 {presenterOn && (
-                  <div className="space-y-1 pl-7">
-                    <Label htmlFor="smart-edit-presenter-who" className="text-xs">
-                      Who should be on camera?
-                    </Label>
-                    <Input
-                      id="smart-edit-presenter-who"
-                      value={presenterWho}
-                      onChange={(e) => setPresenterWho(e.target.value)}
-                      maxLength={300}
-                      placeholder={hasPresenter ? 'A man in his 60s' : 'A woman in her 40s'}
-                      disabled={revising}
+                  <div className="space-y-2 pl-7">
+                    <div className="space-y-1">
+                      <Label htmlFor="smart-edit-presenter-who" className="text-xs">
+                        Who should be on camera?
+                      </Label>
+                      <Input
+                        id="smart-edit-presenter-who"
+                        value={presenterWho}
+                        onChange={(e) => setPresenterWho(e.target.value)}
+                        maxLength={300}
+                        placeholder={presenterPhoto ? 'Optional with a photo' : hasPresenter ? 'A man in his 60s' : 'A woman in her 40s'}
+                        disabled={revising}
+                      />
+                    </div>
+                    <input
+                      ref={presenterInput}
+                      type="file"
+                      hidden
+                      accept="image/*,.heic,.heif"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file) return;
+                        if (file.size > SMART_VIDEO_MAX_FILE_MB * 1024 * 1024) toast.error(`${file.name}: over ${SMART_VIDEO_MAX_FILE_MB} MB`);
+                        else setPresenterPhoto(file);
+                      }}
                     />
+                    {presenterPhoto ? (
+                      <div className="w-20">
+                        <FileThumb file={presenterPhoto} disabled={revising} onRemove={() => setPresenterPhoto(null)} />
+                      </div>
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" disabled={revising} onClick={() => presenterInput.current?.click()}>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Or use a photo instead
+                      </Button>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {presenterPhoto
+                        ? 'Your photo is filmed as it is: one person, facing the camera.'
+                        : 'A photo of one person facing the camera works best.'}{' '}
+                      Use a photo of yourself or of someone who agreed to it. The voice is made by the AI, not their own.
+                    </p>
                   </div>
                 )}
               </div>
@@ -596,11 +630,13 @@ function OutputPanel({
                 className="flex-shrink-0"
                 disabled={revising || !canEdit}
                 onClick={async () => {
-                  if (await onRevise(note, added, soundChanged ? sound : undefined, wantsPresenter ? presenterWho.trim() : undefined)) {
+                  const presenter = wantsPresenter ? { who: presenterWho.trim() || undefined, photo: presenterPhoto ?? undefined } : undefined;
+                  if (await onRevise(note, added, soundChanged ? sound : undefined, presenter)) {
                     setNote('');
                     setAdded([]);
                     setPresenterOn(false);
                     setPresenterWho('');
+                    setPresenterPhoto(null);
                   }
                 }}
               >
@@ -620,7 +656,7 @@ function OutputPanel({
             <div className="flex flex-wrap gap-2">
               <Button disabled={revising} onClick={() => onRetryEdit(job)}>
                 {revising ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
-                Try the edit again · {PHANTOM_REVISION_CREDITS + (job.presenterRequest ? PHANTOM_PRESENTER_CHANGE_CREDITS : 0)} credits
+                Try the edit again · {PHANTOM_REVISION_CREDITS + (job.presenterRequest || job.presenterPhoto ? PHANTOM_PRESENTER_CHANGE_CREDITS : 0)} credits
               </Button>
               <Button variant="outline" onClick={() => onOpen(job.parentId as string)}>
                 Back to the video
@@ -722,11 +758,15 @@ function OutputPanel({
               </button>
             ))}
           </div>
-          {job.note || job.presenterRequest ? (
+          {job.note || job.presenterRequest || job.presenterPhoto ? (
             <p className="text-sm text-muted-foreground">
               Your edit: {job.note && <>&ldquo;{job.note}&rdquo;</>}
-              {job.note && job.presenterRequest && ', and '}
-              {job.presenterRequest && <>a new presenter, &ldquo;{job.presenterRequest}&rdquo;</>}
+              {job.note && (job.presenterRequest || job.presenterPhoto) && ', and '}
+              {job.presenterRequest ? (
+                <>a new presenter, &ldquo;{job.presenterRequest}&rdquo;{job.presenterPhoto && ' from your photo'}</>
+              ) : (
+                job.presenterPhoto && 'a new presenter from your photo'
+              )}
             </p>
           ) : (
             job.parentId && <p className="text-sm text-muted-foreground">Your edit: the sound ({soundLabel(job)})</p>

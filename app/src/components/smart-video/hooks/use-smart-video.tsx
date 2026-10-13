@@ -145,23 +145,33 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   // "Leave a note": the change becomes a new job that reuses the finished video's files.
   const [revising, setRevising] = useState(false);
   const revise = useCallback(
-    async (note: string, added: File[] = [], sound?: { voiceOver: boolean; music: boolean }, presenter?: string) => {
+    async (
+      note: string,
+      added: File[] = [],
+      sound?: { voiceOver: boolean; music: boolean },
+      presenter?: { who?: string; photo?: File }
+    ) => {
       if (!jobId) return false;
       setRevising(true);
       try {
         let uploadJobId: string | undefined;
         let uploads: { name: string; path: string }[] = [];
-        if (added.length) {
-          const requested = await requestSmartVideoUploads({ files: added.map((f) => ({ name: f.name, size: f.size })) });
+        let presenterPhoto: { name: string; path: string } | undefined;
+        // The presenter's photo goes up with the edit's files, under the same id, but it is not one of the video's files.
+        const files = presenter?.photo ? [...added, presenter.photo] : added;
+        if (files.length) {
+          const requested = await requestSmartVideoUploads({ files: files.map((f) => ({ name: f.name, size: f.size })) });
           if (!requested.success) throw new Error(requested.error);
           for (const [i, slot] of requested.data.slots.entries()) {
-            const res = await fetch(slot.uploadUrl, { method: 'PUT', headers: { 'Content-Type': added[i].type || 'application/octet-stream' }, body: added[i] });
-            if (!res.ok) throw new Error(`Uploading ${added[i].name} failed`);
+            const res = await fetch(slot.uploadUrl, { method: 'PUT', headers: { 'Content-Type': files[i].type || 'application/octet-stream' }, body: files[i] });
+            if (!res.ok) throw new Error(`Uploading ${files[i].name} failed`);
           }
           uploadJobId = requested.data.jobId;
-          uploads = requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path }));
+          const slots = requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path }));
+          uploads = slots.slice(0, added.length);
+          if (presenter?.photo) presenterPhoto = slots[added.length];
         }
-        const revised = await reviseSmartVideoJob({ jobId, note, ...sound, uploadJobId, uploads, presenter });
+        const revised = await reviseSmartVideoJob({ jobId, note, ...sound, uploadJobId, uploads, presenter: presenter?.who, presenterPhoto });
         if (!revised.success) throw new Error(revised.error);
         setJobId(revised.data.jobId);
         queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
@@ -191,6 +201,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
           music: failed.music,
           uploads: [],
           presenter: failed.presenterRequest,
+          presenterPhoto: failed.presenterPhoto,
         });
         if (!revised.success) throw new Error(revised.error);
         setJobId(revised.data.jobId);

@@ -6,16 +6,20 @@
  *
  *   npx tsx --env-file=.env.local src/scripts/smart-video-revise-test.ts <name> <job id> "<note>" ["<who should be on camera>"]
  *
- * The last argument is the edit form's "Change the presenter" box ticked with those words. NO_RENDER=1 skips the render.
+ * The last argument is the edit form's "Change the presenter" box ticked with those words; PRESENTER_PHOTO=<file> ticks it
+ * with the client's own photo of the person. NO_RENDER=1 skips the render.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { reviseSmartVideo } from '@/lib/smart-video/pipeline';
+import { reviseSmartVideo, withSubtitleLook } from '@/lib/smart-video/pipeline';
 import { jobsTable, type SavedPlan } from '@/lib/smart-video/jobs';
+import { presenterPhotoFromUpload } from '@/lib/smart-video/prepare-assets';
 
-const [name, jobId, note = '', presenter] = process.argv.slice(2);
-if (!name || !jobId || (!note && !presenter)) throw new Error('Usage: smart-video-revise-test.ts <name> <job id> "<note>" ["<who should be on camera>"]');
+// PRESENTER_PHOTO=<file>: the "Change the presenter" box ticked with the client's own photo of the person.
+const [name, jobId, note = '', presenterWords] = process.argv.slice(2);
+const presenter = presenterWords || undefined;
+if (!name || !jobId || (!note && !presenter && !process.env.PRESENTER_PHOTO)) throw new Error('Usage: smart-video-revise-test.ts <name> <job id> "<note>" ["<who should be on camera>"]');
 
 const REMOTION = path.resolve(__dirname, '../../../remotion');
 const PUBLIC_DIR = path.join(REMOTION, 'public/smart-video/_test', name);
@@ -35,7 +39,10 @@ async function main() {
   fs.rmSync(PUBLIC_DIR, { recursive: true, force: true });
   fs.mkdirSync(PUBLIC_DIR, { recursive: true });
 
-  const result = await reviseSmartVideo(
+  const photoFile = process.env.PRESENTER_PHOTO;
+  const presenterPhoto = photoFile ? await presenterPhotoFromUpload({ filename: path.basename(photoFile), data: fs.readFileSync(photoFile) }) : undefined;
+  if (presenterPhoto) fs.writeFileSync(path.join(PUBLIC_DIR, 'client-photo-cropped.jpg'), presenterPhoto);
+  const revised = await reviseSmartVideo(
     { plan: saved.plan, media: saved.media },
     note,
     saved.brief || data.job.brief,
@@ -43,8 +50,13 @@ async function main() {
     (stage) => console.log(`🔄 ${stage}`),
     [],
     undefined,
-    { presenter }
+    { presenter, presenterPhoto }
   );
+  // As runRevision does: the edit keeps the video's subtitle look.
+  const result = withSubtitleLook(revised, saved, note);
+  const shown = result.props as { scenes?: { start: number; end: number; speaker?: boolean }[]; captions?: { words: { start: number }[] } };
+  const outside = (shown.captions?.words ?? []).filter((w) => !(shown.scenes ?? []).some((sc) => sc.speaker && w.start >= sc.start - 0.05 && w.start < sc.end));
+  console.log(`💬 Subtitles: ${shown.captions?.words.length ?? 0} words, ${outside.length} outside a talking scene`);
   for (const warning of result.warnings) console.log(`⚠️ For the client: ${warning}`);
   console.log(`🎭 New presenter: ${result.newPresenter ? JSON.stringify(result.newPresenter) : 'not asked for'}`);
   console.log(`🎬 Scene 1: ${JSON.stringify(result.plan.scenes[0])}`);

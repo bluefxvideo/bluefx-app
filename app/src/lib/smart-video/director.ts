@@ -264,6 +264,8 @@ const NewPresenterSchema = z.object({
   same: z.boolean().nullish(),
   photo: z.string().nullish(),
   action: z.string().nullish(),
+  /** The client's own photo: where the person's face is ("x% y%"), so the vertical frame is cut around it. */
+  face: z.string().nullish(),
 });
 export type NewPresenter = z.infer<typeof NewPresenterSchema>;
 
@@ -273,8 +275,10 @@ export interface RevisePresenter {
   current: boolean;
   /** The current presenter's photo, shown to the director so a new person keeps the place, the prop and the framing. */
   photo: Buffer | null;
-  /** The client ticked "Change the presenter" (or "Add a presenter") and wrote who should be on camera; null = not ticked. */
+  /** The client ticked "Change the presenter" (or "Add a presenter") and wrote who should be on camera; null = no words. */
   request: string | null;
+  /** The client ticked it and uploaded their own photo of the person: filmed as it is, nobody is cast. */
+  uploaded: Buffer | null;
 }
 
 /**
@@ -297,7 +301,8 @@ export async function reviseVideo(
 ): Promise<{ plan: DirectorPlan; newPresenter: NewPresenter | null; removePresenter: boolean }> {
   // The AI presenter's clip is a file the director may keep only while it opens the video and is not being replaced: an
   // old clip left in the media (removed or replaced earlier) must not come back for free with the old words.
-  const keepsPresenter = Boolean(presenter?.current && !presenter.request);
+  const ticked = Boolean(presenter?.request || presenter?.uploaded);
+  const keepsPresenter = Boolean(presenter?.current && !ticked);
   const ids = Object.keys(existing).filter((id) => !id.endsWith('-motion') && (id !== PRESENTER_ASSET || keepsPresenter));
   const cutouts = ids.filter((id) => existing[id].cutoutUrl);
   const instructions =
@@ -331,7 +336,10 @@ export async function reviseVideo(
   ].join('\n');
   const assets = [...(ids.map((id) => ({ id, kind: existing[id].kind })) as SmartAsset[]), ...added];
   const parts: unknown[] = [{ text: `${instructions}\n${task}` }];
-  if (presenter?.current && presenter.photo) {
+  if (presenter?.uploaded) {
+    parts.push({ text: "\n\nTHE CLIENT'S PHOTO OF THE NEW PRESENTER:" });
+    parts.push({ inlineData: { mimeType: 'image/jpeg', data: presenter.uploaded.toString('base64') } });
+  } else if (presenter?.current && presenter.photo) {
     parts.push({ text: '\n\nTHE CURRENT AI PRESENTER, the photo their clip was made from:' });
     parts.push({ inlineData: { mimeType: 'image/jpeg', data: presenter.photo.toString('base64') } });
   }
@@ -344,16 +352,18 @@ export async function reviseVideo(
   // their photo, so it counts only when the photo was shown.
   let newPresenter: NewPresenter | null = null;
   let removePresenter = false;
-  const sameAllowed = Boolean(presenter?.current && presenter.photo);
+  const sameAllowed = Boolean(presenter?.current && presenter.photo && !presenter.uploaded);
   const revised = await askDirector(
     parts,
-    (candidate, lastChance) => checkPlan(candidate, assets, brief, 'auto', true, lastChance, null, listing, false, Boolean(presenter?.request)),
+    (candidate, lastChance) => checkPlan(candidate, assets, brief, 'auto', true, lastChance, null, listing, false, ticked),
     280_000,
     undefined,
     (answer) => {
-      if (presenter?.request) {
+      if (ticked) {
         const asked = NewPresenterSchema.safeParse(answer.newPresenter ?? null);
-        if (asked.success && asked.data && ((asked.data.same && sameAllowed) || asked.data.photo?.trim())) newPresenter = { ...asked.data, same: asked.data.same && sameAllowed };
+        // With the client's photo only the action is needed: nobody is cast.
+        if (asked.success && asked.data && presenter?.uploaded) newPresenter = { action: asked.data.action, face: asked.data.face };
+        else if (asked.success && asked.data && ((asked.data.same && sameAllowed) || asked.data.photo?.trim())) newPresenter = { ...asked.data, same: asked.data.same && sameAllowed };
       } else if (keepsPresenter) {
         removePresenter = answer.removePresenter === true;
       }
@@ -367,14 +377,21 @@ export async function reviseVideo(
  * person again), with scene 1 written as a narrated scene the presenter takes over. Not ticked: the presenter's scene
  * stays as it was filmed, unless the note asks to remove them.
  */
-function presenterTask({ current, photo, request }: RevisePresenter): string[] {
+function presenterTask({ current, photo, request, uploaded }: RevisePresenter): string[] {
+  const narrated = `- Write scene 1 as a normal narrated scene (speaker null, its own background and blocks, following the scene recipes) of at most ${PRESENTER_MAX_WORDS} words: shorten a longer line and keep its meaning; otherwise keep scene 1's words unless the note changes them. The presenter is filmed saying it and takes the scene over; if filming fails, your scene 1 plays with the narrator.`;
+  if (uploaded) {
+    return [
+      `- THE CLIENT TICKED "${current ? 'Change the presenter' : 'Add a presenter'}" AND UPLOADED A PHOTO OF THE PERSON WHO SHOULD BE ON CAMERA (shown after this text)${request ? `, with these words: "${request.replace(/"/g, "'")}"` : ''}. The AI Media Machine films that photo as it is, cut to a vertical frame around the face. Return, at the top level of the JSON next to "scenes": "newPresenter": {"face": "where the centre of the person's face is in the photo, as x% y% from the top left, e.g. 48% 32%", "action": "one sentence: a small movement this person can make in this photo while saying their first words"}.`,
+      narrated,
+    ];
+  }
   if (request) {
     return [
       ...(current
         ? [`- This video opens with an AI presenter${photo ? ' (their photo is shown after this text)' : ''}: a person the AI Media Machine generated and filmed saying scene 1 on camera.`]
         : []),
       `- THE CLIENT TICKED "${current ? 'Change the presenter' : 'Add a presenter'}" AND WROTE WHO SHOULD BE ON CAMERA: "${request.replace(/"/g, "'")}". Return, at the top level of the JSON next to "scenes": "newPresenter": {"photo": "one sentence describing their photo: gender, age, look, clothes, the place, the prop, a vertical smartphone selfie or a phone on a stand, mouth closed", "action": "one sentence: the small movement they make while saying their first words"}. Cast a made-up everyday person who fits those words: never a real, named or famous person, and never the client or anyone they name. When the words name a real or famous person, cast a made-up person of the same gender, age and look, and add to "warnings": "The presenter is a made-up person who looks the part, not the person you named."${current && photo ? ' Keep the place, the prop and the framing of the current photo unless the client\'s words change them. When the client wants the same person (for example "the same woman", "same person"), return "newPresenter": {"same": true} instead: they are filmed again saying scene 1.' : ''}`,
-      `- Write scene 1 as a normal narrated scene (speaker null, its own background and blocks, following the scene recipes) of at most ${PRESENTER_MAX_WORDS} words: shorten a longer line and keep its meaning; otherwise keep scene 1's words unless the note changes them. The presenter is filmed saying it and takes the scene over; if filming fails, your scene 1 plays with the narrator.`,
+      narrated,
     ];
   }
   return current

@@ -7,10 +7,10 @@ import { ZodError } from 'zod';
 import { createAdminClient, createClient } from '@/app/supabase/server';
 import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
 import { transcribeWords } from '@/lib/smart-video/audio';
-import { reviseSmartVideo, type SmartVideoMedia } from '@/lib/smart-video/pipeline';
+import { reviseSmartVideo, withSubtitleLook, type SmartVideoMedia } from '@/lib/smart-video/pipeline';
 import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_PRESENTER_CHANGE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
 import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount, type ListingOptions } from '@/lib/smart-video/listing';
-import { prepareAssets, type ClientFile } from '@/lib/smart-video/prepare-assets';
+import { IMAGE_FILE, prepareAssets, presenterPhotoFromUpload, type ClientFile } from '@/lib/smart-video/prepare-assets';
 import { PRESENTER_ASSET } from '@/lib/smart-video/presenter';
 import {
   BUCKET,
@@ -214,16 +214,22 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
     const sound = { voiceOver: parsed.voiceOver ?? soundOf(parent).voiceOver, music: parsed.music ?? soundOf(parent).music };
     const sameSound = sound.voiceOver === soundOf(parent).voiceOver && sound.music === soundOf(parent).music;
     const presenterRequest = parsed.presenter || undefined;
-    if (!parsed.note && sameSound && !parsed.uploads.length && !presenterRequest) return createApiError('Write what to change, or switch the voice-over or the music');
+    const presenterPhoto = parsed.presenterPhoto;
+    const wantsPresenter = Boolean(presenterRequest || presenterPhoto);
+    if (!parsed.note && sameSound && !parsed.uploads.length && !wantsPresenter) return createApiError('Write what to change, or switch the voice-over or the music');
+    // The client's photo of the presenter: an image in their own storage (a retry points at the failed edit's copy).
+    if (presenterPhoto && (!presenterPhoto.path.startsWith(`${jobDir(userId, '')}`) || presenterPhoto.path.includes('..') || !IMAGE_FILE.test(presenterPhoto.name))) {
+      return createApiError('The presenter photo must be a picture you uploaded');
+    }
     // A presenter opens vertical videos only, and never a listing video (the same rule as startSmartVideo).
-    if (presenterRequest && (parent.listing || parent.format === 'horizontal')) return createApiError('Only a vertical video can have a presenter');
+    if (wantsPresenter && (parent.listing || parent.format === 'horizontal')) return createApiError('Only a vertical video can have a presenter');
     // Nor a video that opens with the client's own talking clip: their real person is not replaced by a generated one.
-    if (presenterRequest) {
+    if (wantsPresenter) {
       const opener = (await readPlan(userId, parent.id)).plan.scenes[0]?.speaker;
       if (opener && opener.asset !== PRESENTER_ASSET) return createApiError('This video opens with your own talking clip, so it cannot get a presenter.');
     }
     if ((await runningJobs(userId)) >= MAX_RUNNING_JOBS) return createApiError(TOO_MANY);
-    if (presenterRequest) {
+    if (wantsPresenter) {
       const balance = await availableCredits(userId);
       const needed = PHANTOM_REVISION_CREDITS + PHANTOM_PRESENTER_CHANGE_CREDITS;
       if (balance < needed) {
@@ -231,14 +237,15 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
       }
     }
 
-    // With new files the edit takes the id its files were uploaded under.
-    const jobId = parsed.uploads.length && parsed.uploadJobId ? parsed.uploadJobId : randomUUID();
+    // With new files (or a new presenter photo) the edit takes the id its files were uploaded under.
+    const uploadedNow = parsed.uploads.length > 0 || Boolean(presenterPhoto && parsed.uploadJobId && presenterPhoto.path.startsWith(`${jobDir(userId, parsed.uploadJobId)}/src/`));
+    const jobId = uploadedNow && parsed.uploadJobId ? parsed.uploadJobId : randomUUID();
     if (parsed.uploads.some((u) => !u.path.startsWith(`${jobDir(userId, jobId)}/src/`))) return createApiError('Invalid upload path');
-    if (parsed.uploads.length && (await readJob(userId, jobId))) return createApiError('This edit was already started');
+    if (uploadedNow && (await readJob(userId, jobId))) return createApiError('This edit was already started');
     const chargeError = await charge(userId, jobId, PHANTOM_REVISION_CREDITS);
     if (chargeError) return createApiError(chargeError);
     // The presenter is paid before the edit starts, on its own reference, so it can be given back on its own.
-    if (presenterRequest && !(await chargePresenter(userId, jobId, PHANTOM_PRESENTER_CHANGE_CREDITS))) {
+    if (wantsPresenter && !(await chargePresenter(userId, jobId, PHANTOM_PRESENTER_CHANGE_CREDITS))) {
       const back = await refundFailedGeneration({ userId, referenceIds: [jobId], operation: 'Phantom edit' });
       if (!back.refunded) console.error(`❌ Edit ${jobId}: the presenter was not paid and the edit's credits did not come back:`, back.reason);
       return createApiError(
@@ -263,14 +270,14 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
       ...(parent.listing ? { listing: parent.listing } : {}),
       parentId: parent.id,
       note: parsed.note,
-      ...(presenterRequest ? { presenter: true, presenterRequest } : {}),
-      creditsUsed: PHANTOM_REVISION_CREDITS + (presenterRequest ? PHANTOM_PRESENTER_CHANGE_CREDITS : 0),
+      ...(wantsPresenter ? { presenter: true, presenterRequest, presenterPhoto } : {}),
+      creditsUsed: PHANTOM_REVISION_CREDITS + (wantsPresenter ? PHANTOM_PRESENTER_CHANGE_CREDITS : 0),
       createdAt: now,
       updatedAt: now,
     });
     const job = await created.catch(async (error) => {
       await refundFailedGeneration({ userId, referenceIds: [jobId], operation: 'Phantom edit' });
-      if (presenterRequest) await refundFailedGeneration({ userId, referenceIds: [presenterReference(jobId)], operation: 'Phantom AI presenter' });
+      if (wantsPresenter) await refundFailedGeneration({ userId, referenceIds: [presenterReference(jobId)], operation: 'Phantom AI presenter' });
       throw error;
     });
     after(() => runRevision(job, parent, parsed.uploads));
@@ -294,7 +301,20 @@ async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob, upload
     const taken = Object.keys(media.assets).map((id) => Number(/^a(\d+)/.exec(id)?.[1] || 0));
     const files: ClientFile[] = await Promise.all(uploads.map(async (u) => ({ filename: u.name, data: await download(u.path) })));
     const added = files.length ? await prepareAssets(files, store, Math.max(0, ...taken) + 1) : [];
-    const result = await reviseSmartVideo(
+    // The client's own photo of the new presenter. One that cannot be read means no presenter (credits back below).
+    let photoFailed = false;
+    const presenterPhoto =
+      job.presenter && job.presenterPhoto
+        ? await download(job.presenterPhoto.path)
+            .then((data) => presenterPhotoFromUpload({ filename: job.presenterPhoto!.name, data }))
+            .catch((error) => {
+              console.error(`❌ Edit ${job.id}: the presenter photo could not be read:`, error);
+              photoFailed = true;
+              return undefined;
+            })
+        : undefined;
+    const wanted = job.presenter && !photoFailed ? { presenter: job.presenterRequest, presenterPhoto } : {};
+    const revised = await reviseSmartVideo(
       { plan: saved.plan, media },
       job.note || '',
       saved.brief || parent.brief,
@@ -305,8 +325,14 @@ async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob, upload
       },
       added,
       soundOf(job),
-      { presenter: job.presenter ? job.presenterRequest : undefined }
+      wanted
     );
+    // A video that shows subtitles only while a person talks on camera (a free video ad and its copies) keeps that look.
+    const result = withSubtitleLook(revised, saved, job.note || '');
+    if (photoFailed) {
+      const hadPresenter = saved.plan.scenes[0]?.speaker?.asset === PRESENTER_ASSET;
+      result.newPresenter = { made: false, why: `Your photo of the presenter could not be read, so ${hadPresenter ? 'the presenter stays as it was' : 'no presenter was added'}.` };
+    }
     // A paid presenter who did not make it into the edit: credits back. A refund that did not go through keeps the
     // flag, so a later failure of this job still settles it (failAndRefund).
     if (result.newPresenter && !result.newPresenter.made) {

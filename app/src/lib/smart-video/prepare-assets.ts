@@ -32,6 +32,41 @@ export async function prepareAssets(files: ClientFile[], store: StoreFile, first
   return assets;
 }
 
+/**
+ * The client's own photo of the person who should present the video (the edit form's "Change the presenter"): turned
+ * upright, as a JPEG of at most 1920 px, still whole. It is cut to the presenter's vertical frame around the face only
+ * once the director has said where the face is (2026-10-13: a crop around what draws the eye chose a bright lamp and
+ * cut the face in half, and the clip invented another person).
+ */
+export async function presenterPhotoFromUpload(file: ClientFile): Promise<Buffer> {
+  let input = file.data;
+  try {
+    await sharp(input).stats();
+  } catch {
+    input = await viaFfmpeg(file);
+  }
+  return sharp(input).rotate().resize(1920, 1920, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 92 }).toBuffer();
+}
+
+/**
+ * The presenter's vertical frame (1088x1920) cut from the client's photo with the face in the middle, a little above
+ * the centre line. `face` is where the face is, as fractions of the photo's width and height.
+ */
+export async function framePresenterPhoto(photo: Buffer, face: { x: number; y: number }): Promise<Buffer> {
+  const W = 1088;
+  const H = 1920;
+  const meta = await sharp(photo).metadata();
+  const scale = Math.max(W / (meta.width || W), H / (meta.height || H));
+  const width = Math.max(W, Math.ceil((meta.width || W) * scale));
+  const height = Math.max(H, Math.ceil((meta.height || H) * scale));
+  const clamp = (value: number, max: number) => Math.min(max, Math.max(0, Math.round(value)));
+  return sharp(photo)
+    .resize(width, height)
+    .extract({ left: clamp(face.x * width - W / 2, width - W), top: clamp(face.y * height - H * 0.4, height - H), width: W, height: H })
+    .jpeg({ quality: 92 })
+    .toBuffer();
+}
+
 async function prepareImage(id: string, file: ClientFile, store: StoreFile): Promise<SmartAsset> {
   // Photoshop TIFFs can carry metadata blobs sharp refuses; ffmpeg reads them fine.
   let input = file.data;
