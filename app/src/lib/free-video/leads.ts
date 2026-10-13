@@ -413,6 +413,45 @@ export async function customerIdByEmail(email: string): Promise<string | null> {
   return (await withActivePlan(await profileIdsByEmail(email.trim().toLowerCase())))[0] ?? null;
 }
 
+/** Accounts found by ownerAccountIdByEmail: an account id never changes, so one lookup per server process. */
+const ownerAccounts = new Map<string, string>();
+
+/**
+ * The owner's own AI Media Machine account for one of OWNER_TEST_EMAILS, or null (any other address). His profile row
+ * has no email and his account has no active plan, so customerIdByEmail misses it (2026-10-13: none of his free video
+ * ads reached his account). An account with this email in its profile counts first; otherwise each admin account's
+ * sign-in email is read by its id and compared. Throws on a failed read.
+ */
+export async function ownerAccountIdByEmail(email: string): Promise<string | null> {
+  const key = email.trim().toLowerCase();
+  if (!OWNER_TEST_EMAILS.includes(key)) return null;
+  const known = ownerAccounts.get(key);
+  if (known) return known;
+  let found: string | null = null;
+  for (const id of await profileIdsByEmail(key)) {
+    if (await isActiveCustomerId(id)) {
+      found = id;
+      break;
+    }
+  }
+  if (!found) {
+    const admin = createAdminClient() as any;
+    const { data, error } = await admin.from('profiles').select('id, is_suspended').eq('role', 'admin').limit(20);
+    if (error) throw new Error(`profiles: ${error.message}`);
+    for (const profile of (data ?? []) as { id: string; is_suspended?: boolean | null }[]) {
+      if (profile.is_suspended) continue;
+      const { data: auth, error: authError } = await admin.auth.admin.getUserById(profile.id);
+      if (authError) throw new Error(`auth user ${profile.id}: ${authError.message}`);
+      if ((auth?.user?.email ?? '').trim().toLowerCase() === key) {
+        found = profile.id;
+        break;
+      }
+    }
+  }
+  if (found) ownerAccounts.set(key, found);
+  return found;
+}
+
 /** True when this signed-in account has an active plan (not suspended). A failed read counts as false. */
 export async function isActiveCustomerId(userId: string): Promise<boolean> {
   try {

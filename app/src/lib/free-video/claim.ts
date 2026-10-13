@@ -13,14 +13,14 @@
  *    a lead whose working files are already gone (cleanup.ts, after 30 days) gets the free file, which is all there is,
  *    and so does a buyer who bought after the 3-day bonus (offer.ts cleanCopyEarned): one edit makes that copy clean.
  *
- * Callers: the sweep, for a lead whose email bought the AI Media Machine or already has it (copyLeadsToAccounts), and
- * /go/claim?t=<token> for a signed-in customer (the button on the video ad page).
+ * Callers: the sweep, for a lead whose email bought the AI Media Machine or already has it, and for the owner's own
+ * free video ads (copyLeadsToAccounts), and /go/claim?t=<token> for a signed-in customer (the button on the video ad page).
  */
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { createAdminClient } from '@/app/supabase/server';
-import { fakeMode, renderTargetAllowed } from '@/lib/free-video/config';
-import { asLead, customerIdByEmail, leadsTable, readSettings } from '@/lib/free-video/leads';
+import { fakeMode, OWNER_TEST_EMAILS, renderTargetAllowed } from '@/lib/free-video/config';
+import { asLead, customerIdByEmail, leadsTable, ownerAccountIdByEmail, readSettings } from '@/lib/free-video/leads';
 import { cleanCopyEarned } from '@/lib/free-video/offer';
 import { checkCleanFile, cleanProps, inBackground } from '@/lib/free-video/unlock';
 import { BUCKET, jobDir, jobsTable, publicUrl, readJob, STALE_AFTER_MS, touchJob, upload, withRetry, writeJob } from '@/lib/smart-video/jobs';
@@ -55,6 +55,9 @@ async function filesIn(dir: string): Promise<string[]> {
   if (error) throw new Error(`Could not list ${dir}: ${error.message}`);
   return (data ?? []).filter((entry) => entry.id !== null).map((entry) => entry.name);
 }
+
+/** How far back the owner's own finished free video ads are copied to his account. */
+const OWNER_COPY_DAYS = 30;
 
 /** Copies running in this process: the sweep must not start a second render of a copy that is still rendering. */
 const finishing = new Set<string>();
@@ -211,28 +214,32 @@ async function finishCopy(lead: FreeVideoLead, initial: SmartVideoJob): Promise<
  * The sweep's share: every finished lead whose email bought the AI Media Machine in the last 3 days (attributeSales set
  * bought_at), and every lead of an existing customer that finished in the last 3 days (owner 2026-10-07: "if I have
  * the same email address I should have it all in my dashboard"), gets its copy in that account, once the account
- * exists. Returns how many copies were started.
+ * exists. So does every free video ad of the owner's own addresses (OWNER_TEST_EMAILS) from the last 30 days, in his
+ * own account (owner 2026-10-13: "I want my own ads to appear in my own account", for demos): his leads are never
+ * customers, because he tests what a visitor sees. Returns how many copies were started.
  */
 export async function copyLeadsToAccounts(own: (query: any) => any): Promise<number> {
   const since = new Date(Date.now() - 3 * 24 * 60 * 60_000).toISOString();
-  const [bought, customers] = await Promise.all([
+  const ownerSince = new Date(Date.now() - OWNER_COPY_DAYS * 24 * 60 * 60_000).toISOString();
+  const [bought, customers, owner] = await Promise.all([
     own(leadsTable().select('*').eq('status', 'done').not('bought_at', 'is', null).gt('bought_at', since)).limit(50),
     own(leadsTable().select('*').eq('status', 'done').eq('is_customer', true).gt('finished_at', since)).limit(50),
+    own(leadsTable().select('*').eq('status', 'done').in('email', [...OWNER_TEST_EMAILS]).gt('finished_at', ownerSince)).limit(50),
   ]);
-  const error = bought.error ?? customers.error;
+  const error = bought.error ?? customers.error ?? owner.error;
   if (error) {
     console.error('❌ [free-video] Sweep: leads to copy not read:', error.message);
     return 0;
   }
   const leads = new Map<string, FreeVideoLead>();
-  for (const row of [...(bought.data ?? []), ...(customers.data ?? [])] as Record<string, unknown>[]) {
+  for (const row of [...(bought.data ?? []), ...(customers.data ?? []), ...(owner.data ?? [])] as Record<string, unknown>[]) {
     const lead = asLead(row);
     leads.set(lead.id, lead);
   }
   let started = 0;
   for (const lead of leads.values()) {
     try {
-      const userId = await customerIdByEmail(lead.email);
+      const userId = OWNER_TEST_EMAILS.includes(lead.email) ? await ownerAccountIdByEmail(lead.email) : await customerIdByEmail(lead.email);
       if (!userId) continue;
       const copy = await readJob(userId, copyIdOf(lead.id, userId));
       if (copy?.status === 'done') continue;
