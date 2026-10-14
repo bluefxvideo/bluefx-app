@@ -278,7 +278,10 @@ const WAITING_HOURS = 24;
 /** A finished free video ad whose copy is not there yet (it starts the moment the ad is done; the sweep tries again within minutes) still shows as being made for this long. */
 const COPY_GRACE_MINUTES = 15;
 
-type WaitingLead = Pick<FreeVideoLead, 'id' | 'status' | 'website_domain' | 'created_at' | 'updated_at' | 'finished_at' | 'job_id' | 'reason'>;
+type WaitingLead = Pick<
+  FreeVideoLead,
+  'id' | 'email' | 'status' | 'website_domain' | 'created_at' | 'updated_at' | 'finished_at' | 'job_id' | 'reason' | 'is_customer' | 'bought_at'
+>;
 
 /** How Your videos shows a free video ad that has no copy in the account yet; null shows nothing. Pure (the checks run it). */
 export function waitingJobOf(lead: WaitingLead, userId: string, now = Date.now()): SmartVideoJob | null {
@@ -304,6 +307,8 @@ export function waitingJobOf(lead: WaitingLead, userId: string, now = Date.now()
     case 'held':
       return { ...shown, status: 'producing', freeStage: 'checking' };
     case 'done': {
+      // Only one whose copy the sweep makes too (copyLeadsToAccounts), so a copy that did not start at once still comes.
+      if (!lead.is_customer && !lead.bought_at && !OWNER_TEST_EMAILS.includes(lead.email)) return null;
       // Done at finished_at, or later when the owner released a held one (updated_at): its copy is on the way.
       const doneAt = Math.max(...[lead.finished_at, lead.updated_at].map((at) => Date.parse(at ?? '')).filter(Number.isFinite));
       return now - doneAt < COPY_GRACE_MINUTES * 60_000 ? { ...shown, status: 'producing', freeStage: 'making' } : null;
@@ -329,7 +334,7 @@ export async function waitingFreeVideos(userId: string, email: string | null | u
   if (!key) return [];
   try {
     const since = new Date(Date.now() - WAITING_HOURS * 60 * 60_000).toISOString();
-    const leads = leadsTable().select('id, status, website_domain, created_at, updated_at, finished_at, job_id, reason').eq('email', key).gt('created_at', since);
+    const leads = leadsTable().select('id, email, status, website_domain, created_at, updated_at, finished_at, job_id, reason, is_customer, bought_at').eq('email', key).gt('created_at', since);
     const { data, error } = await (claimsTestLeads() ? leads.eq('source', 'test') : leads.neq('source', 'test')).order('created_at', { ascending: false }).limit(10);
     if (error) throw new Error(error.message);
     const shown = ((data ?? []) as WaitingLead[]).map((lead) => waitingJobOf(lead, userId)).filter((job): job is SmartVideoJob => job !== null && !stored.has(job.id));

@@ -549,7 +549,7 @@ async function main(): Promise<void> {
   // A free video ad shows in the account's videos from the moment it is asked for (owner 2026-10-14), read from its lead.
   const asked = Date.parse('2026-10-14T10:00:00.000Z');
   const minute = 60_000;
-  const waitingLead: Parameters<typeof waitingJobOf>[0] = { id: leadId, status: 'queued', website_domain: 'joesplumbing.com', created_at: new Date(asked).toISOString(), updated_at: new Date(asked).toISOString(), finished_at: null, job_id: null, reason: null };
+  const waitingLead: Parameters<typeof waitingJobOf>[0] = { id: leadId, email: 'joe@joesplumbing.com', status: 'queued', website_domain: 'joesplumbing.com', created_at: new Date(asked).toISOString(), updated_at: new Date(asked).toISOString(), finished_at: null, job_id: null, reason: null, is_customer: true, bought_at: null };
   const shownAs = (change: Partial<typeof waitingLead>, at = asked + minute) => waitingJobOf({ ...waitingLead, ...change }, buyer, at);
   const queued = shownAs({});
   check('waiting: a queued free video ad shows as being made, under the id its copy gets', queued?.status === 'producing' && queued.freeStage === 'making' && queued.id === copyIdOf(leadId, buyer));
@@ -559,6 +559,8 @@ async function main(): Promise<void> {
   check('waiting: done 5 min ago and no copy yet → still being made', shownAs({ status: 'done', job_id: 'j1', finished_at: new Date(asked).toISOString() }, asked + 5 * minute)?.freeStage === 'making');
   check('waiting: done 20 min ago and still no copy → nothing shown', shownAs({ status: 'done', job_id: 'j1', finished_at: new Date(asked).toISOString() }, asked + 20 * minute) === null);
   check('waiting: held, then released by the owner 2 min ago → being made until its copy is here', shownAs({ status: 'done', job_id: 'j1', finished_at: new Date(asked).toISOString(), updated_at: new Date(asked + 60 * minute).toISOString() }, asked + 62 * minute)?.freeStage === 'making');
+  check('waiting: done, but no copy is coming (not a customer, not bought, not the owner) → nothing shown', shownAs({ status: 'done', job_id: 'j1', finished_at: new Date(asked).toISOString(), is_customer: false }, asked + 5 * minute) === null);
+  check('waiting: done for the owner\'s own address → being made until its copy is here', shownAs({ status: 'done', job_id: 'j1', finished_at: new Date(asked).toISOString(), is_customer: false, email: 'contact@bluefx.net' }, asked + 5 * minute)?.freeStage === 'making');
   check('waiting: done with no time at all → nothing shown', shownAs({ status: 'done', job_id: 'j1', finished_at: null, updated_at: 'x' }) === null);
   const notMade = shownAs({ status: 'failed', job_id: 'j1' });
   check('waiting: failed after a try → could not be made', notMade?.status === 'failed' && notMade.error === NOT_MADE && notMade.freeStage === undefined);
