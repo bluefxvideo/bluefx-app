@@ -19,8 +19,8 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { createAdminClient } from '@/app/supabase/server';
-import { fakeMode, OWNER_TEST_EMAILS, renderTargetAllowed } from '@/lib/free-video/config';
-import { asLead, customerIdByEmail, leadsTable, ownerAccountIdByEmail, readSettings } from '@/lib/free-video/leads';
+import { claimsTestLeads, fakeMode, OWNER_TEST_EMAILS, renderTargetAllowed } from '@/lib/free-video/config';
+import { asLead, customerIdByEmail, getLead, leadsTable, ownerAccountIdByEmail, readSettings, RETIRED_OWNER_TEST } from '@/lib/free-video/leads';
 import { cleanCopyEarned } from '@/lib/free-video/offer';
 import { checkCleanFile, cleanProps, inBackground } from '@/lib/free-video/unlock';
 import { BUCKET, jobDir, jobsTable, publicUrl, readJob, STALE_AFTER_MS, touchJob, upload, withRetry, writeJob } from '@/lib/smart-video/jobs';
@@ -239,7 +239,7 @@ export async function copyLeadsToAccounts(own: (query: any) => any): Promise<num
   let started = 0;
   for (const lead of leads.values()) {
     try {
-      const userId = OWNER_TEST_EMAILS.includes(lead.email) ? await ownerAccountIdByEmail(lead.email) : await customerIdByEmail(lead.email);
+      const userId = await accountOfLead(lead);
       if (!userId) continue;
       const copy = await readJob(userId, copyIdOf(lead.id, userId));
       if (copy?.status === 'done') continue;
@@ -251,4 +251,93 @@ export async function copyLeadsToAccounts(own: (query: any) => any): Promise<num
     }
   }
   return started;
+}
+
+/** The AI Media Machine account a lead's free video ad is copied into: the owner's own for his addresses, else the email's account with an active plan; null when there is none. Throws on a failed read. */
+export async function accountOfLead(lead: Pick<FreeVideoLead, 'email'>): Promise<string | null> {
+  return OWNER_TEST_EMAILS.includes(lead.email) ? ownerAccountIdByEmail(lead.email) : customerIdByEmail(lead.email);
+}
+
+/** Right after a free video ad is done: its copy in the account starts at once, not at the next sweep (owner 2026-10-14: "instantly"). Never throws. */
+export async function copyToAccountNow(leadId: string): Promise<void> {
+  try {
+    const lead = await getLead(leadId);
+    if (!lead || lead.status !== 'done') return;
+    const userId = await accountOfLead(lead);
+    if (userId) await claimFreeVideo(lead, userId);
+  } catch (error) {
+    console.warn(`⚠️ [free-video] Lead ${leadId}: the copy into the account did not start now (the sweep starts it):`, String(error).slice(0, 160));
+  }
+}
+
+/** What Your videos says of a free video ad that could not be made. */
+export const NOT_MADE = 'We could not make this free video ad. You can make a video ad from the same website on this page.';
+
+/** How long a free video ad asked for with an account's email shows in that account's videos before it has a copy there. */
+const WAITING_HOURS = 24;
+/** A finished free video ad whose copy is not there yet (it starts the moment the ad is done; the sweep tries again within minutes) still shows as being made for this long. */
+const COPY_GRACE_MINUTES = 15;
+
+type WaitingLead = Pick<FreeVideoLead, 'id' | 'status' | 'website_domain' | 'created_at' | 'updated_at' | 'finished_at' | 'job_id' | 'reason'>;
+
+/** How Your videos shows a free video ad that has no copy in the account yet; null shows nothing. Pure (the checks run it). */
+export function waitingJobOf(lead: WaitingLead, userId: string, now = Date.now()): SmartVideoJob | null {
+  if (!(now - Date.parse(lead.created_at) < WAITING_HOURS * 60 * 60_000)) return null;
+  const shown = {
+    id: copyIdOf(lead.id, userId),
+    userId,
+    // The same title as the copy that takes its place (claimFreeVideo).
+    brief: `Your free video ad for ${lead.website_domain}`,
+    format: 'vertical' as const,
+    voiceOver: true,
+    music: true,
+    creditsUsed: 0,
+    freeLeadId: lead.id,
+    freeSite: lead.website_domain,
+    createdAt: lead.created_at,
+    updatedAt: lead.created_at,
+  };
+  switch (lead.status) {
+    case 'queued':
+    case 'running':
+      return { ...shown, status: 'producing', freeStage: 'making' };
+    case 'held':
+      return { ...shown, status: 'producing', freeStage: 'checking' };
+    case 'done': {
+      // Done at finished_at, or later when the owner released a held one (updated_at): its copy is on the way.
+      const doneAt = Math.max(...[lead.finished_at, lead.updated_at].map((at) => Date.parse(at ?? '')).filter(Number.isFinite));
+      return now - doneAt < COPY_GRACE_MINUTES * 60_000 ? { ...shown, status: 'producing', freeStage: 'making' } : null;
+    }
+    case 'failed':
+    case 'rejected':
+      // Only one that was being made (a website the form refused never was), and never an owner test he asked for again.
+      return lead.job_id && lead.reason !== RETIRED_OWNER_TEST ? { ...shown, status: 'failed', error: NOT_MADE } : null;
+    default:
+      return null;
+  }
+}
+
+/**
+ * The free video ads asked for with this account's email that have no copy in it yet, as Your videos shows them (owner
+ * 2026-10-14: "i want it to appear for all, instantly, and show that it is under work"). Nothing is stored for them:
+ * they are read from the leads on every look, and the copy (claimFreeVideo, the same id) takes their place once the
+ * free video ad is done. Only for the account that gets the copy (accountOfLead), and only this server's leads (live:
+ * the real ones; any other server: its test ones). Never throws: a failed read shows nothing extra.
+ */
+export async function waitingFreeVideos(userId: string, email: string | null | undefined, stored: ReadonlySet<string>): Promise<SmartVideoJob[]> {
+  const key = email?.trim().toLowerCase();
+  if (!key) return [];
+  try {
+    const since = new Date(Date.now() - WAITING_HOURS * 60 * 60_000).toISOString();
+    const leads = leadsTable().select('id, status, website_domain, created_at, updated_at, finished_at, job_id, reason').eq('email', key).gt('created_at', since);
+    const { data, error } = await (claimsTestLeads() ? leads.eq('source', 'test') : leads.neq('source', 'test')).order('created_at', { ascending: false }).limit(10);
+    if (error) throw new Error(error.message);
+    const shown = ((data ?? []) as WaitingLead[]).map((lead) => waitingJobOf(lead, userId)).filter((job): job is SmartVideoJob => job !== null && !stored.has(job.id));
+    // The account is looked up only when there is something to show (most looks have nothing).
+    if (!shown.length || (await accountOfLead({ email: key })) !== userId) return [];
+    return shown;
+  } catch (error) {
+    console.warn('⚠️ [free-video] Free video ads on their way to the account not read:', String(error).slice(0, 160));
+    return [];
+  }
 }

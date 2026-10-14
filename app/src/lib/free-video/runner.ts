@@ -32,6 +32,7 @@ import {
   UNREADABLE,
   WATERMARK,
 } from '@/lib/free-video/config';
+import { copyToAccountNow } from '@/lib/free-video/claim';
 import { qualityGate } from '@/lib/free-video/gate';
 import { asLead, getLead, leadsTable, readSettings, transitionLead } from '@/lib/free-video/leads';
 import { liveRecorder } from '@/lib/free-video/live';
@@ -531,7 +532,8 @@ export async function settleLead(leadId: string): Promise<SettleOutcome> {
   if (gate.pass && !settings.review_mode) {
     if (!(await transitionLead(lead.id, guard, { ...patch, status: 'done', reason: null }))) return 'none';
     console.log(`✅ [free-video] Lead ${lead.id} (${lead.website_domain}) is done: ${job.videoUrl}`);
-    await deliverLead(lead.id);
+    // The copy in the visitor's AI Media Machine account starts now, beside the email (owner 2026-10-14: "instantly").
+    await Promise.all([deliverLead(lead.id), copyToAccountNow(lead.id)]);
     await startWaitingUnlock(lead.id);
     return 'done';
   }

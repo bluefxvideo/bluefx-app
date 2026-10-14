@@ -6,6 +6,7 @@ import { after } from 'next/server';
 import { ZodError } from 'zod';
 import { createAdminClient, createClient } from '@/app/supabase/server';
 import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
+import { waitingFreeVideos } from '@/lib/free-video/claim';
 import { transcribeWords } from '@/lib/smart-video/audio';
 import { reviseSmartVideo, withSubtitleLook, type SmartVideoMedia } from '@/lib/smart-video/pipeline';
 import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_PRESENTER_CHANGE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
@@ -73,12 +74,17 @@ function readable(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-async function currentUserId(): Promise<string | null> {
+/** The signed-in user: the id, and the sign-in email (free video ads asked for with it show in Your videos). */
+async function currentUser(): Promise<{ id: string; email: string | null } | null> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return user?.id ?? null;
+  return user ? { id: user.id, email: user.email ?? null } : null;
+}
+
+async function currentUserId(): Promise<string | null> {
+  return (await currentUser())?.id ?? null;
 }
 
 const TOO_MANY = `Two of your videos are still being made. Start the next one when one of them is finished.`;
@@ -367,10 +373,12 @@ async function mediaFromProps(props: Record<string, unknown>, dir: string, langu
 
 /** The page polls this. A job whose process died (deploy, crash) is reported as failed. */
 export async function getSmartVideoJob(jobId: string): Promise<SmartVideoJob | null> {
-  const userId = await currentUserId();
-  if (!userId || !/^[0-9a-f-]{36}$/.test(jobId)) return null;
+  const user = await currentUser();
+  if (!user || !/^[0-9a-f-]{36}$/.test(jobId)) return null;
+  const userId = user.id;
   const job = await readJob(userId, jobId);
-  if (!job) return null;
+  // A free video ad still being made has no row yet: it is read from its lead until its copy takes its place (claim.ts).
+  if (!job) return (await waitingFreeVideos(userId, user.email, new Set())).find((waiting) => waiting.id === jobId) ?? null;
   if (isDead(job)) return forViewer(await failAndRefund(job, DEAD_JOB));
   // Videos finished before the script was saved with the job (or before it said whether the AI presenter opens the
   // video, which the edit form needs): read it from their plan once.
@@ -386,13 +394,15 @@ export async function getSmartVideoJob(jobId: string): Promise<SmartVideoJob | n
 }
 
 export async function listSmartVideoJobs(): Promise<SmartVideoJob[]> {
-  const userId = await currentUserId();
-  if (!userId) return [];
-  const { data } = await jobsTable().select('job, updated_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(60);
+  const user = await currentUser();
+  if (!user) return [];
+  const { data } = await jobsTable().select('job, updated_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(60);
   // The library settles dead jobs too: a job that died while nobody watched it would otherwise
   // stay "Working" forever, keep its credits, and count against the two-at-once limit.
   const jobs = await Promise.all(
     ((data || []) as JobRow[]).map(fromRow).map((job) => (isDead(job) ? failAndRefund(job, DEAD_JOB).catch(() => job) : job))
   );
-  return jobs.map(forViewer);
+  // A free video ad asked for with this account's email shows from the moment it is asked for, until its copy is here.
+  const waiting = await waitingFreeVideos(user.id, user.email, new Set(jobs.map((job) => job.id)));
+  return [...waiting, ...jobs].map(forViewer);
 }

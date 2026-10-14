@@ -119,6 +119,11 @@ export interface SmartVideoJob {
   /** The copy's free (marked) file, shown while the clean version renders, and the website it was made from. */
   freePreviewUrl?: string;
   freeSite?: string;
+  /**
+   * A free video ad that has no copy in the account yet, as Your videos shows it from its lead (claim.ts
+   * waitingFreeVideos; never stored): 'making' while it is made, 'checking' while it gets a final check.
+   */
+  freeStage?: 'making' | 'checking';
   error?: string;
 }
 

@@ -20,6 +20,9 @@ import type { VideoFormat, VideoLook } from '@/lib/smart-video/types';
 import { SMART_VIDEO_MAX_FILE_MB, SMART_VIDEO_MAX_FILES, type SmartVideoJob } from '@/types/smart-video';
 
 const POLL_MS = 4000;
+// Your videos refreshes itself while one of them is still being made, and when the tab comes back into view, so a
+// free video ad asked for in another tab shows there without a reload (owner 2026-10-14).
+const LIST_POLL_MS = 10_000;
 const isRunning = (job?: SmartVideoJob | null) => Boolean(job && job.status !== 'done' && job.status !== 'failed');
 
 /** A listing video is made from photos (some systems give a HEIC file no type, so the name counts too). */
@@ -64,6 +67,8 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   const { data: allJobs = [], error: historyError } = useQuery({
     queryKey: ['smart-video-jobs'],
     queryFn: () => listSmartVideoJobs(),
+    refetchInterval: (query) => (query.state.data?.some(isRunning) ? LIST_POLL_MS : false),
+    refetchOnWindowFocus: true,
   });
   // Each page lists its own videos
   const history = allJobs.filter((item) => Boolean(item.listing) === isListing);
@@ -301,7 +306,8 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     credits: isListing ? LISTING_CREDITS : phantomCredits(brief, exactWords) + (withPresenter ? PHANTOM_PRESENTER_CREDITS : 0),
     revise,
     revising,
-    isBusy: Boolean(uploading) || revising || isRunning(job) || (Boolean(jobId) && !job),
+    // A free video ad being made or copied in keeps the form free: the user did not start it.
+    isBusy: Boolean(uploading) || revising || (isRunning(job) && !job?.freeLeadId) || (Boolean(jobId) && !job),
     start,
     reset,
     retryEdit,

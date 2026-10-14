@@ -140,7 +140,8 @@ export function SmartVideoPage() {
     else if (watched.current === job.id) {
       watched.current = null;
       if (job.status === 'done') toast.success(`${NAME} was here. Your video is ready.`);
-      else toast.error(`${NAME} vanished mid-job: ${job.error || 'unknown reason'}`);
+      // A free video ad that could not be made says so in plain words, as its card does.
+      else toast.error(job.freeLeadId ? plainError(job.error) : `${NAME} vanished mid-job: ${job.error || 'unknown reason'}`);
     }
   }, [job]);
 
@@ -646,6 +647,9 @@ function OutputPanel({
             </div>
           </div>
         </>
+      ) : job.status === 'failed' && job.freeLeadId ? (
+        // A free video ad that could not be made or copied: what happened, in plain words (no "try again" with its title).
+        <p className="text-sm text-muted-foreground">{plainError(job.error)}</p>
       ) : job.status === 'failed' ? (
         <div className="space-y-3">
           <p className="text-sm text-destructive">
@@ -672,6 +676,9 @@ function OutputPanel({
             </div>
           )}
         </div>
+      ) : job.freeLeadId && job.freeStage ? (
+        // A free video ad shows here from the moment it was asked for, until its copy takes its place (owner 2026-10-14).
+        <FreeVideoWaiting job={job} />
       ) : job.freeLeadId ? (
         // A free video ad copied in: the same video ad, only the mark comes off (owner 2026-10-07: the making steps
         // looked like the video ad being made again).
@@ -902,6 +909,28 @@ function VideoLibrary({ groups, currentId, onOpen }: { groups: VideoGroup[]; cur
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// A free video ad on its way to the account, in one line. Most are done in about 3 minutes (median 2.8, 2026-10-14).
+function FreeVideoWaiting({ job }: { job: SmartVideoJob }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  const site = job.freeSite ? ` for ${job.freeSite}` : '';
+  const text =
+    job.freeStage === 'checking'
+      ? `Your free video ad${site} is getting a final check. It shows here as soon as it is ready, without the watermark.`
+      : now - Date.parse(job.createdAt) > 10 * 60_000
+        ? `Your free video ad${site} is taking longer than usual. It shows here as soon as it is ready, without the watermark.`
+        : `Your free video ad${site} is being made: reading the website, writing the script, filming the AI presenter. About 3 minutes, then the watermark comes off here.`;
+  return (
+    <div className="flex items-center gap-3 rounded-lg border p-4 text-sm">
+      <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+      <span className="flex-1">{text}</span>
     </div>
   );
 }

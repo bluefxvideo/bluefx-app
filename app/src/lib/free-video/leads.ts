@@ -229,6 +229,9 @@ async function insertLead(row: Record<string, unknown>, emailRows: number = INTA
   return { outcome: answer.outcome ?? 'paused', ...(answer.lead ? { lead: asLead(answer.lead) } : {}) };
 }
 
+/** The reason on an owner test lead that a new request for the same website replaced (createLead). */
+export const RETIRED_OWNER_TEST = 'replaced by a new owner test';
+
 /**
  * A new lead from the form (or, later, the Facebook lead webhook with ip null). Cheapest checks first:
  * 1. normalizeWebsite → 400 invalid.
@@ -266,7 +269,7 @@ export async function createLead(input: FreeVideoLeadInput, meta: LeadMeta): Pro
     const emailKey = ownerTest ? `${emailKeyOf(email)}#${randomBytes(6).toString('hex')}` : emailKeyOf(email);
     const since = isoMinutesAgo(24 * 60);
     if (ownerTest) {
-      const retire = { status: 'rejected', reason: 'replaced by a new owner test', updated_at: new Date().toISOString() };
+      const retire = { status: 'rejected', reason: RETIRED_OWNER_TEST, updated_at: new Date().toISOString() };
       const { error } = await leadsTable().update(retire).eq('website_domain', domain).in('email', [...OWNER_TEST_EMAILS]).in('status', ['done', 'held', 'failed']);
       if (error) throw new Error(error.message);
     }

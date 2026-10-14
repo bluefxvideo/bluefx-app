@@ -19,12 +19,12 @@ import path from 'node:path';
 import { FREE_PLAN, freeNote, isLive, LIMITS, WATERMARK } from '@/lib/free-video/config';
 import { EMAIL_DRAFTS, WHY_IT_WORKS } from '@/lib/free-video/copy';
 import { blockedCountry } from '@/lib/free-video/geo';
-import { copyIdOf } from '@/lib/free-video/claim';
+import { copyIdOf, NOT_MADE, waitingJobOf } from '@/lib/free-video/claim';
 import { afterLoginPath, AFTER_LOGIN_PATH } from '@/lib/after-login';
 import { checkAdScript, SCRIPT_RULES } from '@/lib/smart-video/script-rules';
 import { PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
 import { frameOf, lastScreenReaches, qualityGate } from '@/lib/free-video/gate';
-import { takeAttempt, unlockViewOf, verifyHuman } from '@/lib/free-video/leads';
+import { RETIRED_OWNER_TEST, takeAttempt, unlockViewOf, verifyHuman } from '@/lib/free-video/leads';
 import {
   CARD_PLACEMENTS,
   cardPlacementOf,
@@ -378,7 +378,10 @@ async function main(): Promise<void> {
     }),
     /animated photos failed/
   );
-  await expectReason("60 s → 'length 60 s'", saved, /length 60 s/, { ...job, durationSeconds: 60 });
+  // No maximum length (owner 2026-10-13: a free ad is never rejected or remade for being long).
+  const sixty = await gate(saved, { ...job, durationSeconds: 60 });
+  check('a 60 s video ad passes (no maximum length)', sixty.pass, sixty.reasons.join('; '));
+  await expectReason("12 s → 'length 12 s' (too short)", saved, /length 12 s/, { ...job, durationSeconds: 12 });
   const board = mutate((c) => {
     c.plan.style = 'whiteboard';
     c.plan.animate = null;
@@ -499,7 +502,7 @@ async function main(): Promise<void> {
   const composition = path.resolve(__dirname, '../../../remotion/src/SmartVideo.jsx');
   if (fs.existsSync(composition)) {
     const jsx = fs.readFileSync(composition, 'utf8');
-    check('SmartVideo.jsx takes the watermark prop, its label and endCardSeconds', /watermark\s*}/.test(jsx) && jsx.includes('watermark.label') && jsx.includes('endCardSeconds'));
+    check('SmartVideo.jsx takes the watermark prop, its label and endCardSeconds', /export const SmartVideo = \(\{.*\bwatermark\b.*\}\) =>/.test(jsx) && jsx.includes('watermark.label') && jsx.includes('endCardSeconds'));
   } else skip('SmartVideo.jsx prop names', 'remotion folder not found');
 
   // 12. -----------------------------------------------------------------------------------------
@@ -542,6 +545,29 @@ async function main(): Promise<void> {
   for (const bad of ['//evil.com', '/\\evil.com', 'https://evil.com', 'evil.com', '/ x', '']) {
     check(`after login: ${JSON.stringify(bad)} goes to The Phantom`, afterLoginPath(bad) === AFTER_LOGIN_PATH);
   }
+
+  // A free video ad shows in the account's videos from the moment it is asked for (owner 2026-10-14), read from its lead.
+  const asked = Date.parse('2026-10-14T10:00:00.000Z');
+  const minute = 60_000;
+  const waitingLead: Parameters<typeof waitingJobOf>[0] = { id: leadId, status: 'queued', website_domain: 'joesplumbing.com', created_at: new Date(asked).toISOString(), updated_at: new Date(asked).toISOString(), finished_at: null, job_id: null, reason: null };
+  const shownAs = (change: Partial<typeof waitingLead>, at = asked + minute) => waitingJobOf({ ...waitingLead, ...change }, buyer, at);
+  const queued = shownAs({});
+  check('waiting: a queued free video ad shows as being made, under the id its copy gets', queued?.status === 'producing' && queued.freeStage === 'making' && queued.id === copyIdOf(leadId, buyer));
+  check('waiting: the same title as the copy, and no credits', queued?.brief === 'Your free video ad for joesplumbing.com' && queued.freeSite === 'joesplumbing.com' && queued.creditsUsed === 0 && queued.freeLeadId === leadId);
+  check('waiting: running → being made', shownAs({ status: 'running', job_id: 'j1' })?.freeStage === 'making');
+  check('waiting: held → a final check', shownAs({ status: 'held', job_id: 'j1' })?.freeStage === 'checking');
+  check('waiting: done 5 min ago and no copy yet → still being made', shownAs({ status: 'done', job_id: 'j1', finished_at: new Date(asked).toISOString() }, asked + 5 * minute)?.freeStage === 'making');
+  check('waiting: done 20 min ago and still no copy → nothing shown', shownAs({ status: 'done', job_id: 'j1', finished_at: new Date(asked).toISOString() }, asked + 20 * minute) === null);
+  check('waiting: held, then released by the owner 2 min ago → being made until its copy is here', shownAs({ status: 'done', job_id: 'j1', finished_at: new Date(asked).toISOString(), updated_at: new Date(asked + 60 * minute).toISOString() }, asked + 62 * minute)?.freeStage === 'making');
+  check('waiting: done with no time at all → nothing shown', shownAs({ status: 'done', job_id: 'j1', finished_at: null, updated_at: 'x' }) === null);
+  const notMade = shownAs({ status: 'failed', job_id: 'j1' });
+  check('waiting: failed after a try → could not be made', notMade?.status === 'failed' && notMade.error === NOT_MADE && notMade.freeStage === undefined);
+  check('waiting: rejected after a try (unreadable website) → could not be made', shownAs({ status: 'rejected', job_id: 'j1' })?.status === 'failed');
+  check('waiting: refused on the form (never tried) → nothing shown', shownAs({ status: 'rejected', reason: 'refused host: facebook.com' }) === null);
+  check('waiting: an owner test he asked for again → nothing shown', shownAs({ status: 'rejected', job_id: 'j1', reason: RETIRED_OWNER_TEST }) === null);
+  check('waiting: after 24 hours → nothing shown', shownAs({}, asked + 25 * 60 * minute) === null && shownAs({ status: 'failed', job_id: 'j1' }, asked + 25 * 60 * minute) === null);
+  check('waiting: a date that does not parse → nothing shown', waitingJobOf({ ...waitingLead, created_at: 'not a date' }, buyer, asked) === null);
+  check('waiting: NOT_MADE follows the copy rules (no dashes)', !/[–—]/.test(NOT_MADE));
 
   // 15. -----------------------------------------------------------------------------------------
   section('15. The Phantom: script rules and the presenter price');
