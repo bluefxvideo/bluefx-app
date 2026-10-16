@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import Image from 'next/image';
-import { OFFER_COPY, SUPPORT_EMAIL } from '@/lib/free-video/copy';
+import { OFFER_COPY, READY_NEXT, SUPPORT_EMAIL } from '@/lib/free-video/copy';
 import { claimUrl, goUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
@@ -373,6 +373,47 @@ function Stars({ label }: { label: string }) {
 }
 
 /** A customer's video testimonial: the poster with a play button, and the Vimeo or YouTube player once tapped (autoplay, public video). */
+/**
+ * The result page's second half (owner 2026-10-16, the page from zero): Szilard's walkthrough, the proof that the AI
+ * Media Machine makes many kinds of video ads, the questions leads ask (READY_NEXT.questions), then the same button as
+ * under the video ad, to the sales page.
+ */
+export function ResultWalkthrough({ token }: { token: string }) {
+  const { tour } = SALES_PAGE;
+  const { questions } = READY_NEXT;
+  return (
+    <section className={styles.sp} aria-labelledby="fv-tour-title">
+      <div id={tour.anchor} className={styles.spBlock}>
+        <div className={styles.spInnerWide}>
+          <p className={styles.spKicker}>{tour.kicker}</p>
+          <h2 id="fv-tour-title" className={styles.spTitle}>
+            {tour.title}
+          </h2>
+          <p className={styles.spLead}>{tour.lead}</p>
+          <FounderTour token={token} />
+        </div>
+      </div>
+      {/* The questions leads really ask, folded so the page stays short, then the same button as under the video ad. */}
+      <div className={cn(styles.spBlock, styles.spSoft)}>
+        <div className={styles.spInner}>
+          <h2 className={styles.spTitle}>{questions.title}</h2>
+          <div className={styles.faq}>
+            {questions.items.map((item) => (
+              <details key={item.q} className={styles.faqItem}>
+                <summary>{item.q}</summary>
+                <p>{item.a}</p>
+              </details>
+            ))}
+          </div>
+          <a className={cn(styles.btn, styles.spBtn, styles.spTourEnd)} href={goUrl('fvreadyend', token)}>
+            {READY_NEXT.button}
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /** The walkthrough: its poster until a tap, then YouTube from the start or from a chapter (the player loads only then). */
 function FounderTour({ token }: { token: string }) {
   const { tour } = SALES_PAGE;

@@ -13,7 +13,7 @@ import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pr
  * ClickBank's checkout as the vendor tracking id (vtid: letters, digits and underscores), so ClickBank's reports show
  * sales per placement.
  */
-export const PLACEMENTS = ['fvthank', 'fvpage', 'fvland', 'fvthankcard', 'fvpagecard', 'fvmail1', 'fvmail2', 'fvmail3', 'fvmail4'] as const;
+export const PLACEMENTS = ['fvthank', 'fvpage', 'fvland', 'fvthankcard', 'fvpagecard', 'fvready', 'fvreadyend', 'fvmail1', 'fvmail2', 'fvmail3', 'fvmail4'] as const;
 export type Placement = (typeof PLACEMENTS)[number];
 
 /**
@@ -30,8 +30,20 @@ export type PagePlacement = (typeof PAGE_PLACEMENTS)[number];
  */
 export const CARD_PLACEMENTS = ['fvthankcard', 'fvpagecard'] as const satisfies readonly Placement[];
 export type CardPlacement = (typeof CARD_PLACEMENTS)[number];
-/** Every lifetime offer button on a funnel page: the pages' own buttons and the offer card's. A cta_click on one of these is an offer click. */
-export const OFFER_BUTTON_PLACEMENTS = [...PAGE_PLACEMENTS, ...CARD_PLACEMENTS] as const satisfies readonly Placement[];
+/**
+ * The result page's buttons to the proven AI Media Machine sales page (owner 2026-10-16: "we over-engineered it ... start
+ * from an empty page"; the sales page is one of "our anchors, those things we know work"): under the video ad (fvready)
+ * and after the walkthrough (fvreadyend). /go logs the click and opens LIFETIME_PAGE_URL with the affiliate's hop.
+ */
+export const SALES_PAGE_PLACEMENTS = ['fvready', 'fvreadyend'] as const satisfies readonly Placement[];
+export type SalesPagePlacement = (typeof SALES_PAGE_PLACEMENTS)[number];
+export function isSalesPagePlacement(value: string): value is SalesPagePlacement {
+  return (SALES_PAGE_PLACEMENTS as readonly string[]).includes(value);
+}
+/** The AI Media Machine's own sales page, the one ClickBank sells from: the price, the stack, the guarantee and the checkout. */
+export const LIFETIME_PAGE_URL = 'https://ai.bluefx.net/lifetime/';
+/** Every lifetime offer button on a funnel page: the pages' own buttons, the offer card's and the result page's buttons to the sales page. A cta_click on one of these is an offer click. */
+export const OFFER_BUTTON_PLACEMENTS = [...PAGE_PLACEMENTS, ...CARD_PLACEMENTS, ...SALES_PAGE_PLACEMENTS] as const satisfies readonly Placement[];
 /** The placements used by the email buttons, in send order (E1, E2, E3). They open the lead's own video ad page, where the offer sits under the video ad. */
 export const EMAIL_PLACEMENTS = ['fvmail1', 'fvmail2', 'fvmail3', 'fvmail4'] as const satisfies readonly Placement[];
 

@@ -645,6 +645,54 @@ export const OFFER_READY = {
 } as const;
 
 /**
+ * The result page, started again from an empty page (owner 2026-10-16: "we over-engineered it ... start from an empty
+ * page. What needs to be there? What is crucial? What is not?"): their video ad, one line on what made it, one button
+ * to the AI Media Machine's own sales page, where the price is shown once, as tested, the 3-day bonus in one line
+ * (owner: "keep"), the free download, then Szilard's walkthrough and the same button again. No price, no $3 math and no
+ * letter on this page.
+ */
+export const READY_NEXT = {
+  line: 'The AI Media Machine made this video ad from your website in about 3 minutes.',
+  button: 'Get the AI Media Machine',
+  /**
+   * Once the browser has printed the deadline in the visitor's own time (useDeadline). The purchase finds their video ad
+   * by email (sweep.ts attributeSales), so the line says to use the same one.
+   */
+  bonus: (when: string) => `Free bonus: get it by ${when} with the email you used here, and your video ad goes into your account without the watermark.`,
+  bonusSoon: 'Free bonus: get it within 3 days with the email you used here, and your video ad goes into your account without the watermark.',
+  /**
+   * The questions leads really ask in their emails (owner 2026-10-16: "a set of the important questions / answers"):
+   * changes (Johnny, Ed), their own people and voice (Steven), how many (Mike), plus the two any buyer asks. Folded under
+   * the walkthrough. No price here and no math: the sales page shows the price once.
+   */
+  questions: {
+    title: 'Questions',
+    items: [
+      {
+        q: 'Can I change my video ad?',
+        a: 'Yes, in the AI Media Machine. Type what you want changed, like the presenter, the voice, the words, a photo or the music, and the new version is ready in about 3 minutes. You can also make new video ads in other styles.',
+      },
+      {
+        q: 'Can I use my own photo, people and voice?',
+        a: 'Yes. Upload a photo of yourself, or of someone who agreed to it, and that person presents your video ad. Add your own photos, clips and logo, and make voice-overs in your own cloned voice.',
+      },
+      {
+        q: 'How many video ads can I make?',
+        a: 'About 10 video ads like yours every month, for life. In a busy month you can add a credit pack, from $9.99, with nothing recurring.',
+      },
+      {
+        q: 'Do I need to be technical?',
+        a: 'No. If you can paste a link and click a button, you can make video ads with the AI Media Machine. The AI writes the script and makes the voice-over, the pictures and the music. It runs in your browser, with nothing to install.',
+      },
+      {
+        q: 'Is it a monthly subscription?',
+        a: 'No. You pay once and the AI Media Machine is yours for life. Nothing renews, there is nothing to cancel, and you have 30 days to get your money back.',
+      },
+    ],
+  },
+} as const;
+
+/**
  * The offer card (offer-card.tsx) and the buy bar on phones (owner 2026-10-12, after the Neil Patel style review: put
  * the offer at the moment they act, and "they should see what they get" before the price). The card reuses the page's
  * own words for everything else: the kicker of the changes section, the bonus and its deadline (OFFER_READY above), the

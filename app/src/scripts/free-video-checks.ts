@@ -33,8 +33,11 @@ import {
   cleanCopyUntil,
   isEmailPlacement,
   isPlacement,
+  isSalesPagePlacement,
+  LIFETIME_PAGE_URL,
   OFFER_BUTTON_PLACEMENTS,
   PAGE_PLACEMENTS,
+  SALES_PAGE_PLACEMENTS,
   UNLOCK,
   unlockCheckoutUrl,
   unlockGoUrl,
@@ -433,7 +436,12 @@ async function main(): Promise<void> {
     'every offer card placement is a /go placement, not an email one, and a valid ClickBank vtid',
     CARD_PLACEMENTS.every((placement) => isPlacement(placement) && !isEmailPlacement(placement) && /^\w{1,24}$/.test(placement) && checkoutUrl(placement).endsWith(`&vtid=${placement}`))
   );
-  check('the offer clicks counted on the funnel pages include the card', OFFER_BUTTON_PLACEMENTS.length === PAGE_PLACEMENTS.length + CARD_PLACEMENTS.length && CARD_PLACEMENTS.every((p) => (OFFER_BUTTON_PLACEMENTS as readonly string[]).includes(p)));
+  check(
+    'the offer clicks counted on the funnel pages include the card and the buttons to the sales page',
+    OFFER_BUTTON_PLACEMENTS.length === PAGE_PLACEMENTS.length + CARD_PLACEMENTS.length + SALES_PAGE_PLACEMENTS.length &&
+      [...CARD_PLACEMENTS, ...SALES_PAGE_PLACEMENTS].every((p) => (OFFER_BUTTON_PLACEMENTS as readonly string[]).includes(p))
+  );
+  check('the result page buttons open the sales page, not an email or a card placement', SALES_PAGE_PLACEMENTS.every((p) => isPlacement(p) && isSalesPagePlacement(p) && !isEmailPlacement(p)) && LIFETIME_PAGE_URL === 'https://ai.bluefx.net/lifetime/');
   check(
     'offer_open is a page event that carries what opened the card',
     FreeVideoEventSchema.safeParse({ e: 'offer_open', t: token, from: 'download' }).success &&

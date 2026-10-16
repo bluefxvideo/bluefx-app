@@ -7,7 +7,7 @@ import { SITE_URL } from '@/lib/free-video/config';
 import { unlockOpen } from '@/lib/free-video/cleanup';
 import { clientIp, getLeadByToken, isActiveCustomerId, markClicked } from '@/lib/free-video/leads';
 import { rememberCheckoutIds, requestFacts, trackCheckout } from '@/lib/free-video/meta';
-import { checkoutUrl, isEmailPlacement, isPlacement, UNLOCK, unlockCheckoutUrl } from '@/lib/free-video/offer';
+import { checkoutUrl, isEmailPlacement, isPlacement, isSalesPagePlacement, LIFETIME_PAGE_URL, UNLOCK, unlockCheckoutUrl } from '@/lib/free-video/offer';
 import { CLICK_VISITOR_PARAM, VISITOR_ID_PATTERN } from '@/lib/free-video/internal-visit';
 import { CHECKOUT_EVENT_PARAM } from '@/lib/free-video/pixel';
 import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
@@ -28,6 +28,10 @@ import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
  * - 'claim' ("Open this video ad in the AI Media Machine") → a signed-in customer gets a copy of the finished video ad
  *   in their Phantom videos (claim.ts) and lands on it; signed out → the login page, back here after; not a customer
  *   → the lifetime offer; a video ad that is not finished → its page.
+ * - A result page button to the sales page (fvready, fvreadyend; owner 2026-10-16) → 302 to the AI Media Machine's own
+ *   sales page (LIFETIME_PAGE_URL) with the affiliate's hop, the click logged on the lead. Not a checkout: no
+ *   InitiateCheckout for Facebook; the sales page's own buttons open ClickBank's order form, and ClickBank's script there
+ *   carries the hop on.
  * - Anything else → 404. Every target is built here from fixed parts: never an open redirect.
  * - A checkout link carries the affiliate's ClickBank hop (clickbank.ts): the hopId and vq ClickBank's script appended
  *   to the button's link in the same browser, else the hop saved when the lead came in (a click from the emails on
@@ -93,6 +97,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
   }
 
   if (!isPlacement(placement)) return notFound();
+
+  if (isSalesPagePlacement(placement)) {
+    const hop = hopFromSearchParams(req.nextUrl.searchParams) ?? (validToken ? await savedHopByToken(token) : undefined);
+    const internal = requestFacts(req, clientIp(req)).internal;
+    // The owner's own browser (the fv_internal cookie, internal-visit.ts) never counts as an offer click on the lead.
+    if (validToken && !internal) after(() => markClicked(token, placement));
+    return redirect(withHop(LIFETIME_PAGE_URL, hop));
+  }
 
   if (isEmailPlacement(placement)) {
     const lead = validToken ? await getLeadByToken(token).catch(() => null) : null;
