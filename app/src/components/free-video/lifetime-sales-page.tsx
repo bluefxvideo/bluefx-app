@@ -7,6 +7,7 @@ import { OFFER_COPY, SUPPORT_EMAIL } from '@/lib/free-video/copy';
 import { claimUrl, goUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
+import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import styles from './free-video.module.css';
 import { OfferButton } from './offer-button';
 import { PaymentTrust } from './payment-trust';
@@ -42,6 +43,16 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
   const nearPrice = reviews.items.find((item) => item.name === reviews.nearPrice);
   return (
     <section id={SALES_PAGE.anchor} className={styles.sp} aria-labelledby="fv-sales-title">
+      {/* Szilard's walkthrough of the AI Media Machine, first under his letter: the proof (SALES_PAGE.tour). */}
+      <div className={styles.spBlock}>
+        <div className={styles.spInnerWide}>
+          <p className={styles.spKicker}>{SALES_PAGE.tour.kicker}</p>
+          <h2 className={styles.spTitle}>{SALES_PAGE.tour.title}</h2>
+          <p className={styles.spLead}>{SALES_PAGE.tour.lead}</p>
+          <FounderTour token={token} />
+        </div>
+      </div>
+
       {/* What a buyer can change, a lead's own questions, with the presenters to pick from (SALES_PAGE.changes). */}
       <div className={cn(styles.spBlock, styles.spChanges)}>
         <div className={styles.spInnerWide}>
@@ -362,6 +373,53 @@ function Stars({ label }: { label: string }) {
 }
 
 /** A customer's video testimonial: the poster with a play button, and the Vimeo or YouTube player once tapped (autoplay, public video). */
+/** The walkthrough: its poster until a tap, then YouTube from the start or from a chapter (the player loads only then). */
+function FounderTour({ token }: { token: string }) {
+  const { tour } = SALES_PAGE;
+  const beacon = useFreeVideoBeacon(token);
+  /** Where the player starts, in seconds; null until the visitor plays it. */
+  const [from, setFrom] = useState<number | null>(null);
+  const play = (at: number) => {
+    if (from === null) beacon('tour_play');
+    setFrom(at);
+  };
+  return (
+    <div className={styles.spTour}>
+      <div className={styles.spTourVideo}>
+        {from === null ? (
+          <button type="button" className={styles.spReviewPlay} onClick={() => play(0)} aria-label={tour.playLabel}>
+            <Image className={styles.spReviewPoster} src={tour.poster} alt="" width={1280} height={720} sizes="(min-width: 1040px) 860px, 100vw" />
+            <span className={cn(styles.spReviewPlayIcon, styles.spTourPlayIcon)} aria-hidden="true">
+              &#9654;
+            </span>
+          </button>
+        ) : (
+          <iframe
+            // A new chapter reloads the player at its time.
+            key={from}
+            className={styles.spReviewPlayer}
+            src={`https://www.youtube-nocookie.com/embed/${tour.youtubeId}?autoplay=1&rel=0&playsinline=1&start=${from}`}
+            title={tour.title}
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+        )}
+      </div>
+      <p className={styles.spTourChaptersTitle}>{tour.chaptersTitle}</p>
+      <ul className={styles.spTourChapters}>
+        {tour.chapters.map((chapter) => (
+          <li key={chapter.at}>
+            <button type="button" className={styles.spTourChapter} onClick={() => play(chapter.at)}>
+              {chapter.label}
+              <span className={styles.spTourChapterTime}>{`${Math.floor(chapter.at / 60)}:${String(chapter.at % 60).padStart(2, '0')}`}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ReviewVideo({ src, poster, vertical, label }: { src: string; poster: string; vertical: boolean; label: string }) {
   const [playing, setPlaying] = useState(false);
   return (

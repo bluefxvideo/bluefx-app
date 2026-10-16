@@ -3623,6 +3623,65 @@ p.timerDark {
   border: 0;
 }
 
+/* Szilard's walkthrough under the letter (SALES_PAGE.tour, owner 2026-10-16): one wide player, chapter buttons under it. */
+.spTour {
+  max-width: 860px;
+  margin: 26px auto 0;
+}
+.spTourVideo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0f172a;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+}
+.spTourPlayIcon {
+  width: 72px;
+  height: 72px;
+  font-size: 28px;
+  padding-left: 5px;
+}
+.spTourChaptersTitle {
+  margin: 16px 0 8px;
+  color: var(--fv-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+.spTourChapters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.spTourChapter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--fv-line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--fv-ink);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.spTourChapter:hover {
+  border-color: var(--fv-blue);
+}
+.spTourChapterTime {
+  color: var(--fv-text);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
 
 /* ---------- the offer at the moment they act (owner 2026-10-12): main button, small links, offer card, buy bar ---------- */
 

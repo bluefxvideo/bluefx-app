@@ -7,7 +7,7 @@ import { FREE_VIDEO_REF_PATTERN, FREE_VIDEO_TOKEN_PATTERN, FreeVideoEventSchema,
 /**
  * POST /api/free-video/event: the funnel pages' sendBeacon target (P1 measurement).
  * Body (at most 1 KB, JSON): { e: 'landing_view' | 'form_start' | 'video_play' | 'video_complete' | 'download' |
- * 'offer_open', t?: view token, v?: visitor id, ref?: newsletter tag, from?: 'download' | 'bar' }. offer_open is the
+ * 'offer_open' | 'tour_play', t?: view token, v?: visitor id, ref?: newsletter tag, from?: 'download' | 'bar' }. offer_open is the
  * offer card opening on a result page; its from (what opened the card) is saved in the row's placement column.
  * Always answers 204 with no body, whatever happens: a beacon never shows an error. Allow-listed events only;
  * bots, foreign origins and more than EVENTS_PER_MINUTE events a minute from one IP are dropped. An event about

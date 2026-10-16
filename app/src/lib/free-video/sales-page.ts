@@ -80,6 +80,27 @@ export const deadlineLabel = (iso: string) =>
 const BONUS_DAYS = CLEAN_COPY_HOURS / 24;
 
 export const SALES_PAGE = {
+  /**
+   * Szilard's own walkthrough of the AI Media Machine (YouTube nfSTq86RomU, 17:31, recorded 2026-10-16 on the result
+   * page and inside the app), first under the letter: proof that the software works and makes many kinds of video ads
+   * (owner 2026-10-16: "this video is also proof that the software works ... I built it to make it more credible").
+   * The chapters are the description's (seconds into the video).
+   */
+  tour: {
+    youtubeId: 'nfSTq86RomU',
+    poster: '/free-video/tour-poster.jpg',
+    kicker: 'See it working',
+    title: 'Watch me use the AI Media Machine on my own screen',
+    lead: '17 minutes: I change the presenter in a video ad, play video ads in other styles and open every tool you get.',
+    playLabel: 'Play the 17 minute walkthrough',
+    chaptersTitle: 'Jump to',
+    chapters: [
+      { label: 'Change a video ad', at: 125 },
+      { label: 'Other video styles', at: 305 },
+      { label: 'Every tool', at: 579 },
+      { label: 'Credits', at: 905 },
+    ],
+  },
   /** The id the short offer's link beside the video ad jumps to. */
   anchor: 'everything-you-get',
   /** The id of the stack with the price, where the button beside the video ad jumps (Hormozi review 2026-10-09: value before price). */
