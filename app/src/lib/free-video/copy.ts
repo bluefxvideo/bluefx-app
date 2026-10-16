@@ -724,6 +724,36 @@ export const EMAIL_DRAFTS = [
     ].join('\n'),
   },
   {
+    id: 'E1b',
+    automation: 'Free Video Ad',
+    // No offer link: the one link goes to the lead's own result page, at the walkthrough (SALES_PAGE.tour.anchor).
+    placement: 'fvmail1b',
+    /** 12 hours after the "help me out on this?" email (15 minutes after Ready), 12 hours before E2 (owner 2026-10-16). */
+    send: '12 hours after the feedback email',
+    // Owner 2026-10-16: "add the tutorial link to the follow-up emails too, as a new email". The P.S. answers his
+    // video's own ending ("You can ask me any questions there").
+    subject: '{$name}, I recorded this for you (17 minutes)',
+    body: [
+      'Hey {$name},',
+      '',
+      "You've seen what the AI Media Machine made for {$free_video_site} for free.",
+      '',
+      'So I recorded a video on my own screen to show you what it does in the full version:',
+      '',
+      '- I change the presenter in a video ad by typing one line',
+      '- video ads in other styles: real estate, product shots, photos that move',
+      '- the other tools you get: talking avatars, video swap, music, voice-overs and thumbnails',
+      '',
+      '[Link: Watch The 17-Minute Walkthrough Here → {$free_video_url}#walkthrough]',
+      '',
+      'Short on time? Jump to "Change a video ad" at 2:05.',
+      '',
+      'Szilard',
+      '',
+      'P.S. Questions about anything in the video? Reply to this email. My team and I answer every one.',
+    ].join('\n'),
+  },
+  {
     id: 'E2',
     automation: 'Free Video Ad',
     placement: 'fvmail2',

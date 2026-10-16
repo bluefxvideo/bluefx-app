@@ -44,7 +44,7 @@ export function LifetimeSalesPage({ placement, token, domain, cleanUntil }: Life
   return (
     <section id={SALES_PAGE.anchor} className={styles.sp} aria-labelledby="fv-sales-title">
       {/* Szilard's walkthrough of the AI Media Machine, first under his letter: the proof (SALES_PAGE.tour). */}
-      <div className={styles.spBlock}>
+      <div id={SALES_PAGE.tour.anchor} className={styles.spBlock}>
         <div className={styles.spInnerWide}>
           <p className={styles.spKicker}>{SALES_PAGE.tour.kicker}</p>
           <h2 className={styles.spTitle}>{SALES_PAGE.tour.title}</h2>

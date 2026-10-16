@@ -87,6 +87,8 @@ export const SALES_PAGE = {
    * The chapters are the description's (seconds into the video).
    */
   tour: {
+    /** The id the walkthrough email links to ({$free_video_url}#walkthrough, EMAIL_DRAFTS E1b). */
+    anchor: 'walkthrough',
     youtubeId: 'nfSTq86RomU',
     poster: '/free-video/tour-poster.jpg',
     kicker: 'See it working',
