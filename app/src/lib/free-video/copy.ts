@@ -652,14 +652,49 @@ export const OFFER_READY = {
  * letter on this page.
  */
 export const READY_NEXT = {
-  line: 'The AI Media Machine made this video ad from your website in about 3 minutes.',
-  button: 'Get the AI Media Machine',
+  /** "Free sample" (owner 2026-10-09 and 2026-10-16): a taste of the product, not the product. */
+  line: 'The AI Media Machine made this free sample for you in about 3 minutes.',
   /**
-   * Once the browser has printed the deadline in the visitor's own time (useDeadline). The purchase finds their video ad
-   * by email (sweep.ts attributeSales), so the line says to use the same one.
+   * The dream outcome, in the owner's own earlier words without the $3 (Hormozi review 2026-10-16, item 4), carried on
+   * from the line above so the two read as one thought (owner 2026-10-18: "make sure the copy flow properly").
    */
-  bonus: (when: string) => `Free bonus: get it by ${when} with the email you used here, and your video ad goes into your account without the watermark.`,
-  bonusSoon: 'Free bonus: get it within 3 days with the email you used here, and your video ad goes into your account without the watermark.',
+  outcome: (domain: string) => `It can make you a new video ad for ${domain} every week.`,
+  /**
+   * The sales page's own tested number, said its way (owner 2026-10-16: "$700 is not a tested thing, we want something
+   * strong, like on the damn sales page"): the person who clicks lands on "Get 94.62% Off" and the $5,520 stack.
+   */
+  badge: '94.62% OFF',
+  /**
+   * The sales page's value number beside the badge (owner 2026-10-16: "use the 5000 is number for a tiny fraction of the
+   * cost"), with the reason why the sales page and the emails give (Kennedy review: a discount needs a reason).
+   */
+  badgeText: 'My 40th-birthday price: tools worth $5,520 a year, for a tiny fraction of the cost.',
+  /** Over the birthday line, beside my photo, so "my" has a face and a name (owner 2026-10-18). */
+  founderLabel: 'Szilard Gyorfi, founder of BlueFX',
+  listTitle: 'With the AI Media Machine you get:',
+  /**
+   * The bottom button got every click while the top one had no reason in front of it (4 of 4, 2026-10-17): the answers
+   * leads asked for, in brief. The amount is the sales page's ("about 100 short videos per month") plus what a full video
+   * ad like theirs takes, so nobody expects 100 of those (owner 2026-10-16: "we say 10 ads, but on the sales page i have
+   * 100 short videos").
+   */
+  items: [
+    'Changes to your video ad: type what you want, like a new presenter, voice, words or photos',
+    // The buyer's own unit (Hormozi review item 5); the sales page's "100 short videos" lives in the questions (Kennedy
+    // review: one number per line in the top block).
+    'About 10 new video ads like this one every month, for life',
+    'All 20+ AI tools: talking avatars, voice-overs, music, thumbnails and more',
+  ],
+  /** Under the change demo; "about 3 minutes" is already said above it (Kennedy review). */
+  demoCaption: "A real example: one typed sentence gave a sign shop's video ad a new presenter.",
+  /** Risk reversal and proof right under the top button (Hormozi review item 1), all as on the sales page. */
+  trust: 'One payment · 30-day money-back guarantee · 36,000+ customers',
+  /** The top button; the bottom one (after the walkthrough and the questions) keeps the plain name. */
+  buttonTop: 'Get the AI Media Machine at 94.62% Off',
+  button: 'Get the AI Media Machine',
+  /** Once the browser has printed the deadline in the visitor's own time (useDeadline). The purchase finds their video ad by email (sweep.ts attributeSales), so the line says to use the same one. */
+  bonus: (when: string) => `Free bonus if you get it by ${when}: your video ad goes into your account without the watermark. Use the same email as here.`,
+  bonusSoon: 'Free bonus if you get it within 3 days: your video ad goes into your account without the watermark. Use the same email as here.',
   /**
    * The questions leads really ask in their emails (owner 2026-10-16: "a set of the important questions / answers"):
    * changes (Johnny, Ed), their own people and voice (Steven), how many (Mike), plus the two any buyer asks. Folded under
@@ -678,7 +713,7 @@ export const READY_NEXT = {
       },
       {
         q: 'How many video ads can I make?',
-        a: 'About 10 video ads like yours every month, for life. In a busy month you can add a credit pack, from $9.99, with nothing recurring.',
+        a: 'About 100 short videos every month, for life, or about 10 full video ads like yours. In a busy month you can add a one-time recharge pack, from $9.99.',
       },
       {
         q: 'Do I need to be technical?',
@@ -686,7 +721,7 @@ export const READY_NEXT = {
       },
       {
         q: 'Is it a monthly subscription?',
-        a: 'No. You pay once and the AI Media Machine is yours for life. Nothing renews, there is nothing to cancel, and you have 30 days to get your money back.',
+        a: 'No. You pay once and the AI Media Machine is yours for life. You also have 30 days to get your money back.',
       },
     ],
   },

@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, LAYOUT, LIVE, PLAYER, READY_NEXT, STATUS, SUPPORT_EMAIL, UNLOCK_COPY } from '@/lib/free-video/copy';
@@ -9,6 +10,7 @@ import { cn } from '@/lib/utils';
 import type { FreeVideoUnlockState, FreeVideoUnlockView, FreeVideoView } from '@/types/free-video';
 import type { SmartVideoJobStatus } from '@/types/smart-video';
 import { LifetimeOffer } from './lifetime-offer';
+import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { ResultWalkthrough } from './lifetime-sales-page';
 import { LiveMaking } from './live-making';
 import { BonusTimer, useBonusEnded, useDeadline } from './sales-page-media';
@@ -256,9 +258,49 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                 {offerOn && (
                   <div className={styles.readyNext}>
                     <p className={styles.readyLine}>{READY_NEXT.line}</p>
+                    <p className={styles.readyOutcome}>{READY_NEXT.outcome(domain)}</p>
+                    {/* My photo and name over the birthday line, so "my 40th birthday" is someone (owner 2026-10-18). */}
+                    <div className={styles.readyDeal}>
+                      <Image
+                        className={styles.readyDealFace}
+                        src={SALES_PAGE.founder.photo}
+                        alt={SALES_PAGE.founder.name}
+                        width={600}
+                        height={600}
+                        sizes="56px"
+                      />
+                      <div>
+                        <p className={styles.readyDealName}>{READY_NEXT.founderLabel}</p>
+                        <p className={styles.readyDealText}>
+                          <span className={styles.readyBadge}>{READY_NEXT.badge}</span> {READY_NEXT.badgeText}
+                        </p>
+                      </div>
+                    </div>
+                    <p className={styles.readyListTitle}>{READY_NEXT.listTitle}</p>
+                    <ul className={cn(styles.ticks, styles.readyTicks)}>
+                      {READY_NEXT.items.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                    {/* Showing the change, not telling it (Hormozi review item 3): one typed sentence, a new presenter. */}
+                    <figure className={styles.readyDemo}>
+                      <video
+                        className={styles.readyDemoVideo}
+                        src={SALES_PAGE.changes.demo.video}
+                        poster={SALES_PAGE.changes.demo.poster}
+                        aria-label={SALES_PAGE.changes.demo.label}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                      />
+                      <figcaption className={styles.readyDemoCaption}>{READY_NEXT.demoCaption}</figcaption>
+                    </figure>
                     <a className={styles.btn} href={goUrl('fvready', token)}>
-                      {READY_NEXT.button}
+                      {READY_NEXT.buttonTop}
                     </a>
+                    <p className={styles.readyTrust}>{READY_NEXT.trust}</p>
                     {/* The 3-day bonus: one line and its countdown (owner 2026-10-16: "lets add the timer too"). */}
                     {bonus && view.cleanUntil && (
                       <div className={cn(styles.offerBonus, styles.readyBonusBox)}>
