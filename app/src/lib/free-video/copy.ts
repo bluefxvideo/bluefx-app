@@ -697,7 +697,7 @@ export const READY_NEXT = {
   bonusSoon: 'Free bonus if you get it within 3 days: your video ad goes into your account without the watermark. Use the same email as here.',
   /**
    * The questions leads really ask in their emails (owner 2026-10-16: "a set of the important questions / answers"):
-   * changes (Johnny, Ed), their own people and voice (Steven), how many (Mike), plus the two any buyer asks. Folded under
+   * changes (Johnny, Ed), their own people and voice (Steven), clients (Steve), how many (Mike), plus the two any buyer asks. Folded under
    * the walkthrough. No price here and no math: the sales page shows the price once.
    */
   questions: {
@@ -710,6 +710,12 @@ export const READY_NEXT = {
       {
         q: 'Can I use my own photo, people and voice?',
         a: 'Yes. Upload a photo of yourself, or of someone who agreed to it, and that person presents your video ad. Add your own photos, clips and logo, and make voice-overs in your own cloned voice.',
+      },
+      {
+        // Steve (a marketer) asked it twice after the walkthrough, 2026-10-18; the watermark on the free sample made him
+        // wonder whether paid videos carry it. Owner the same day: "yes, no extra cost".
+        q: 'Can I make video ads for my clients?',
+        a: 'Yes, at no extra cost. Videos you make in the AI Media Machine come out without our watermark or logo, and each one downloads to your computer as an MP4 file, ready to hand to your client.',
       },
       {
         q: 'How many video ads can I make?',
