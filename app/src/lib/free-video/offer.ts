@@ -18,7 +18,8 @@ export type Placement = (typeof PLACEMENTS)[number];
 
 /**
  * The pages of the funnel, as placements: the thank-you page, /v/<token>, and the form's "one per business" refusal
- * (fvland). Each page's own "Get the AI Media Machine" buttons use its placement. Also the type of a page's placement prop.
+ * (fvland, which opens the sales page since 2026-10-18, SALES_PAGE_PLACEMENTS). Each page's own "Get the AI Media
+ * Machine" buttons use its placement. Also the type of a page's placement prop.
  */
 export const PAGE_PLACEMENTS = ['fvthank', 'fvpage', 'fvland'] as const satisfies readonly Placement[];
 export type PagePlacement = (typeof PAGE_PLACEMENTS)[number];
@@ -31,11 +32,13 @@ export type PagePlacement = (typeof PAGE_PLACEMENTS)[number];
 export const CARD_PLACEMENTS = ['fvthankcard', 'fvpagecard'] as const satisfies readonly Placement[];
 export type CardPlacement = (typeof CARD_PLACEMENTS)[number];
 /**
- * The result page's buttons to the proven AI Media Machine sales page (owner 2026-10-16: "we over-engineered it ... start
- * from an empty page"; the sales page is one of "our anchors, those things we know work"): under the video ad (fvready)
- * and after the walkthrough (fvreadyend). /go logs the click and opens LIFETIME_PAGE_URL with the affiliate's hop.
+ * The buttons to the proven AI Media Machine sales page (owner 2026-10-16: "we over-engineered it ... start from an
+ * empty page"; the sales page is one of "our anchors, those things we know work"): the result page's, under the video
+ * ad (fvready) and after the walkthrough (fvreadyend), and the form's "one free video ad per business" box (fvland,
+ * owner 2026-10-18: "it should go to the sales page, not the checkout, just like we do with the thank you page"). /go
+ * logs the click on a lead when there is one and opens LIFETIME_PAGE_URL with the affiliate's hop.
  */
-export const SALES_PAGE_PLACEMENTS = ['fvready', 'fvreadyend'] as const satisfies readonly Placement[];
+export const SALES_PAGE_PLACEMENTS = ['fvready', 'fvreadyend', 'fvland'] as const satisfies readonly Placement[];
 export type SalesPagePlacement = (typeof SALES_PAGE_PLACEMENTS)[number];
 export function isSalesPagePlacement(value: string): value is SalesPagePlacement {
   return (SALES_PAGE_PLACEMENTS as readonly string[]).includes(value);

@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, LAYOUT, LIVE, PLAYER, READY_NEXT, STATUS, SUPPORT_EMAIL, UNLOCK_COPY } from '@/lib/free-video/copy';
@@ -9,6 +8,7 @@ import { goUrl, unlockGoUrl, type PagePlacement } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
 import type { FreeVideoUnlockState, FreeVideoUnlockView, FreeVideoView } from '@/types/free-video';
 import type { SmartVideoJobStatus } from '@/types/smart-video';
+import { BirthdayDeal } from './birthday-deal';
 import { LifetimeOffer } from './lifetime-offer';
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { ResultWalkthrough } from './lifetime-sales-page';
@@ -260,22 +260,7 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                     <p className={styles.readyLine}>{READY_NEXT.line}</p>
                     <p className={styles.readyOutcome}>{READY_NEXT.outcome(domain)}</p>
                     {/* My photo and name over the birthday line, so "my 40th birthday" is someone (owner 2026-10-18). */}
-                    <div className={styles.readyDeal}>
-                      <Image
-                        className={styles.readyDealFace}
-                        src={SALES_PAGE.founder.photo}
-                        alt={SALES_PAGE.founder.name}
-                        width={600}
-                        height={600}
-                        sizes="56px"
-                      />
-                      <div>
-                        <p className={styles.readyDealName}>{READY_NEXT.founderLabel}</p>
-                        <p className={styles.readyDealText}>
-                          <span className={styles.readyBadge}>{READY_NEXT.badge}</span> {READY_NEXT.badgeText}
-                        </p>
-                      </div>
-                    </div>
+                    <BirthdayDeal />
                     <p className={styles.readyListTitle}>{READY_NEXT.listTitle}</p>
                     <ul className={cn(styles.ticks, styles.readyTicks)}>
                       {READY_NEXT.items.map((item) => (

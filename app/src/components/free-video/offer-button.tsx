@@ -11,6 +11,11 @@ interface OfferButtonProps {
   href: string;
   className?: string;
   children: ReactNode;
+  /**
+   * false: a link to the AI Media Machine's sales page (a SALES_PAGE_PLACEMENTS link, offer.ts), not the checkout: it
+   * opens in the same tab and sends no InitiateCheckout or begin_checkout. The affiliate's hop still goes on the link.
+   */
+  checkout?: boolean;
 }
 
 /**
@@ -22,7 +27,7 @@ interface OfferButtonProps {
  * ran (the video ad just finished) asks the script for its hop again (finishHop). data-fv-bar-hide: the buy bar on
  * phones (buy-bar.tsx) steps aside while one of these buttons is on screen.
  */
-export function OfferButton({ href, className, children }: OfferButtonProps) {
+export function OfferButton({ href, className, children, checkout = true }: OfferButtonProps) {
   useEffect(() => {
     try {
       (window as Window & { finishHop?: () => void }).finishHop?.();
@@ -30,6 +35,13 @@ export function OfferButton({ href, className, children }: OfferButtonProps) {
       // Attribution never breaks a button.
     }
   }, []);
+  if (!checkout) {
+    return (
+      <a className={className} href={href} data-fv-bar-hide="">
+        {children}
+      </a>
+    );
+  }
   return (
     <a
       className={className}

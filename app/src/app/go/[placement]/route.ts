@@ -14,11 +14,10 @@ import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
 
 /**
  * GET /go/<placement>?t=<view token>: every offer button of the funnel (pages and emails) goes through here.
- * - A page button of the lifetime offer (fvthank, fvpage, fvland) → 302 straight to ClickBank's checkout, the placement
+ * - A page button of the lifetime offer (fvthank, fvpage) → 302 straight to ClickBank's checkout, the placement
  *   as the vendor tracking id (checkoutUrl). No lifetime page in between: the offer card is the pitch (owner 2026-10-08).
- *   With a valid t, the click is logged on the lead (fvland, the offer under the form's "one free video ad per business"
- *   refusal, has no lead and comes without t). Every such click is an InitiateCheckout for Facebook (meta.ts), with the
- *   button's event id from ?e= when it sent one.
+ *   With a valid t, the click is logged on the lead. Every such click is an InitiateCheckout for Facebook (meta.ts), with
+ *   the button's event id from ?e= when it sent one.
  * - An email button (fvmail1-3) → 302 to the lead's own video ad page, where the offer sits under the video ad; the click
  *   is logged on the lead. Without a known lead it falls back to the checkout.
  * - 'fvunlock' (Offer 1, the $99 clean video ad) → 302 to the lead's FastSpring checkout, ONLY for a valid token of an
@@ -28,8 +27,10 @@ import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
  * - 'claim' ("Open this video ad in the AI Media Machine") → a signed-in customer gets a copy of the finished video ad
  *   in their Phantom videos (claim.ts) and lands on it; signed out → the login page, back here after; not a customer
  *   → the lifetime offer; a video ad that is not finished → its page.
- * - A result page button to the sales page (fvready, fvreadyend; owner 2026-10-16) → 302 to the AI Media Machine's own
- *   sales page (LIFETIME_PAGE_URL) with the affiliate's hop, the click logged on the lead. Not a checkout: no
+ * - A button to the sales page (fvready, fvreadyend on the result page, owner 2026-10-16; fvland, the box under the
+ *   form's "one free video ad per business" refusal, which has no lead and comes without t, owner 2026-10-18) → 302 to
+ *   the AI Media Machine's own sales page (LIFETIME_PAGE_URL) with the affiliate's hop, the click logged on the lead
+ *   when there is one. Not a checkout: no
  *   InitiateCheckout for Facebook; the sales page's own buttons open ClickBank's order form, and ClickBank's script there
  *   carries the hop on.
  * - Anything else → 404. Every target is built here from fixed parts: never an open redirect.

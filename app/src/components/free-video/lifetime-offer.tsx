@@ -2,13 +2,13 @@
 
 import Image from 'next/image';
 
-import { OFFER_COPY, OFFER_READY } from '@/lib/free-video/copy';
+import { OFFER_COPY, OFFER_READY, READY_NEXT } from '@/lib/free-video/copy';
 import { claimUrl, goUrl, PHANTOM_PATH, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
+import { BirthdayDeal } from './birthday-deal';
 import { OfferButton } from './offer-button';
-import { PaymentTrust } from './payment-trust';
 import { BonusTimer, useBonusEnded, useDeadline } from './sales-page-media';
 import { StyleReel } from './style-reel';
 
@@ -28,7 +28,8 @@ interface LifetimeOfferProps {
 }
 
 /**
- * Offer 2: AI Media Machine lifetime, through /go/<placement> (logs the click, then ClickBank).
+ * Offer 2: AI Media Machine lifetime, through /go/<placement> (logs the click, then ClickBank; the form's box, fvland,
+ * opens the sales page).
  * Existing customers and buyers get the AI Media Machine instead: under a finished video ad, a button that puts this
  * video ad in their account (/go/claim); a customer the email did not match finds the same link under the offer. No hooks of its own (StyleReel and
  * OfferButton are client components), so it renders in server and client trees.
@@ -86,24 +87,12 @@ export function LifetimeOffer({ placement, token, isCustomer, variant, cleanUnti
           <li key={bullet}>{bullet}</li>
         ))}
       </ul>
-      <p className={styles.price}>
-        <s className={styles.priceWas}>
-          <span className={styles.srOnly}>{OFFER_COPY.wasLabel} </span>
-          {OFFER_COPY.was}
-        </s>
-        <b className={styles.priceNow}>
-          <span className={styles.srOnly}>{OFFER_COPY.nowLabel} </span>
-          {OFFER_COPY.now}
-        </b>
-        <span className={styles.priceUnit}>{OFFER_COPY.unit}</span>
-        <span className={styles.priceOff}>{OFFER_COPY.off}</span>
-      </p>
-      {/* A new tab, so this page keeps checking on the video ad. The click is the pixel's InitiateCheckout. */}
-      <OfferButton className={styles.btn} href={goUrl(placement, token)}>
-        {OFFER_COPY.button}
+      {/* Like the result page (owner 2026-10-18): the deal the sales page's way and one button to the sales page, where the
+          price, the guarantee and the checkout are; no price here. */}
+      <BirthdayDeal />
+      <OfferButton className={styles.btn} href={goUrl(placement, token)} checkout={false}>
+        {READY_NEXT.buttonTop}
       </OfferButton>
-      <PaymentTrust />
-      <p className={styles.fine}>{OFFER_COPY.smallPrint}</p>
     </div>
   );
 }

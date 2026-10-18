@@ -454,6 +454,7 @@ async function main(): Promise<void> {
       [...CARD_PLACEMENTS, ...SALES_PAGE_PLACEMENTS].every((p) => (OFFER_BUTTON_PLACEMENTS as readonly string[]).includes(p))
   );
   check('the result page buttons open the sales page, not an email or a card placement', SALES_PAGE_PLACEMENTS.every((p) => isPlacement(p) && isSalesPagePlacement(p) && !isEmailPlacement(p)) && LIFETIME_PAGE_URL === 'https://ai.bluefx.net/lifetime/');
+  check('the form\'s "one free video ad per business" box (fvland) opens the sales page too (owner 2026-10-18); the card stays a checkout', isSalesPagePlacement('fvland') && !CARD_PLACEMENTS.some((p) => isSalesPagePlacement(p)));
   check(
     'offer_open is a page event that carries what opened the card',
     FreeVideoEventSchema.safeParse({ e: 'offer_open', t: token, from: 'download' }).success &&

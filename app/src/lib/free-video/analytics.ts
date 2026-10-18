@@ -393,9 +393,9 @@ function placementOf(href: string): string | undefined {
 }
 
 /**
- * begin_checkout: a click on the AI Media Machine offer button, the same moment as the pixel's InitiateCheckout. To
- * Google Analytics only from the opt-in page (the offer under the form's "one free video ad per business" answer,
- * fvland); on the result pages Clarity alone gets the event name. Never a key event (see the top of this file).
+ * begin_checkout: a click on the AI Media Machine offer button, the same moment as the pixel's InitiateCheckout. On the
+ * result pages Clarity alone gets the event name; the opt-in page's offer (fvland) opens the sales page since
+ * 2026-10-18, which is not a checkout and sends nothing. Never a key event (see the top of this file).
  */
 export function trackCheckout(href: string): void {
   const { value, currency, content_name: itemName } = PIXEL_DATA.checkout;
