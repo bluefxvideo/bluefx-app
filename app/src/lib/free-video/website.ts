@@ -156,18 +156,44 @@ async function precheckOnce(url: string, domain: string): Promise<PrecheckTry> {
   }
 }
 
-/**
- * One quick read of the page at intake, so the visitor hears at once when the site cannot be used.
- * Only clear answers refuse: a timeout, a 429 or a 5xx passes, because the job reads the site again
- * and a real failure there still costs $0. When https fails on the certificate or on a closed port and
- * the visitor typed no scheme, plain http:// is tried once, as a browser would (review F6); the address
- * that answered comes back in `url` and is the one stored.
- */
-export async function precheckSite(url: string, domain: string, schemeTyped = true): Promise<Precheck> {
+/** The same address on the website's other name: without the www. in front, or with it. null for an IP address. */
+export function otherHostVersion(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  const host = parsed.hostname;
+  if (!host.includes('.') || /^[\d.]+$/.test(host) || host.startsWith('[')) return null;
+  parsed.hostname = host.startsWith('www.') ? host.slice('www.'.length) : `www.${host}`;
+  return parsed.toString();
+}
+
+/** One host name: https, then plain http:// once when https fails on the certificate or a closed port and no scheme was typed (review F6). */
+async function precheckHost(url: string, domain: string, schemeTyped: boolean): Promise<Precheck> {
   const first = await precheckOnce(url, domain);
   if (first.result.ok || !first.tlsOrRefused || schemeTyped || !url.startsWith('https://')) return first.result;
   const second = await precheckOnce(httpVersion(url), domain);
   return second.result.ok ? second.result : first.result;
+}
+
+/**
+ * One quick read of the page at intake, so the visitor hears at once when the site cannot be used.
+ * Only clear answers refuse: a timeout, a 429 or a 5xx passes, because the job reads the site again
+ * and a real failure there still costs $0. When https fails on the certificate or on a closed port and
+ * the visitor typed no scheme, plain http:// is tried once, as a browser would (review F6). A site not
+ * found or not readable on one of its two names is tried once on the other (www.magnetgolden.com could
+ * not be read where magnetgolden.com could, 2026-10-15; the visitor had to find that out alone). The
+ * address that answered comes back in `url` and is the one stored.
+ */
+export async function precheckSite(url: string, domain: string, schemeTyped = true): Promise<Precheck> {
+  const first = await precheckHost(url, domain, schemeTyped);
+  if (first.ok || (first.code !== 'notFound' && first.code !== 'unreadable')) return first;
+  const other = otherHostVersion(url);
+  if (!other) return first;
+  const second = await precheckHost(other, domain, schemeTyped);
+  return second.ok ? second : first;
 }
 
 /** Website photos are fetched as pictures only: anything else comes back empty and unread (review SEC-6). */

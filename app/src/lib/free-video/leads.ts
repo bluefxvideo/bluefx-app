@@ -153,10 +153,15 @@ const attemptLog = new Map<string, number[]>();
  * INTAKE.perIpPerMinute a minute and INTAKE.perIpPerDay a day. Per process, which is the one app container.
  */
 export function takeAttempt(ip: string): boolean {
-  const now = Date.now();
+  return attemptLimitOf(ip) === null;
+}
+
+/** The try limit a POST from this IP is over ('minute' or 'day', so the answer can say which), or null when it may go on and is counted. */
+export function attemptLimitOf(ip: string, now = Date.now()): 'minute' | 'day' | null {
   const recent = (attemptLog.get(ip) ?? []).filter((at) => now - at < DAY_MS);
   const lastMinute = recent.filter((at) => now - at < MINUTE_MS).length;
-  const allowed = lastMinute < INTAKE.perIpPerMinute && recent.length < INTAKE.perIpPerDay;
+  const limit = recent.length >= INTAKE.perIpPerDay ? 'day' : lastMinute >= INTAKE.perIpPerMinute ? 'minute' : null;
+  const allowed = limit === null;
   if (allowed) recent.push(now);
   attemptLog.set(ip, recent);
   if (attemptLog.size > 5000) {
@@ -165,7 +170,7 @@ export function takeAttempt(ip: string): boolean {
     // without limit in the process that serves paying users. The daily caps in SQL still bound the spend.
     if (attemptLog.size > 50_000) attemptLog.clear();
   }
-  return allowed;
+  return limit;
 }
 
 /** Website pre-checks running in this process right now (at most INTAKE.precheckSlots, review SEC-1). */

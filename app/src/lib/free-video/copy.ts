@@ -268,6 +268,9 @@ export const ERRORS = {
   duplicateSite: (domain: string) =>
     `${domain} already has its free video ad. The free video ad is one per business. To make more video ads, get the AI Media Machine below.`,
   tooMany: "You've already asked for a free video ad today. The free video ad is one per business. To make more video ads, get the AI Media Machine below.",
+  // The try limit says what happened, so nobody reads it as "your free video ad is coming" (owner 2026-10-18, after Daniel).
+  tries: 'Too many tries in a row. Please wait a minute and try again.',
+  triesToday: `Too many tries from this connection today. Please try again tomorrow, or email ${SUPPORT_EMAIL} with your website.`,
   closed: "Today's free video ads are all taken. Please come back tomorrow.",
   /** A visitor in a country on BLOCKED_COUNTRIES (config.ts), found by IP or time zone. */
   country: (name: string | null) => `We don't offer the free video ad in ${name ?? 'your country'} yet. Please come back later.`,

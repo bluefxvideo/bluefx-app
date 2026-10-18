@@ -358,6 +358,8 @@ export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {
                 Opt-ins count on the day they were made, with whatever they did later. A visitor who came back on another day counts on both days.
               </p>
             </div>
+
+            <TurnedAwayList turnedAway={stats.turnedAway} dimmed={isLoading} />
           </>
         )}
 
@@ -430,6 +432,106 @@ function CountsTable({ firstColumn, rows, empty, dimmed }: CountsTableProps) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/** Why a form send was turned away (refusals.ts RefusalCode), in plain words. */
+const REASON_LABELS: Record<string, string> = {
+  notFound: 'Website not found',
+  unreadable: 'Website not readable',
+  refused: 'A page on a big platform (YouTube, Facebook, Amazon...)',
+  invalid: 'Not a website address, or a bad name or email',
+  duplicateEmail: 'This email already had its free video ad',
+  duplicateSite: 'This website already had its free video ad',
+  tooMany: 'Already asked today (same connection or email)',
+  tries: 'Over 5 tries in a minute',
+  triesToday: 'Over 20 tries in a day from one connection',
+  closed: "Today's free video ads were all taken",
+  paused: 'The maker was paused',
+  generic: 'Server busy',
+  country: 'Country not served',
+  bot: 'Spam trap',
+  error: 'Server error',
+};
+
+/** Which check, when a reason has more than one (refusals.ts RefusalCheck). */
+const CHECK_LABELS: Record<string, string> = {
+  honeypot: 'hidden field filled in',
+  tooFast: 'sent within 1.5 seconds',
+};
+
+const reasonLabel = (code: string, check: string | null) => `${REASON_LABELS[code] ?? code}${check ? ` (${CHECK_LABELS[check] ?? check})` : ''}`;
+
+interface TurnedAwayListProps {
+  turnedAway: FunnelStats['turnedAway'];
+  dimmed: boolean;
+}
+
+/** Every form send of the range that did not become a free video ad, with what was typed, so the owner can write to them. */
+function TurnedAwayList({ turnedAway, dimmed }: TurnedAwayListProps) {
+  const { sends, people, byReason, recent } = turnedAway;
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold">Turned away at the form</h3>
+      {sends === 0 ? (
+        <p className="py-4 text-center text-sm text-muted-foreground">Nobody was turned away in this range.</p>
+      ) : (
+        <div className={cn('space-y-2', dimmed && 'opacity-60')}>
+          <p className="text-sm">
+            {plural(sends, 'send')} that did not become a free video ad, from {people === 1 ? '1 person' : `${people} people`} (by email).
+          </p>
+          <ul className="space-y-0.5 text-sm">
+            {byReason.map((reason) => (
+              <li key={`${reason.code}/${reason.check ?? ''}`} className="flex justify-between gap-4">
+                <span>{reasonLabel(reason.code, reason.check)}</span>
+                <span className="tabular-nums">{reason.sends}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">When</th>
+                  <th className="py-2 pr-3 font-medium">Why</th>
+                  <th className="py-2 pr-3 font-medium">Name</th>
+                  <th className="py-2 pr-3 font-medium">Email</th>
+                  <th className="py-2 pr-3 font-medium">Website typed</th>
+                  <th className="py-2 font-medium">Tag</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map((row, index) => (
+                  <tr key={`${row.at}-${index}`} className="border-b align-top last:border-0">
+                    <td className="whitespace-nowrap py-2 pr-3">
+                      {new Date(row.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="min-w-[11rem] py-2 pr-3">{reasonLabel(row.code, row.check)}</td>
+                    <td className="py-2 pr-3">{row.firstName ?? ''}</td>
+                    <td className="py-2 pr-3">
+                      {row.email ? (
+                        <a className="underline" href={`mailto:${row.email}`}>
+                          {row.email}
+                        </a>
+                      ) : (
+                        ''
+                      )}
+                    </td>
+                    <td className="min-w-[9rem] max-w-[16rem] py-2 pr-3 [overflow-wrap:anywhere]">{row.website ?? ''}</td>
+                    <td className="whitespace-nowrap py-2 text-xs text-muted-foreground">{row.ref ?? ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {sends > recent.length && <p className="text-xs text-muted-foreground">The newest {recent.length} are listed.</p>}
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Kept since 18 Oct 2026: every form send that did not become a free video ad, with what the person typed, so you can write to them. The spam trap
+        answers &quot;Thanks! Check your inbox.&quot;, so the people on its line think a video ad is coming.
+      </p>
     </div>
   );
 }

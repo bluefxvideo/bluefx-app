@@ -17,14 +17,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { FREE_PLAN, freeNote, isLive, LIMITS, WATERMARK } from '@/lib/free-video/config';
-import { EMAIL_DRAFTS, WHY_IT_WORKS } from '@/lib/free-video/copy';
+import { EMAIL_DRAFTS, ERRORS, WHY_IT_WORKS } from '@/lib/free-video/copy';
 import { blockedCountry } from '@/lib/free-video/geo';
 import { copyIdOf, NOT_MADE, waitingJobOf } from '@/lib/free-video/claim';
 import { afterLoginPath, AFTER_LOGIN_PATH } from '@/lib/after-login';
 import { checkAdScript, SCRIPT_RULES } from '@/lib/smart-video/script-rules';
 import { PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
 import { frameOf, lastScreenReaches, qualityGate } from '@/lib/free-video/gate';
-import { RETIRED_OWNER_TEST, takeAttempt, unlockViewOf, verifyHuman } from '@/lib/free-video/leads';
+import { attemptLimitOf, RETIRED_OWNER_TEST, takeAttempt, unlockViewOf, verifyHuman } from '@/lib/free-video/leads';
+import { REFUSAL_LIMITS, refusalFieldsOf, takeRefusalLog } from '@/lib/free-video/refusals';
 import {
   CARD_PLACEMENTS,
   cardPlacementOf,
@@ -49,7 +50,7 @@ import { LIVE_DEMO_WHY } from '@/lib/free-video/live-demo';
 import { PRESENTER_ASSET } from '@/lib/smart-video/presenter';
 import { assertPublicUrl, BlockedUrlError, isPublicAddress, safeFetch, safeFetchWith, sanityCheckHtml } from '@/lib/free-video/safe-fetch';
 import { checkCleanFile, cleanProps, freeVideoUnlockIn, readUnlockOrder } from '@/lib/free-video/unlock';
-import { asMaterial, displayDomain, emailKeyOf, normalizeWebsite, precheckSite } from '@/lib/free-video/website';
+import { asMaterial, displayDomain, emailKeyOf, normalizeWebsite, otherHostVersion, precheckSite } from '@/lib/free-video/website';
 import { stillCameraPrompt } from '@/lib/smart-video/audio';
 import { closestTrack, MUSIC_LIBRARY } from '@/lib/smart-video/music-library';
 import type { SavedPlan } from '@/lib/smart-video/jobs';
@@ -254,6 +255,17 @@ async function main(): Promise<void> {
   const ip = `test-${Date.now()}`;
   const burst = Array.from({ length: 6 }, () => takeAttempt(ip));
   check('attempt limiter: 5 a minute per IP, the 6th refused (review SEC-1)', burst.slice(0, 5).every(Boolean) && !burst[5]);
+  {
+    const t0 = Date.parse('2026-10-18T00:00:00Z');
+    const minuteIp = `minute-${Date.now()}`;
+    const minute = Array.from({ length: 6 }, (_, i) => attemptLimitOf(minuteIp, t0 + i * 1000));
+    check('attemptLimitOf: the 6th send in a minute says minute (answered as tries, "wait a minute")', minute.slice(0, 5).every((v) => v === null) && minute[5] === 'minute', JSON.stringify(minute));
+    const dayIp = `day-${Date.now()}`;
+    const day = Array.from({ length: 21 }, (_, i) => attemptLimitOf(dayIp, t0 + i * 61_000));
+    check('attemptLimitOf: the 21st send in a day, a minute apart, says day (answered as triesToday)', day.slice(0, 20).every((v) => v === null) && day[20] === 'day', JSON.stringify(day.slice(18)));
+    check('the try messages say what happened and offer no upgrade', ERRORS.tries.includes('wait a minute') && ERRORS.triesToday.includes('tomorrow') && !/already asked/i.test(ERRORS.tries + ERRORS.triesToday));
+    check('otherHostVersion: www. comes off, or goes on, the path stays; an IP has none', otherHostVersion('https://www.magnetgolden.com/') === 'https://magnetgolden.com/' && otherHostVersion('https://magnetgolden.com/about?x=1') === 'https://www.magnetgolden.com/about?x=1' && otherHostVersion('http://203.0.113.5/') === null && otherHostVersion('not a url') === null);
+  }
 
   // 7. ------------------------------------------------------------------------------------------
   section('7. Plan shaping and the free limits');
@@ -675,6 +687,21 @@ async function main(): Promise<void> {
     }
 
     check('whyItWorksOf: text lines only, at most WHY_MAX, undefined for none', JSON.stringify(whyItWorksOf({ live: { whyItWorks: ['a', 7, ' ', 'b', 'c', 'd', 'e', 'f'] as unknown as string[] } })) === JSON.stringify(['a', 'b', 'c', 'd', 'e']) && whyItWorksOf({ live: null }) === undefined && whyItWorksOf({ live: { whyItWorks: [] } }) === undefined && whyItWorksOf({ live: { whyItWorks: 'x' as unknown as string[] } }) === undefined);
+  }
+
+  // 15b. ----------------------------------------------------------------------------------------
+  section('15b. Refused form sends (refusals.ts; noteRefusal writes, so only its pure parts run here)');
+  {
+    const typed = refusalFieldsOf(JSON.stringify({ firstName: ' Daniel ', email: ' DKeizer776@Gmail.com ', website: ' mysite.com ', ref: 'fb-Instagram_Feed', consent: true }));
+    check('refusalFieldsOf: name, email (lower case), website and tag from a raw body, trimmed', JSON.stringify(typed) === JSON.stringify({ firstName: 'Daniel', email: 'dkeizer776@gmail.com', website: 'mysite.com', ref: 'fb-Instagram_Feed' }), JSON.stringify(typed));
+    check('refusalFieldsOf: a body the schema refuses still gives what was typed', refusalFieldsOf(JSON.stringify({ firstName: 'Ann', email: 'not-an-email', website: '' })).email === 'not-an-email' && refusalFieldsOf(JSON.stringify({ website: '' })).website === undefined);
+    check('refusalFieldsOf: no JSON, no object, null or numbers give nothing', JSON.stringify([refusalFieldsOf('{oops'), refusalFieldsOf(null), refusalFieldsOf('[1]'), refusalFieldsOf(JSON.stringify({ email: 5 }))]) === '[{},{},{},{}]');
+    check('refusalFieldsOf: a bad tag is dropped, long text is cut', refusalFieldsOf(JSON.stringify({ ref: 'bad tag!' })).ref === undefined && refusalFieldsOf(JSON.stringify({ website: 'x'.repeat(900) })).website?.length === 500);
+    const t0 = Date.parse('2026-10-18T00:00:00Z');
+    const ip = '203.0.113.77';
+    const first = Array.from({ length: REFUSAL_LIMITS.perIpPerDay }, (_, i) => takeRefusalLog(ip, t0 + i)).every(Boolean);
+    check(`takeRefusalLog: ${REFUSAL_LIMITS.perIpPerDay} rows from one IP in a day, then none, then again a day later`, first && !takeRefusalLog(ip, t0 + 1000) && takeRefusalLog(ip, t0 + 24 * 60 * 60_000 + 1000));
+    check('takeRefusalLog: another IP is not held back', takeRefusalLog('203.0.113.78', t0 + 2000));
   }
 
   // 16. -----------------------------------------------------------------------------------------

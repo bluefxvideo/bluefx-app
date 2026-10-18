@@ -784,13 +784,10 @@
   text-align: center;
   margin: 8px 0 0;
 }
+/* Not drawn at all, so no autofill (Safari's, the Instagram and Facebook apps', a password manager's) can type into it;
+   a bot reading the page's HTML still finds the field (owner 2026-10-18: "many people on iphone" use autofill). */
 .honeypot {
-  position: absolute;
-  left: -10000px;
-  top: auto;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
+  display: none;
 }
 
 /* ---------- buttons ---------- */

@@ -34,6 +34,8 @@ export const ERROR_CODES: readonly FreeVideoErrorCode[] = [
   'paused',
   'country',
   'generic',
+  'tries',
+  'triesToday',
 ];
 
 /** The host name without www., the way the server keys a website. Falls back to the trimmed text. */
@@ -95,6 +97,10 @@ export function problemForCode(code: FreeVideoErrorCode | undefined, website: st
       return { field: null, message: ERRORS.duplicateEmail, nextStep: 'resend', upgrade: true };
     case 'tooMany':
       return { field: null, message: ERRORS.tooMany, upgrade: true };
+    case 'tries':
+      return { field: null, message: ERRORS.tries };
+    case 'triesToday':
+      return { field: null, message: ERRORS.triesToday };
     case 'closed':
       return { field: null, message: ERRORS.closed };
     case 'paused':

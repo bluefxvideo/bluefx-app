@@ -510,7 +510,7 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
               />
               {problems.email && <FormMessage id={emailError} problem={problems.email} website={website} variant="field" />}
 
-              {/* Honeypot: off-screen, out of the tab order, a name no autofill knows. A person never fills it. */}
+              {/* Honeypot: not drawn (display: none, so autofill skips it), out of the tab order, a name no autofill knows. */}
               <div className={styles.honeypot} aria-hidden="true">
                 <input ref={honeypotRef} name="fv_note" type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
               </div>

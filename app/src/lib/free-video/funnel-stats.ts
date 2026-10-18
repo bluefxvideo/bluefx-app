@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/app/supabase/server';
 import { STATS_EXCLUDED_EMAILS, STATS_EXCLUDED_VISITS } from '@/lib/free-video/config';
 import { isCardPlacement, OFFER_BUTTON_PLACEMENTS } from '@/lib/free-video/offer';
+import { REFUSAL_EVENT } from '@/lib/free-video/refusals';
 import { emailKeyOf } from '@/lib/free-video/website';
 
 /**
@@ -121,6 +122,11 @@ export interface FunnelStats {
    * unreadable or not allowed), still waiting or being made, $99 clean versions bought.
    */
   extras: { refused: number; inProgress: number; unlocks: number };
+  /**
+   * Form sends of the range that did not become a free video ad (refusals.ts, kept since 2026-10-18): every one, the
+   * people among them (by email), the count per reason and the newest ones with what was typed, so support can write.
+   */
+  turnedAway: TurnedAway;
   /** People with leads made without the page in the range (email replies, by hand), counted the same way. visitors and formStarts stay 0. */
   notFromPage: FunnelCounts;
   /** One row per tag (ref), Facebook click, ClickBank affiliate, "direct" and other lead source. */
@@ -143,6 +149,31 @@ export interface FunnelStats {
     ownerClicks: number;
   };
 }
+
+export interface TurnedAwayRow {
+  at: string;
+  /** RefusalCode: the form's error code, 'bot' or 'error'. */
+  code: string;
+  /** RefusalCheck, when the code has more than one cause. */
+  check: string | null;
+  firstName: string | null;
+  email: string | null;
+  website: string | null;
+  ref: string | null;
+}
+
+export interface TurnedAway {
+  sends: number;
+  /** Different emails among the sends (a send without an email is not counted here). */
+  people: number;
+  /** Most sends first. */
+  byReason: { code: string; check: string | null; sends: number }[];
+  /** Newest first, at most TURNED_AWAY_ROWS. */
+  recent: TurnedAwayRow[];
+}
+
+/** Rows of the turned-away list the panel shows. */
+const TURNED_AWAY_ROWS = 50;
 
 export interface FunnelStatsInput {
   /** ISO instant, inclusive; null = all time. */
@@ -576,6 +607,8 @@ export async function computeFunnelStats({ from, to, tz: tzInput }: FunnelStatsI
       return { day, counts, rates: ratesOf(counts) };
     });
 
+  const turnedAway = await turnedAwayOf(from, to, table, keyset);
+
   return {
     from,
     to,
@@ -583,6 +616,7 @@ export async function computeFunnelStats({ from, to, tz: tzInput }: FunnelStatsI
     totals,
     rates: ratesOf(totals),
     extras,
+    turnedAway,
     notFromPage,
     bySource,
     byChannel,
@@ -596,5 +630,54 @@ export async function computeFunnelStats({ from, to, tz: tzInput }: FunnelStatsI
       ownerOpens,
       ownerClicks,
     },
+  };
+}
+
+interface RefusalEventRow {
+  id: number;
+  at: string;
+  placement: string | null;
+  ref: string | null;
+  meta: Record<string, unknown> | null;
+}
+
+const textOf = (value: unknown): string | null => (typeof value === 'string' && value ? value : null);
+
+/** The range's refused form sends (refusals.ts), without the owner's: ref 'owner-test', a local dev server's, his addresses. */
+async function turnedAwayOf(
+  from: string | null,
+  to: string,
+  table: (name: string) => any,
+  keyset: (query: any, afterId: string | number | null) => any
+): Promise<TurnedAway> {
+  const rows = await readAll<RefusalEventRow>((afterId) => {
+    let query = table('free_video_events').select('id, at, placement, ref, meta').eq('event', REFUSAL_EVENT).lt('at', to);
+    if (from) query = query.gte('at', from);
+    return keyset(query, afterId);
+  });
+  const kept: TurnedAwayRow[] = rows
+    .filter((row) => row.ref !== 'owner-test' && row.meta?.test !== true && !isStatsExcludedEmail(textOf(row.meta?.email)))
+    .map((row) => ({
+      at: row.at,
+      code: row.placement ?? 'unknown',
+      check: textOf(row.meta?.check),
+      firstName: textOf(row.meta?.first_name),
+      email: textOf(row.meta?.email),
+      website: textOf(row.meta?.website),
+      ref: row.ref,
+    }))
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const reasons = new Map<string, { code: string; check: string | null; sends: number }>();
+  for (const row of kept) {
+    const key = `${row.code}/${row.check ?? ''}`;
+    const reason = reasons.get(key) ?? { code: row.code, check: row.check, sends: 0 };
+    reason.sends++;
+    reasons.set(key, reason);
+  }
+  return {
+    sends: kept.length,
+    people: new Set(kept.flatMap((row) => (row.email ? [emailKeyOf(row.email)] : []))).size,
+    byReason: [...reasons.values()].sort((a, b) => b.sends - a.sends || a.code.localeCompare(b.code)),
+    recent: kept.slice(0, TURNED_AWAY_ROWS),
   };
 }

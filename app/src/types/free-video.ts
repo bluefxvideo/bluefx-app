@@ -70,7 +70,10 @@ export type FreeVideoErrorCode =
   | 'closed'
   | 'paused'
   | 'country'
-  | 'generic';
+  | 'generic'
+  /** The per-IP try limit (leads.ts attemptLimitOf): 5 sends in a minute, or 20 in a day. Nothing was made. */
+  | 'tries'
+  | 'triesToday';
 
 /** The data of a 200 answer from POST /api/free-video. token null = the silent drop for bots. */
 export interface FreeVideoSubmitData {
@@ -356,7 +359,7 @@ export type OfferOpenSource = (typeof OFFER_OPEN_SOURCES)[number];
  * Events only the server writes: the /go route logs each offer click; meta.ts saves a lead's Facebook ids ('meta_ids',
  * meta {fbc, fbp}) and the outcome of every Conversions API send ('capi', meta {name, id, ok, error}).
  */
-export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop';
+export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused';
 
 export const FreeVideoEventSchema = z.object({
   e: z.enum(FREE_VIDEO_EVENTS),
