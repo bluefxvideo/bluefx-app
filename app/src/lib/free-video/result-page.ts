@@ -1,10 +1,11 @@
 /**
  * The result page of a free video ad (owner 2026-10-19, the Design canvas "Free Video Ad: 3 Written Video Ads", board A
- * on a phone and board D on a computer): the congratulations with the robot, the video ad, how the AI Media Machine gets
- * them customers, the comparison, the next 3 video ads already written (next-ads.ts), everything they get, the
- * birthday price, the 2 free bonuses and their timer, the promise, the questions, customers in their own words, more
- * video ads, the walkthrough and the P.S. Three buttons and a bar on phones go straight to ClickBank's checkout with the
- * price on them (offer.ts RESULT_PAGE_PLACEMENTS).
+ * on a phone and board D on a computer, the top from boards E and F): the congratulations with the robot, the video ad,
+ * the next 3 video ads already made (next-ads.ts), how the AI Media Machine gets them customers, the comparison and the
+ * first price button, everything they get, the birthday price, the 2 free bonuses and their timer, the promise, the
+ * questions, customers in their own words, more video ads, the walkthrough and the P.S. Three buttons and a bar on phones
+ * go straight to ClickBank's checkout with the price on them (offer.ts RESULT_PAGE_PLACEMENTS); no price above the
+ * comparison (owner: "lets move the price down").
  *
  * The bonuses run CLEAN_COPY_HOURS after the video ad was ready (offer.ts cleanCopyUntil): their free video ad without
  * the logo, and the next 3 video ads, each made with one click in their account after the purchase (bonus-ads.ts).
@@ -59,12 +60,17 @@ export const REVIEW_FACES: Record<(typeof VIDEO_REVIEWS)[number], string> = {
 };
 
 export const RESULT_PAGE = {
+  /** Boards E (phone) and F (computer), owner 2026-10-19: the AI Media Machine is the maker, no time in the headline, the 10 a month first, no price at the top. */
   hero: {
     congrats: (name: string) => `Congratulations, ${name}!`,
-    title: 'You just made your first video ad with the AI Media Machine.',
+    title: (domain: string) => `The AI Media Machine made your video ad from ${domain}.`,
     robot: 'The AI Media Machine robot giving a thumbs up and pointing at your video ad',
-    sample:
-      'Your free sample has our BlueFX logo and might need a few changes. With the full AI Media Machine, you change anything in about 3 minutes, and your new video ads come without our logo.',
+    /** The robot's name tag, so the name has a face. */
+    robotLabel: 'AI Media Machine',
+    /** "so more customers can find", not "keep finding" (owner: "Why not make it more simple?"). */
+    line: (domain: string) => `With the AI Media Machine, you get ${MONTH} new video ads like yours every month, so more customers can find ${domain}.`,
+    /** A computer's hero: a plain link down to the 3 video ads instead of the price button. */
+    seeNext: 'See your next 3 video ads',
   },
 
   how: {
@@ -124,7 +130,12 @@ export const RESULT_PAGE = {
   },
 
   buy: {
-    button: 'Get the AI Media Machine',
+    /**
+     * The owner's "Yes" button (2026-10-19): the AI Media Machine makes the video ads, so the button never reads like a
+     * service that sends them ("now the button feels like a service i buy"). The bar on a phone shows the first line only.
+     */
+    button: 'Yes! I Want the AI Media Machine',
+    buttonMore: `that makes ${MONTH} new video ads for me every month`,
     was: OFFER.was,
     now: OFFER.now,
     once: 'one payment',

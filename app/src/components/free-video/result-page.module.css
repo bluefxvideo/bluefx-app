@@ -113,6 +113,22 @@
   display: block;
 }
 
+/* The robot's name tag (boards E and F) */
+.robotLabel {
+  position: relative;
+  margin-top: -2px;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 13px;
+  background: var(--navy);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+
 .h1 {
   margin: 2px 0 0;
   font-size: 28px;
@@ -143,7 +159,7 @@
   border-radius: 16px;
 }
 
-.sample {
+.heroLine {
   margin: 0;
   font-size: 16px;
   line-height: 1.45;
@@ -152,8 +168,57 @@
   text-wrap: pretty;
 }
 
-.heroBuy {
+/* A computer's pictures of the 3 video ads and the link down to them; a phone has the 3 video ads right under the video ad. */
+.seeNext {
   display: none;
+}
+
+.seeThumbs {
+  display: flex;
+  gap: 8px;
+}
+
+.seeThumb {
+  position: relative;
+  width: 84px;
+  height: 105px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #1e293b;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+}
+
+.seeThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.seeThumbNumber {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--navy);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.seeText {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+/* The button right after the 3 video ads */
+.adsBuy {
+  padding-top: 16px;
 }
 
 /* ------------------------------------------------------------------------------------------------ */
@@ -213,6 +278,16 @@
   100% {
     left: 130%;
   }
+}
+
+/* The second line of the "Yes" button: what the AI Media Machine does */
+.buyMore {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 1.3;
+  font-weight: 600;
+  text-wrap: balance;
 }
 
 .buyPrice {
@@ -2015,24 +2090,48 @@
     margin-bottom: -6px;
   }
 
+  /* Centered under the robot */
+  .robotLabel {
+    height: 28px;
+    margin: -12px 0 0 32px;
+    padding: 0 14px;
+    border-radius: 14px;
+    font-size: 13px;
+  }
+
   .h1 {
     font-size: 46px;
     line-height: 1.1;
     letter-spacing: -1px;
   }
 
-  .sample {
+  .heroLine {
     text-align: left;
     font-size: 18px;
     line-height: 1.5;
   }
 
-  .heroBuy {
+  .seeNext {
     display: flex;
-    flex-direction: column;
-    width: 460px;
-    max-width: 100%;
-    padding-top: 14px;
+    align-self: flex-start;
+    align-items: center;
+    gap: 18px;
+    margin-top: 6px;
+    color: var(--navy);
+    text-decoration: none;
+  }
+
+  .seeNext:hover .seeText,
+  .seeNext:focus-visible .seeText {
+    text-decoration: underline;
+  }
+
+  .adsBuy {
+    padding-top: 28px;
+  }
+
+  .buyMore {
+    font-size: 15px;
   }
 
   .buy {

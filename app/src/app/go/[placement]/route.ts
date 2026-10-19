@@ -33,7 +33,7 @@ import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
  *   placement and the lead's id, owner 2026-10-19), the click logged on the lead when there is one. Not a checkout: no
  *   InitiateCheckout for Facebook; the sales page's own buttons open ClickBank's order form, ClickBank's script there
  *   carries the hop on and the page's own script the vtid.
- * - A checkout button of the result page (fvres1, fvres2, fvres3, fvresbar, owner 2026-10-19) → 302 to ClickBank's
+ * - A checkout button of the result page (fvres1, fvres2, fvres3, fvresads, fvresbar, owner 2026-10-19) → 302 to ClickBank's
  *   checkout like the page buttons, with the lead's id in the vendor tracking id (resultCheckoutUrl).
  * - Anything else → 404. Every target is built here from fixed parts: never an open redirect.
  * - A checkout link carries the affiliate's ClickBank hop (clickbank.ts): the hopId and vq ClickBank's script appended

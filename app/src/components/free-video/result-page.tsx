@@ -28,7 +28,7 @@ interface ResultPageProps {
 
 /**
  * The result page of a free video ad for a lead (not a customer, not a buyer): result-page.ts has the words and the
- * order. Three buttons and the bar on phones open ClickBank's checkout through /go (fvres1, fvres2, fvres3, fvresbar).
+ * order. The buttons and the bar on phones open ClickBank's checkout through /go (fvresads, fvres1, fvres2, fvres3, fvresbar).
  */
 export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onComplete }: ResultPageProps) {
   const { domain, firstName } = view;
@@ -36,7 +36,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
   const cards = view.nextAds ?? null;
   // The 3 written video ads are a bonus: on the page only while it runs.
   const written = bonus && (Boolean(cards) || Boolean(view.nextAdsPending));
-  const heroRef = useRef<HTMLDivElement>(null);
+  const compareRef = useRef<HTMLElement>(null);
   const [viewing, setViewing] = useState<(typeof RESULT_PAGE.examples.items)[number] | null>(null);
   const { hero, how, scrolling, compare, buy, stack, founder, promise, faq, reviews, examples, ps } = RESULT_PAGE;
 
@@ -44,7 +44,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
     <div className={styles.page}>
       <section className={cn(styles.wrap, styles.hero)} aria-labelledby="fv-result-title">
         <div className={styles.heroGrid}>
-          <div ref={heroRef} className={styles.heroVideo}>
+          <div className={styles.heroVideo}>
             <VideoAdPlayer src={videoUrl} label={PLAYER.label(domain)} onPlayWithSound={onPlayWithSound} onComplete={onComplete} className={styles.heroPlayerFrame} tapToPlay />
           </div>
           {/* On a phone the head sits above the video and the text below it (display: contents); on a computer both sit beside it. */}
@@ -52,21 +52,60 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
             <div className={styles.heroHead}>
               <Confetti />
               <Robot className={styles.robot} label={hero.robot} burst />
+              <span className={styles.robotLabel}>{hero.robotLabel}</span>
               <h1 id="fv-result-title" className={styles.h1}>
                 <span className={styles.h1Name}>{hero.congrats(firstName)}</span>
-                {hero.title}
+                {hero.title(domain)}
               </h1>
             </div>
             <div className={cn(styles.stack, styles.heroSide)}>
-              <p className={styles.sample}>{hero.sample}</p>
-              {/* A computer shows the first button without scrolling (board D); a phone has it under the comparison. */}
-              <div className={styles.heroBuy}>
-                <BuyBlock token={token} placement="fvres1" note={[buy.guarantee]} />
-              </div>
+              <p className={styles.heroLine}>{hero.line(domain)}</p>
+              {/* No price at the top (owner 2026-10-19: "lets move the price down"): a computer gets the 3 video ads' pictures and a link down to them. */}
+              {written && (
+                <a className={styles.seeNext} href={`#${RESULT_PAGE.written.anchor}`}>
+                  {cards && (
+                    <span className={styles.seeThumbs} aria-hidden="true">
+                      {cards.map((card) => (
+                        <span key={card.n} className={styles.seeThumb}>
+                          {card.imageUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={card.imageUrl} alt="" loading="lazy" />
+                          )}
+                          <span className={styles.seeThumbNumber}>#{card.n}</span>
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                  <span className={styles.seeText}>
+                    {hero.seeNext}
+                    <ArrowDown />
+                  </span>
+                </a>
+              )}
             </div>
           </div>
         </div>
       </section>
+
+      {written && (
+        <section id={RESULT_PAGE.written.anchor} className={cn(styles.wrap, styles.section, styles.stack)} aria-labelledby="fv-written-title">
+          <div className={cn(styles.stack, styles.writtenHead)}>
+            <h2 id="fv-written-title" className={styles.writtenTitle}>
+              {RESULT_PAGE.written.title}
+            </h2>
+            <p className={styles.text}>{RESULT_PAGE.written.text(domain, deadline?.day ?? null)}</p>
+          </div>
+          <ul className={styles.ads}>
+            {(cards ?? ([2, 3, 4] as const).map((n) => ({ n, pending: true }) as const)).map((card) =>
+              'pending' in card ? <WritingCard key={card.n} n={card.n} /> : <WrittenAd key={card.n} ad={card} />
+            )}
+          </ul>
+          {/* Right where they want the 3 video ads (owner 2026-10-19: "how do i get it? maybe some button there?"). */}
+          <div className={styles.adsBuy}>
+            <BuyBlock token={token} placement="fvresads" note={[buy.guarantee, buy.loginWritten]} />
+          </div>
+        </section>
+      )}
 
       <section className={cn(styles.wrap, styles.how)} aria-labelledby="fv-how-title">
         <h2 id="fv-how-title" className={styles.h2}>
@@ -109,7 +148,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
         </figure>
       </section>
 
-      <section className={cn(styles.wrap, styles.narrow, styles.sectionTight, styles.stack, styles.compareSection)} aria-labelledby="fv-compare-title">
+      <section ref={compareRef} className={cn(styles.wrap, styles.narrow, styles.sectionTight, styles.stack, styles.compareSection)} aria-labelledby="fv-compare-title">
         <h2 id="fv-compare-title" className={styles.compareTitle}>
           {compare.title}
         </h2>
@@ -138,26 +177,10 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
         <p className={styles.compareAfter}>{compare.line(domain)}</p>
       </section>
 
-      {/* The price and the button under the comparison, on a phone and on a computer (owner 2026-10-19: "i did like and want"). */}
+      {/* The first price button, under the comparison, on a phone and on a computer (owner 2026-10-19: "lets move the price down"). */}
       <div className={cn(styles.wrap, styles.narrow, styles.sectionTight)}>
         <BuyBlock token={token} placement="fvres1" note={[buy.guarantee, written ? buy.loginWritten : buy.login]} />
       </div>
-
-      {written && (
-        <section id={RESULT_PAGE.written.anchor} className={cn(styles.wrap, styles.section, styles.stack)} aria-labelledby="fv-written-title">
-          <div className={cn(styles.stack, styles.writtenHead)}>
-            <h2 id="fv-written-title" className={styles.writtenTitle}>
-              {RESULT_PAGE.written.title}
-            </h2>
-            <p className={styles.text}>{RESULT_PAGE.written.text(domain, deadline?.day ?? null)}</p>
-          </div>
-          <ul className={styles.ads}>
-            {(cards ?? ([2, 3, 4] as const).map((n) => ({ n, pending: true }) as const)).map((card) =>
-              'pending' in card ? <WritingCard key={card.n} n={card.n} /> : <WrittenAd key={card.n} ad={card} />
-            )}
-          </ul>
-        </section>
-      )}
 
       <section className={cn(styles.wrap, styles.column, styles.section, styles.stack)} aria-labelledby="fv-stack-title">
         <div className={styles.offer}>
@@ -322,7 +345,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
       </section>
 
       <Legal />
-      <StickyBar token={token} watch={heroRef} />
+      <StickyBar token={token} watch={compareRef} />
       {viewing && <Viewer item={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
@@ -346,6 +369,7 @@ function BuyBlock({ token, placement, note }: { token: string; placement: Result
     <div className={styles.buy}>
       <OfferButton className={styles.buyButton} href={goUrl(placement, token)}>
         {buy.button}
+        <span className={styles.buyMore}>{buy.buttonMore}</span>
         <span className={styles.buyPrice}>
           <s className={styles.buyWas}>{buy.was}</s>&nbsp; {buy.now}, {buy.once}
         </span>
@@ -363,18 +387,35 @@ function BuyBlock({ token, placement, note }: { token: string; placement: Result
   );
 }
 
-/** The bar at the bottom of a phone's screen once the video ad has scrolled up past the top, away while another buy button or the footer is on screen. */
-function StickyBar({ token, watch }: { token: string; watch: React.RefObject<HTMLDivElement | null> }) {
+/**
+ * The bar at the bottom of a phone's screen once the comparison has scrolled up past the top (no price before the value,
+ * owner 2026-10-19), away while another buy button or the footer is on screen.
+ */
+function StickyBar({ token, watch }: { token: string; watch: React.RefObject<HTMLElement | null> }) {
   const [past, setPast] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const { buy, bar } = RESULT_PAGE;
 
+  // From the scroll position, not an IntersectionObserver: a jump back up over the comparison never crosses it, so an observer would leave the bar on.
   useEffect(() => {
     const target = watch.current;
-    if (!target || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(([entry]) => setPast(!entry.isIntersecting && entry.boundingClientRect.bottom < 0));
-    observer.observe(target);
-    return () => observer.disconnect();
+    if (!target) return;
+    let frame = 0;
+    const check = () => {
+      frame = 0;
+      setPast(target.getBoundingClientRect().bottom < 0);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(check);
+    };
+    check();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      cancelAnimationFrame(frame);
+    };
   }, [watch]);
 
   useEffect(() => {
@@ -956,6 +997,14 @@ function Sparkle() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 2l2.2 6.3L20.5 10l-6.3 2.2L12 18.5l-2.2-6.3L3.5 10l6.3-1.7z" fill="#7CB342" />
+    </svg>
+  );
+}
+
+function ArrowDown() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 5v14M6 13l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

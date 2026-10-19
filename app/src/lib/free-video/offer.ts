@@ -24,6 +24,7 @@ export const PLACEMENTS = [
   'fvres1',
   'fvres2',
   'fvres3',
+  'fvresads',
   'fvresbar',
   'fvmail1',
   'fvmail2',
@@ -80,11 +81,12 @@ export const salesPageUrl = (placement: SalesPagePlacement, leadId?: string | nu
 /**
  * The checkout buttons of the result page (owner 2026-10-19: "we have payment buttons again", with the price, the
  * discount and the card logos): under the comparison (fvres1), under the bonus timer (fvres2), after the walkthrough
- * (fvres3) and the bar at the bottom of a phone's screen (fvresbar). /go opens ClickBank's checkout with the placement
+ * (fvres3), after the next 3 video ads (fvresads, owner 2026-10-19: "how do i get it? maybe some button there?") and the
+ * bar at the bottom of a phone's screen (fvresbar). /go opens ClickBank's checkout with the placement
  * and the lead's id as the vendor tracking id (resultCheckoutUrl), so a sale paid with another email still finds its
  * lead, and the click is an InitiateCheckout like every checkout click.
  */
-export const RESULT_PAGE_PLACEMENTS = ['fvres1', 'fvres2', 'fvres3', 'fvresbar'] as const satisfies readonly Placement[];
+export const RESULT_PAGE_PLACEMENTS = ['fvres1', 'fvres2', 'fvres3', 'fvresads', 'fvresbar'] as const satisfies readonly Placement[];
 export type ResultPagePlacement = (typeof RESULT_PAGE_PLACEMENTS)[number];
 export function isResultPagePlacement(value: string): value is ResultPagePlacement {
   return (RESULT_PAGE_PLACEMENTS as readonly string[]).includes(value);
@@ -92,7 +94,7 @@ export function isResultPagePlacement(value: string): value is ResultPagePlaceme
 
 /** The 8 characters of a lead's id inside a vtid that carries one ("fvready_1a2b3c4d", "fvres1_1a2b3c4d" → "1a2b3c4d"), null for any other tracking id. */
 export function leadPrefixOfVtid(vtid: string | null | undefined): string | null {
-  const match = /^(?:fvready|fvreadyend|fvland|fvres1|fvres2|fvres3|fvresbar)_([0-9a-f]{8})$/.exec(String(vtid ?? '').trim().toLowerCase());
+  const match = /^(?:fvready|fvreadyend|fvland|fvres1|fvres2|fvres3|fvresads|fvresbar)_([0-9a-f]{8})$/.exec(String(vtid ?? '').trim().toLowerCase());
   return match ? match[1] : null;
 }
 /** Every lifetime offer button on a funnel page: the pages' own buttons, the offer card's, the result page's buttons to the sales page and its checkout buttons. A cta_click on one of these is an offer click. */
