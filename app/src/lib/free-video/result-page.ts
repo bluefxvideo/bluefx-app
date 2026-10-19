@@ -155,7 +155,7 @@ export const RESULT_PAGE = {
     title: 'Everything you get today',
     items: (domain: string, written: boolean, bonus: boolean) =>
       [
-        { text: 'A new video ad every 3 days, so new customers keep finding you' },
+        { text: 'A new video ad every 3 days, so new customers can find you' },
         { text: 'The AI Media Machine, yours for life' },
         { text: `${MONTH} complete video ads every month` },
         written ? { text: `Your 3 written video ads for ${domain}` } : null,
