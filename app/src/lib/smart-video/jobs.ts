@@ -154,8 +154,8 @@ export async function readPlan(userId: string, jobId: string): Promise<SavedPlan
 
 /**
  * Jobs of this user that are still working (a job with a stale heartbeat is dead, not running). A free video ad copied
- * into the account (claim.ts) is left out while its watermark comes off: the user did not start it, and two of them
- * blocked the owner's next video (2026-10-13).
+ * into the account (claim.ts) is left out while its watermark comes off, and so are the 3 bonus video ads (bonus-ads.ts):
+ * the user did not start them, and two of them blocked the owner's next video (2026-10-13).
  */
 export async function runningJobs(userId: string): Promise<number> {
   const alive = new Date(Date.now() - STALE_AFTER_MS).toISOString();
@@ -164,6 +164,7 @@ export async function runningJobs(userId: string): Promise<number> {
     .eq('user_id', userId)
     .not('status', 'in', '(done,failed)')
     .is('job->>freeLeadId', null)
+    .is('job->>bonus', null)
     .gt('updated_at', alive);
   return count ?? 0;
 }

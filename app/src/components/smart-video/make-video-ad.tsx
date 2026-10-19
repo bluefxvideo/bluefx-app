@@ -94,6 +94,7 @@ export function videoTitle(job: SmartVideoJob): string {
 
 /** What a video ad was made from, in a few words: "ascentequipment.com and your notes". */
 function madeFrom(job: SmartVideoJob): string {
+  if (job.bonus) return `${job.bonus.site}, your bonus video ad #${job.bonus.n}`;
   const parts: string[] = [];
   if (job.link) parts.push(siteOf(job.link));
   if (job.brief.trim() && job.brief.trim() !== job.link) parts.push('your notes');
@@ -372,6 +373,8 @@ export function MakeVideoAdView({
   else if (job.freeLeadId && job.freeStage) main = <FreeVideoWaiting job={job} />;
   else if (job.freeLeadId && job.status === 'failed') main = <FreeVideoProblem job={job} />;
   else if (job.freeLeadId && isRunning(job)) main = <FreeVideoArriving job={job} />;
+  else if (job.bonus && isRunning(job) && job.bonus.waiting) main = <BonusWaiting job={job} />;
+  else if (job.bonus && job.status === 'failed') main = <BonusProblem job={job} />;
   else if (job.status === 'done' && job.videoUrl)
     main = (
       <Ready
@@ -1206,6 +1209,44 @@ function FreeVideoArriving({ job }: { job: SmartVideoJob }) {
           </GreenButton>
           <p className="text-center text-base text-muted-foreground">Ready to download in about 2 minutes.</p>
         </div>
+      </Panel>
+    </div>
+  );
+}
+
+/** A bonus video ad whose turn has not come: made at no credits, one after the other (lib/free-video/bonus-ads.ts). */
+function BonusWaiting({ job }: { job: SmartVideoJob }) {
+  const bonus = job.bonus as NonNullable<SmartVideoJob['bonus']>;
+  return (
+    <div className="mx-auto max-w-[760px] space-y-6">
+      <PageHeader title={`Your bonus video ad #${bonus.n} for ${bonus.site}`} robot={false} />
+      <Panel className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+        <RobotLoop className="h-28 w-28 flex-shrink-0" />
+        <div className="space-y-2">
+          <p className="text-lg font-bold">{videoTitle(job)}</p>
+          <p className="text-lg leading-relaxed">
+            Your bonus video ad #{bonus.n} is next in line. It starts as soon as the bonus video ad before it is done, and it uses no credits.
+          </p>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+/** A bonus video ad that failed: the sweep makes it again once, and the owner hears about a second failure. No paid "try again" here. */
+function BonusProblem({ job }: { job: SmartVideoJob }) {
+  const bonus = job.bonus as NonNullable<SmartVideoJob['bonus']>;
+  const again = (bonus.attempt ?? 1) < 2;
+  return (
+    <div className="mx-auto max-w-[760px] space-y-6">
+      <PageHeader title={`Your bonus video ad #${bonus.n} for ${bonus.site}`} robot={false} />
+      <Panel className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+        <RobotLoop className="h-28 w-28 flex-shrink-0" />
+        <p className="text-lg leading-relaxed">
+          {again
+            ? `Your bonus video ad #${bonus.n} is being made again. It shows up here in a few minutes, and it uses no credits.`
+            : 'This bonus video ad could not be made. We are on it: it shows up here as soon as it is made, at no credits.'}
+        </p>
       </Panel>
     </div>
   );

@@ -116,6 +116,11 @@ export interface SmartVideoJob {
   warnings?: string[];
   /** A free video ad copied into the buyer's account (lib/free-video/claim.ts): the free_video_leads id it came from. */
   freeLeadId?: string;
+  /**
+   * One of the 3 bonus video ads of a free video ad lead who bought the AI Media Machine while the bonus ran
+   * (lib/free-video/bonus-ads.ts): made at no credits, one after the other. waiting: its turn has not come yet.
+   */
+  bonus?: { leadId: string; n: 2 | 3 | 4; site: string; waiting?: boolean; attempt?: number };
   /** The copy's free (marked) file, shown while the clean version renders, and the website it was made from. */
   freePreviewUrl?: string;
   freeSite?: string;

@@ -75,6 +75,8 @@ export function SmartVideoPage() {
       watched.current = null;
       if (job.status === 'done') toast.success(job.parentId ? 'Your changed video ad is ready.' : 'Your video ad is ready.');
       else if (job.freeLeadId) toast.error(plainError(job.error));
+      // A bonus video ad that failed is made again by the sweep (bonus-ads.ts): no alarm.
+      else if (job.bonus) return;
       else toast.error(job.parentId ? 'Your change did not go through.' : 'Your video ad could not be made.');
     }
   }, [job]);
