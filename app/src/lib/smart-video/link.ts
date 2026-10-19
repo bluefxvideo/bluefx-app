@@ -39,6 +39,46 @@ export function cleanLink(raw: string): string {
   return url.href;
 }
 
+/**
+ * Endings a bare name must have to count as a website ("joespizza.com" yes, "St.Petersburg" no). A link typed with
+ * https:// or www. always counts.
+ */
+const KNOWN_ENDINGS = new Set(
+  (
+    'com net org co us uk ca au nz ie io biz info shop store online site website app dev tech ai me tv fm gl ly page xyz club pro life ' +
+    'live world today one agency realty homes house estate law legal dental clinic health care fitness studio design media marketing ' +
+    'church edu gov mx de fr es it nl be ch at se no dk fi pl pt ro hu cz gr tr za in sg my ph jp kr br ar cl'
+  ).split(' '),
+);
+const WEBSITE_IN_TEXT = /(?:https?:\/\/)?(?:www\.)?[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,24}(?:\/[^\s]*)?/gi;
+
+/**
+ * The first website in what someone typed, so "ascentequipment.com" in the one big text box is read like a link.
+ * An email address does not count as a website. `onlyLink` is true when the text is nothing but the link.
+ */
+export function findWebsite(text: string): { url: string; label: string; onlyLink: boolean } | null {
+  for (const match of text.matchAll(WEBSITE_IN_TEXT)) {
+    const start = match.index ?? 0;
+    const raw = match[0].replace(/[.,;:!?)\]'"]+$/, '');
+    if (text[start - 1] === '@' || text[start + match[0].length] === '@') continue;
+    const marked = /^(https?:\/\/|www\.)/i.test(raw);
+    const host = raw.replace(/^https?:\/\//i, '').split(/[/?#]/)[0].toLowerCase();
+    const ending = host.split('.').pop() ?? '';
+    if (!marked && !KNOWN_ENDINGS.has(ending)) continue;
+    const url = cleanLink(raw);
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      continue;
+    }
+    // A home page is named by its address; a listing, product or Maps link by what it is.
+    const label = parsed.pathname === '/' && !parsed.search ? parsed.hostname.replace(/^www\./, '') : describeLink(url);
+    return { url, label, onlyLink: text.trim().replace(/[.,;:!?]+$/, '') === raw };
+  }
+  return null;
+}
+
 /** What the link is, in plain words, for the page and the library. */
 export function describeLink(link: string): string {
   try {

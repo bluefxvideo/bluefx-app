@@ -21,6 +21,8 @@ export interface PhantomExample {
   title: string;
   /** One line on what the example teaches about structuring the input. */
   shows: string;
+  /** What went in, in a few plain words, under the example on the page. */
+  wentIn: string;
   videoUrl: string;
   posterUrl: string;
   format: VideoFormat;
@@ -48,6 +50,7 @@ export const PHANTOM_EXAMPLES: PhantomExample[] = [
     label: 'Realtor',
     title: 'Free home valuation, with the agent on camera',
     shows: 'A 10-second phone clip of the agent opens the ad in her own voice. Two listing photos and a few lines of notes do the rest.',
+    wentIn: 'a 10-second phone clip of the agent, 2 listing photos and a few lines of notes.',
     format: 'vertical',
     look: 'elegant',
     brief:
@@ -62,7 +65,8 @@ export const PHANTOM_EXAMPLES: PhantomExample[] = [
     id: 'roofing',
     label: 'Roofer',
     title: 'Free storm inspection',
-    shows: 'Five photos of real roof work and the facts a customer needs. The Phantom writes the script and picks the order.',
+    shows: 'Five photos of real roof work and the facts a customer needs. The AI Media Machine writes the script and picks the order.',
+    wentIn: '5 photos of roof work and a few lines about the offer.',
     format: 'vertical',
     look: 'bold',
     brief:
@@ -80,6 +84,7 @@ export const PHANTOM_EXAMPLES: PhantomExample[] = [
     label: 'Product',
     title: 'An Amazon product, horizontal',
     shows: 'A packshot and three lifestyle photos become a 16:9 ad for YouTube or a product page. The price and where to buy go in the text.',
+    wentIn: '4 product photos and a few lines with the price. Wide shape, for YouTube.',
     format: 'horizontal',
     look: 'clean',
     brief:

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -10,7 +10,7 @@ import {
   reviseSmartVideoJob,
   startSmartVideo,
 } from '@/actions/tools/smart-video';
-import { cleanLink } from '@/lib/smart-video/link';
+import { cleanLink, findWebsite } from '@/lib/smart-video/link';
 import { isStalePageError } from '@/lib/stale-page';
 import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_PRESENTER_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
 import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount, type ListingLength } from '@/lib/smart-video/listing';
@@ -51,6 +51,8 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   // An AI presenter opens the video and says the first line: on by default, vertical Phantom videos only.
   const [presenter, setPresenter] = useState(true);
   const withPresenter = !isListing && format === 'vertical' && presenter;
+  // The one big text box: a website typed into it is read like a link ("ascentequipment.com"), the rest stays notes.
+  const website = useMemo(() => (!isListing && !link.trim() ? findWebsite(brief) : null), [isListing, link, brief]);
   const [files, setFiles] = useState<File[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
@@ -106,7 +108,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
       return;
     }
     if (!isListing && !brief.trim() && !link.trim()) {
-      toast.error('Write what the video is about, or paste a link');
+      toast.error('Type your website, or a few lines about your business');
       return;
     }
     try {
@@ -127,7 +129,8 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
 
       const started = await startSmartVideo({
         jobId: requested.data.jobId,
-        brief,
+        // A box that holds only the website sends no notes; with more lines, the whole text goes as notes too.
+        brief: website?.onlyLink ? '' : brief,
         length: exactWords ? 'script' : 'auto',
         format,
         look,
@@ -135,7 +138,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
         music,
         presenter: withPresenter,
         ...(isListing ? { listing: { seconds: listingSeconds, ...(instructions.trim() ? { instructions: instructions.trim() } : {}) } } : {}),
-        link: cleanLink(link),
+        link: website ? website.url : cleanLink(link),
         uploads: requested.data.slots.map((slot) => ({ name: slot.name, path: slot.path })),
       });
       if (!started.success) throw new Error(started.error);
@@ -143,11 +146,11 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
       queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
       queryClient.invalidateQueries({ queryKey: ['user-credits'] });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not start the video');
+      toast.error(error instanceof Error ? error.message : 'Your video ad could not be started');
     } finally {
       setUploading(null);
     }
-  }, [brief, link, exactWords, format, look, voiceOver, music, withPresenter, files, queryClient, isListing, listingSeconds, instructions]);
+  }, [brief, link, website, exactWords, format, look, voiceOver, music, withPresenter, files, queryClient, isListing, listingSeconds, instructions]);
 
   // "Leave a note": the change becomes a new job that reuses the finished video's files.
   const [revising, setRevising] = useState(false);
@@ -185,7 +188,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
         queryClient.invalidateQueries({ queryKey: ['user-credits'] });
         return true;
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Could not start the edit');
+        toast.error(error instanceof Error ? error.message : 'Your change could not be started');
         return false;
       } finally {
         setRevising(false);
@@ -216,7 +219,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
         queryClient.invalidateQueries({ queryKey: ['user-credits'] });
         return true;
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Could not start the edit');
+        toast.error(error instanceof Error ? error.message : 'Your change could not be started');
         return false;
       } finally {
         setRevising(false);
@@ -227,11 +230,13 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
 
   // A failed new video: back to the form, with the text it was made from (the files have to be added again).
   const tryAgain = useCallback((failed: SmartVideoJob) => {
-    setBrief((current) => current || failed.brief || '');
-    setLink((current) => current || failed.link || '');
+    if (isListing) {
+      setBrief((current) => current || failed.brief || '');
+      setLink((current) => current || failed.link || '');
+    } else setBrief((current) => current || failed.brief || (failed.link ? describeBoxLink(failed.link) : ''));
     setInstructions((current) => current || failed.listing?.instructions || '');
     setJobId(null);
-  }, []);
+  }, [isListing]);
 
   // "Try this example": the form gets exactly what made the example video, photos and clip included,
   // so the structure is there to copy before the user swaps in their own business.
@@ -251,7 +256,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
         example.files.map((file) => urlToFile(file.url, file.name, file.kind === 'clip' ? 'video/mp4' : 'image/jpeg')),
       );
       setFiles(loaded.slice(0, SMART_VIDEO_MAX_FILES));
-      toast.success('Example loaded. Swap in your own text and photos, then summon the Phantom.');
+      toast.success('Example loaded. Swap in your own text and photos, then press Make my video ad.');
     } catch {
       toast.error('The example photos could not be loaded. The text is filled in, so add your own photos.');
     } finally {
@@ -306,6 +311,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     stalePage: isStalePageError(jobError?.message) || isStalePageError(historyError?.message),
     uploading,
     credits: isListing ? LISTING_CREDITS : phantomCredits(brief, exactWords) + (withPresenter ? PHANTOM_PRESENTER_CREDITS : 0),
+    website,
     revise,
     revising,
     // A free video ad being made or copied in keeps the form free: the user did not start it.
@@ -315,7 +321,14 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     retryEdit,
     tryAgain,
     openJob: setJobId,
+    // The video ad on screen, also while it is still loading.
+    jobId,
     loadExample,
     loadingExample,
   };
+}
+
+/** A link as it goes back into the text box: the address as people type it, without https:// or a closing slash. */
+function describeBoxLink(link: string): string {
+  return link.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '');
 }

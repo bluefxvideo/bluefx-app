@@ -1,28 +1,69 @@
 @import "tailwindcss";
 
+/* dark: follows the theme the user picked (the html class), not the computer's setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Your existing visual design preserved in shadcn/ui format */
-:root {
-  /* Light mode (fallback) - shadcn/ui format */
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
+/* Light: the bluefx.net look (white page, navy, the site's green button). Also applied by a .light wrapper,
+   so a preview can show light inside the dark app. */
+:root,
+.light {
+  --background: 0 0% 100%;            /* #FFFFFF */
+  --foreground: 222 47% 11.2%;        /* #0F172A, the site's ink */
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
+  --card-content: 210 40% 96.1%;      /* #F1F5F9 */
+  --card-foreground: 222 47% 11.2%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --primary: 210 100% 50%; /* Blue for light mode */
-  --primary-foreground: 0 0% 98%;
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 5.9% 10%;
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 50%;
-  --accent: 240 4.8% 96%;
-  --accent-foreground: 240 5.9% 10%;
+  --popover-foreground: 222 47% 11.2%;
+  --primary: 221 83% 53.3%;           /* #2563EB, the site's blue button */
+  --primary-foreground: 0 0% 100%;
+  --brand: 213 69% 32.5%;             /* #1A4D8C, the site's blue */
+  --brand-foreground: 213 69% 32.5%;
+  --secondary: 210 40% 96.1%;         /* #F1F5F9 */
+  --secondary-foreground: 222 47% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215 19% 34.5%;  /* #475569, the site's second ink */
+  --accent: 212 62% 95.9%;            /* #EEF4FB */
+  --accent-foreground: 222 47% 11.2%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
-  --ring: 240 10% 3.9%;
+  --border: 214 32% 91.4%;            /* #E2E8F0, the site's lines */
+  --input: 213 27% 83.9%;             /* #CBD5E1 */
+  --ring: 213 69% 32.5%;
   --radius: 0.5rem;
+  --interactive: 210 40% 96.1%;
+  --interactive-hover: 214 32% 91.4%;
+  /* Make a Video Ad: the big green button, the main sheet, the text box, and a success line (no "panel" or "card" in
+     these names: an old .dark rule draws a border around every class that contains one of those words) */
+  --cta: 92 48% 42%;                  /* #689F38: the site's green one shade deeper, so white text reads at 3:1+ */
+  --cta-hover: 88 54% 35.7%;          /* #5E8C2A */
+  --cta-foreground: 0 0% 100%;
+  --change: 221 83% 53.3%;            /* #2563EB */
+  --sheet: 213 65% 96.7%;             /* #F1F6FC, the site's hero card */
+  --sheet-line: 213 60% 91.2%;      /* #DBE7F6 */
+  --field: 0 0% 100%;
+  --field-border: 213 27% 83.9%;      /* #CBD5E1 */
+  --success-text: 93 58% 26.3%;       /* #3F6A1C */
+}
+
+/* The sidebar in light keeps the site's navy, like the top bar of bluefx.net; the open tool is green. */
+.light .app-sidebar {
+  --background: 213 70% 25.9%;        /* #143D70 */
+  --foreground: 0 0% 100%;
+  --card: 213 63% 30.8%;              /* #1D4A80 */
+  --card-content: 213 54% 37.1%;
+  --secondary: 213 54% 37.1%;         /* #2B5A92 */
+  --secondary-foreground: 0 0% 100%;
+  --muted: 213 63% 30.8%;
+  --muted-foreground: 213 47% 91%;    /* #DCE6F3: menu text on the navy, about 9:1 */
+  --accent: 213 54% 37.1%;
+  --accent-foreground: 0 0% 100%;
+  --border: 213 49% 35.5%;            /* #2E5687 */
+  --input: 213 54% 37.1%;
+  --primary: 89 46% 48%;              /* #7CB342 */
+  --popover: 213 70% 25.9%;
+  --popover-foreground: 0 0% 100%;
+  color: hsl(var(--foreground));
 }
 
 .dark {
@@ -51,6 +92,16 @@
   --ring: 210 60% 70%;             /* Focus ring blue */
   --interactive: 220deg 25.42% 11.57%;      /* #161b25 - Interactive element backgrounds */
   --interactive-hover: 218.18deg 23.1% 10.29%;   /* Hover state - specific darker shade */
+  /* Make a Video Ad (see the light block) */
+  --cta: 142 71% 45.3%;              /* #22C55E */
+  --cta-hover: 142 76% 36.3%;        /* #16A34A */
+  --cta-foreground: 145 80% 10%;     /* #052E16 */
+  --change: 221 83% 53.3%;           /* #2563EB */
+  --sheet: 222 22% 15.1%;            /* #1E232F */
+  --sheet-line: 218 15% 24.9%;     /* #363D49 */
+  --field: 221 17% 18%;              /* #262B36 */
+  --field-border: 221 14% 33.9%;     /* #4A5263 */
+  --success-text: 141 75% 84.3%;     /* #B9F5CE */
 }
 
 /* Map to Tailwind v4 format (shadcn/ui way) */
@@ -79,6 +130,15 @@
   --color-brand-foreground: hsl(var(--brand-foreground));
   --color-interactive: hsl(var(--interactive));
   --color-interactive-hover: hsl(var(--interactive-hover));
+  --color-cta: hsl(var(--cta));
+  --color-cta-hover: hsl(var(--cta-hover));
+  --color-cta-foreground: hsl(var(--cta-foreground));
+  --color-change: hsl(var(--change));
+  --color-sheet: hsl(var(--sheet));
+  --color-sheet-line: hsl(var(--sheet-line));
+  --color-field: hsl(var(--field));
+  --color-field-border: hsl(var(--field-border));
+  --color-success-text: hsl(var(--success-text));
   --radius: var(--radius);
   
   /* Animation utilities */

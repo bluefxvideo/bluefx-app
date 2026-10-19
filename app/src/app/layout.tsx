@@ -3,7 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
-import { Toaster } from "sonner";
+import { ThemedToaster } from "@/components/providers/themed-toaster";
 
 const geistSans = Inter({
   variable: "--font-geist-sans",
@@ -74,18 +74,18 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Light (the bluefx.net look) for everyone who has not picked Dark Theme in My Account. */}
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
+          defaultTheme="light"
           enableSystem={false}
           disableTransitionOnChange
-          forcedTheme="dark"
         >
           <QueryProvider>
             {children}
           </QueryProvider>
           {/* Global toast outlet — 41 components fire sonner toasts; without this they were all invisible */}
-          <Toaster theme="dark" position="top-right" richColors closeButton />
+          <ThemedToaster />
         </ThemeProvider>
       </body>
     </html>

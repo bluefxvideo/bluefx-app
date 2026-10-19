@@ -44,7 +44,7 @@ import {
   ChevronDown,
   Star,
   Scissors,
-  Eye,
+  MonitorPlay,
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { Badge } from '@/components/ui/badge'
@@ -76,11 +76,11 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsib
     name: "Video Tools",
     tools: [
       {
-        name: "The Phantom",
+        name: "Make a Video Ad",
         route: "/dashboard/smart-video",
-        icon: Eye,
+        icon: MonitorPlay,
         gradient: "bg-primary",
-        description: "Paste a Zillow, Amazon or Google Maps link. Get a finished video ad.",
+        description: "Type your website. Get a finished video ad.",
       },
       {
         name: "Video Maker",
@@ -504,7 +504,7 @@ export function DashboardSidebar({
     <TooltipProvider>
       <div
         className={cn(
-          "flex h-screen flex-col bg-background border-r border-border transition-all duration-300 ease-in-out",
+          "app-sidebar flex h-screen flex-col bg-background border-r border-border transition-all duration-300 ease-in-out",
           isCollapsed ? "w-16" : "w-72"
         )}
       >
@@ -528,9 +528,9 @@ export function DashboardSidebar({
             aria-label="Toggle sidebar"
           >
             {isCollapsed ? (
-              <PanelLeft className="h-5 w-5 text-zinc-400 group-hover:text-white transition-colors" />
+              <PanelLeft className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
             ) : (
-              <PanelLeftClose className="h-5 w-5 text-zinc-400 group-hover:text-white transition-colors" />
+              <PanelLeftClose className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
             )}
           </button>
         </div>
@@ -610,7 +610,7 @@ export function DashboardSidebar({
                     <Library
                       className={cn(
                         "w-5 h-5 transition-all duration-300",
-                        isToolActive('/dashboard/library') ? "text-white" : "text-zinc-400"
+                        isToolActive('/dashboard/library') ? "text-white" : "text-muted-foreground"
                       )}
                     />
                   </div>
@@ -623,7 +623,7 @@ export function DashboardSidebar({
                     <p
                       className={cn(
                         "text-base font-medium leading-none whitespace-nowrap transition-all duration-300",
-                        isToolActive('/dashboard/library') ? "text-white" : "text-zinc-400"
+                        isToolActive('/dashboard/library') ? "text-white" : "text-muted-foreground"
                       )}
                     >
                       My Library
@@ -653,13 +653,13 @@ export function DashboardSidebar({
                     onClick={() => toggleCategory(category.id)}
                     aria-expanded={!isCatCollapsed}
                     aria-controls={`sidebar-cat-${category.id}`}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-zinc-400 hover:text-zinc-200 uppercase tracking-wider transition-colors"
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground uppercase tracking-wider transition-colors"
                   >
                     <span>{category.name}</span>
                     <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isCatCollapsed && "-rotate-90")} />
                   </button>
                 ) : (
-                  <h3 className="px-3 py-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                  <h3 className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     {category.name}
                   </h3>
                 )
@@ -697,7 +697,7 @@ export function DashboardSidebar({
                                 "w-5 h-5", // Consistent icon size
                                 isToolActive(tool.route)
                                   ? "text-white"
-                                  : "text-zinc-400"
+                                  : "text-muted-foreground"
                               )}
                             />
                           </div>
@@ -715,7 +715,7 @@ export function DashboardSidebar({
                                 "text-base font-medium leading-none whitespace-nowrap transition-all duration-300",
                                 isToolActive(tool.route)
                                   ? "text-white"
-                                  : "text-zinc-400"
+                                  : "text-muted-foreground"
                               )}
                             >
                               {tool.name}
@@ -734,7 +734,7 @@ export function DashboardSidebar({
                                 'shrink-0 p-1 rounded transition-all',
                                 favorites.includes(tool.route)
                                   ? 'opacity-100 text-yellow-400'
-                                  : 'opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-yellow-400'
+                                  : 'opacity-0 group-hover:opacity-100 text-muted-foreground/80 hover:text-yellow-400'
                               )}
                             >
                               <Star className={cn('w-3.5 h-3.5', favorites.includes(tool.route) && 'fill-yellow-400')} />
@@ -781,11 +781,11 @@ export function DashboardSidebar({
                 <div className="flex items-center gap-1.5">
                   <Coins className="w-3.5 h-3.5 text-primary" />
                   {!isCollapsed && (
-                    <span className="text-xs text-zinc-400">Credits</span>
+                    <span className="text-xs text-muted-foreground">Credits</span>
                   )}
                 </div>
                 {!isCollapsed && (
-                  <span className="text-xs font-medium text-zinc-300 tabular-nums">
+                  <span className="text-xs font-medium text-foreground tabular-nums">
                     {credits !== null ? credits.toLocaleString() : '…'}
                   </span>
                 )}
@@ -820,7 +820,7 @@ export function DashboardSidebar({
                     >
                       <User
                         className={cn(
-                          "text-zinc-400 transition-colors",
+                          "text-muted-foreground transition-colors",
                           "w-5 h-5"
                         )}
                       />
@@ -834,7 +834,7 @@ export function DashboardSidebar({
                           : "opacity-100 max-w-full"
                       )}
                     >
-                      <span className="text-base font-medium whitespace-nowrap text-zinc-400 transition-colors duration-300">
+                      <span className="text-base font-medium whitespace-nowrap text-muted-foreground transition-colors duration-300">
                         My Account
                       </span>
                     </div>
@@ -842,7 +842,7 @@ export function DashboardSidebar({
                     {!isCollapsed && (
                       <ChevronUp
                         className={cn(
-                          "w-4 h-4 text-zinc-400 transition-transform duration-300 ease-in-out",
+                          "w-4 h-4 text-muted-foreground transition-transform duration-300 ease-in-out",
                           showAccountDropdown ? "rotate-180" : ""
                         )}
                       />

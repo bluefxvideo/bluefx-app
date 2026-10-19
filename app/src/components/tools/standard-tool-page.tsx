@@ -42,10 +42,10 @@ export function StandardToolPage({
                 <Icon className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-white">
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground">
                   {title}
                 </h2>
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-muted-foreground">
                   {description}
                 </p>
               </div>
@@ -54,7 +54,7 @@ export function StandardToolPage({
               <Button
                 variant="outline"
                 size="sm"
-                className="border-border text-zinc-300 hover:bg-secondary gap-1.5 self-start sm:self-auto"
+                className="border-border text-foreground hover:bg-secondary gap-1.5 self-start sm:self-auto"
               >
                 <BookOpen className="w-4 h-4" />
                 Tutorial
