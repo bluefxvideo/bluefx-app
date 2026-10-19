@@ -4,6 +4,8 @@ import { createClient } from '@/app/supabase/server';
 import { redirect } from 'next/navigation';
 import { ProjectProvider } from '@/lib/project-context';
 import { GlobalGenerationNotifier } from '@/components/user/global-generation-notifier';
+import { KeepDarkForExisting } from '@/components/user/keep-dark-for-existing';
+import { KEEP_DARK_SCRIPT, keepsDarkByDefault } from '@/lib/theme-default';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,8 +38,17 @@ export default async function DashboardRootLayout({
     redirect('/login?message=Session validation failed. Please log in again.');
   }
 
+  // Accounts older than the light default keep dark until they pick Light (lib/theme-default.ts).
+  const keepDark = keepsDarkByDefault(user.created_at);
+
   return (
     <DashboardLayout>
+      {keepDark && (
+        <>
+          <script dangerouslySetInnerHTML={{ __html: KEEP_DARK_SCRIPT }} />
+          <KeepDarkForExisting />
+        </>
+      )}
       {/* App-wide "your generation finished" toasts — works on any page */}
       <GlobalGenerationNotifier />
       <ProjectProvider>
