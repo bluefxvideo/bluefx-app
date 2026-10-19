@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { createClient } from '@/app/supabase/client'
 import { useEffect, useCallback, useRef } from 'react'
 
@@ -26,6 +26,112 @@ const CREDIT_PACKAGES: Record<string, number> = {
   'ai-credit-pack-1000': 1000,
   'ai-credit-pack-2500': 2500,
   'ai-credit-pack-5000': 5000,
+}
+
+/*
+ * Page-wide credit upkeep, shared by every component on the page that uses this hook (the sidebar alone renders
+ * twice, and most tool pages add their own). Until 2026-10-19 each component ran it separately: every page load
+ * sent 6-8 self-heal requests, and each component re-opened the live channel. supabase.channel() hands back the
+ * same channel for the same name, so the first component to unmount also cut live updates for all the others.
+ */
+
+// Self-heal lapsed credit periods once per page load, then at most every 5 minutes while the person moves between
+// pages. Webhook renewals and crons cannot be relied on (lifetime plans have NO renewal webhooks at all), so the
+// server re-grants the monthly allotment lazily; without this, a user returning after 30+ days away would stare
+// at a stale zero until they ran a tool.
+const ENSURE_EVERY_MS = 5 * 60 * 1000
+let lastEnsureAt = 0
+
+function ensureCreditPeriod(queryClient: QueryClient) {
+  const now = Date.now()
+  if (now - lastEnsureAt < ENSURE_EVERY_MS) return
+  lastEnsureAt = now
+  fetch('/api/credits/ensure', { method: 'POST' })
+    .then((res) => {
+      if (res.ok) queryClient.invalidateQueries({ queryKey: ['user-credits'] })
+    })
+    .catch(() => { /* non-blocking: display-only self-heal */ })
+}
+
+// Live balance: one channel per page while anything on it shows credits, plus a backstop refresh in case the
+// websocket drops.
+const BACKSTOP_EVERY_MS = 60 * 1000
+
+function startLiveCredits(queryClient: QueryClient): () => void {
+  const supabase = createClient()
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['user-credits'] })
+  let channel: ReturnType<typeof supabase.channel> | null = null
+
+  const listen = (userId: string) => {
+    if (channel) return
+    channel = supabase
+      .channel(`user-credits-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_credits', filter: `user_id=eq.${userId}` },
+        (payload) => {
+          // Show the new balance at once when the change carries it, then confirm it with a fresh read (which also
+          // replaces a read that was already on its way with the old number).
+          const row = payload.new as Partial<UserCredits> | undefined
+          const available = row?.available_credits
+          if (typeof available === 'number') {
+            queryClient.setQueryData<UserCredits>(['user-credits'], (old) => ({
+              available_credits: available,
+              total_credits: typeof row?.total_credits === 'number' ? row.total_credits : old?.total_credits ?? 0,
+            }))
+          }
+          refresh()
+        }
+      )
+      .subscribe()
+  }
+
+  // The first event carries the stored session, so the channel needs no extra sign-in check. A session that only
+  // arrives later (right after signing in) starts the channel then, and reloads the balance that failed without
+  // it. Deferred: a Supabase call made inside this callback can wait on the auth lock the callback runs under.
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    if (!session?.user) return
+    listen(session.user.id)
+    if (event === 'SIGNED_IN') setTimeout(refresh, 0)
+  })
+
+  const backstop = setInterval(() => {
+    if (document.visibilityState === 'visible') refresh()
+  }, BACKSTOP_EVERY_MS)
+
+  return () => {
+    clearInterval(backstop)
+    subscription.unsubscribe()
+    if (channel) supabase.removeChannel(channel)
+  }
+}
+
+let live: { users: number; stop: () => void; stopTimer?: ReturnType<typeof setTimeout> } | null = null
+
+function joinLiveCredits(queryClient: QueryClient) {
+  if (!live) {
+    live = { users: 1, stop: startLiveCredits(queryClient) }
+    return
+  }
+  live.users += 1
+  if (live.stopTimer) {
+    clearTimeout(live.stopTimer)
+    live.stopTimer = undefined
+  }
+}
+
+// The last component to leave stops the channel a moment later, so the remount right after hydration, or a page
+// swapping for another, keeps the same channel instead of closing and reopening it.
+function leaveLiveCredits() {
+  const current = live
+  if (!current) return
+  current.users -= 1
+  if (current.users > 0) return
+  current.stopTimer = setTimeout(() => {
+    if (live !== current || current.users > 0) return
+    current.stop()
+    live = null
+  }, 1000)
 }
 
 export function useCredits() {
@@ -195,79 +301,12 @@ export function useCredits() {
     }
   }, []) // Empty deps - only runs once
 
-  // Self-heal lapsed credit periods on mount. Webhook renewals and crons cannot
-  // be relied on (lifetime plans have NO renewal webhooks at all), so the server
-  // re-grants the monthly allotment lazily; without this, a user returning after
-  // 30+ days away would stare at a stale zero until they ran a tool.
+  // The page-wide self-heal and live balance (above): shared, so they run once however many components use this.
   useEffect(() => {
-    fetch('/api/credits/ensure', { method: 'POST' })
-      .then((res) => {
-        if (res.ok) queryClient.invalidateQueries({ queryKey: ['user-credits'] })
-      })
-      .catch(() => { /* non-blocking: display-only self-heal */ })
+    ensureCreditPeriod(queryClient)
+    joinLiveCredits(queryClient)
+    return leaveLiveCredits
   }, [queryClient])
-
-  // Set up real-time subscription for server-side updates
-  useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    
-    const setupRealTimeSubscription = async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser()
-        
-        if (error || !user) {
-          console.log('No user found for real-time subscription')
-          return
-        }
-
-        console.log('Setting up real-time credit updates for user:', user.id)
-
-        channel = supabase
-          .channel('user-credits-updates')
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'user_credits',
-              filter: `user_id=eq.${user.id}`
-            },
-            (payload) => {
-              console.log('Real-time credit update received:', payload)
-              // Invalidate and refetch when credits change on server
-              queryClient.invalidateQueries({ queryKey: ['user-credits'] })
-            }
-          )
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',  
-              table: 'user_credits',
-              filter: `user_id=eq.${user.id}`
-            },
-            (payload) => {
-              console.log('Real-time credit insert received:', payload)
-              queryClient.invalidateQueries({ queryKey: ['user-credits'] })
-            }
-          )
-          .subscribe((status) => {
-            console.log('Real-time subscription status:', status)
-          })
-      } catch (error) {
-        console.error('Error setting up real-time subscription:', error)
-      }
-    }
-
-    setupRealTimeSubscription()
-
-    return () => {
-      if (channel) {
-        console.log('Removing real-time credit subscription')
-        supabase.removeChannel(channel)
-      }
-    }
-  }, [queryClient, supabase])
 
   return {
     credits,

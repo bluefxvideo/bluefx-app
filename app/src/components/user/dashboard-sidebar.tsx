@@ -54,6 +54,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { signOut } from '@/actions/auth'
 import { useDashboardLayout } from './dashboard-layout-context'
+import { useCredits } from '@/hooks/useCredits'
 
 // Tool interface
 interface Tool {
@@ -332,7 +333,10 @@ export function DashboardSidebar({
   const { toggleSidebar } = useDashboardLayout()
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [credits, setCredits] = useState<number | null>(null)
+  // The balance comes from the page-wide credits query (hooks/useCredits.ts), which keeps it live; the sidebar
+  // used to run its own copy per instance (two per page) with its own channel and a poll each.
+  const { credits: creditBalance } = useCredits()
+  const credits = creditBalance?.available_credits ?? null
   const [showBuyCredits, setShowBuyCredits] = useState(false)
   const accountDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -381,60 +385,6 @@ export function DashboardSidebar({
   const displayCategories = favoriteTools.length > 0
     ? [{ id: 'favorites', name: '★ Favorites', tools: favoriteTools }, ...toolCategories]
     : toolCategories
-
-  // Fetch user credits — live via realtime subscription (instant after spending),
-  // with a slow interval as a backstop in case the websocket drops. If the auth
-  // session isn't ready at mount (common right after navigation/login), we retry
-  // on auth-state changes instead of silently staying empty.
-  useEffect(() => {
-    const supabase = createClient()
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    let subscribed = false
-
-    async function fetchCredits() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return false
-      const { data } = await supabase
-        .from('user_credits')
-        .select('available_credits')
-        .eq('user_id', user.id)
-        .single()
-      if (typeof data?.available_credits === 'number') setCredits(data.available_credits)
-      return true
-    }
-
-    async function setup() {
-      if (subscribed) return
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      subscribed = true
-      await fetchCredits()
-      channel = supabase
-        .channel('sidebar-credits')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'user_credits', filter: `user_id=eq.${user.id}` },
-          (payload) => {
-            const next = (payload.new as { available_credits?: number })?.available_credits
-            if (typeof next === 'number') setCredits(next)
-          }
-        )
-        .subscribe()
-    }
-    setup()
-
-    // If the session wasn't ready on mount, set up as soon as it is.
-    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) setup()
-    })
-
-    const interval = setInterval(fetchCredits, 60000)
-    return () => {
-      clearInterval(interval)
-      authSub?.unsubscribe()
-      if (channel) supabase.removeChannel(channel)
-    }
-  }, [])
 
   // Check if user is admin. The network check takes seconds on cold loads,
   // which made admin-only menu items pop in late — so render from the cached
