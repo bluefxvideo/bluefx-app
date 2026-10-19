@@ -55,16 +55,16 @@ interface HistoryOutputProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  completed: 'bg-green-500/20 text-green-400',
-  ready: 'bg-green-500/20 text-green-400',
+  completed: 'bg-green-500/20 text-green-600 dark:text-green-400',
+  ready: 'bg-green-500/20 text-green-600 dark:text-green-400',
   failed: 'bg-destructive/20 text-destructive',
   draft: 'bg-muted text-muted-foreground',
-  generating_clips: 'bg-blue-500/20 text-blue-400',
-  analyzing: 'bg-blue-500/20 text-blue-400',
-  scripting: 'bg-blue-500/20 text-blue-400',
-  composite_ready: 'bg-blue-500/20 text-blue-400',
-  compositing: 'bg-yellow-500/20 text-yellow-400',
-  animating: 'bg-yellow-500/20 text-yellow-400',
+  generating_clips: 'bg-blue-500/20 text-blue-600 dark:text-blue-400',
+  analyzing: 'bg-blue-500/20 text-blue-600 dark:text-blue-400',
+  scripting: 'bg-blue-500/20 text-blue-600 dark:text-blue-400',
+  composite_ready: 'bg-blue-500/20 text-blue-600 dark:text-blue-400',
+  compositing: 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400',
+  animating: 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400',
 };
 
 type HistoryItem =
@@ -240,7 +240,7 @@ function HistoryRow({ item, onLoadProject, onDeleteGeneration }: {
           {d.prompt.slice(0, 50)}{d.prompt.length > 50 ? '...' : ''}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-purple-500/20 text-purple-400">
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-purple-500/20 text-purple-600 dark:text-purple-400">
             Agent Clone
           </Badge>
           <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${STATUS_COLORS[d.status] || ''}`}>
@@ -270,7 +270,7 @@ function HistoryRow({ item, onLoadProject, onDeleteGeneration }: {
         )}
         {d.voice_video_url && (
           <a href={d.voice_video_url} target="_blank" rel="noopener noreferrer" title="Download video with your voice">
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-purple-300">
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-purple-700 dark:text-purple-300">
               <Mic className="w-3.5 h-3.5" />
             </Button>
           </a>

@@ -365,9 +365,9 @@ export default function TopOffersPage() {
           <div className="space-y-4">
             
             {isLoading ? (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+              <div className="bg-white dark:bg-secondary rounded-lg shadow-md overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-border">
                     <thead className="bg-card border-b border-border">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Product</th>
@@ -385,37 +385,37 @@ export default function TopOffersPage() {
                           <td className="px-4 py-4 whitespace-nowrap">
                             <div className="flex items-start">
                               <div className="space-y-2 animate-pulse">
-                                <div className="h-4 bg-gray-700 rounded w-48"></div>
-                                <div className="h-3 bg-gray-700 rounded w-24"></div>
-                                <div className="h-3 bg-gray-700 rounded w-16"></div>
+                                <div className="h-4 bg-border rounded w-48"></div>
+                                <div className="h-3 bg-border rounded w-24"></div>
+                                <div className="h-3 bg-border rounded w-16"></div>
                               </div>
                             </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="h-6 bg-gray-700 rounded w-20 animate-pulse"></div>
+                            <div className="h-6 bg-border rounded w-20 animate-pulse"></div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <div className="flex items-center animate-pulse">
-                              <div className="h-4 bg-gray-700 rounded w-12 mr-2"></div>
-                              <div className="h-3 bg-gray-700 rounded w-8"></div>
+                              <div className="h-4 bg-border rounded w-12 mr-2"></div>
+                              <div className="h-3 bg-border rounded w-8"></div>
                             </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="h-4 bg-gray-700 rounded w-12 animate-pulse"></div>
+                            <div className="h-4 bg-border rounded w-12 animate-pulse"></div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
-                            <div className="h-4 bg-gray-700 rounded w-16 animate-pulse"></div>
+                            <div className="h-4 bg-border rounded w-16 animate-pulse"></div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2 animate-pulse">
-                              <div className="h-8 bg-gray-700 rounded w-16"></div>
-                              <div className="h-6 bg-gray-700 rounded w-8"></div>
+                              <div className="h-8 bg-border rounded w-16"></div>
+                              <div className="h-6 bg-border rounded w-8"></div>
                             </div>
                           </td>
                           <td className="px-4 py-4 whitespace-nowrap text-right">
                             <div className="flex items-center justify-end space-x-2 animate-pulse">
-                              <div className="h-6 bg-gray-700 rounded w-12"></div>
-                              <div className="h-6 bg-gray-700 rounded w-6"></div>
+                              <div className="h-6 bg-border rounded w-12"></div>
+                              <div className="h-6 bg-border rounded w-6"></div>
                             </div>
                           </td>
                         </tr>
@@ -434,9 +434,9 @@ export default function TopOffersPage() {
               </div>
             ) : (
               <>
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+                <div className="bg-white dark:bg-secondary rounded-lg shadow-md overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-border">
                       <thead className="bg-card border-b border-border">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -475,10 +475,10 @@ export default function TopOffersPage() {
                                   <div className="text-base font-medium text-gray-900 dark:text-white line-clamp-2 max-w-[300px]" title={offer.title}>
                                     {offer.title}
                                   </div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  <div className="text-xs text-muted-foreground dark:text-muted-foreground mt-1">
                                     by {offer.vendor_name}
                                   </div>
-                                  <div className="text-xs text-gray-400 dark:text-gray-500">
+                                  <div className="text-xs text-muted-foreground dark:text-muted-foreground">
                                     ID: {offer.clickbank_id}
                                   </div>
                                 </div>
@@ -563,7 +563,7 @@ export default function TopOffersPage() {
                                     const url = offer.affiliate_page_url || offer.sales_page_url;
                                     if (url) window.open(url, '_blank');
                                   }}
-                                  className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
+                                  className="text-gray-600 hover:text-gray-800 dark:text-muted-foreground dark:hover:text-foreground"
                                 >
                                   <ExternalLink className="w-4 h-4" />
                                 </Button>

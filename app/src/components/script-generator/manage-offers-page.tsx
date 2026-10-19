@@ -108,10 +108,10 @@ export function ManageOffersPage() {
   const getContentIcons = (offer: AffiliateOffer) => {
     const icons = [];
     if (offer.media_files?.some(m => m.type === 'video')) {
-      icons.push(<Video key="video" className="w-4 h-4 text-blue-400" />);
+      icons.push(<Video key="video" className="w-4 h-4 text-blue-600 dark:text-blue-400" />);
     }
     if (offer.media_files?.some(m => m.type === 'audio')) {
-      icons.push(<Music key="audio" className="w-4 h-4 text-purple-400" />);
+      icons.push(<Music key="audio" className="w-4 h-4 text-purple-600 dark:text-purple-400" />);
     }
     if (offer.youtube_transcripts?.length) {
       icons.push(<Youtube key="youtube" className="w-4 h-4 text-red-500" />);
@@ -152,7 +152,7 @@ export function ManageOffersPage() {
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-500" />
-            <p className="text-red-400">{error}</p>
+            <p className="text-red-600 dark:text-red-400">{error}</p>
             <Button
               variant="ghost"
               size="sm"
@@ -167,7 +167,7 @@ export function ManageOffersPage() {
         {/* Loading State */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
           /* Offers Grid */
@@ -175,12 +175,12 @@ export function ManageOffersPage() {
             {offers.map((offer) => (
               <Card
                 key={offer.id}
-                className="bg-card border-border hover:border-zinc-600 transition-colors cursor-pointer group"
+                className="bg-card border-border hover:border-border transition-colors cursor-pointer group"
                 onClick={() => router.push(`/dashboard/script-generator/offers/${offer.id}`)}
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg text-white line-clamp-1 group-hover:text-primary transition-colors">
+                    <CardTitle className="text-lg text-foreground line-clamp-1 group-hover:text-primary transition-colors">
                       {offer.name}
                     </CardTitle>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
@@ -190,7 +190,7 @@ export function ManageOffersPage() {
                         onClick={() => router.push(`/dashboard/script-generator/offers/${offer.id}`)}
                         className="h-8 w-8 p-0"
                       >
-                        <Pencil className="w-4 h-4 text-zinc-400 hover:text-white" />
+                        <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -198,7 +198,7 @@ export function ManageOffersPage() {
                         onClick={() => confirmDelete(offer)}
                         className="h-8 w-8 p-0"
                       >
-                        <Trash2 className="w-4 h-4 text-zinc-400 hover:text-red-400" />
+                        <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600 dark:hover:text-red-400" />
                       </Button>
                     </div>
                   </div>
@@ -209,13 +209,13 @@ export function ManageOffersPage() {
                   )}
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-zinc-400 line-clamp-2">
+                  <p className="text-sm text-muted-foreground line-clamp-2">
                     {offer.offer_content || 'No description'}
                   </p>
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center gap-2">
                       {getContentIcons(offer)}
-                      <span className="text-xs text-zinc-400">{getOfferContentSummary(offer)}</span>
+                      <span className="text-xs text-muted-foreground">{getOfferContentSummary(offer)}</span>
                     </div>
                     {offer.aggregated_content && (
                       <span className="text-xs font-medium text-primary">
@@ -233,7 +233,7 @@ export function ManageOffersPage() {
             {offers.length === 0 && (
               <div className="col-span-full text-center py-12">
                 <FileText className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-                <p className="text-zinc-400 mb-4">No offers yet. Add your first offer to get started.</p>
+                <p className="text-muted-foreground mb-4">No offers yet. Add your first offer to get started.</p>
                 <Button
                   onClick={() => router.push('/dashboard/script-generator/offers/new')}
                   className="gap-2"

@@ -7,7 +7,7 @@ export function HistoryOutput() {
   return (
     <div className="h-full overflow-y-auto scrollbar-hover p-6 space-y-6">
       <div className="text-center space-y-2">
-        <History className="h-12 w-12 mx-auto text-gray-500" />
+        <History className="h-12 w-12 mx-auto text-muted-foreground" />
         <h2 className="text-2xl font-bold">Content History</h2>
         <p className="text-muted-foreground">
           View and manage your past content variants

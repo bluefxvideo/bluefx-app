@@ -460,7 +460,7 @@ export function UserDashboardEnhanced() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-64 flex items-center justify-center text-gray-500">
+              <div className="h-64 flex items-center justify-center text-muted-foreground">
                 No usage data available
               </div>
             )}
@@ -485,15 +485,15 @@ export function UserDashboardEnhanced() {
               {[...Array(5)].map((_, i) => (
                 <div key={i} className="flex items-center justify-between p-3 border rounded-lg animate-pulse">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+                    <div className="h-10 w-10 bg-gray-200 dark:bg-border rounded-lg" />
                     <div>
-                      <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
-                      <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
+                      <div className="h-4 w-32 bg-gray-200 dark:bg-border rounded mb-2" />
+                      <div className="h-3 w-24 bg-gray-200 dark:bg-border rounded" />
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded mb-2" />
-                    <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                    <div className="h-4 w-16 bg-gray-200 dark:bg-border rounded mb-2" />
+                    <div className="h-3 w-20 bg-gray-200 dark:bg-border rounded" />
                   </div>
                 </div>
               ))}
@@ -503,7 +503,7 @@ export function UserDashboardEnhanced() {
               {toolUsage.map((tool, index) => {
                 const Icon = getToolIcon(tool.tool_id)
                 return (
-                  <div key={index} className="flex items-center justify-between p-4 dark:bg-gray-800/30 rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-4 dark:bg-secondary/30 rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-100 rounded-lg">
                         <Icon className="h-5 w-5 text-blue-600" />
@@ -512,21 +512,21 @@ export function UserDashboardEnhanced() {
                         <h4 className="font-medium">
                           {tool.tool_id.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                         </h4>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           Last used: {new Date(tool.last_used).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="font-semibold">{tool.usage_count} uses</div>
-                      <div className="text-sm text-gray-500">{tool.credits_used} credits</div>
+                      <div className="text-sm text-muted-foreground">{tool.credits_used} credits</div>
                     </div>
                   </div>
                 )
               })}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No tool usage yet. Start creating to see your analytics!</p>
             </div>

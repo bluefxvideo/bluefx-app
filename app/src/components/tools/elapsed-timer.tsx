@@ -35,7 +35,7 @@ export function ElapsedTimer({
   const ss = String(secs % 60).padStart(2, '0');
 
   return (
-    <span className={className ?? 'text-xs text-zinc-400 tabular-nums'}>
+    <span className={className ?? 'text-xs text-muted-foreground tabular-nums'}>
       {mm}:{ss} elapsed{typical ? ` · usually ${typical}` : ''}
     </span>
   );

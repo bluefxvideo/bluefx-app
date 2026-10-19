@@ -45,7 +45,7 @@ export function ResetPasswordForm() {
           <div className="flex">
             <div className="flex-shrink-0">
               <svg
-                className="h-5 w-5 text-green-400"
+                className="h-5 w-5 text-green-600 dark:text-green-400"
                 viewBox="0 0 20 20"
                 fill="currentColor"
                 aria-hidden="true"
@@ -71,7 +71,7 @@ export function ResetPasswordForm() {
           </div>
         </div>
 
-        <div className="space-y-4 text-sm text-gray-600 dark:text-gray-400">
+        <div className="space-y-4 text-sm text-gray-600 dark:text-muted-foreground">
           <p>
             <strong>Didn't receive the email?</strong>
           </p>
@@ -133,7 +133,7 @@ export function ResetPasswordForm() {
             <div className="flex">
               <div className="flex-shrink-0">
                 <svg
-                  className="h-5 w-5 text-red-400"
+                  className="h-5 w-5 text-red-600 dark:text-red-400"
                   viewBox="0 0 20 20"
                   fill="currentColor"
                   aria-hidden="true"

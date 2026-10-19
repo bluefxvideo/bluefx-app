@@ -125,11 +125,11 @@ export default function ProjectsPage() {
 
   const getStatusBadge = (status: AdProject['status']) => {
     const config = {
-      draft: { bg: 'bg-zinc-500/20', text: 'text-zinc-400', icon: Pencil, label: 'Draft' },
-      analyzing: { bg: 'bg-blue-500/20', text: 'text-blue-400', icon: Loader2, label: 'Analyzing' },
-      storyboarding: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', icon: LayoutGrid, label: 'Storyboarding' },
-      generating: { bg: 'bg-purple-500/20', text: 'text-purple-400', icon: Play, label: 'Generating' },
-      completed: { bg: 'bg-green-500/20', text: 'text-green-400', icon: CheckCircle, label: 'Completed' },
+      draft: { bg: 'bg-zinc-500/20', text: 'text-muted-foreground', icon: Pencil, label: 'Draft' },
+      analyzing: { bg: 'bg-blue-500/20', text: 'text-blue-600 dark:text-blue-400', icon: Loader2, label: 'Analyzing' },
+      storyboarding: { bg: 'bg-yellow-500/20', text: 'text-yellow-700 dark:text-yellow-400', icon: LayoutGrid, label: 'Storyboarding' },
+      generating: { bg: 'bg-purple-500/20', text: 'text-purple-600 dark:text-purple-400', icon: Play, label: 'Generating' },
+      completed: { bg: 'bg-green-500/20', text: 'text-green-600 dark:text-green-400', icon: CheckCircle, label: 'Completed' },
     };
 
     const { bg, text, icon: Icon, label } = config[status];

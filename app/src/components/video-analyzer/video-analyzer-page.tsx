@@ -421,11 +421,11 @@ export function VideoAnalyzerPage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-white font-semibold truncate max-w-[200px]">{selectedFile.name}</p>
-                        <p className="text-zinc-400 text-sm flex items-center gap-2">
+                        <p className="text-foreground font-semibold truncate max-w-[200px]">{selectedFile.name}</p>
+                        <p className="text-muted-foreground text-sm flex items-center gap-2">
                           <Clock className="w-3 h-3" />
                           {videoDuration ? formatDuration(videoDuration) : 'Loading...'}
-                          <span className="text-zinc-400">•</span>
+                          <span className="text-muted-foreground">•</span>
                           {(selectedFile.size / (1024 * 1024)).toFixed(1)} MB
                         </p>
                       </div>
@@ -448,11 +448,11 @@ export function VideoAnalyzerPage() {
                   <div className="flex flex-col items-center gap-4 py-8">
                     <div className="w-16 h-16 bg-gradient-to-br from-secondary/50 to-card/50 rounded-2xl flex items-center justify-center
                                    border border-border/30 group-hover/upload:border-border/70 transition-all duration-300">
-                      <Upload className="w-7 h-7 text-zinc-400 group-hover/upload:text-zinc-300 transition-colors duration-300" />
+                      <Upload className="w-7 h-7 text-muted-foreground group-hover/upload:text-foreground transition-colors duration-300" />
                     </div>
                     <div className="text-center space-y-2">
-                      <p className="text-zinc-200 font-semibold text-lg">Upload your video</p>
-                      <p className="text-zinc-400">MP4, WebM, MOV, AVI • Max 3 minutes • Max 100MB</p>
+                      <p className="text-foreground font-semibold text-lg">Upload your video</p>
+                      <p className="text-muted-foreground">MP4, WebM, MOV, AVI • Max 3 minutes • Max 100MB</p>
                     </div>
                   </div>
                 )}
@@ -465,8 +465,8 @@ export function VideoAnalyzerPage() {
                       <Link className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                      <p className="text-white font-semibold">Video URL</p>
-                      <p className="text-zinc-400 text-sm">YouTube, TikTok, Instagram, or Facebook</p>
+                      <p className="text-foreground font-semibold">Video URL</p>
+                      <p className="text-muted-foreground text-sm">YouTube, TikTok, Instagram, or Facebook</p>
                     </div>
                   </div>
                   <Input
@@ -486,7 +486,7 @@ export function VideoAnalyzerPage() {
                       twitter: 'Twitter/X',
                     };
                     return (
-                      <p className="text-green-400 text-sm flex items-center gap-1">
+                      <p className="text-green-600 dark:text-green-400 text-sm flex items-center gap-1">
                         <Check className="w-3 h-3" /> Valid {platformLabels[platform]} URL
                       </p>
                     );
@@ -497,7 +497,7 @@ export function VideoAnalyzerPage() {
 
             {/* Analysis Type Dropdown */}
             <Card className="p-4 border border-border/50">
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Analysis Type
               </label>
               <Select value={analysisType} onValueChange={(v) => setAnalysisType(v as AnalysisType)}>
@@ -509,7 +509,7 @@ export function VideoAnalyzerPage() {
                     <SelectItem key={type.value} value={type.value}>
                       <div className="flex flex-col">
                         <span>{type.label}</span>
-                        <span className="text-xs text-zinc-400">{type.description}</span>
+                        <span className="text-xs text-muted-foreground">{type.description}</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -519,7 +519,7 @@ export function VideoAnalyzerPage() {
 
             {/* Custom Prompt */}
             <Card className="p-4 border border-border/50">
-              <label className="block text-sm font-medium text-zinc-300 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 {analysisType === 'custom_only' ? 'Custom Instructions (Required)' : 'Additional Instructions (Optional)'}
               </label>
               <Textarea
@@ -532,7 +532,7 @@ export function VideoAnalyzerPage() {
                 className="min-h-[100px] bg-background border-border"
               />
               {analysisType !== 'custom_only' && (
-                <p className="text-xs text-zinc-400 mt-2">
+                <p className="text-xs text-muted-foreground mt-2">
                   These instructions will be added to the {ANALYSIS_TYPES.find(t => t.value === analysisType)?.label} analysis
                 </p>
               )}
@@ -541,10 +541,10 @@ export function VideoAnalyzerPage() {
             {/* Credits Info & Analyze Button */}
             <Card className="p-4 border border-border/50">
               <div className="flex items-center justify-between mb-4">
-                <div className="text-sm text-zinc-400">
-                  Credits needed: <span className="text-white font-semibold">{creditsNeeded}</span>
+                <div className="text-sm text-muted-foreground">
+                  Credits needed: <span className="text-foreground font-semibold">{creditsNeeded}</span>
                 </div>
-                <div className="text-sm text-zinc-400">
+                <div className="text-sm text-muted-foreground">
                   Available: <span className="text-primary font-semibold">{credits?.available_credits || 0}</span>
                 </div>
               </div>
@@ -583,10 +583,10 @@ export function VideoAnalyzerPage() {
           <div className="space-y-4">
             {showHistory ? (
               <Card className="p-4 border border-border/50 h-full overflow-auto">
-                <h3 className="text-lg font-semibold text-white mb-4">Saved Analyses</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-4">Saved Analyses</h3>
                 {historyLoading ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : savedAnalyses && savedAnalyses.length > 0 ? (
                   <div className="space-y-3">
@@ -597,8 +597,8 @@ export function VideoAnalyzerPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="text-white font-medium truncate">{analysis.title}</p>
-                            <p className="text-zinc-400 text-sm">
+                            <p className="text-foreground font-medium truncate">{analysis.title}</p>
+                            <p className="text-muted-foreground text-sm">
                               {new Date(analysis.created_at).toLocaleDateString()} • {analysis.credits_used} credits
                             </p>
                             {analysis.video_url && (
@@ -628,7 +628,7 @@ export function VideoAnalyzerPage() {
                               size="sm"
                               onClick={() => handleDeleteAnalysis(analysis.id)}
                             >
-                              <Trash2 className="w-4 h-4 text-red-400" />
+                              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                             </Button>
                           </div>
                         </div>
@@ -636,7 +636,7 @@ export function VideoAnalyzerPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-zinc-400 text-center py-8">No saved analyses yet</p>
+                  <p className="text-muted-foreground text-center py-8">No saved analyses yet</p>
                 )}
               </Card>
             ) : !analysisResult && !isAnalyzing ? (
@@ -646,7 +646,7 @@ export function VideoAnalyzerPage() {
             ) : (
               <Card className="p-4 border border-border/50 h-full flex flex-col">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-white">Analysis Result</h3>
+                  <h3 className="text-lg font-semibold text-foreground">Analysis Result</h3>
                   {analysisResult && (
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={handleCopy}>
@@ -674,18 +674,18 @@ export function VideoAnalyzerPage() {
                   {isAnalyzing ? (
                     <div className="flex flex-col items-center justify-center h-full gap-4">
                       <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                      <p className="text-zinc-400">Analyzing video...</p>
-                      <p className="text-zinc-400 text-sm">This may take a minute for longer videos</p>
+                      <p className="text-muted-foreground">Analyzing video...</p>
+                      <p className="text-muted-foreground text-sm">This may take a minute for longer videos</p>
                     </div>
                   ) : (
                     <div className="prose prose-invert prose-sm max-w-none">
-                      <pre className="whitespace-pre-wrap text-zinc-300 text-sm font-sans leading-relaxed">
+                      <pre className="whitespace-pre-wrap text-foreground text-sm font-sans leading-relaxed">
                         {analysisResult}
                       </pre>
                       {/* Next steps — the breakdown is a means, not the end */}
                       <div className="not-prose mt-4 pt-4 border-t border-border">
-                        <p className="text-sm font-medium text-zinc-200 mb-1">Next steps</p>
-                        <p className="text-xs text-zinc-400 mb-3">
+                        <p className="text-sm font-medium text-foreground mb-1">Next steps</p>
+                        <p className="text-xs text-muted-foreground mb-3">
                           Use this breakdown to recreate the ad with your own product.
                         </p>
                         <div className="flex flex-wrap gap-2">

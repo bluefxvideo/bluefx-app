@@ -64,45 +64,45 @@ export default function PromoteAMMPage() {
             <Gift className="w-4 h-4" />
             <span className="text-sm font-medium">Exclusive Member Opportunity</span>
           </div>
-          <h1 className="text-3xl lg:text-4xl font-bold text-white mb-4">
+          <h1 className="text-3xl lg:text-4xl font-bold text-foreground mb-4">
             Earn <span className="text-primary">50% Recurring Commission</span> Every Month
           </h1>
-          <p className="text-lg text-zinc-400">
+          <p className="text-lg text-muted-foreground">
             You're already using AI Media Machine. Now help others discover it and earn passive income every month they stay subscribed.
           </p>
         </div>
 
         {/* Key Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-zinc-800/50 border-zinc-700">
+          <Card className="bg-secondary/50 border-border">
             <CardContent className="p-4 text-center">
               <DollarSign className="w-8 h-8 text-primary mx-auto mb-2" />
-              <div className="text-2xl font-bold text-white">$18.50</div>
-              <div className="text-xs text-zinc-400">Per Referral/Month</div>
+              <div className="text-2xl font-bold text-foreground">$18.50</div>
+              <div className="text-xs text-muted-foreground">Per Referral/Month</div>
             </CardContent>
           </Card>
 
-          <Card className="bg-zinc-800/50 border-zinc-700">
+          <Card className="bg-secondary/50 border-border">
             <CardContent className="p-4 text-center">
               <TrendingUp className="w-8 h-8 text-primary mx-auto mb-2" />
-              <div className="text-2xl font-bold text-white">7.2%</div>
-              <div className="text-xs text-zinc-400">Conversion Rate</div>
+              <div className="text-2xl font-bold text-foreground">7.2%</div>
+              <div className="text-xs text-muted-foreground">Conversion Rate</div>
             </CardContent>
           </Card>
 
-          <Card className="bg-zinc-800/50 border-zinc-700">
+          <Card className="bg-secondary/50 border-border">
             <CardContent className="p-4 text-center">
               <Users className="w-8 h-8 text-primary mx-auto mb-2" />
-              <div className="text-2xl font-bold text-white">6+ months</div>
-              <div className="text-xs text-zinc-400">Avg. Retention</div>
+              <div className="text-2xl font-bold text-foreground">6+ months</div>
+              <div className="text-xs text-muted-foreground">Avg. Retention</div>
             </CardContent>
           </Card>
 
-          <Card className="bg-zinc-800/50 border-zinc-700">
+          <Card className="bg-secondary/50 border-border">
             <CardContent className="p-4 text-center">
               <Zap className="w-8 h-8 text-primary mx-auto mb-2" />
-              <div className="text-2xl font-bold text-white">$111+</div>
-              <div className="text-xs text-zinc-400">Per Customer LTV</div>
+              <div className="text-2xl font-bold text-foreground">$111+</div>
+              <div className="text-xs text-muted-foreground">Per Customer LTV</div>
             </CardContent>
           </Card>
         </div>
@@ -118,7 +118,7 @@ export default function PromoteAMMPage() {
           <CardContent>
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm text-zinc-400 mb-2">
+                <label className="block text-sm text-muted-foreground mb-2">
                   How many people will you refer?
                 </label>
                 <Input
@@ -128,22 +128,22 @@ export default function PromoteAMMPage() {
                   min={1}
                   className="text-2xl font-bold h-14"
                 />
-                <p className="text-xs text-zinc-400 mt-2">
+                <p className="text-xs text-muted-foreground mt-2">
                   With 7.2% conversion, you need ~{Math.ceil(referrals / 0.072)} visitors
                 </p>
               </div>
 
               <div className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-zinc-800/50 rounded-lg">
-                  <span className="text-zinc-400">Monthly Earnings</span>
-                  <span className="text-xl font-bold text-white">${monthlyEarnings.toFixed(2)}</span>
+                <div className="flex justify-between items-center p-3 bg-secondary/50 rounded-lg">
+                  <span className="text-muted-foreground">Monthly Earnings</span>
+                  <span className="text-xl font-bold text-foreground">${monthlyEarnings.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-zinc-800/50 rounded-lg">
-                  <span className="text-zinc-400">Yearly Projection</span>
-                  <span className="text-xl font-bold text-white">${yearlyEarnings.toFixed(2)}</span>
+                <div className="flex justify-between items-center p-3 bg-secondary/50 rounded-lg">
+                  <span className="text-muted-foreground">Yearly Projection</span>
+                  <span className="text-xl font-bold text-foreground">${yearlyEarnings.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-primary/10 rounded-lg border border-primary/30">
-                  <span className="text-zinc-300">Customer Lifetime Value</span>
+                  <span className="text-foreground">Customer Lifetime Value</span>
                   <span className="text-2xl font-bold text-primary">${lifetimeValue.toFixed(2)}</span>
                 </div>
               </div>
@@ -156,8 +156,8 @@ export default function PromoteAMMPage() {
           <CardContent className="p-6 space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h3 className="text-xl font-semibold text-white mb-2">Ready to Start Earning?</h3>
-                <p className="text-zinc-400">Sign up to ClickBank first, then generate your unique affiliate link.</p>
+                <h3 className="text-xl font-semibold text-foreground mb-2">Ready to Start Earning?</h3>
+                <p className="text-muted-foreground">Sign up to ClickBank first, then generate your unique affiliate link.</p>
               </div>
               <Button
                 variant="outline"
@@ -171,8 +171,8 @@ export default function PromoteAMMPage() {
             </div>
 
             {/* Affiliate Link Generator */}
-            <div className="p-4 bg-zinc-800/50 rounded-lg space-y-3">
-              <label className="block text-sm text-zinc-400">
+            <div className="p-4 bg-secondary/50 rounded-lg space-y-3">
+              <label className="block text-sm text-muted-foreground">
                 Enter your ClickBank ID to generate your affiliate link:
               </label>
               <div className="flex gap-3">
@@ -193,7 +193,7 @@ export default function PromoteAMMPage() {
                 </Button>
               </div>
               {clickbankId.trim() && (
-                <p className="text-xs text-zinc-400 break-all">
+                <p className="text-xs text-muted-foreground break-all">
                   Your link: <span className="text-primary">{affiliateLink}</span>
                 </p>
               )}
@@ -213,7 +213,7 @@ export default function PromoteAMMPage() {
         </Card>
 
         {/* YouTube Video Clips - Special Perk */}
-        <Card className="border-zinc-700">
+        <Card className="border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Youtube className="w-5 h-5 text-red-500" />
@@ -224,27 +224,27 @@ export default function PromoteAMMPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-zinc-400">
+            <p className="text-muted-foreground">
               As a member, you have permission to clip segments from our YouTube channel videos
               and use them to promote AI Media Machine. Our videos have established credibility
               and great engagement - leverage that for your promotions!
             </p>
 
             <div className="grid md:grid-cols-3 gap-4">
-              <div className="p-4 bg-zinc-800/50 rounded-lg">
+              <div className="p-4 bg-secondary/50 rounded-lg">
                 <Video className="w-6 h-6 text-primary mb-2" />
-                <h4 className="font-medium text-white mb-1">Tutorial Clips</h4>
-                <p className="text-sm text-zinc-400">Show how easy it is to use AMM features</p>
+                <h4 className="font-medium text-foreground mb-1">Tutorial Clips</h4>
+                <p className="text-sm text-muted-foreground">Show how easy it is to use AMM features</p>
               </div>
-              <div className="p-4 bg-zinc-800/50 rounded-lg">
+              <div className="p-4 bg-secondary/50 rounded-lg">
                 <Scissors className="w-6 h-6 text-primary mb-2" />
-                <h4 className="font-medium text-white mb-1">Result Showcases</h4>
-                <p className="text-sm text-zinc-400">Share impressive outputs from the tool</p>
+                <h4 className="font-medium text-foreground mb-1">Result Showcases</h4>
+                <p className="text-sm text-muted-foreground">Share impressive outputs from the tool</p>
               </div>
-              <div className="p-4 bg-zinc-800/50 rounded-lg">
+              <div className="p-4 bg-secondary/50 rounded-lg">
                 <TrendingUp className="w-6 h-6 text-primary mb-2" />
-                <h4 className="font-medium text-white mb-1">Proven Engagement</h4>
-                <p className="text-sm text-zinc-400">Videos already have views & social proof</p>
+                <h4 className="font-medium text-foreground mb-1">Proven Engagement</h4>
+                <p className="text-sm text-muted-foreground">Videos already have views & social proof</p>
               </div>
             </div>
 
@@ -262,33 +262,33 @@ export default function PromoteAMMPage() {
 
         {/* Why Promote AMM */}
         <div>
-          <h2 className="text-xl font-semibold text-white mb-4">Why Promote AI Media Machine?</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Why Promote AI Media Machine?</h2>
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-700/50">
+            <div className="p-4 bg-secondary/30 rounded-lg border border-border/50">
               <CheckCircle className="w-5 h-5 text-primary mb-2" />
-              <h4 className="font-medium text-white mb-1">You Already Use It</h4>
-              <p className="text-sm text-zinc-400">
+              <h4 className="font-medium text-foreground mb-1">You Already Use It</h4>
+              <p className="text-sm text-muted-foreground">
                 You know the product inside out. Your authentic experience makes selling easy.
               </p>
             </div>
-            <div className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-700/50">
+            <div className="p-4 bg-secondary/30 rounded-lg border border-border/50">
               <CheckCircle className="w-5 h-5 text-primary mb-2" />
-              <h4 className="font-medium text-white mb-1">Recurring Revenue</h4>
-              <p className="text-sm text-zinc-400">
+              <h4 className="font-medium text-foreground mb-1">Recurring Revenue</h4>
+              <p className="text-sm text-muted-foreground">
                 Get paid every month as long as your referrals stay subscribed. True passive income.
               </p>
             </div>
-            <div className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-700/50">
+            <div className="p-4 bg-secondary/30 rounded-lg border border-border/50">
               <CheckCircle className="w-5 h-5 text-primary mb-2" />
-              <h4 className="font-medium text-white mb-1">High Conversion Rate</h4>
-              <p className="text-sm text-zinc-400">
+              <h4 className="font-medium text-foreground mb-1">High Conversion Rate</h4>
+              <p className="text-sm text-muted-foreground">
                 Our $1 trial and optimized sales page convert at 7.2% - well above industry average.
               </p>
             </div>
-            <div className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-700/50">
+            <div className="p-4 bg-secondary/30 rounded-lg border border-border/50">
               <CheckCircle className="w-5 h-5 text-primary mb-2" />
-              <h4 className="font-medium text-white mb-1">Low Churn</h4>
-              <p className="text-sm text-zinc-400">
+              <h4 className="font-medium text-foreground mb-1">Low Churn</h4>
+              <p className="text-sm text-muted-foreground">
                 Average retention of 6+ months means you keep earning from each referral longer.
               </p>
             </div>
@@ -296,39 +296,39 @@ export default function PromoteAMMPage() {
         </div>
 
         {/* How It Works */}
-        <Card className="border-zinc-700">
+        <Card className="border-border">
           <CardHeader>
             <CardTitle>How It Works</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-4 gap-4">
               <div className="text-center">
-                <div className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-3 border border-zinc-700">
-                  <span className="text-white font-bold">1</span>
+                <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center mx-auto mb-3 border border-border">
+                  <span className="text-foreground font-bold">1</span>
                 </div>
-                <h4 className="font-medium text-white mb-1">Sign Up to ClickBank</h4>
-                <p className="text-sm text-zinc-400">Create your free affiliate account</p>
+                <h4 className="font-medium text-foreground mb-1">Sign Up to ClickBank</h4>
+                <p className="text-sm text-muted-foreground">Create your free affiliate account</p>
               </div>
               <div className="text-center">
-                <div className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-3 border border-zinc-700">
-                  <span className="text-white font-bold">2</span>
+                <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center mx-auto mb-3 border border-border">
+                  <span className="text-foreground font-bold">2</span>
                 </div>
-                <h4 className="font-medium text-white mb-1">Get Your Link</h4>
-                <p className="text-sm text-zinc-400">Copy your unique affiliate link</p>
+                <h4 className="font-medium text-foreground mb-1">Get Your Link</h4>
+                <p className="text-sm text-muted-foreground">Copy your unique affiliate link</p>
               </div>
               <div className="text-center">
-                <div className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-3 border border-zinc-700">
-                  <span className="text-white font-bold">3</span>
+                <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center mx-auto mb-3 border border-border">
+                  <span className="text-foreground font-bold">3</span>
                 </div>
-                <h4 className="font-medium text-white mb-1">Share & Promote</h4>
-                <p className="text-sm text-zinc-400">Use our videos, create content, share on social</p>
+                <h4 className="font-medium text-foreground mb-1">Share & Promote</h4>
+                <p className="text-sm text-muted-foreground">Use our videos, create content, share on social</p>
               </div>
               <div className="text-center">
                 <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-3 border border-primary/30">
                   <DollarSign className="w-5 h-5 text-primary" />
                 </div>
-                <h4 className="font-medium text-white mb-1">Get Paid Monthly</h4>
-                <p className="text-sm text-zinc-400">50% of $37/month for as long as they stay</p>
+                <h4 className="font-medium text-foreground mb-1">Get Paid Monthly</h4>
+                <p className="text-sm text-muted-foreground">50% of $37/month for as long as they stay</p>
               </div>
             </div>
           </CardContent>
@@ -336,40 +336,40 @@ export default function PromoteAMMPage() {
 
         {/* FAQ */}
         <div>
-          <h2 className="text-xl font-semibold text-white mb-4">Frequently Asked Questions</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Frequently Asked Questions</h2>
           <div className="space-y-3">
-            <details className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-700/50 group">
-              <summary className="font-medium text-white cursor-pointer">
+            <details className="p-4 bg-secondary/30 rounded-lg border border-border/50 group">
+              <summary className="font-medium text-foreground cursor-pointer">
                 When do I get paid?
               </summary>
-              <p className="text-sm text-zinc-400 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 ClickBank pays out every two weeks. Once you hit the minimum threshold ($100),
                 your earnings are automatically sent to your bank or PayPal.
               </p>
             </details>
-            <details className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-700/50 group">
-              <summary className="font-medium text-white cursor-pointer">
+            <details className="p-4 bg-secondary/30 rounded-lg border border-border/50 group">
+              <summary className="font-medium text-foreground cursor-pointer">
                 Do I need a ClickBank account?
               </summary>
-              <p className="text-sm text-zinc-400 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 Yes, you'll need a free ClickBank account to get your affiliate link and receive payments.
                 Sign up at clickbank.com if you don't have one.
               </p>
             </details>
-            <details className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-700/50 group">
-              <summary className="font-medium text-white cursor-pointer">
+            <details className="p-4 bg-secondary/30 rounded-lg border border-border/50 group">
+              <summary className="font-medium text-foreground cursor-pointer">
                 Can I really use your YouTube videos?
               </summary>
-              <p className="text-sm text-zinc-400 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 Yes! As an active member, you have permission to clip and use segments from our
                 official YouTube channel for promoting AI Media Machine. Just add your affiliate link.
               </p>
             </details>
-            <details className="p-4 bg-zinc-800/30 rounded-lg border border-zinc-700/50 group">
-              <summary className="font-medium text-white cursor-pointer">
+            <details className="p-4 bg-secondary/30 rounded-lg border border-border/50 group">
+              <summary className="font-medium text-foreground cursor-pointer">
                 How long is the cookie duration?
               </summary>
-              <p className="text-sm text-zinc-400 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 ClickBank uses a 60-day cookie. If someone clicks your link and purchases within
                 60 days, you get credit for the sale and all recurring payments.
               </p>

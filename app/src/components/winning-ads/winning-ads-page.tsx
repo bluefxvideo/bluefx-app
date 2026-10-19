@@ -302,7 +302,7 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -313,15 +313,15 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
 
           {/* Media type filter — Facebook only */}
           {!isTikTok && (
-            <div className="flex items-center gap-1 bg-zinc-900 border border-border rounded-md p-1">
+            <div className="flex items-center gap-1 bg-card border border-border rounded-md p-1">
               {(['all', 'video', 'image'] as const).map((type) => (
                 <button
                   key={type}
                   onClick={() => setMediaType(type)}
                   className={`px-3 py-1 text-xs rounded transition-colors capitalize ${
                     mediaType === type
-                      ? 'bg-zinc-700 text-white'
-                      : 'text-zinc-400 hover:text-white'
+                      ? 'bg-border text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {type === 'all' ? 'All' : type === 'video' ? 'Video' : 'Image'}
@@ -332,7 +332,7 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
 
           {/* Niche / Category filter */}
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-zinc-400 shrink-0" />
+            <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
             <Select value={selectedNiche} onValueChange={setSelectedNiche}>
               <SelectTrigger className="bg-background border-border w-full sm:w-[200px]">
                 <SelectValue placeholder={isTikTok ? 'All Niches' : 'All Categories'} />
@@ -353,7 +353,7 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
 
           {/* Sort */}
           <div className="flex items-center gap-2">
-            <ArrowUpDown className="w-4 h-4 text-zinc-400 shrink-0" />
+            <ArrowUpDown className="w-4 h-4 text-muted-foreground shrink-0" />
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="bg-background border-border w-full sm:w-[170px]">
                 <SelectValue />
@@ -387,7 +387,7 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
 
         {/* Results count */}
         {!isLoading && (
-          <p className="text-sm text-zinc-400 mb-4">
+          <p className="text-sm text-muted-foreground mb-4">
             {showSavedOnly
               ? `${displayedAds.length} saved ad${displayedAds.length !== 1 ? 's' : ''}`
               : `${pagination.total} ads found${isTikTok && selectedNiche !== 'all' ? ` in ${selectedNiche}` : ''}${debouncedSearch ? ` matching "${debouncedSearch}"` : ''}`}
@@ -408,12 +408,12 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
             ) : (
               <Facebook className="w-12 h-12 text-zinc-600 mb-4" />
             )}
-            <p className="text-zinc-400 text-lg mb-2">
+            <p className="text-muted-foreground text-lg mb-2">
               {showSavedOnly
                 ? 'No saved ads yet.'
                 : `No ${isTikTok ? 'TikTok' : 'Facebook'} ads found.`}
             </p>
-            <p className="text-zinc-400 text-sm max-w-md">
+            <p className="text-muted-foreground text-sm max-w-md">
               {showSavedOnly
                 ? 'Bookmark ads by clicking the bookmark icon on any ad card.'
                 : 'Ads are scraped automatically every few days. Check back after the next scheduled scrape.'}
@@ -467,7 +467,7 @@ export function WinningAdsPage({ platform = 'facebook' }: { platform?: Platform 
                   <ChevronLeft className="w-4 h-4 mr-1" />
                   Previous
                 </Button>
-                <span className="text-sm text-zinc-400">
+                <span className="text-sm text-muted-foreground">
                   Page {pagination.page} of{' '}
                   {Math.ceil(pagination.total / pagination.limit)}
                 </span>
@@ -520,7 +520,7 @@ function AdCard({
         href={adUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="relative aspect-[9/16] bg-zinc-900 max-h-[320px] block group"
+        className="relative aspect-[9/16] bg-card max-h-[320px] block group"
       >
         {ad.video_cover_url ? (
           <img
@@ -594,35 +594,35 @@ function AdCard({
       <div className="p-3 flex flex-col flex-1">
         {/* Title / ad copy */}
         {ad.ad_title && (
-          <p className="text-sm font-medium text-white line-clamp-2 mb-2">
+          <p className="text-sm font-medium text-foreground line-clamp-2 mb-2">
             {ad.ad_title}
           </p>
         )}
 
         {/* Stats row */}
         {isTikTok ? (
-          <div className="flex items-center gap-3 text-xs text-zinc-400 mb-2">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
             <span className="flex items-center gap-1">
-              <Heart className="w-3 h-3 text-red-400" />
+              <Heart className="w-3 h-3 text-red-600 dark:text-red-400" />
               {formatNumber(ad.likes)}
             </span>
             <span className="flex items-center gap-1">
-              <MessageCircle className="w-3 h-3 text-blue-400" />
+              <MessageCircle className="w-3 h-3 text-blue-600 dark:text-blue-400" />
               {formatNumber(ad.comments)}
             </span>
             <span className="flex items-center gap-1">
-              <Share2 className="w-3 h-3 text-green-400" />
+              <Share2 className="w-3 h-3 text-green-600 dark:text-green-400" />
               {formatNumber(ad.shares)}
             </span>
           </div>
         ) : (
-          <div className="flex items-center gap-3 text-xs text-zinc-400 mb-2">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
             <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3 text-blue-400" />
+              <Clock className="w-3 h-3 text-blue-600 dark:text-blue-400" />
               {daysRunning}d running
             </span>
             <span className="flex items-center gap-1">
-              <Globe className="w-3 h-3 text-zinc-400" />
+              <Globe className="w-3 h-3 text-muted-foreground" />
               {ad.brand_name ?? 'Facebook'}
             </span>
           </div>
@@ -632,14 +632,14 @@ function AdCard({
         {isTikTok ? (
           <Badge
             variant="outline"
-            className="text-[10px] w-fit mb-3 text-zinc-400 border-zinc-700"
+            className="text-[10px] w-fit mb-3 text-muted-foreground border-border"
           >
             {ad.niche}
           </Badge>
         ) : (
           <Badge
             variant="outline"
-            className="text-[10px] w-fit mb-3 text-blue-400 border-blue-900"
+            className="text-[10px] w-fit mb-3 text-blue-600 dark:text-blue-400 border-blue-900"
           >
             Facebook Ads
           </Badge>
@@ -669,7 +669,7 @@ function AdCard({
           <Button
             variant="outline"
             size="sm"
-            className={`px-2.5 ${isSaved ? 'text-amber-400 border-amber-400/40' : ''}`}
+            className={`px-2.5 ${isSaved ? 'text-amber-700 dark:text-amber-400 border-amber-400/40' : ''}`}
             onClick={onToggleSave}
           >
             {isSaved ? (
@@ -687,16 +687,16 @@ function AdCard({
 function SkeletonCard() {
   return (
     <Card className="overflow-hidden border border-border/50">
-      <div className="aspect-[9/16] bg-zinc-800 animate-pulse max-h-[320px]" />
+      <div className="aspect-[9/16] bg-secondary animate-pulse max-h-[320px]" />
       <div className="p-3 space-y-3">
-        <div className="h-4 bg-zinc-800 animate-pulse rounded w-3/4" />
+        <div className="h-4 bg-secondary animate-pulse rounded w-3/4" />
         <div className="flex gap-3">
-          <div className="h-3 bg-zinc-800 animate-pulse rounded w-12" />
-          <div className="h-3 bg-zinc-800 animate-pulse rounded w-12" />
-          <div className="h-3 bg-zinc-800 animate-pulse rounded w-12" />
+          <div className="h-3 bg-secondary animate-pulse rounded w-12" />
+          <div className="h-3 bg-secondary animate-pulse rounded w-12" />
+          <div className="h-3 bg-secondary animate-pulse rounded w-12" />
         </div>
-        <div className="h-5 bg-zinc-800 animate-pulse rounded w-20" />
-        <div className="h-8 bg-zinc-800 animate-pulse rounded" />
+        <div className="h-5 bg-secondary animate-pulse rounded w-20" />
+        <div className="h-8 bg-secondary animate-pulse rounded" />
       </div>
     </Card>
   );

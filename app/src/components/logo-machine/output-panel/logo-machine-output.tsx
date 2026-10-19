@@ -92,8 +92,8 @@ export function LogoMachineOutput({
                 <div className="space-y-2">
                   {result.warnings.map((warning, index) => (
                     <div key={index} className="flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-                      <p className="text-sm text-yellow-300 font-medium">{warning}</p>
+                      <AlertCircle className="w-4 h-4 text-yellow-700 dark:text-yellow-400 flex-shrink-0" />
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300 font-medium">{warning}</p>
                     </div>
                   ))}
                 </div>

@@ -466,7 +466,7 @@ function CloneAnalyzeStep({
       {analysisResult && (
         <div className="space-y-3">
           <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-            <p className="text-sm text-green-400 font-medium">Analysis complete! Review the breakdown below, then continue to customize.</p>
+            <p className="text-sm text-green-600 dark:text-green-400 font-medium">Analysis complete! Review the breakdown below, then continue to customize.</p>
           </div>
 
           {/* Show actual analysis text */}

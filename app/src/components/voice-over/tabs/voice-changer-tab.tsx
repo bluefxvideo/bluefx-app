@@ -186,7 +186,7 @@ export function VoiceChangerTab({
                 <p className="text-sm text-muted-foreground">
                   {(sourceFile.size / 1024 / 1024).toFixed(2)} MB
                   {sourceIsVideo && (
-                    <span className="ml-2 text-xs bg-blue-500/15 text-blue-400 px-2 py-0.5 rounded-full">
+                    <span className="ml-2 text-xs bg-blue-500/15 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
                       Video
                     </span>
                   )}

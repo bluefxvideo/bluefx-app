@@ -240,7 +240,7 @@ export default function ViralTrendsPage() {
                 {[...Array(12)].map((_, i) => (
                   <div key={i} className="bg-card rounded-lg shadow-md overflow-hidden animate-pulse">
                     {/* Video Thumbnail Section */}
-                    <div className="h-48 bg-gray-700 relative">
+                    <div className="h-48 bg-border relative">
                       {/* Platform Badge */}
                       <div className="absolute top-2 left-2">
                         <div className="h-6 bg-gray-600 rounded w-16"></div>
@@ -258,34 +258,34 @@ export default function ViralTrendsPage() {
                     {/* Content Section */}
                     <div className="p-4">
                       {/* Title */}
-                      <div className="h-5 bg-gray-700 rounded w-full mb-2"></div>
-                      <div className="h-5 bg-gray-700 rounded w-3/4 mb-4"></div>
+                      <div className="h-5 bg-border rounded w-full mb-2"></div>
+                      <div className="h-5 bg-border rounded w-3/4 mb-4"></div>
                       
                       {/* Creator Info */}
-                      <div className="h-3 bg-gray-700 rounded w-24 mb-3"></div>
+                      <div className="h-3 bg-border rounded w-24 mb-3"></div>
                       
                       {/* Hashtags */}
                       <div className="flex flex-wrap gap-1 mb-4">
-                        <div className="h-6 bg-gray-700 rounded w-16"></div>
-                        <div className="h-6 bg-gray-700 rounded w-20"></div>
-                        <div className="h-6 bg-gray-700 rounded w-14"></div>
-                        <div className="h-6 bg-gray-700 rounded w-18"></div>
+                        <div className="h-6 bg-border rounded w-16"></div>
+                        <div className="h-6 bg-border rounded w-20"></div>
+                        <div className="h-6 bg-border rounded w-14"></div>
+                        <div className="h-6 bg-border rounded w-18"></div>
                       </div>
                       
                       {/* Engagement Metrics */}
                       <div className="flex justify-between text-sm mb-4">
                         <div className="flex items-center space-x-4">
-                          <div className="h-4 bg-gray-700 rounded w-12"></div>
-                          <div className="h-4 bg-gray-700 rounded w-10"></div>
-                          <div className="h-4 bg-gray-700 rounded w-10"></div>
+                          <div className="h-4 bg-border rounded w-12"></div>
+                          <div className="h-4 bg-border rounded w-10"></div>
+                          <div className="h-4 bg-border rounded w-10"></div>
                         </div>
                       </div>
                       
                       {/* Action Buttons */}
                       <div className="flex gap-2">
-                        <div className="h-8 bg-gray-700 rounded flex-1"></div>
-                        <div className="h-8 bg-gray-700 rounded w-8"></div>
-                        <div className="h-8 bg-gray-700 rounded w-12"></div>
+                        <div className="h-8 bg-border rounded flex-1"></div>
+                        <div className="h-8 bg-border rounded w-8"></div>
+                        <div className="h-8 bg-border rounded w-12"></div>
                       </div>
                     </div>
                   </div>
@@ -308,7 +308,7 @@ export default function ViralTrendsPage() {
                     className="bg-card rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                   >
                     {/* Video Thumbnail Section */}
-                    <div className="h-48 bg-gray-300 dark:bg-gray-700 relative group">
+                    <div className="h-48 bg-gray-300 dark:bg-border relative group">
                       {trend.source_url ? (
                         <a
                           href={trend.source_url}
@@ -333,7 +333,7 @@ export default function ViralTrendsPage() {
                           {/* Hover Overlay */}
                           <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-40 transition-opacity duration-300"></div>
                           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            <div className="bg-white dark:bg-gray-800 p-2 rounded-full">
+                            <div className="bg-white dark:bg-secondary p-2 rounded-full">
                               <div className="w-8 h-8 text-red-600 flex items-center justify-center">
                                 <div className="w-0 h-0 border-l-[12px] border-l-red-600 border-y-[8px] border-y-transparent ml-1"></div>
                               </div>
@@ -342,7 +342,7 @@ export default function ViralTrendsPage() {
                         </a>
                       ) : (
                         <div className="w-full h-full bg-muted flex items-center justify-center">
-                          <div className="text-gray-500 dark:text-gray-400 text-center">
+                          <div className="text-muted-foreground dark:text-muted-foreground text-center">
                             <Eye className="w-16 h-16 mx-auto mb-2 opacity-60" />
                             <p className="text-sm">YouTube Video</p>
                           </div>

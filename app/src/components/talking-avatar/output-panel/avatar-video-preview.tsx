@@ -132,7 +132,7 @@ export function AvatarVideoPreview({
             {isSwitchingVoice && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60">
                 <Loader2 className="w-8 h-8 text-white animate-spin" />
-                <span className="text-sm text-white font-medium">Switching voice...</span>
+                <span className="text-sm text-foreground font-medium">Switching voice...</span>
               </div>
             )}
           </div>

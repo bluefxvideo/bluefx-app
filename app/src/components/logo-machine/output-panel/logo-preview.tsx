@@ -136,14 +136,14 @@ export function LogoPreview({ logo, isGenerating, companyName, onCancelGeneratio
   if (isGenerating) {
     return (
       <div className="flex justify-center">
-        <Card className="relative p-8 text-center space-y-4 border-zinc-700/50 bg-card-content/50 max-w-md w-full">
+        <Card className="relative p-8 text-center space-y-4 border-border/50 bg-card-content/50 max-w-md w-full">
           {/* Cancel Button - Top Right */}
           {onCancelGeneration && (
             <Button
               variant="ghost"
               size="sm" 
               onClick={onCancelGeneration}
-              className="absolute top-3 right-3 h-8 w-8 p-0 text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
+              className="absolute top-3 right-3 h-8 w-8 p-0 text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
               title="Cancel Generation"
             >
               <X className="w-4 h-4" />

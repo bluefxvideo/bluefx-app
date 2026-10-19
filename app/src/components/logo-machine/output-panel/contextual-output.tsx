@@ -88,7 +88,7 @@ export function ContextualOutput({
           variant="ghost"
           size="sm"
           onClick={onClearResults}
-          className="h-10 px-4 hover:bg-zinc-800/50 transition-all duration-300 hover:scale-105 text-zinc-400 hover:text-zinc-300"
+          className="h-10 px-4 hover:bg-secondary/50 transition-all duration-300 hover:scale-105 text-muted-foreground hover:text-foreground"
         >
           <Trash2 className="w-4 h-4 mr-2" />
           Clear Results

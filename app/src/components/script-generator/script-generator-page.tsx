@@ -244,13 +244,13 @@ export function ScriptGeneratorPage() {
       {/* Offer Selection */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium text-zinc-300">Select Offer</Label>
+          <Label className="text-sm font-medium text-foreground">Select Offer</Label>
           {isAdmin && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push('/dashboard/script-generator/manage-offers')}
-              className="h-7 px-2 text-xs text-zinc-400 hover:text-white gap-1"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
             >
               <Settings className="w-3 h-3" />
               Manage Offers
@@ -282,8 +282,8 @@ export function ScriptGeneratorPage() {
             {/* None option - start from scratch */}
             <SelectItem value="none">
               <div className="flex items-center gap-2">
-                <Ban className="w-3.5 h-3.5 text-zinc-400" />
-                <span className="font-medium text-zinc-300">None (Start from scratch)</span>
+                <Ban className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="font-medium text-foreground">None (Start from scratch)</span>
               </div>
             </SelectItem>
 
@@ -299,7 +299,7 @@ export function ScriptGeneratorPage() {
                     <div className="flex flex-col">
                       <span className="font-medium">{offer.name}</span>
                       {offer.niche && (
-                        <span className="text-xs text-zinc-400">{offer.niche}</span>
+                        <span className="text-xs text-muted-foreground">{offer.niche}</span>
                       )}
                     </div>
                   </SelectItem>
@@ -310,7 +310,7 @@ export function ScriptGeneratorPage() {
             {/* Library Products */}
             {libraryProducts.length > 0 && (
               <SelectGroup>
-                <SelectLabel className="flex items-center gap-2 text-blue-400">
+                <SelectLabel className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
                   <Library className="w-3 h-3" />
                   Affiliate Products
                 </SelectLabel>
@@ -319,7 +319,7 @@ export function ScriptGeneratorPage() {
                     <div className="flex flex-col">
                       <span className="font-medium">{product.name}</span>
                       {product.niche && (
-                        <span className="text-xs text-zinc-400">{product.niche}</span>
+                        <span className="text-xs text-muted-foreground">{product.niche}</span>
                       )}
                     </div>
                   </SelectItem>
@@ -334,17 +334,17 @@ export function ScriptGeneratorPage() {
           <Card className="bg-card/50 border-border/50">
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-xs text-zinc-400">Product Details:</p>
+                <p className="text-xs text-muted-foreground">Product Details:</p>
                 <span className={cn(
                   "text-xs px-1.5 py-0.5 rounded",
                   selectedOffer.source === 'business'
                     ? "bg-primary/20 text-primary"
-                    : "bg-blue-500/20 text-blue-400"
+                    : "bg-blue-500/20 text-blue-600 dark:text-blue-400"
                 )}>
                   {selectedOffer.source === 'business' ? 'My Product' : 'Library'}
                 </span>
               </div>
-              <p className="text-sm text-zinc-300 line-clamp-3">
+              <p className="text-sm text-foreground line-clamp-3">
                 {selectedOffer.offer_content || 'No description available'}
               </p>
             </CardContent>
@@ -354,7 +354,7 @@ export function ScriptGeneratorPage() {
 
       {/* Script Type Selection */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-zinc-300">Script Type</Label>
+        <Label className="text-sm font-medium text-foreground">Script Type</Label>
         <div className="grid grid-cols-1 gap-2">
           {SCRIPT_TYPES.map((type) => {
             const IconComponent = ICON_MAP[type.icon] || FileText;
@@ -378,11 +378,11 @@ export function ScriptGeneratorPage() {
                 <div className="flex-1 min-w-0">
                   <p className={cn(
                     "font-medium text-sm",
-                    selectedScriptType === type.id ? "text-white" : "text-zinc-300"
+                    selectedScriptType === type.id ? "text-white" : "text-foreground"
                   )}>
                     {type.name}
                   </p>
-                  <p className="text-xs text-zinc-400 line-clamp-1">
+                  <p className="text-xs text-muted-foreground line-clamp-1">
                     {type.description}
                   </p>
                 </div>
@@ -395,7 +395,7 @@ export function ScriptGeneratorPage() {
       {/* Custom Prompt (shown for custom and cinematic_storyboard) */}
       {(selectedScriptType === 'custom' || selectedScriptType === 'cinematic_storyboard') && (
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-zinc-300">
+          <Label className="text-sm font-medium text-foreground">
             {selectedScriptType === 'cinematic_storyboard' ? 'Story Description' : 'Custom Prompt'}
           </Label>
           <Textarea
@@ -430,7 +430,7 @@ export function ScriptGeneratorPage() {
       </Button>
 
       {error && (
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
     </div>
   );
@@ -440,7 +440,7 @@ export function ScriptGeneratorPage() {
     <div className="h-full flex flex-col">
       {/* Output Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-white">Generated Script</h3>
+        <h3 className="text-lg font-semibold text-foreground">Generated Script</h3>
         {generatedScript && (
           <div className="flex items-center gap-2">
           <Button
@@ -496,15 +496,15 @@ export function ScriptGeneratorPage() {
                       <Bot className="w-3.5 h-3.5 text-primary" />
                     </div>
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center">
-                      <User className="w-3.5 h-3.5 text-zinc-300" />
+                    <div className="w-6 h-6 rounded-full bg-border flex items-center justify-center">
+                      <User className="w-3.5 h-3.5 text-foreground" />
                     </div>
                   )}
-                  <span className="text-xs font-medium text-zinc-400">
+                  <span className="text-xs font-medium text-muted-foreground">
                     {msg.role === 'assistant' ? 'AI Response' : 'Your Refinement Request'}
                   </span>
                 </div>
-                <div className="prose prose-sm prose-invert max-w-none leading-relaxed prose-p:text-zinc-300 prose-p:my-4 prose-p:leading-7 prose-headings:text-white prose-headings:mt-8 prose-headings:mb-4 prose-strong:text-white prose-strong:font-semibold prose-li:text-zinc-300 prose-li:my-2 prose-ul:my-4 prose-ol:my-4 prose-hr:my-6 [&>*:first-child]:mt-0">
+                <div className="prose prose-sm prose-invert max-w-none leading-relaxed prose-p:text-foreground prose-p:my-4 prose-p:leading-7 prose-headings:text-white prose-headings:mt-8 prose-headings:mb-4 prose-strong:text-white prose-strong:font-semibold prose-li:text-foreground prose-li:my-2 prose-ul:my-4 prose-ol:my-4 prose-hr:my-6 [&>*:first-child]:mt-0">
                   <ReactMarkdown>{formatContentForDisplay(msg.content)}</ReactMarkdown>
                 </div>
               </div>
@@ -513,7 +513,7 @@ export function ScriptGeneratorPage() {
               <div className="rounded-lg p-4 bg-card border border-border">
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span className="text-sm text-zinc-400">Refining your script...</span>
+                  <span className="text-sm text-muted-foreground">Refining your script...</span>
                 </div>
               </div>
             )}
@@ -522,7 +522,7 @@ export function ScriptGeneratorPage() {
           <div className="h-full flex items-center justify-center bg-card/50 border border-border/50 rounded-lg">
             <div className="text-center p-8">
               <FileText className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-              <p className="text-zinc-400">
+              <p className="text-muted-foreground">
                 Select an offer and script type, then click Generate to create your script.
               </p>
             </div>
@@ -533,8 +533,8 @@ export function ScriptGeneratorPage() {
       {/* Next step: turn the script into media — the main reason people write scripts here */}
       {conversationHistory.length > 0 && isVideoScriptType(selectedScriptType) && (
         <div className="mt-4 pt-4 border-t border-border">
-          <Label className="text-sm font-medium text-zinc-300 mb-1 block">Your script is ready — what&apos;s next?</Label>
-          <p className="text-xs text-zinc-400 mb-3">Carry it straight into a tool, no copy-paste needed.</p>
+          <Label className="text-sm font-medium text-foreground mb-1 block">Your script is ready — what&apos;s next?</Label>
+          <p className="text-xs text-muted-foreground mb-3">Carry it straight into a tool, no copy-paste needed.</p>
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
@@ -548,7 +548,7 @@ export function ScriptGeneratorPage() {
               variant="outline"
               size="sm"
               onClick={goToTalkingAvatar}
-              className="gap-2 border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+              className="gap-2 border-purple-500/50 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
             >
               <UserRound className="w-4 h-4" />
               AI Avatar
@@ -557,7 +557,7 @@ export function ScriptGeneratorPage() {
               variant="outline"
               size="sm"
               onClick={goToVoiceOver}
-              className="gap-2 border-green-500/50 text-green-400 hover:bg-green-500/10"
+              className="gap-2 border-green-500/50 text-green-600 dark:text-green-400 hover:bg-green-500/10"
             >
               <Mic className="w-4 h-4" />
               Voice over
@@ -569,7 +569,7 @@ export function ScriptGeneratorPage() {
       {/* Refinement Section */}
       {conversationHistory.length > 0 && (
         <div className="mt-4 pt-4 border-t border-border space-y-3">
-          <Label className="text-sm font-medium text-zinc-300">Refine Output</Label>
+          <Label className="text-sm font-medium text-foreground">Refine Output</Label>
           <div className="flex gap-2">
             <Textarea
               value={refinementInput}

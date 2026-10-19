@@ -106,7 +106,7 @@ export function ChangeRoleDialog({ user, open, onOpenChange, onSuccess }: Change
               <Badge variant="outline">
                 {currentRole?.label || 'User'}
               </Badge>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-muted-foreground">
                 {currentRole?.description}
               </span>
             </div>
@@ -131,7 +131,7 @@ export function ChangeRoleDialog({ user, open, onOpenChange, onSuccess }: Change
               </SelectContent>
             </Select>
             {newRole && (
-              <p className="text-sm text-gray-500">{newRole.description}</p>
+              <p className="text-sm text-muted-foreground">{newRole.description}</p>
             )}
           </div>
 

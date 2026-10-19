@@ -46,8 +46,8 @@ export function MusicHistoryFilters({ onFiltersChange }: MusicHistoryFiltersProp
           </div>
         </div>
         <div>
-          <h3 className="text-xl font-bold text-white mb-1 tracking-tight">History Filters</h3>
-          <p className="text-zinc-400 font-medium">Filter and search your music history</p>
+          <h3 className="text-xl font-bold text-foreground mb-1 tracking-tight">History Filters</h3>
+          <p className="text-muted-foreground font-medium">Filter and search your music history</p>
         </div>
       </div>
 

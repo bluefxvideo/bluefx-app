@@ -123,9 +123,9 @@ export function ThumbnailMachineOutput({
                     <AlertCircle className="w-8 h-8 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-red-300 mb-2">Generation Failed</h3>
-                    <p className="text-red-400/80 text-base mb-4">Something went wrong during processing</p>
-                    <div className="text-sm text-red-300/70 bg-red-500/5 border border-red-500/20 rounded-lg p-3">
+                    <h3 className="text-2xl font-bold text-red-700 dark:text-red-300 mb-2">Generation Failed</h3>
+                    <p className="text-red-600/80 dark:text-red-400/80 text-base mb-4">Something went wrong during processing</p>
+                    <div className="text-sm text-red-700/70 dark:text-red-300/70 bg-red-500/5 border border-red-500/20 rounded-lg p-3">
                       {error}
                     </div>
                   </div>

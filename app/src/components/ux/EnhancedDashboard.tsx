@@ -72,7 +72,7 @@ const WelcomeSection: React.FC<{ user: User }> = ({ user }) => {
               {userRole}
             </Badge>
           </div>
-          <div className="hidden sm:block text-sm text-gray-500">
+          <div className="hidden sm:block text-sm text-muted-foreground">
             {new Date().toLocaleDateString()}
           </div>
         </CardTitle>
@@ -84,7 +84,7 @@ const WelcomeSection: React.FC<{ user: User }> = ({ user }) => {
               <Zap className="h-5 w-5 text-blue-500" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Available Credits</p>
+              <p className="text-sm text-muted-foreground">Available Credits</p>
               <p className="text-2xl font-bold">{user.credits?.available_credits || 0}</p>
             </div>
           </div>
@@ -93,7 +93,7 @@ const WelcomeSection: React.FC<{ user: User }> = ({ user }) => {
               <BarChart3 className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Monthly Allocation</p>
+              <p className="text-sm text-muted-foreground">Monthly Allocation</p>
               <p className="text-2xl font-bold">{user.credits?.monthly_allocation || 0}</p>
             </div>
           </div>
@@ -102,7 +102,7 @@ const WelcomeSection: React.FC<{ user: User }> = ({ user }) => {
               <Calendar className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Days Until Renewal</p>
+              <p className="text-sm text-muted-foreground">Days Until Renewal</p>
               <p className="text-2xl font-bold">
                 {Math.ceil((new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))}
               </p>
@@ -127,21 +127,21 @@ const UsageAnalyticsSection: React.FC<{ stats: UsageStats }> = ({ stats }) => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">{stats.totalGenerations}</div>
-            <div className="text-sm text-gray-500">Total Creations</div>
+            <div className="text-sm text-muted-foreground">Total Creations</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">{stats.monthlyProjects}</div>
-            <div className="text-sm text-gray-500">Projects</div>
+            <div className="text-sm text-muted-foreground">Projects</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-blue-600">{stats.creditsUsed}</div>
-            <div className="text-sm text-gray-500">Credits Used</div>
+            <div className="text-sm text-muted-foreground">Credits Used</div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-orange-600">
               {stats.favoriteTools.length > 0 ? stats.favoriteTools[0]?.count || 0 : 0}
             </div>
-            <div className="text-sm text-gray-500">Most Used Tool</div>
+            <div className="text-sm text-muted-foreground">Most Used Tool</div>
           </div>
         </div>
         
@@ -187,7 +187,7 @@ const SmartRecommendationsSection: React.FC<{ recommendations: SmartRecommendati
                 >
                   {rec.priority}
                 </Badge>
-                <ArrowRight className="h-4 w-4 text-gray-400" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground" />
               </div>
               <h4 className="font-medium text-sm mb-1">{rec.title}</h4>
               <p className="text-xs text-gray-600 mb-2">{rec.description}</p>
@@ -225,10 +225,10 @@ const RecentActivitySection: React.FC<{ activity: UsageStats['recentActivity'] }
                 </div>
                 <div>
                   <div className="text-sm font-medium">{item.tool}</div>
-                  <div className="text-xs text-gray-500">{item.type}</div>
+                  <div className="text-xs text-muted-foreground">{item.type}</div>
                 </div>
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-muted-foreground">
                 {new Date(item.date).toLocaleDateString()}
               </div>
             </div>
@@ -307,9 +307,9 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({ user }) =>
     return (
       <MobileResponsiveContainer>
         <div className="animate-pulse space-y-6">
-          <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-          <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-          <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+          <div className="h-32 bg-gray-200 dark:bg-border rounded-lg"></div>
+          <div className="h-48 bg-gray-200 dark:bg-border rounded-lg"></div>
+          <div className="h-64 bg-gray-200 dark:bg-border rounded-lg"></div>
         </div>
       </MobileResponsiveContainer>
     )

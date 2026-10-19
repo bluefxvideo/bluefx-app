@@ -56,7 +56,7 @@ function ItemCard({ item }: { item: LibraryItem }) {
           // Generated but never rendered/exported — no media file exists yet.
           <Link
             href={item.tool_route}
-            className="flex flex-col items-center gap-2 text-zinc-400 hover:text-foreground transition-colors"
+            className="flex flex-col items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <Icon className="w-8 h-8" />
             <span className="text-xs font-medium">Finish in editor to render</span>
@@ -72,7 +72,7 @@ function ItemCard({ item }: { item: LibraryItem }) {
             <video src={item.url} className="w-full h-full object-cover" preload="metadata" muted />
           )
         ) : (
-          <div className="flex flex-col items-center gap-2 text-zinc-400">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
             <Icon className="w-8 h-8" />
             <audio src={item.url} controls className="w-44 h-8" preload="none" />
           </div>
@@ -98,7 +98,7 @@ function ItemCard({ item }: { item: LibraryItem }) {
       {/* Meta */}
       <div className="p-3 flex flex-col gap-1 flex-1">
         <p className="text-sm font-medium leading-snug line-clamp-2">{item.title}</p>
-        <div className="mt-auto pt-1 flex items-center justify-between text-xs text-zinc-400">
+        <div className="mt-auto pt-1 flex items-center justify-between text-xs text-muted-foreground">
           <span>{formatDate(item.created_at)}</span>
           <Link
             href={item.tool_route}
@@ -159,7 +159,7 @@ export function LibraryPage() {
                 'px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors',
                 filter === f.id
                   ? 'bg-primary text-white border-primary'
-                  : 'bg-card text-zinc-400 border-border hover:text-foreground'
+                  : 'bg-card text-muted-foreground border-border hover:text-foreground'
               )}
             >
               {f.label}
@@ -169,13 +169,13 @@ export function LibraryPage() {
         </div>
 
         {loading ? (
-          <div className="h-64 flex items-center justify-center text-zinc-400">
+          <div className="h-64 flex items-center justify-center text-muted-foreground">
             <Loader2 className="w-6 h-6 animate-spin" />
           </div>
         ) : error ? (
-          <div className="h-64 flex items-center justify-center text-sm text-red-400">{error}</div>
+          <div className="h-64 flex items-center justify-center text-sm text-red-600 dark:text-red-400">{error}</div>
         ) : filtered.length === 0 ? (
-          <div className="h-64 flex flex-col items-center justify-center gap-3 text-zinc-400 text-center">
+          <div className="h-64 flex flex-col items-center justify-center gap-3 text-muted-foreground text-center">
             <LibraryIcon className="w-10 h-10" />
             <p className="text-sm">
               {items.length === 0

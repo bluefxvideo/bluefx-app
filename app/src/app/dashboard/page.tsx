@@ -354,7 +354,7 @@ export default function DashboardPage() {
           <button
             onClick={dismissGettingStarted}
             aria-label="Dismiss getting started"
-            className="absolute top-3 right-3 text-zinc-400 hover:text-foreground transition-colors"
+            className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors"
           >
             ✕
           </button>
@@ -366,7 +366,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {!milestones?.hasPhantom && (
-              <p className="mb-4 text-sm text-zinc-300">
+              <p className="mb-4 text-sm text-foreground">
                 Start with Make a Video Ad: type your website, or a few lines about your business, and add photos if you like. The AI Media
                 Machine writes the script, puts a presenter on camera, records the voice-over and adds the music. Your video ad is ready in
                 about 3 minutes.
@@ -386,7 +386,7 @@ export default function DashboardPage() {
                     >
                       {step.done ? '✓' : milestoneSteps.indexOf(step) + 1}
                     </span>
-                    <span className={step.done ? 'text-zinc-500 line-through' : 'text-zinc-300 group-hover:text-foreground transition-colors'}>
+                    <span className={step.done ? 'text-muted-foreground line-through' : 'text-foreground group-hover:text-foreground transition-colors'}>
                       {step.label}
                     </span>
                   </button>
@@ -410,11 +410,11 @@ export default function DashboardPage() {
         {isLoadingFeatured && (
           <Card className="mb-8 overflow-hidden">
             <CardHeader className="pb-2">
-              <div className="h-6 w-72 bg-gray-200 dark:bg-gray-700 animate-pulse rounded" />
-              <div className="h-4 w-96 max-w-full bg-gray-200 dark:bg-gray-700 animate-pulse rounded mt-2" />
+              <div className="h-6 w-72 bg-gray-200 dark:bg-border animate-pulse rounded" />
+              <div className="h-4 w-96 max-w-full bg-gray-200 dark:bg-border animate-pulse rounded mt-2" />
             </CardHeader>
             <CardContent>
-              <div className="aspect-video bg-gray-200 dark:bg-gray-800 animate-pulse rounded-lg" />
+              <div className="aspect-video bg-gray-200 dark:bg-secondary animate-pulse rounded-lg" />
             </CardContent>
           </Card>
         )}
@@ -443,14 +443,14 @@ export default function DashboardPage() {
                     allowFullScreen
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-zinc-400">
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                     Invalid video URL
                   </div>
                 )}
                 {currentUser?.profile?.role === 'admin' && (
                   <div className="absolute top-2 right-2 flex gap-2">
                     <button
-                      className="p-2 bg-zinc-800/80 text-white rounded-full hover:bg-zinc-700 transition-colors shadow-lg"
+                      className="p-2 bg-secondary/80 text-white rounded-full hover:bg-border transition-colors shadow-lg"
                       title="Edit Tutorial"
                       onClick={() => openEditTutorial(featuredTutorial)}
                     >
@@ -496,10 +496,10 @@ export default function DashboardPage() {
                 </div>
               )}
               <div>
-                <p className="text-3xl font-bold text-white">
+                <p className="text-3xl font-bold text-foreground">
                   {credits?.available_credits || 0}
                 </p>
-                <p className="text-sm text-zinc-400 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Credits remaining
                 </p>
               </div>
@@ -586,14 +586,14 @@ export default function DashboardPage() {
                         allowFullScreen
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-zinc-400">
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                         Invalid video URL
                       </div>
                     )}
                     {currentUser?.profile?.role === 'admin' && (
                       <div className="absolute top-2 right-2 flex gap-2">
                         <button
-                          className="p-2 bg-zinc-800/80 text-white rounded-full hover:bg-zinc-700 transition-colors shadow-lg"
+                          className="p-2 bg-secondary/80 text-white rounded-full hover:bg-border transition-colors shadow-lg"
                           title="Edit Tutorial"
                           onClick={() => openEditTutorial(tutorial)}
                         >

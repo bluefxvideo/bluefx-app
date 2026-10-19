@@ -322,43 +322,43 @@ export default function TrendingKeywordsPage() {
                         <tr key={i}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="space-y-2 animate-pulse">
-                              <div className="h-4 bg-gray-700 rounded w-32"></div>
-                              <div className="h-3 bg-gray-700 rounded w-20"></div>
+                              <div className="h-4 bg-border rounded w-32"></div>
+                              <div className="h-3 bg-border rounded w-20"></div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="space-y-2 animate-pulse">
-                              <div className="h-4 bg-gray-700 rounded w-16"></div>
-                              <div className="h-3 bg-gray-700 rounded w-24"></div>
+                              <div className="h-4 bg-border rounded w-16"></div>
+                              <div className="h-3 bg-border rounded w-24"></div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="space-y-2 animate-pulse">
                               <div className="flex items-center">
-                                <div className="h-2 w-24 bg-gray-700 rounded-full mr-2"></div>
-                                <div className="h-3 bg-gray-700 rounded w-8"></div>
+                                <div className="h-2 w-24 bg-border rounded-full mr-2"></div>
+                                <div className="h-3 bg-border rounded w-8"></div>
                               </div>
-                              <div className="h-3 bg-gray-700 rounded w-12"></div>
+                              <div className="h-3 bg-border rounded w-12"></div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center animate-pulse">
-                              <div className="h-4 w-4 bg-gray-700 rounded mr-1"></div>
-                              <div className="h-3 bg-gray-700 rounded w-12"></div>
+                              <div className="h-4 w-4 bg-border rounded mr-1"></div>
+                              <div className="h-3 bg-border rounded w-12"></div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="space-y-2 animate-pulse">
-                              <div className="h-4 bg-gray-700 rounded w-12"></div>
-                              <div className="h-3 bg-gray-700 rounded w-16"></div>
+                              <div className="h-4 bg-border rounded w-12"></div>
+                              <div className="h-3 bg-border rounded w-16"></div>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="h-6 bg-gray-700 rounded w-16 animate-pulse"></div>
+                            <div className="h-6 bg-border rounded w-16 animate-pulse"></div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <div className="flex items-center justify-end space-x-2">
-                              <div className="h-8 bg-gray-700 rounded w-16 animate-pulse"></div>
+                              <div className="h-8 bg-border rounded w-16 animate-pulse"></div>
                             </div>
                           </td>
                         </tr>

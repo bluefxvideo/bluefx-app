@@ -146,7 +146,7 @@ export function DeleteUserDialog({
           {/* Confirmation Input */}
           <div className="space-y-2">
             <Label htmlFor="confirmation">
-              Type <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded font-mono text-sm">
+              Type <code className="bg-gray-100 dark:bg-secondary px-1 rounded font-mono text-sm">
                 {expectedConfirmation}
               </code> to confirm:
             </Label>

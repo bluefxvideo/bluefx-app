@@ -44,8 +44,8 @@ const STAGE_LABEL: Record<FinishStage, string> = {
   failed: 'Stopped',
 };
 const LOOK_LABEL: Record<FinishLook, string> = { clean: 'Clean', bold: 'Bold', elegant: 'Elegant', playful: 'Playful' };
-const select = 'h-8 rounded-md border border-border/60 bg-transparent text-xs px-2 text-zinc-300 disabled:opacity-50';
-const label = 'font-mono text-[9px] uppercase tracking-widest text-zinc-500';
+const select = 'h-8 rounded-md border border-border/60 bg-transparent text-xs px-2 text-foreground disabled:opacity-50';
+const label = 'font-mono text-[9px] uppercase tracking-widest text-muted-foreground';
 
 export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
   const [open, setOpen] = useState(false);
@@ -127,10 +127,10 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
     <Card className="p-4 space-y-4 border-primary/40">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1">
-          <p className="text-sm font-semibold text-white flex items-center gap-2">
+          <p className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Clapperboard className="w-4 h-4 text-primary" /> Finish the ad
           </p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             Cuts your scenes into a finished ad: one voice, word captions, your text on screen and music.
           </p>
         </div>
@@ -149,12 +149,12 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
       </div>
 
       {!supported && (
-        <p className="text-xs text-zinc-400">Only vertical and horizontal ads can be finished here for now. Use &quot;Assemble video&quot; below for this one.</p>
+        <p className="text-xs text-muted-foreground">Only vertical and horizontal ads can be finished here for now. Use &quot;Assemble video&quot; below for this one.</p>
       )}
 
       {running && run && (
         <div className="space-y-2">
-          <p className="text-sm text-zinc-200 flex items-center gap-2">
+          <p className="text-sm text-foreground flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin text-primary" />
             {STAGE_LABEL[run.stage]}
             {run.stage === 'rendering' ? `: ${run.progress}%` : ''}
@@ -165,21 +165,21 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
               style={{ width: `${run.stage === 'clips' ? 8 : run.stage === 'voice' ? 20 : run.stage === 'rendering' ? 25 + run.progress * 0.7 : 97}%` }}
             />
           </div>
-          <p className="text-[11px] text-zinc-500">This takes a few minutes. The finished ad appears at the top of this page.</p>
+          <p className="text-[11px] text-muted-foreground">This takes a few minutes. The finished ad appears at the top of this page.</p>
         </div>
       )}
 
-      {!running && run?.stage === 'failed' && run.error && <p className="text-xs text-red-400">{run.error}</p>}
+      {!running && run?.stage === 'failed' && run.error && <p className="text-xs text-red-600 dark:text-red-400">{run.error}</p>}
 
       {open && !running && !directing && supported && (
         <>
           {checking ? (
-            <p className="text-xs text-zinc-400 flex items-center gap-2">
+            <p className="text-xs text-muted-foreground flex items-center gap-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Listening to your clips to see who speaks in each scene…
             </p>
           ) : unchecked > 0 ? (
             <div className="flex items-center gap-3">
-              <p className="text-xs text-amber-300/90">
+              <p className="text-xs text-amber-700/90 dark:text-amber-300/90">
                 {unchecked} {unchecked === 1 ? 'scene is' : 'scenes are'} new or changed since the last check.
               </p>
               <Button variant="outline" size="sm" onClick={check}>
@@ -205,7 +205,7 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
                 {!narrated && <span className="text-[10px] text-zinc-600">No scene uses the narrator</span>}
               </div>
               {narrated && onCamera && (
-                <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
                   <Checkbox checked={settings.match_voice} onCheckedChange={(v) => saveSetting({ match_voice: v === true })} />
                   Narrator speaks in the voice of the person on camera
                 </label>
@@ -231,7 +231,7 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
                   title="Colour of the text accents"
                 />
                 {settings.accent && (
-                  <button className="text-[10px] text-zinc-500 hover:text-zinc-300 underline underline-offset-2" onClick={() => saveSetting({ accent: '' })}>
+                  <button className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2" onClick={() => saveSetting({ accent: '' })}>
                     Use the style&apos;s colour
                   </button>
                 )}
@@ -239,11 +239,11 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
             </div>
             <div className="space-y-1.5">
               <p className={label}>Extras</p>
-              <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+              <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
                 <Checkbox checked={settings.captions} onCheckedChange={(v) => saveSetting({ captions: v === true })} />
                 Word captions
               </label>
-              <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+              <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
                 <Checkbox checked={settings.music} onCheckedChange={(v) => saveSetting({ music: v === true })} />
                 Music, from the Soundtrack text at the top of the board
               </label>
@@ -251,7 +251,7 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
-            <p className="flex-1 text-xs text-zinc-500">
+            <p className="flex-1 text-xs text-muted-foreground">
               Your clips and pictures are used as they are. Takes about 5 to 10 minutes.
             </p>
             <Button onClick={start} disabled={starting || checking || unchecked > 0} size="lg" className="h-11 px-6 font-medium">
@@ -294,12 +294,12 @@ function FinishRow({ scene, disabled, onChange }: { scene: CloneScene; disabled:
   return (
     <div className={`grid gap-3 rounded-md border border-border/40 bg-muted/20 p-2.5 md:grid-cols-[104px_170px_minmax(0,1fr)_minmax(0,1fr)] ${leftOut ? 'opacity-60' : ''}`}>
       <div className="flex items-center gap-2.5">
-        <span className="font-mono text-xs font-bold text-white w-10 shrink-0">SC&thinsp;{String(scene.n).padStart(2, '0')}</span>
+        <span className="font-mono text-xs font-bold text-foreground w-10 shrink-0">SC&thinsp;{String(scene.n).padStart(2, '0')}</span>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={thumbnail} alt={`Scene ${scene.n}`} className="h-16 w-12 object-cover rounded border border-border/50 bg-black/40" />
       </div>
       {!finish ? (
-        <p className="text-xs text-zinc-500 self-center md:col-span-3">Not checked yet.</p>
+        <p className="text-xs text-muted-foreground self-center md:col-span-3">Not checked yet.</p>
       ) : (
         <>
           <div className="space-y-1.5 self-center">

@@ -48,8 +48,8 @@ export function LogoMachineTabs({ activeTab, layout: _layout = 'horizontal' }: L
               inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg
               transition-all duration-200 relative
               ${isActive 
-                ? 'bg-secondary text-white' 
-                : 'text-zinc-400 hover:text-white hover:bg-secondary/50'
+                ? 'bg-secondary text-foreground' 
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
               }
             `}
           >

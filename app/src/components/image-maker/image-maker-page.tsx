@@ -33,7 +33,7 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
       aria-pressed={active}
       className={cn(
         'inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors',
-        active ? 'bg-primary text-white border-primary' : 'bg-card text-zinc-400 border-border hover:text-foreground'
+        active ? 'bg-primary text-white border-primary' : 'bg-card text-muted-foreground border-border hover:text-foreground'
       )}
     >
       {/* check mark = selected state isn't color-only (visible to color-blind users) */}
@@ -82,7 +82,7 @@ function HistoryView() {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center text-zinc-400">
+      <div className="h-full flex items-center justify-center text-muted-foreground">
         <Loader2 className="w-6 h-6 animate-spin" />
       </div>
     );
@@ -92,7 +92,7 @@ function HistoryView() {
 
   if (allImages.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3">
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
         <History className="w-10 h-10" />
         <p className="text-sm">No images yet — generate your first one.</p>
       </div>
@@ -231,13 +231,13 @@ export function ImageMakerPage() {
         {/* One-click starters — only while the prompt is empty */}
         {!prompt.trim() && !hasRefs && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="text-xs text-zinc-400 self-center">Try:</span>
+            <span className="text-xs text-muted-foreground self-center">Try:</span>
             {EXAMPLE_PROMPTS.map((p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => setPrompt(p)}
-                className="text-xs px-2 py-1 rounded-md border border-border bg-card text-zinc-300 hover:border-primary/50 hover:text-foreground transition-colors text-left"
+                className="text-xs px-2 py-1 rounded-md border border-border bg-card text-foreground hover:border-primary/50 hover:text-foreground transition-colors text-left"
               >
                 {p.length > 52 ? `${p.slice(0, 52)}…` : p}
               </button>
@@ -249,7 +249,7 @@ export function ImageMakerPage() {
       <div>
         <label className="block text-sm font-medium mb-2">
           Reference images{' '}
-          <span className="text-zinc-400 font-normal">
+          <span className="text-muted-foreground font-normal">
             · optional{referenceImages.length > 0 ? ` · ${referenceImages.length}/${MAX_REFS}` : ` · up to ${MAX_REFS}`}
           </span>
         </label>
@@ -281,7 +281,7 @@ export function ImageMakerPage() {
                 dragActive ? 'border-primary bg-primary/10' : 'border-border hover:border-zinc-400'
               )}
             >
-              {isUploadingRef ? <Loader2 className="w-5 h-5 animate-spin text-zinc-400" /> : <Upload className="w-5 h-5 text-zinc-400" />}
+              {isUploadingRef ? <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" /> : <Upload className="w-5 h-5 text-muted-foreground" />}
             </button>
           )}
         </div>
@@ -293,7 +293,7 @@ export function ImageMakerPage() {
           className="hidden"
           onChange={(e) => e.target.files && uploadFiles(Array.from(e.target.files))}
         />
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-muted-foreground">
           Add images to edit, restyle, or combine them — 3–5 images usually work best. Leave empty to create from scratch.
         </p>
       </div>
@@ -350,10 +350,10 @@ export function ImageMakerPage() {
   const outputPanel = (
     <div className="h-full">
       {isGenerating ? (
-        <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3">
+        <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
           <Loader2 className="w-8 h-8 animate-spin" />
           <p className="text-sm">Creating your image{count > 1 ? 's' : ''}…</p>
-          <p className="text-xs text-zinc-400">Usually takes 15–60 seconds{resolution === '4K' ? ' (4K can take a bit longer)' : ''}.</p>
+          <p className="text-xs text-muted-foreground">Usually takes 15–60 seconds{resolution === '4K' ? ' (4K can take a bit longer)' : ''}.</p>
         </div>
       ) : images.length > 0 ? (
         <div className={cn('grid gap-4', images.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>

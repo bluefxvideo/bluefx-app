@@ -184,7 +184,7 @@ export function EnhancedTimeline({
                       setSelectedSegment(segment.id);
                     }}
                   >
-                    <div className="p-1 text-xs text-white truncate">
+                    <div className="p-1 text-xs text-foreground truncate">
                       Segment {videoSegments.indexOf(segment) + 1}
                     </div>
                   </div>

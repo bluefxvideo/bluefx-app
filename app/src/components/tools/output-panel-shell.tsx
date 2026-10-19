@@ -65,10 +65,10 @@ export function OutputPanelShell({
               )}
               <div>
                 {title && (
-                  <h3 className="text-xl font-semibold text-white">{title}</h3>
+                  <h3 className="text-xl font-semibold text-foreground">{title}</h3>
                 )}
                 {subtitle && (
-                  <p className="text-zinc-400 font-medium mt-1">{subtitle}</p>
+                  <p className="text-muted-foreground font-medium mt-1">{subtitle}</p>
                 )}
               </div>
             </div>
@@ -80,7 +80,7 @@ export function OutputPanelShell({
                   variant="ghost"
                   size="sm"
                   onClick={onCancelGeneration}
-                  className="h-8 w-8 p-0 text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10"
                   title="Cancel Generation"
                 >
                   <X className="w-4 h-4" />
@@ -97,7 +97,7 @@ export function OutputPanelShell({
             loading
           ) : (
             <div className="h-full flex items-center justify-center">
-              <div className="flex items-center gap-3 text-zinc-300">
+              <div className="flex items-center gap-3 text-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
                 <span>Generating...</span>
               </div>
@@ -112,7 +112,7 @@ export function OutputPanelShell({
             <div className="h-full flex items-center justify-center">
               <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6 text-red-200 max-w-md text-center">
                 <div className="flex flex-col items-center gap-3">
-                  <AlertCircle className="h-8 w-8 text-red-400" />
+                  <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
                   {isStalePage ? (
                     <>
                       <div>
@@ -152,7 +152,7 @@ export function OutputPanelShell({
             {(activeTab === 'generate' || activeTab === 'face-swap' || activeTab === 'logo-generate') && (
               <div className="absolute inset-0 flex items-center justify-center p-4">
                 <div className="w-full space-y-3">
-                  <div className={`relative ${activeTab === 'logo-generate' ? 'aspect-square max-w-md mx-auto' : 'aspect-video'} rounded-lg overflow-hidden border border-zinc-700/50 shadow-xl`}>
+                  <div className={`relative ${activeTab === 'logo-generate' ? 'aspect-square max-w-md mx-auto' : 'aspect-video'} rounded-lg overflow-hidden border border-border/50 shadow-xl`}>
                     <img
                       src={
                         activeTab === 'logo-generate'
@@ -173,7 +173,7 @@ export function OutputPanelShell({
                   </div>
                   
                   {/* Tab-specific Sample Prompt Text */}
-                  <p className="text-xs text-zinc-400 text-center">
+                  <p className="text-xs text-muted-foreground text-center">
                     Sample: {
                       activeTab === 'logo-generate'
                         ? '"Modern tech startup logo with geometric shapes, blue gradient, minimalist design"'

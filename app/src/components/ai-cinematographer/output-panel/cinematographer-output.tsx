@@ -98,13 +98,13 @@ export function CinematographerOutput({
                 <div className="flex flex-col items-center gap-6">
                   <div className="relative">
                     <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">
-                      <AlertCircle className="w-8 h-8 text-red-400" />
+                      <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
                     </div>
                     <div className="absolute inset-0 rounded-full border-2 border-red-500/30 animate-pulse"></div>
                   </div>
                   <div className="space-y-3">
-                    <h3 className="text-2xl font-bold text-white">Generation Failed</h3>
-                    <p className="text-zinc-300 max-w-md mx-auto leading-relaxed">{error}</p>
+                    <h3 className="text-2xl font-bold text-foreground">Generation Failed</h3>
+                    <p className="text-foreground max-w-md mx-auto leading-relaxed">{error}</p>
                   </div>
                 </div>
               </Card>
@@ -139,8 +139,8 @@ export function CinematographerOutput({
               <div className="space-y-2">
                 {result.warnings.map((warning, index) => (
                   <div key={index} className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-                    <p className="text-sm text-yellow-300 font-medium">{warning}</p>
+                    <AlertCircle className="w-4 h-4 text-yellow-700 dark:text-yellow-400 flex-shrink-0" />
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300 font-medium">{warning}</p>
                   </div>
                 ))}
               </div>

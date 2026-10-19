@@ -91,7 +91,7 @@ export function ContentInputOutput() {
             <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
               original_input.trim() || uploaded_files.length > 0
                 ? 'bg-emerald-500 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-muted-foreground'
+                : 'bg-gray-200 dark:bg-border text-muted-foreground'
             }`}>
               {original_input.trim() || uploaded_files.length > 0 ? (
                 <CheckCircle className="h-3 w-3" />
@@ -119,7 +119,7 @@ export function ContentInputOutput() {
             <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
               selected_platforms.length > 0
                 ? 'bg-emerald-500 text-white'
-                : 'bg-gray-200 dark:bg-gray-700 text-muted-foreground'
+                : 'bg-gray-200 dark:bg-border text-muted-foreground'
             }`}>
               {selected_platforms.length > 0 ? (
                 <CheckCircle className="h-3 w-3" />
@@ -138,7 +138,7 @@ export function ContentInputOutput() {
           </div>
 
           <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-            <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-700 text-muted-foreground flex items-center justify-center">
+            <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-border text-muted-foreground flex items-center justify-center">
               <span className="text-xs font-bold">3</span>
             </div>
             <div className="flex-1">

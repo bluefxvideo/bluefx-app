@@ -68,7 +68,7 @@ export function AgentCloneOutput({ shot, onTryExample }: AgentCloneOutputProps) 
               {shot.isSwitchingVoice && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60">
                   <Loader2 className="w-8 h-8 text-white animate-spin" />
-                  <span className="text-sm text-white font-medium">Switching voice...</span>
+                  <span className="text-sm text-foreground font-medium">Switching voice...</span>
                 </div>
               )}
             </>
@@ -82,7 +82,7 @@ export function AgentCloneOutput({ shot, onTryExample }: AgentCloneOutputProps) 
               {shot.status === 'animating' && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                   <Loader2 className="w-8 h-8 text-white animate-spin" />
-                  <span className="text-sm text-white font-medium">Animating video...</span>
+                  <span className="text-sm text-foreground font-medium">Animating video...</span>
                 </div>
               )}
             </>
@@ -96,7 +96,7 @@ export function AgentCloneOutput({ shot, onTryExample }: AgentCloneOutputProps) 
               {shot.status === 'compositing' && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                   <Loader2 className="w-8 h-8 text-white animate-spin" />
-                  <span className="text-sm text-white font-medium">Generating composite...</span>
+                  <span className="text-sm text-foreground font-medium">Generating composite...</span>
                 </div>
               )}
             </>
@@ -105,7 +105,7 @@ export function AgentCloneOutput({ shot, onTryExample }: AgentCloneOutputProps) 
           {/* Failed overlay */}
           {shot.status === 'failed' && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <Badge className="bg-red-500/20 text-red-400">Generation Failed</Badge>
+              <Badge className="bg-red-500/20 text-red-600 dark:text-red-400">Generation Failed</Badge>
             </div>
           )}
         </div>
@@ -115,26 +115,26 @@ export function AgentCloneOutput({ shot, onTryExample }: AgentCloneOutputProps) 
       <div className="p-4 border-t border-border/50 flex items-center justify-between">
         <div className="flex items-center gap-2">
           {shot.status === 'compositing' && (
-            <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">
+            <Badge className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 text-xs">
               <Loader2 className="w-3 h-3 mr-1 animate-spin" />Compositing
             </Badge>
           )}
           {shot.status === 'composite_ready' && (
-            <Badge className="bg-blue-500/20 text-blue-400 text-xs">Composite Ready</Badge>
+            <Badge className="bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs">Composite Ready</Badge>
           )}
           {shot.status === 'animating' && (
-            <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">
+            <Badge className="bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 text-xs">
               <Loader2 className="w-3 h-3 mr-1 animate-spin" />Animating
             </Badge>
           )}
           {shot.status === 'ready' && (
-            <Badge className="bg-green-500/20 text-green-400 text-xs">Video Ready</Badge>
+            <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 text-xs">Video Ready</Badge>
           )}
           {shot.voiceVideoUrl && shot.status === 'ready' && (
-            <Badge className="bg-purple-500/20 text-purple-300 text-xs">Voice switched</Badge>
+            <Badge className="bg-purple-500/20 text-purple-700 dark:text-purple-300 text-xs">Voice switched</Badge>
           )}
           {shot.status === 'failed' && (
-            <Badge className="bg-red-500/20 text-red-400 text-xs">Failed</Badge>
+            <Badge className="bg-red-500/20 text-red-600 dark:text-red-400 text-xs">Failed</Badge>
           )}
         </div>
 

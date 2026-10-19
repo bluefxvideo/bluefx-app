@@ -378,7 +378,7 @@ export function CreateStep3Schedule() {
                               <span className="text-xs text-red-500">Failed</span>
                             </div>
                             {progress.message && (
-                              <span className="text-xs text-red-400 max-w-48 truncate" title={progress.message}>
+                              <span className="text-xs text-red-600 dark:text-red-400 max-w-48 truncate" title={progress.message}>
                                 {progress.message}
                               </span>
                             )}

@@ -106,22 +106,22 @@ function SortableProductCard({
     <Card
       ref={setNodeRef}
       style={style}
-      className="bg-card border-border hover:border-zinc-600 transition-colors group relative"
+      className="bg-card border-border hover:border-border transition-colors group relative"
     >
       {/* Admin drag handle */}
       {isAdmin && (
         <div
           {...attributes}
           {...listeners}
-          className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 p-1 hover:bg-zinc-700/50 rounded"
+          className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10 p-1 hover:bg-border/50 rounded"
         >
-          <GripVertical className="w-4 h-4 text-zinc-400" />
+          <GripVertical className="w-4 h-4 text-muted-foreground" />
         </div>
       )}
 
       {/* Product Image */}
       {product.image_url && (
-        <div className={`h-32 bg-zinc-800/50 overflow-hidden ${isAdmin ? 'ml-6' : ''}`}>
+        <div className={`h-32 bg-secondary/50 overflow-hidden ${isAdmin ? 'ml-6' : ''}`}>
           <img
             src={product.image_url}
             alt={product.name}
@@ -136,11 +136,11 @@ function SortableProductCard({
       <CardHeader className={`pb-2 ${isAdmin ? 'pl-8' : ''}`}>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-lg text-white line-clamp-1">
+            <CardTitle className="text-lg text-foreground line-clamp-1">
               {product.name}
             </CardTitle>
             {isProductTrained(product) && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/20 text-green-400 rounded-full">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/20 text-green-600 dark:text-green-400 rounded-full">
                 <Sparkles className="w-3 h-3" />
                 Trained
               </span>
@@ -156,7 +156,7 @@ function SortableProductCard({
                 onClick={() => onEdit(product)}
                 className="h-8 w-8 p-0"
               >
-                <Pencil className="w-4 h-4 text-zinc-400 hover:text-white" />
+                <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
               </Button>
               <Button
                 variant="ghost"
@@ -164,7 +164,7 @@ function SortableProductCard({
                 onClick={() => onDelete(product)}
                 className="h-8 w-8 p-0"
               >
-                <Trash2 className="w-4 h-4 text-zinc-400 hover:text-red-400" />
+                <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600 dark:hover:text-red-400" />
               </Button>
             </div>
           )}
@@ -178,34 +178,34 @@ function SortableProductCard({
       <CardContent className={isAdmin ? 'pl-8' : ''}>
         {/* ClickBank Stats */}
         {product.clickbank_stats && (
-          <div className="mb-3 p-2 bg-zinc-800/50 rounded-lg space-y-2">
+          <div className="mb-3 p-2 bg-secondary/50 rounded-lg space-y-2">
             {/* Stats row */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
                 <Flame className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-semibold text-orange-400">
+                <span className="text-sm font-semibold text-orange-700 dark:text-orange-400">
                   {product.clickbank_stats.gravity_score.toFixed(1)}
                 </span>
-                <span className="text-xs text-zinc-400">gravity</span>
+                <span className="text-xs text-muted-foreground">gravity</span>
               </div>
               {product.clickbank_stats.average_dollar_per_sale && (
                 <div className="flex items-center gap-1.5">
                   <DollarSign className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-semibold text-green-400">
+                  <span className="text-sm font-semibold text-green-600 dark:text-green-400">
                     ${product.clickbank_stats.average_dollar_per_sale.toFixed(0)}
                   </span>
-                  <span className="text-xs text-zinc-400">/sale</span>
+                  <span className="text-xs text-muted-foreground">/sale</span>
                 </div>
               )}
             </div>
             {/* Action buttons row */}
-            <div className="flex items-center gap-2 pt-1 border-t border-zinc-700/50">
+            <div className="flex items-center gap-2 pt-1 border-t border-border/50">
               {product.clickbank_stats.sales_page_url && (
                 <a
                   href={product.clickbank_stats.sales_page_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-zinc-700/50 rounded transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-white hover:bg-border/50 rounded transition-colors"
                   title="View Sales Page"
                 >
                   <ExternalLink className="w-3 h-3" />
@@ -217,7 +217,7 @@ function SortableProductCard({
                   href={product.clickbank_stats.affiliate_page_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-zinc-700/50 rounded transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-white hover:bg-border/50 rounded transition-colors"
                   title="Become an Affiliate"
                 >
                   <UserPlus className="w-3 h-3" />
@@ -227,7 +227,7 @@ function SortableProductCard({
               {product.clickbank_stats.vendor_contact_email && (
                 <a
                   href={`mailto:${product.clickbank_stats.vendor_contact_email}`}
-                  className="flex items-center gap-1 px-2 py-1 text-xs text-zinc-400 hover:text-white hover:bg-zinc-700/50 rounded transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-white hover:bg-border/50 rounded transition-colors"
                   title="Contact Seller"
                 >
                   <Mail className="w-3 h-3" />
@@ -238,13 +238,13 @@ function SortableProductCard({
           </div>
         )}
 
-        <p className="text-sm text-zinc-400 line-clamp-2">
+        <p className="text-sm text-muted-foreground line-clamp-2">
           {product.offer_content || 'No description'}
         </p>
         <div className="flex items-center justify-between mt-3">
           <div className="flex items-center gap-2">
             {getContentIcons(product)}
-            <span className="text-xs text-zinc-400">{getProductContentSummary(product)}</span>
+            <span className="text-xs text-muted-foreground">{getProductContentSummary(product)}</span>
           </div>
           {product.aggregated_content && (
             <span className="text-xs font-medium text-primary">
@@ -376,10 +376,10 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
   const getContentIcons = (product: LibraryProduct) => {
     const icons = [];
     if (product.media_files?.some(m => m.type === 'video')) {
-      icons.push(<Video key="video" className="w-4 h-4 text-blue-400" />);
+      icons.push(<Video key="video" className="w-4 h-4 text-blue-600 dark:text-blue-400" />);
     }
     if (product.media_files?.some(m => m.type === 'audio')) {
-      icons.push(<Music key="audio" className="w-4 h-4 text-purple-400" />);
+      icons.push(<Music key="audio" className="w-4 h-4 text-purple-600 dark:text-purple-400" />);
     }
     if (product.youtube_transcripts?.length) {
       icons.push(<Youtube key="youtube" className="w-4 h-4 text-red-500" />);
@@ -426,7 +426,7 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
         {/* Header Actions */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <p className="text-zinc-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               {products.length} products available
               {!isAdmin && ' - Click "Use Product" to generate content'}
             </p>
@@ -451,21 +451,21 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
                 <Star className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                   Promote AI Media Machine
-                  <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full">
+                  <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-600 dark:text-green-400 rounded-full">
                     50% Recurring
                   </span>
                 </h3>
-                <p className="text-sm text-zinc-400 mt-1">
+                <p className="text-sm text-muted-foreground mt-1">
                   Earn ~$18.50/month per referral. 7.2% conversion rate. 6+ month avg retention.
                 </p>
                 <div className="flex items-center gap-4 mt-2">
-                  <div className="flex items-center gap-1 text-xs text-zinc-400">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <TrendingUp className="w-3 h-3 text-green-500" />
                     <span>$111+ per customer</span>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-zinc-400">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Sparkles className="w-3 h-3 text-purple-500" />
                     <span>Use our YouTube videos</span>
                   </div>
@@ -486,7 +486,7 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-500" />
-            <p className="text-red-400">{error}</p>
+            <p className="text-red-600 dark:text-red-400">{error}</p>
             <Button
               variant="ghost"
               size="sm"
@@ -501,7 +501,7 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
         {/* Loading State */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
           /* Products Grid with Drag and Drop */
@@ -534,7 +534,7 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
                     <Library className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
                     {isAdmin ? (
                       <>
-                        <p className="text-zinc-400 mb-4">No products in the library yet. Add your first product.</p>
+                        <p className="text-muted-foreground mb-4">No products in the library yet. Add your first product.</p>
                         <Button
                           onClick={() => router.push('/dashboard/script-generator/offers/new')}
                           className="gap-2"
@@ -544,7 +544,7 @@ export function TopAffiliateProductsPage({ isAdmin = false }: TopAffiliateProduc
                         </Button>
                       </>
                     ) : (
-                      <p className="text-zinc-400">No products available yet. Check back soon!</p>
+                      <p className="text-muted-foreground">No products available yet. Check back soon!</p>
                     )}
                   </div>
                 )}

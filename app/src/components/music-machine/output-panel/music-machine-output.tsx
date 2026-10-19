@@ -191,13 +191,13 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
         loading={
           <div className="h-full flex items-center justify-center">
             {/* Music-specific Processing Card with thumbnail machine visual principles */}
-            <Card className="relative p-6 w-full max-w-2xl mx-auto border border-zinc-700/50 shadow-xl bg-transparent dark:bg-card-content/50">
+            <Card className="relative p-6 w-full max-w-2xl mx-auto border border-border/50 shadow-xl bg-transparent dark:bg-card-content/50">
               {/* Cancel Button - Top Right */}
               <Button
                 variant="ghost"
                 size="sm" 
                 onClick={musicMachineState.cancelGeneration}
-                className="absolute top-3 right-3 h-8 w-8 p-0 text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
+                className="absolute top-3 right-3 h-8 w-8 p-0 text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
                 title="Cancel Generation"
               >
                 <X className="w-4 h-4" />
@@ -214,7 +214,7 @@ export function MusicMachineOutput({ musicMachineState, historyFilters }: MusicM
               </div>
               
               <div className="space-y-3">
-                <div className="bg-muted/30 border border-zinc-700/30 rounded-lg p-3">
+                <div className="bg-muted/30 border border-border/30 rounded-lg p-3">
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     "{state.prompt || 'Creating your music...'}"
                   </p>

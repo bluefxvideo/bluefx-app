@@ -176,7 +176,7 @@ export function ContentMultiplierV2Page() {
       tabs={tabsComponent}
     >
       <div className="h-full p-6">
-        <Card className="h-full p-6 shadow-lg dark:bg-gray-800/30">
+        <Card className="h-full p-6 shadow-lg dark:bg-secondary/30">
           {activeMainTab === 'create' && <CreatePostTab />}
           {activeMainTab === 'scheduled' && <ScheduledTab />}
           {activeMainTab === 'posted' && <PostedTab />}

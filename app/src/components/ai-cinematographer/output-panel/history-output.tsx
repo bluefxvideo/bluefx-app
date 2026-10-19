@@ -119,7 +119,7 @@ export function HistoryOutput({
       case 'shooting': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
       case 'editing': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
       case 'failed': return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
-      default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
+      default: return 'bg-gray-100 text-gray-700 dark:bg-secondary dark:text-foreground';
     }
   };
 
@@ -330,7 +330,7 @@ export function HistoryOutput({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 px-2 justify-start text-purple-300"
+                            className="h-6 px-2 justify-start text-purple-700 dark:text-purple-300"
                             onClick={(e) => { e.stopPropagation(); window.open(voiceUrl, '_blank'); }}
                           >
                             <Mic className="w-3 h-3 mr-1" />

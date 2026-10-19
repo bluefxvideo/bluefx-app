@@ -406,7 +406,7 @@ export function VideoMakerTab({
 
                         {/* Script stale warning */}
                         {project.scriptStale && (
-                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-400">
+                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-700 dark:text-amber-400">
                             <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
                             <span>Photos or duration changed. Regenerate to refresh the script.</span>
                           </div>
@@ -414,7 +414,7 @@ export function VideoMakerTab({
 
                         {/* The video is as long as the voiceover: say so before the voiceover is paid for */}
                         {scriptRunsLong && (
-                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-400">
+                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-700 dark:text-amber-400">
                             <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
                             <span>
                               This voice needs about {scriptSeconds} seconds for this script. You chose {project.targetDuration} seconds, and the video runs as long as the voiceover. For a shorter video: select fewer photos, shorten the lines, or click Regenerate to fit the script to this voice.
@@ -472,7 +472,7 @@ export function VideoMakerTab({
                     {project.voiceover && (
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <div className={`flex items-center gap-1.5 text-xs ${project.voiceoverStale ? 'text-amber-400' : 'text-emerald-400'}`}>
+                          <div className={`flex items-center gap-1.5 text-xs ${project.voiceoverStale ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                             <div className={`w-2 h-2 rounded-full ${project.voiceoverStale ? 'bg-amber-400' : 'bg-emerald-400'}`} />
                             {project.voiceoverStale
                               ? 'Voiceover out of date'
@@ -494,7 +494,7 @@ export function VideoMakerTab({
 
                         {/* Voiceover stale warning */}
                         {project.voiceoverStale && (
-                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-400">
+                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-700 dark:text-amber-400">
                             <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
                             <span>Script text or voice changed. Regenerate the voiceover to update the audio.</span>
                           </div>

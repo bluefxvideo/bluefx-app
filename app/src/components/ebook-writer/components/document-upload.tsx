@@ -131,7 +131,7 @@ export function DocumentUpload({
           className={`
             border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
             transition-colors duration-200
-            ${isDragActive ? 'border-blue-500 bg-blue-950/20' : 'border-gray-300 dark:border-gray-600'}
+            ${isDragActive ? 'border-blue-500 bg-blue-950/20' : 'border-gray-300 dark:border-border'}
             ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
           `}
         >
@@ -150,7 +150,7 @@ export function DocumentUpload({
             </>
           ) : (
             <>
-              <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
               <p className="text-sm font-medium mb-1">
                 Drag & drop files here, or click to browse
               </p>

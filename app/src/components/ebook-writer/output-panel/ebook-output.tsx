@@ -268,7 +268,7 @@ export function EbookOutput({ ebook, isGenerating, error, activeTab }: EbookOutp
       {/* Generation Status */}
       {isGenerating && (
         <div className="border border-blue-500/30 bg-blue-500/10 rounded-lg p-6">
-          <div className="flex items-center gap-2 text-blue-400">
+          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
             <div className="animate-spin">
               <Sparkles className="h-4 w-4" />
             </div>

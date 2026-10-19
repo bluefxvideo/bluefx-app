@@ -324,7 +324,7 @@ export function VoiceOverStep({
             {completedClips.length > 0 && (
               <Card className="flex-1 p-3 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <Video className="w-4 h-4 text-blue-400" />
+                  <Video className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">{completedClips.length} Video Clips</p>
@@ -335,7 +335,7 @@ export function VoiceOverStep({
             {voiceAudioUrl && (
               <Card className="flex-1 p-3 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                  <Music className="w-4 h-4 text-purple-400" />
+                  <Music className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">Voice Over</p>

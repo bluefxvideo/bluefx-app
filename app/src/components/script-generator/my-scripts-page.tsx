@@ -158,7 +158,7 @@ export function MyScriptsPage() {
             variant="ghost"
             size="sm"
             onClick={() => router.push('/dashboard/script-generator')}
-            className="gap-2 text-zinc-400 hover:text-white"
+            className="gap-2 text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Script Generator
@@ -169,7 +169,7 @@ export function MyScriptsPage() {
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           {/* Search */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Search scripts..."
@@ -217,7 +217,7 @@ export function MyScriptsPage() {
           ) : error ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
-                <p className="text-red-400 mb-4">{error}</p>
+                <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
                 <Button onClick={loadScripts}>Try Again</Button>
               </div>
             </div>
@@ -225,7 +225,7 @@ export function MyScriptsPage() {
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
                 <FileText className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
-                <p className="text-zinc-400 mb-2">No scripts found</p>
+                <p className="text-muted-foreground mb-2">No scripts found</p>
                 <p className="text-zinc-600 text-sm">
                   {searchQuery || selectedType !== 'all' || showFavoritesOnly
                     ? 'Try adjusting your filters'
@@ -252,11 +252,11 @@ export function MyScriptsPage() {
                           <span className="text-xs px-2 py-0.5 rounded bg-primary/20 text-primary">
                             {getScriptTypeLabel(script.script_type)}
                           </span>
-                          <span className="text-xs text-zinc-400">
+                          <span className="text-xs text-muted-foreground">
                             {formatDate(script.created_at)}
                           </span>
                         </div>
-                        <h4 className="font-medium text-white truncate">{script.offer_name}</h4>
+                        <h4 className="font-medium text-foreground truncate">{script.offer_name}</h4>
                       </div>
 
                       {/* Actions */}
@@ -269,7 +269,7 @@ export function MyScriptsPage() {
                         >
                           <Star className={cn(
                             "w-4 h-4",
-                            script.is_favorite ? "fill-yellow-400 text-yellow-400" : "text-zinc-400"
+                            script.is_favorite ? "fill-yellow-400 text-yellow-700 dark:text-yellow-400" : "text-muted-foreground"
                           )} />
                         </Button>
                         <Button
@@ -281,13 +281,13 @@ export function MyScriptsPage() {
                           {copiedId === script.id ? (
                             <Check className="w-4 h-4 text-green-500" />
                           ) : (
-                            <Copy className="w-4 h-4 text-zinc-400" />
+                            <Copy className="w-4 h-4 text-muted-foreground" />
                           )}
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                          className="h-8 w-8 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-500/10"
                           onClick={() => handleDelete(script.id)}
                           disabled={deletingId === script.id}
                         >
@@ -302,7 +302,7 @@ export function MyScriptsPage() {
 
                     {/* Preview */}
                     <p className={cn(
-                      "text-sm text-zinc-400",
+                      "text-sm text-muted-foreground",
                       expandedScript !== script.id && "line-clamp-2"
                     )}>
                       {script.content}
@@ -313,7 +313,7 @@ export function MyScriptsPage() {
                       <div className="mt-4 pt-4 border-t border-border" onClick={(e) => e.stopPropagation()}>
                         {/* Full Script */}
                         <div className="bg-secondary/50 rounded-lg p-4 mb-4 max-h-[400px] overflow-auto">
-                          <pre className="whitespace-pre-wrap text-sm text-zinc-300 font-mono">
+                          <pre className="whitespace-pre-wrap text-sm text-foreground font-mono">
                             {script.content}
                           </pre>
                         </div>
@@ -321,14 +321,14 @@ export function MyScriptsPage() {
                         {/* Video Tool Buttons */}
                         {isVideoScriptType(script.script_type) && (
                           <div className="flex flex-wrap gap-2">
-                            <Label className="w-full text-sm font-medium text-zinc-300 mb-1">
+                            <Label className="w-full text-sm font-medium text-foreground mb-1">
                               Send to Video Tool
                             </Label>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => goToScriptToVideo(script.content)}
-                              className="gap-2 border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
+                              className="gap-2 border-blue-500/50 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
                             >
                               <Film className="w-4 h-4" />
                               Script to Video
@@ -337,7 +337,7 @@ export function MyScriptsPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => goToTalkingAvatar(script.content)}
-                              className="gap-2 border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                              className="gap-2 border-purple-500/50 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
                             >
                               <UserRound className="w-4 h-4" />
                               Talking Avatar
@@ -346,7 +346,7 @@ export function MyScriptsPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => goToVoiceOver(script.content)}
-                              className="gap-2 border-green-500/50 text-green-400 hover:bg-green-500/10"
+                              className="gap-2 border-green-500/50 text-green-600 dark:text-green-400 hover:bg-green-500/10"
                             >
                               <Mic className="w-4 h-4" />
                               Voice Over

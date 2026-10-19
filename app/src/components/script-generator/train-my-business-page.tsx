@@ -113,10 +113,10 @@ export function TrainMyBusinessPage() {
   const getContentIcons = (offer: UserBusinessOffer) => {
     const icons = [];
     if (offer.media_files?.some(m => m.type === 'video')) {
-      icons.push(<Video key="video" className="w-4 h-4 text-blue-400" />);
+      icons.push(<Video key="video" className="w-4 h-4 text-blue-600 dark:text-blue-400" />);
     }
     if (offer.media_files?.some(m => m.type === 'audio')) {
-      icons.push(<Music key="audio" className="w-4 h-4 text-purple-400" />);
+      icons.push(<Music key="audio" className="w-4 h-4 text-purple-600 dark:text-purple-400" />);
     }
     if (offer.youtube_transcripts?.length) {
       icons.push(<Youtube key="youtube" className="w-4 h-4 text-red-500" />);
@@ -141,7 +141,7 @@ export function TrainMyBusinessPage() {
         {/* Header Actions */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <p className="text-zinc-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               {offers.length === 0
                 ? 'Add your products/services to train the AI'
                 : `${offers.length} product${offers.length === 1 ? '' : 's'} trained`
@@ -161,8 +161,8 @@ export function TrainMyBusinessPage() {
         {/* Info Banner for new users */}
         {offers.length === 0 && !isLoading && (
           <div className="mb-6 p-6 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-500/30 rounded-lg">
-            <h3 className="text-lg font-semibold text-white mb-2">Train AI on Your Business</h3>
-            <p className="text-zinc-400 mb-4">
+            <h3 className="text-lg font-semibold text-foreground mb-2">Train AI on Your Business</h3>
+            <p className="text-muted-foreground mb-4">
               Upload sales pages, product descriptions, testimonials, and videos about your product.
               The AI will learn about your business and create content that sells YOUR stuff.
             </p>
@@ -180,7 +180,7 @@ export function TrainMyBusinessPage() {
         {error && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-500" />
-            <p className="text-red-400">{error}</p>
+            <p className="text-red-600 dark:text-red-400">{error}</p>
             <Button
               variant="ghost"
               size="sm"
@@ -195,7 +195,7 @@ export function TrainMyBusinessPage() {
         {/* Loading State */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
         ) : offers.length > 0 && (
           /* Offers Grid */
@@ -203,11 +203,11 @@ export function TrainMyBusinessPage() {
             {offers.map((offer) => (
               <Card
                 key={offer.id}
-                className="bg-card border-border hover:border-zinc-600 transition-colors group"
+                className="bg-card border-border hover:border-border transition-colors group"
               >
                 {/* Product Image */}
                 {offer.image_url && (
-                  <div className="h-32 bg-zinc-800/50 overflow-hidden">
+                  <div className="h-32 bg-secondary/50 overflow-hidden">
                     <img
                       src={offer.image_url}
                       alt={offer.name}
@@ -222,11 +222,11 @@ export function TrainMyBusinessPage() {
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg text-white line-clamp-1">
+                      <CardTitle className="text-lg text-foreground line-clamp-1">
                         {offer.name}
                       </CardTitle>
                       {isOfferTrained(offer) && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/20 text-green-400 rounded-full">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-green-500/20 text-green-600 dark:text-green-400 rounded-full">
                           <Sparkles className="w-3 h-3" />
                           Trained
                         </span>
@@ -240,7 +240,7 @@ export function TrainMyBusinessPage() {
                         onClick={() => router.push(`/dashboard/business-tools/train-my-business/${offer.id}`)}
                         className="h-8 w-8 p-0"
                       >
-                        <Pencil className="w-4 h-4 text-zinc-400 hover:text-white" />
+                        <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -248,7 +248,7 @@ export function TrainMyBusinessPage() {
                         onClick={() => confirmDelete(offer)}
                         className="h-8 w-8 p-0"
                       >
-                        <Trash2 className="w-4 h-4 text-zinc-400 hover:text-red-400" />
+                        <Trash2 className="w-4 h-4 text-muted-foreground hover:text-red-600 dark:hover:text-red-400" />
                       </Button>
                     </div>
                   </div>
@@ -259,13 +259,13 @@ export function TrainMyBusinessPage() {
                   )}
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-zinc-400 line-clamp-2">
+                  <p className="text-sm text-muted-foreground line-clamp-2">
                     {offer.offer_content || 'No description'}
                   </p>
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center gap-2">
                       {getContentIcons(offer)}
-                      <span className="text-xs text-zinc-400">{getOfferContentSummary(offer)}</span>
+                      <span className="text-xs text-muted-foreground">{getOfferContentSummary(offer)}</span>
                     </div>
                     {offer.aggregated_content && (
                       <span className="text-xs font-medium text-primary">

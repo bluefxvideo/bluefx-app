@@ -315,7 +315,7 @@ function VoiceRow({
             </Badge>
           )}
           {isCloned && (
-            <Badge className="text-[9px] px-1 py-0 h-4 bg-purple-500/20 text-purple-400 border-purple-500/30 shrink-0">
+            <Badge className="text-[9px] px-1 py-0 h-4 bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30 shrink-0">
               cloned
             </Badge>
           )}

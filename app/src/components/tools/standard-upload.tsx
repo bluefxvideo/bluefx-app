@@ -42,11 +42,11 @@ export function StandardUpload({
       {selectedFile ? (
         <div className="flex items-center gap-4 relative z-10">
           <div className="w-12 h-12 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center border border-blue-500/30">
-            <ImageIcon className="w-5 h-5 text-blue-400" />
+            <ImageIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <p className="text-white font-semibold">{selectedFile.name}</p>
-            <p className="text-zinc-400 text-sm">Ready to use as reference</p>
+            <p className="text-foreground font-semibold">{selectedFile.name}</p>
+            <p className="text-muted-foreground text-sm">Ready to use as reference</p>
           </div>
         </div>
       ) : (
@@ -54,16 +54,16 @@ export function StandardUpload({
           <div className="relative">
             <div className="w-16 h-16 bg-gradient-to-br from-secondary/50 to-card/50 rounded-2xl flex items-center justify-center 
                            border border-border/30 group-hover/upload:border-border/70 transition-all duration-300">
-              <Upload className="w-7 h-7 text-zinc-400 group-hover/upload:text-zinc-300 transition-colors duration-300" />
+              <Upload className="w-7 h-7 text-muted-foreground group-hover/upload:text-foreground transition-colors duration-300" />
             </div>
             {/* Floating sparkles */}
             <div className="absolute -top-1 -right-1 opacity-0 group-hover/upload:opacity-100 transition-opacity duration-500">
-              <Sparkles className="w-4 h-4 text-yellow-400 animate-pulse" />
+              <Sparkles className="w-4 h-4 text-yellow-700 dark:text-yellow-400 animate-pulse" />
             </div>
           </div>
           <div className="text-center space-y-2">
-            <p className="text-zinc-200 font-semibold text-lg">{title}</p>
-            <p className="text-zinc-400">{description}</p>
+            <p className="text-foreground font-semibold text-lg">{title}</p>
+            <p className="text-muted-foreground">{description}</p>
           </div>
         </div>
       )}

@@ -146,8 +146,8 @@ export function TalkingAvatarOutput({ avatarState, onTryExample }: TalkingAvatar
           <div className="p-4">
             <Card className="p-3 ">
               <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                <p className="text-sm text-blue-300 font-medium">
+                <Zap className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
                   Your video is still being made. It started before you left this page.
                 </p>
               </div>
@@ -230,7 +230,7 @@ export function TalkingAvatarOutput({ avatarState, onTryExample }: TalkingAvatar
               )}
               {state.selectedAvatarTemplate && (
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-                  <p className="text-white font-medium text-lg">{state.selectedAvatarTemplate.name}</p>
+                  <p className="text-foreground font-medium text-lg">{state.selectedAvatarTemplate.name}</p>
                 </div>
               )}
             </div>

@@ -146,7 +146,7 @@ function VideoCard({ video, onClick }: { video: ShowcaseVideo; onClick: () => vo
 
       {/* Title */}
       <div className="absolute bottom-0 left-0 right-0 p-2.5 pointer-events-none">
-        <p className="text-xs font-medium text-white line-clamp-2 text-left leading-tight">
+        <p className="text-xs font-medium text-foreground line-clamp-2 text-left leading-tight">
           {video.title}
         </p>
       </div>

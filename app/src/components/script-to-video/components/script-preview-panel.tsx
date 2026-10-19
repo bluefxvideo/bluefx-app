@@ -128,7 +128,7 @@ export function ScriptPreviewPanel({
                 {step.number}
               </div>
               <p className={`text-sm font-medium ${
-                step.active ? 'text-white' :
+                step.active ? 'text-foreground' :
                 step.complete ? 'text-foreground' : 'text-muted-foreground'
               }`}>
                 {step.title}

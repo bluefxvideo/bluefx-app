@@ -136,7 +136,7 @@ export const OnboardingSystem: React.FC<OnboardingSystemProps> = ({ user }) => {
             >
               <div>
                 <div className="font-semibold">🎨 Content Creator</div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   I create videos, thumbnails, and visual content
                 </div>
               </div>
@@ -148,7 +148,7 @@ export const OnboardingSystem: React.FC<OnboardingSystemProps> = ({ user }) => {
             >
               <div>
                 <div className="font-semibold">📈 Marketer</div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   I focus on marketing campaigns and content strategy
                 </div>
               </div>
@@ -158,7 +158,7 @@ export const OnboardingSystem: React.FC<OnboardingSystemProps> = ({ user }) => {
             <Button
               variant="ghost"
               onClick={skipOnboarding}
-              className="text-sm text-gray-500"
+              className="text-sm text-muted-foreground"
             >
               Skip tour
             </Button>

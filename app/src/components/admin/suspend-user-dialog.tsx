@@ -136,7 +136,7 @@ export function SuspendUserDialog({ user, open, onOpenChange, onSuccess }: Suspe
                   onChange={(e) => setReason(e.target.value)}
                   rows={3}
                 />
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   This reason will be logged and may be visible to the user.
                 </p>
               </div>

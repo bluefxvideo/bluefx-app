@@ -127,7 +127,7 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
           {/* Cover Image - Fixed height with object-fit */}
           <Card className="overflow-hidden bg-secondary">
             <CardContent className="p-0">
-              <div className="relative bg-gray-100 dark:bg-gray-800" style={{ height: '500px' }}>
+              <div className="relative bg-gray-100 dark:bg-secondary" style={{ height: '500px' }}>
                 {imageLoading && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -147,7 +147,7 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
                     size="sm"
                     variant="secondary"
                     onClick={handleViewFullSize}
-                    className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm"
+                    className="bg-white/90 dark:bg-secondary/90 backdrop-blur-sm"
                   >
                     <ZoomIn className="h-4 w-4" />
                   </Button>
@@ -155,7 +155,7 @@ export function CoverOutput({ ebook }: CoverOutputProps) {
                     size="sm"
                     variant="secondary"
                     onClick={handleDownload}
-                    className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm"
+                    className="bg-white/90 dark:bg-secondary/90 backdrop-blur-sm"
                   >
                     <Download className="h-4 w-4" />
                   </Button>

@@ -462,11 +462,11 @@ export default function TopOffersPage() {
                 <div className="space-y-4">
                   {[...Array(8)].map((_, i) => (
                     <Card key={i} className="p-4 animate-pulse">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3"></div>
+                      <div className="h-4 bg-gray-200 dark:bg-border rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 dark:bg-border rounded w-3/4 mb-3"></div>
                       <div className="flex gap-2">
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
-                        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                        <div className="h-6 bg-gray-200 dark:bg-border rounded w-16"></div>
+                        <div className="h-6 bg-gray-200 dark:bg-border rounded w-20"></div>
                       </div>
                     </Card>
                   ))}
@@ -496,7 +496,7 @@ export default function TopOffersPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             <Badge 
-                              className={`${getGravityColor(offer.gravity_score)} text-white text-xs`}
+                              className={`${getGravityColor(offer.gravity_score)} text-foreground text-xs`}
                             >
                               {getGravityLabel(offer.gravity_score)}
                             </Badge>
@@ -549,7 +549,7 @@ export default function TopOffersPage() {
                           <div className="flex-[0.3]">
                             <Dialog>
                               <DialogTrigger asChild>
-                                <div className="h-16 flex items-center cursor-pointer hover:bg-gray-100/50 dark:hover:bg-gray-700/30 transition-colors relative group rounded-lg p-1">
+                                <div className="h-16 flex items-center cursor-pointer hover:bg-gray-100/50 dark:hover:bg-border/30 transition-colors relative group rounded-lg p-1">
                                   {/* Hover chart icon */}
                                   <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <BarChart3 className="w-3 h-3 text-muted-foreground" />
@@ -811,7 +811,7 @@ export default function TopOffersPage() {
                       >
                         {isLoadingMore ? (
                           <>
-                            <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mr-2" />
+                            <div className="w-4 h-4 border-2 border-gray-300 border-t-border rounded-full animate-spin mr-2" />
                             Loading more...
                           </>
                         ) : (

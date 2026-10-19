@@ -67,7 +67,7 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
       aria-pressed={active}
       className={cn(
         'inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors',
-        active ? 'bg-primary text-white border-primary' : 'bg-card text-zinc-400 border-border hover:text-foreground'
+        active ? 'bg-primary text-white border-primary' : 'bg-card text-muted-foreground border-border hover:text-foreground'
       )}
     >
       {active && <Check className="w-3.5 h-3.5" />}
@@ -129,7 +129,7 @@ function DropBox({
           if (file) onFile(file);
         }}
         className={cn(
-          'w-full rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 text-zinc-400 transition-colors',
+          'w-full rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 text-muted-foreground transition-colors',
           dragActive ? 'border-primary bg-primary/10' : 'border-border hover:border-zinc-400',
           className
         )}
@@ -182,14 +182,14 @@ function HistoryView() {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center text-zinc-400">
+      <div className="h-full flex items-center justify-center text-muted-foreground">
         <Loader2 className="w-6 h-6 animate-spin" />
       </div>
     );
   }
   if (jobs.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3">
+      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
         <History className="w-10 h-10" />
         <p className="text-sm">No swaps yet. Make your first one.</p>
       </div>
@@ -203,7 +203,7 @@ function HistoryView() {
             {job.status === 'completed' && job.result_video_url ? (
               <DownloadableVideo url={job.result_video_url} className="rounded-none border-0" />
             ) : (
-              <div className="aspect-video flex flex-col items-center justify-center gap-2 text-zinc-400 text-sm">
+              <div className="aspect-video flex flex-col items-center justify-center gap-2 text-muted-foreground text-sm">
                 {job.status === 'processing' || job.status === 'pending' ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -217,7 +217,7 @@ function HistoryView() {
                 )}
               </div>
             )}
-            <div className="flex items-center gap-2 p-2 text-xs text-zinc-400">
+            <div className="flex items-center gap-2 p-2 text-xs text-muted-foreground">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={job.character_image_url} alt="Person" className="w-8 h-8 rounded object-cover border border-border" />
               <span>{job.created_at ? new Date(job.created_at).toLocaleString() : ''}</span>
@@ -408,7 +408,7 @@ export function VideoSwapPage() {
       <VideoSwapTips />
       <div>
         <label className="block text-sm font-medium mb-2">
-          Video <span className="text-zinc-400 font-normal">· the motion to keep</span>
+          Video <span className="text-muted-foreground font-normal">· the motion to keep</span>
         </label>
         {videoFile && videoPreview ? (
           <div className="relative rounded-lg overflow-hidden border border-border bg-black">
@@ -434,14 +434,14 @@ export function VideoSwapPage() {
             <span className="text-xs">MP4 or WebM · up to 100MB · up to {VIDEO_SWAP_MAX_SECONDS.video} s</span>
           </DropBox>
         )}
-        <p className="text-xs text-zinc-400 mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           One real person, whole or upper body in frame with the head visible, nothing covering them.
         </p>
       </div>
 
       <div>
         <label className="block text-sm font-medium mb-2">
-          Person <span className="text-zinc-400 font-normal">· who performs it</span>
+          Person <span className="text-muted-foreground font-normal">· who performs it</span>
         </label>
         <div className="flex items-start gap-3">
           {imageFile && imagePreview ? (
@@ -462,7 +462,7 @@ export function VideoSwapPage() {
               <Upload className="w-5 h-5" />
             </DropBox>
           )}
-          <p className="text-xs text-zinc-400 pt-1">
+          <p className="text-xs text-muted-foreground pt-1">
             A photo with clear body proportions, nothing covering the person, and the person filling a good part of the frame. Single person only. The result shows this person in the place of this photo.
           </p>
         </div>
@@ -474,7 +474,7 @@ export function VideoSwapPage() {
           <Pill active={orientation === 'video'} onClick={() => setOrientation('video')}>Follow the video</Pill>
           <Pill active={orientation === 'image'} onClick={() => setOrientation('image')}>Follow the image</Pill>
         </div>
-        <p className="text-xs text-zinc-400 mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           {orientation === 'video'
             ? `The character faces the way the person in the video does. Best for complex motion. Up to ${VIDEO_SWAP_MAX_SECONDS.video} s.`
             : `The character keeps the pose and angle of the photo. Best when the camera moves. Up to ${VIDEO_SWAP_MAX_SECONDS.image} s.`}
@@ -484,14 +484,14 @@ export function VideoSwapPage() {
       <div className="flex items-center justify-between">
         <div>
           <label htmlFor="keep-sound" className="block text-sm font-medium">Keep original sound</label>
-          <p className="text-xs text-zinc-400">The audio track of your video stays on the result</p>
+          <p className="text-xs text-muted-foreground">The audio track of your video stays on the result</p>
         </div>
         <Switch id="keep-sound" checked={keepSound} onCheckedChange={setKeepSound} />
       </div>
 
       <div>
         <label className="block text-sm font-medium mb-2">
-          Prompt <span className="text-zinc-400 font-normal">· optional</span>
+          Prompt <span className="text-muted-foreground font-normal">· optional</span>
         </label>
         <textarea
           value={prompt}
@@ -519,7 +519,7 @@ export function VideoSwapPage() {
       )}
 
       <div className="mt-auto pt-2 space-y-3">
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-muted-foreground">
           {billedSeconds > 0
             ? `${billedSeconds} s × ${VIDEO_SWAP_CREDITS_PER_SECOND} credits per second. Usually ${TYPICAL_WAIT}.`
             : `${VIDEO_SWAP_CREDITS_PER_SECOND} credits per second of video. Usually ${TYPICAL_WAIT}.`}
@@ -545,11 +545,11 @@ export function VideoSwapPage() {
   const outputPanel = (
     <div className="h-full">
       {processing ? (
-        <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3">
+        <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
           <Loader2 className="w-8 h-8 animate-spin" />
           <p className="text-sm">Swapping the person in…</p>
           <ElapsedTimer typical={TYPICAL_WAIT} />
-          <p className="text-xs text-zinc-400 text-center max-w-xs">
+          <p className="text-xs text-muted-foreground text-center max-w-xs">
             You can leave this page. The finished video lands in History.
           </p>
           <Button variant="outline" size="sm" onClick={handleCancel}>Cancel and refund</Button>
@@ -557,7 +557,7 @@ export function VideoSwapPage() {
       ) : job?.status === 'completed' && job.result_video_url ? (
         <DownloadableVideo url={job.result_video_url} />
       ) : job?.status === 'failed' ? (
-        <div className="h-full flex flex-col items-center justify-center text-zinc-400 gap-3">
+        <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
           <AlertCircle className="w-10 h-10 text-red-500" />
           <p className="text-sm text-center max-w-sm">{job.error_message || 'The swap did not complete.'}</p>
         </div>

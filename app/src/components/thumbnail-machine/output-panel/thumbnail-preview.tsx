@@ -215,7 +215,7 @@ export function ThumbnailPreview({
           // ✅ PRIORITY 1: Show actual result if we have data (regardless of isGenerating)
           <div className="flex justify-center p-4 max-h-[60vh] overflow-hidden">
             <div className={`group relative rounded-lg overflow-hidden 
-                            border border-zinc-700/50 shadow-xl w-full
+                            border border-border/50 shadow-xl w-full
                             ${imageAspectRatio === 'portrait' ? 'max-h-[48vh] aspect-[9/16]' : 
                               imageAspectRatio === 'square' ? 'max-h-[45vh] aspect-square' : 
                               'max-w-4xl max-h-[40vh] aspect-video'}`}>
@@ -296,7 +296,7 @@ export function ThumbnailPreview({
           // ✅ PROCESSING STATE: Show unified processing card matching image container size
           <div className="flex justify-center p-4 max-h-[60vh] overflow-hidden">
             <div className={`group relative rounded-lg overflow-hidden 
-                            border border-zinc-700/50 shadow-xl w-full flex items-center justify-center
+                            border border-border/50 shadow-xl w-full flex items-center justify-center
                             ${imageAspectRatio === 'portrait' ? 'max-h-[48vh] aspect-[9/16]' : 
                               imageAspectRatio === 'square' ? 'max-h-[45vh] aspect-square' : 
                               'max-w-4xl max-h-[40vh] aspect-video'}`}>
@@ -307,7 +307,7 @@ export function ThumbnailPreview({
                   variant="ghost"
                   size="sm" 
                   onClick={onCancelGeneration}
-                  className="absolute top-3 right-3 h-8 w-8 p-0 text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
+                  className="absolute top-3 right-3 h-8 w-8 p-0 text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
                   title="Cancel Generation"
                 >
                   <X className="w-4 h-4" />
@@ -598,7 +598,7 @@ export function ThumbnailPreview({
               style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
             />
             <Button
-              className="absolute top-4 right-4 bg-zinc-700 hover:bg-zinc-600 text-white border-zinc-600"
+              className="absolute top-4 right-4 bg-border hover:bg-zinc-600 text-white border-border"
               variant="secondary"
               onClick={() => setSelectedImage(null)}
             >

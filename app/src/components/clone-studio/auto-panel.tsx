@@ -51,8 +51,8 @@ const FINISH_LABEL: Record<FinishStage, string> = {
   done: 'Finished',
   failed: 'Stopped',
 };
-const select = 'h-8 rounded-md border border-border/60 bg-transparent text-xs px-2 text-zinc-300 disabled:opacity-50';
-const label = 'font-mono text-[9px] uppercase tracking-widest text-zinc-500';
+const select = 'h-8 rounded-md border border-border/60 bg-transparent text-xs px-2 text-foreground disabled:opacity-50';
+const label = 'font-mono text-[9px] uppercase tracking-widest text-muted-foreground';
 const BRIEF_EXAMPLE =
   "Nonna Rosa's Pizza is a family pizzeria at 642 Main Street. The owner is Tony. Every Friday the oven is fired up at noon and the dough sells out by eight. A margherita is 12 dollars. Open Tuesday to Sunday, noon to ten. To order, text 615-555-0199.";
 
@@ -177,10 +177,10 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
     <Card className="p-4 space-y-4 border-primary/40">
       <div className="flex flex-col sm:flex-row sm:items-start gap-3">
         <div className="flex-1">
-          <p className="text-sm font-semibold text-white flex items-center gap-2">
+          <p className="text-sm font-semibold text-foreground flex items-center gap-2">
             <Wand2 className="w-4 h-4 text-primary" /> Do it for me
           </p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted-foreground">
             {!planned
               ? 'Tell the director about your business. The director rewrites every scene for you, makes the pictures and finishes a first version of your ad. After that you make it move.'
               : project.scenes.some((scene) => sceneClip(scene))
@@ -189,35 +189,35 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
           </p>
         </div>
         {planned && !running && (
-          <button className="text-[11px] text-zinc-500 hover:text-zinc-300 underline underline-offset-2 shrink-0" onClick={() => setEditing(true)}>
+          <button className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0" onClick={() => setEditing(true)}>
             Start over with other text or photos
           </button>
         )}
       </div>
 
-      {!supported && <p className="text-xs text-zinc-400">Only vertical and horizontal ads can be made automatically for now. Work on this one scene by scene below.</p>}
+      {!supported && <p className="text-xs text-muted-foreground">Only vertical and horizontal ads can be made automatically for now. Work on this one scene by scene below.</p>}
 
       {progress && (
         <div className="space-y-2">
-          <p className="text-sm text-zinc-200 flex items-center gap-2">
+          <p className="text-sm text-foreground flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin text-primary" />
             {progress.text}
           </p>
           <div className="h-1.5 rounded-full bg-muted/60 overflow-hidden">
             <div className="h-full bg-primary transition-all" style={{ width: `${Math.min(98, progress.percent)}%` }} />
           </div>
-          <p className="text-[11px] text-zinc-500">
+          <p className="text-[11px] text-muted-foreground">
             {run?.kind === 'motion' ? 'A clip takes 1 to 4 minutes, the finished ad a few more.' : 'The first version takes about 10 minutes.'} You can leave this page: the work goes on.
           </p>
         </div>
       )}
 
       {failed && run?.error && (
-        <div className="flex items-start gap-2 text-xs text-red-400">
+        <div className="flex items-start gap-2 text-xs text-red-600 dark:text-red-400">
           <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           <p className="flex-1">{run.error}</p>
           <button
-            className="text-zinc-500 hover:text-zinc-300 underline underline-offset-2 shrink-0"
+            className="text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0"
             onClick={async () => {
               const result = await dismissCloneAutoRun(project.id);
               if (result.success && result.project) onProjectUpdate(result.project);
@@ -266,7 +266,7 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
 
           <div className="space-y-1.5">
             <p className={label}>2 · Your photos</p>
-            <p className="text-xs text-zinc-400">The person who appears in the ad, your product, your place, your logo. A person or product without a photo is invented by the director.</p>
+            <p className="text-xs text-muted-foreground">The person who appears in the ad, your product, your place, your logo. A person or product without a photo is invented by the director.</p>
             {photos}
           </div>
 
@@ -288,7 +288,7 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
                 <option value="15">A cut of about 15 seconds</option>
               </select>
             </div>
-            <div className="flex-1 text-[11px] text-zinc-500 sm:text-right">
+            <div className="flex-1 text-[11px] text-muted-foreground sm:text-right">
               {CLONE_AUTO_CREDITS} credits for the plan and the finished ad, {CLONE_IMAGE_CREDITS} for each picture.
               <br />A scene the director leaves out or types as a card costs nothing.
             </div>
@@ -298,7 +298,7 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
             </Button>
           </div>
           {editing && (
-            <button className="text-[11px] text-zinc-500 hover:text-zinc-300 underline underline-offset-2" onClick={() => setEditing(false)}>
+            <button className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2" onClick={() => setEditing(false)}>
               Keep the ad as it is
             </button>
           )}
@@ -313,13 +313,13 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
               <p className={label}>Who and what was replaced</p>
               <div className="grid gap-1.5 sm:grid-cols-2">
                 {auto.cast.map((row, i) => (
-                  <div key={i} className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/20 px-2 py-1.5 text-xs text-zinc-300 min-w-0">
+                  <div key={i} className="flex items-center gap-2 rounded-md border border-border/40 bg-muted/20 px-2 py-1.5 text-xs text-foreground min-w-0">
                     {row.photo && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={row.photo} alt="" className="w-8 h-8 object-cover rounded border border-border/50 shrink-0" />
                     )}
                     <span className="min-w-0">
-                      <span className="text-zinc-500">{row.source}</span> <span className="text-zinc-600">→</span> <span className="text-white">{row.becomes}</span>
+                      <span className="text-muted-foreground">{row.source}</span> <span className="text-zinc-600">→</span> <span className="text-white">{row.becomes}</span>
                     </span>
                   </div>
                 ))}
@@ -353,7 +353,7 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
                       : {scene.check?.why}
                     </li>
                   ))}
-                  <li className="text-zinc-500">Open a scene to change its instruction and make the picture again.</li>
+                  <li className="text-muted-foreground">Open a scene to change its instruction and make the picture again.</li>
                 </ul>
               )}
             </div>
@@ -362,16 +362,16 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
           {movable.length > 0 && (
             <div className="space-y-3 pt-3 border-t border-border/40">
               <div>
-                <p className="text-sm font-medium text-white flex items-center gap-2">
+                <p className="text-sm font-medium text-foreground flex items-center gap-2">
                   <Film className="w-4 h-4 text-primary" /> Make it move
                 </p>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-muted-foreground">
                   A person who talks gets a clip with sound ({CLONE_ANIM_CREDITS_PER_SECOND} credits a second). Other scenes move without sound ({CLONE_ANIM_STANDARD_CREDITS_PER_SECOND} credits a second). The ad is finished again at no extra
                   charge.
                 </p>
               </div>
               {still.length === 0 ? (
-                <p className="text-xs text-zinc-400">Every scene has its clip.</p>
+                <p className="text-xs text-muted-foreground">Every scene has its clip.</p>
               ) : (
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Button onClick={() => startMotion(everything)} disabled={starting} size="lg" className="h-11 px-5 font-medium flex-1">
@@ -386,8 +386,8 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
                 </div>
               )}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <p className="flex-1 text-[11px] text-zinc-500">A clip that cannot be made is refunded and the scene keeps its picture. A talking clip that misses its line is taken once more at no charge.</p>
-                <button className="text-[11px] text-zinc-400 hover:text-zinc-200 underline underline-offset-2 shrink-0" onClick={() => setChoosing((open) => !open)}>
+                <p className="flex-1 text-[11px] text-muted-foreground">A clip that cannot be made is refunded and the scene keeps its picture. A talking clip that misses its line is taken once more at no charge.</p>
+                <button className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0" onClick={() => setChoosing((open) => !open)}>
                   {choosing ? 'Hide the scenes' : 'Choose scene by scene'}
                 </button>
               </div>
@@ -403,17 +403,17 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
                       const played = (scene.motion_prompt || '').split(' Camera:')[0].trim();
                       return (
                         <div key={scene.n} className="flex items-center gap-3 rounded-md border border-border/40 bg-muted/20 p-2">
-                          <span className="font-mono text-xs font-bold text-white w-10 shrink-0">SC&thinsp;{String(scene.n).padStart(2, '0')}</span>
+                          <span className="font-mono text-xs font-bold text-foreground w-10 shrink-0">SC&thinsp;{String(scene.n).padStart(2, '0')}</span>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={scene.edited_image_url as string} alt={`Scene ${scene.n}`} className="h-12 w-9 object-cover rounded border border-border/50 bg-black/40 shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs text-zinc-300 truncate">{scene.finish?.line || (over ? `Shown while the scene ${over === 'previous' ? 'before' : 'after'} it speaks` : 'No words in this scene')}</p>
+                            <p className="text-xs text-foreground truncate">{scene.finish?.line || (over ? `Shown while the scene ${over === 'previous' ? 'before' : 'after'} it speaks` : 'No words in this scene')}</p>
                             <p className="text-[10px] text-zinc-600">
                               {speaker === 'on_camera' ? 'A person talks to the camera' : speaker === 'narrator' ? 'The narrator speaks' : 'Nobody speaks'}
                               {clip ? ' · has a clip' : ''}
                             </p>
                             {played && (
-                              <p className="text-[10px] text-zinc-500 truncate" title={scene.motion_prompt || undefined}>
+                              <p className="text-[10px] text-muted-foreground truncate" title={scene.motion_prompt || undefined}>
                                 The shot: {played}
                               </p>
                             )}

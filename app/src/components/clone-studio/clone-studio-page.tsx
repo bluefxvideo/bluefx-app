@@ -172,17 +172,17 @@ export function CloneStudioPage() {
 
             <Card className="p-6 space-y-4">
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold text-white">Clone an ad</h3>
+                <h3 className="text-lg font-semibold text-foreground">Clone an ad</h3>
                 <Badge variant="secondary">New</Badge>
               </div>
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-muted-foreground">
                 Paste a TikTok, Instagram, Facebook, or YouTube link to the ad you want to clone.
                 We break it into scenes. Then the director remakes the ad for your business, or you swap in
                 your own person and product scene by scene.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
-                  <Link2 className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <Link2 className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={sourceUrl}
                     onChange={(e) => setSourceUrl(e.target.value)}
@@ -198,7 +198,7 @@ export function CloneStudioPage() {
               </div>
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 bg-border/50" />
-                <span className="text-xs text-zinc-500">or</span>
+                <span className="text-xs text-muted-foreground">or</span>
                 <div className="h-px flex-1 bg-border/50" />
               </div>
               <div>
@@ -217,7 +217,7 @@ export function CloneStudioPage() {
                   <Upload className="w-4 h-4 mr-2" />
                   Upload a video file
                 </Button>
-                <span className="ml-3 text-xs text-zinc-500">Up to 3 minutes</span>
+                <span className="ml-3 text-xs text-muted-foreground">Up to 3 minutes</span>
               </div>
             </Card>
 
@@ -225,7 +225,7 @@ export function CloneStudioPage() {
 
             {projects.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-zinc-300">Your clone projects</h3>
+                <h3 className="text-sm font-semibold text-foreground">Your clone projects</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {projects.map((project) => (
                     <Card
@@ -261,8 +261,8 @@ export function CloneStudioPage() {
                       </div>
                       <div className="p-3 flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-sm text-white truncate">{project.title || 'Untitled clone'}</p>
-                          <p className="text-xs text-zinc-500">
+                          <p className="text-sm text-foreground truncate">{project.title || 'Untitled clone'}</p>
+                          <p className="text-xs text-muted-foreground">
                             {project.scenes?.length || 0} scenes · {project.credits_spent} credits ·{' '}
                             {new Date(project.created_at).toLocaleDateString()}
                           </p>
@@ -270,7 +270,7 @@ export function CloneStudioPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="shrink-0 opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-red-400"
+                          className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDelete(project.id);
@@ -292,8 +292,8 @@ export function CloneStudioPage() {
             <Card className="p-8 space-y-6">
               <div className="text-center space-y-1">
                 <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto" />
-                <h3 className="text-lg font-semibold text-white pt-2">Breaking down the ad…</h3>
-                <p className="text-sm text-zinc-400">Usually takes 1–2 minutes.</p>
+                <h3 className="text-lg font-semibold text-foreground pt-2">Breaking down the ad…</h3>
+                <p className="text-sm text-muted-foreground">Usually takes 1–2 minutes.</p>
               </div>
               <div className="space-y-3">
                 {PROCESSING_STEPS.map((step, i) => {
@@ -308,7 +308,7 @@ export function CloneStudioPage() {
                       {state === 'done' && <span className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs">✓</span>}
                       {state === 'active' && <Loader2 className="w-5 h-5 animate-spin text-primary" />}
                       {state === 'todo' && <span className="w-5 h-5 rounded-full border border-border" />}
-                      <span className={state === 'todo' ? 'text-zinc-500' : 'text-zinc-200'}>{step.label}</span>
+                      <span className={state === 'todo' ? 'text-muted-foreground' : 'text-foreground'}>{step.label}</span>
                     </div>
                   );
                 })}
@@ -323,9 +323,9 @@ export function CloneStudioPage() {
         {activeProject && !isProcessing && activeProject.status === 'failed' && (
           <div className="max-w-lg mx-auto mt-12">
             <Card className="p-8 space-y-4 text-center">
-              <h3 className="text-lg font-semibold text-white">This one didn&apos;t work</h3>
-              <p className="text-sm text-red-400">{activeProject.error_message || 'Ingest failed'}</p>
-              <p className="text-xs text-zinc-500">Your {CLONE_INGEST_CREDITS} credits were refunded.</p>
+              <h3 className="text-lg font-semibold text-foreground">This one didn&apos;t work</h3>
+              <p className="text-sm text-red-600 dark:text-red-400">{activeProject.error_message || 'Ingest failed'}</p>
+              <p className="text-xs text-muted-foreground">Your {CLONE_INGEST_CREDITS} credits were refunded.</p>
               <Button variant="outline" onClick={() => setActiveProject(null)}>Back to projects</Button>
             </Card>
           </div>

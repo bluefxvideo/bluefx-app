@@ -91,7 +91,7 @@ export function EditorRedirect() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
         <div className="text-red-500 mb-4">❌ {error}</div>
-        <div className="text-gray-500">Redirecting back to Script to Video...</div>
+        <div className="text-muted-foreground">Redirecting back to Script to Video...</div>
       </div>
     );
   }
@@ -100,10 +100,10 @@ export function EditorRedirect() {
     <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-6">
       <Loader2 className="h-8 w-8 animate-spin mb-4" />
       <div className="text-lg mb-2">Opening the advanced video editor…</div>
-      <div className="text-zinc-400 max-w-md text-sm">
+      <div className="text-muted-foreground max-w-md text-sm">
         This opens BlueFX&apos;s full editing workspace — same account, your project loads
         automatically. To come back here, just return to{' '}
-        <span className="text-zinc-300">app.bluefx.net</span> in your address bar or browser history.
+        <span className="text-foreground">app.bluefx.net</span> in your address bar or browser history.
       </div>
     </div>
   );

@@ -38,7 +38,7 @@ export function LoadingSkeleton() {
                     ? 'bg-blue-100 text-blue-600' 
                     : index === 2 
                     ? 'bg-blue-100 text-blue-600 animate-pulse' 
-                    : 'bg-gray-100 text-gray-400'
+                    : 'bg-gray-100 text-muted-foreground'
                 }`}>
                   <step.icon className="w-3 h-3" />
                 </div>

@@ -97,7 +97,7 @@ export function PromptRefiner({ prompt, onPromptChange, disabled = false }: Prom
     <div className="mt-3 p-3 bg-secondary/30 rounded-lg border border-border/50 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-zinc-300 flex items-center gap-1">
+        <span className="text-xs font-medium text-foreground flex items-center gap-1">
           <MessageSquare className="w-3 h-3" />
           AI Prompt Customizer
         </span>
@@ -165,7 +165,7 @@ export function PromptRefiner({ prompt, onPromptChange, disabled = false }: Prom
 
       {/* Modified indicator */}
       {hasChanges && (
-        <p className="text-[10px] text-green-400">
+        <p className="text-[10px] text-green-600 dark:text-green-400">
           Prompt modified. Changes will be used for storyboard generation.
         </p>
       )}

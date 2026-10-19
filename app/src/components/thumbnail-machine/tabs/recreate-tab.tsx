@@ -156,7 +156,7 @@ export function RecreateTab({
               placeholder="Describe changes you want... (e.g., 'Make it more vibrant', 'Change the background', 'Add more energy', 'Keep the same style but brighter colors')"
               value={formData.prompt}
               onChange={(e) => setFormData(prev => ({ ...prev, prompt: e.target.value }))}
-              className="min-h-[160px] resize-y !bg-interactive border-gray-600 focus:!bg-interactive-hover hover:!bg-interactive-hover"
+              className="min-h-[160px] resize-y !bg-interactive border-border focus:!bg-interactive-hover hover:!bg-interactive-hover"
             />
             <div className="flex justify-between text-sm text-muted-foreground mt-1">
               <span>Leave empty to recreate exact style</span>

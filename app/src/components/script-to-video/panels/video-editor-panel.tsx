@@ -553,7 +553,7 @@ export function VideoEditorPanel({ onEdit, isEditing: _isEditing, currentComposi
                       {/* Selection indicator */}
                       {isSelected && (
                         <div className="absolute top-2 right-2 w-6 h-6 ">
-                          <span className="text-white text-xs font-bold">✓</span>
+                          <span className="text-foreground text-xs font-bold">✓</span>
                         </div>
                       )}
                       

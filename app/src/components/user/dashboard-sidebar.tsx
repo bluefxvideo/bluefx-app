@@ -513,7 +513,7 @@ export function DashboardSidebar({
           {!isCollapsed && (
             <Link
               href="/dashboard"
-              className="ml-2 text-xl font-bold text-white hover:text-blue-400 transition-colors cursor-pointer flex items-center gap-2"
+              className="ml-2 text-xl font-bold text-foreground hover:text-blue-400 transition-colors cursor-pointer flex items-center gap-2"
             >
               BlueFX
               <Badge variant="secondary" className="text-xs px-1.5 py-0.5 ">
@@ -528,9 +528,9 @@ export function DashboardSidebar({
             aria-label="Toggle sidebar"
           >
             {isCollapsed ? (
-              <PanelLeft className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
+              <PanelLeft className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
             ) : (
-              <PanelLeftClose className="h-5 w-5 text-muted-foreground group-hover:text-white transition-colors" />
+              <PanelLeftClose className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
             )}
           </button>
         </div>
@@ -749,7 +749,7 @@ export function DashboardSidebar({
                     >
                       <p className="font-medium">{tool.name}</p>
                       {tool.disabled && (
-                        <p className="text-sm text-white mt-1">{tool.comingSoon}</p>
+                        <p className="text-sm text-foreground mt-1">{tool.comingSoon}</p>
                       )}
                     </TooltipContent>
                   </Tooltip>

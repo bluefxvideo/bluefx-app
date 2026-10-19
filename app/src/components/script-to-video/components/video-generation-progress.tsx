@@ -103,7 +103,7 @@ const StepIcon = ({ step, isActive }: { step: GenerationStep, isActive: boolean 
   } else if (step.status === 'error') {
     return <Circle className="w-5 h-5 text-red-500" />;
   } else {
-    return <PendingIcon className="text-gray-400" />;
+    return <PendingIcon className="text-muted-foreground" />;
   }
 };
 
@@ -117,10 +117,10 @@ const ProgressCore = ({
   return (
     <div className="flex flex-col space-y-4 w-full max-w-md mx-auto">
       <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-foreground">
           Creating Your Video
         </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+        <p className="text-sm text-gray-600 dark:text-muted-foreground mt-1">
           AI is working on your script...
         </p>
       </div>
@@ -147,11 +147,11 @@ const ProgressCore = ({
                 "font-medium text-sm",
                 isActive ? "text-blue-600 dark:text-blue-400" : 
                 isCompleted ? "text-green-600 dark:text-green-400" : 
-                "text-gray-500 dark:text-gray-400"
+                "text-muted-foreground dark:text-muted-foreground"
               )}>
                 {step.title}
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              <div className="text-xs text-muted-foreground dark:text-muted-foreground truncate">
                 {step.description}
               </div>
             </div>
@@ -167,7 +167,7 @@ const ProgressCore = ({
         );
       })}
       
-      <div className="mt-6 bg-gray-100 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
+      <div className="mt-6 bg-gray-100 dark:bg-secondary rounded-full h-2 overflow-hidden">
         <motion.div
           className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"
           initial={{ width: "0%" }}
@@ -176,7 +176,7 @@ const ProgressCore = ({
         />
       </div>
       
-      <div className="text-center text-xs text-gray-500 dark:text-gray-400">
+      <div className="text-center text-xs text-muted-foreground dark:text-muted-foreground">
         Step {currentStepIndex + 1} of {steps.length}
       </div>
     </div>

@@ -224,7 +224,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
       ? 'border-l-amber-500/70'
       : scene.edited_image_url
         ? 'border-l-primary/70'
-        : 'border-l-zinc-700';
+        : 'border-l-border';
 
   return (
     <Card
@@ -237,19 +237,19 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
           {/* Slate header */}
           <div className="flex items-baseline justify-between gap-3">
             <div className="flex items-baseline gap-3 min-w-0">
-              <span className="font-mono text-xl font-bold text-white tracking-tight shrink-0">
+              <span className="font-mono text-xl font-bold text-foreground tracking-tight shrink-0">
                 SC&thinsp;{String(scene.n).padStart(2, '0')}
               </span>
-              <span className="font-mono text-[11px] text-zinc-500 tabular-nums shrink-0">
+              <span className="font-mono text-[11px] text-muted-foreground tabular-nums shrink-0">
                 {scene.is_custom ? `${duration}s` : `${scene.start.toFixed(1)}–${scene.end.toFixed(1)}s · ${duration}s`}
               </span>
               {(scene.is_custom || scene.analysis?.purpose) && (
-                <span className="text-[10px] uppercase tracking-widest text-zinc-500 shrink-0">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground shrink-0">
                   {scene.is_custom ? 'custom' : scene.analysis.purpose}
                 </span>
               )}
               {leftOut && (
-                <span className="text-[10px] uppercase tracking-widest text-amber-300/80 shrink-0" title="The director left this scene out of the shorter cut. Change it under Finish the ad.">
+                <span className="text-[10px] uppercase tracking-widest text-amber-700/80 dark:text-amber-300/80 shrink-0" title="The director left this scene out of the shorter cut. Change it under Finish the ad.">
                   left out of this cut
                 </span>
               )}
@@ -262,7 +262,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 text-zinc-500 hover:text-red-400"
+                  className="h-6 w-6 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                   title="Remove this custom scene"
                   onClick={async () => {
                     if (!window.confirm(`Remove custom scene ${scene.n}?`)) return;
@@ -358,7 +358,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
                   {animGenerating && (
                     <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1">
                       <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                      <span className="text-[10px] text-zinc-300">Animating…</span>
+                      <span className="text-[10px] text-foreground">Animating…</span>
                     </div>
                   )}
                 </>
@@ -485,7 +485,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
 
         {/* ——— ACTION RAIL ——— */}
         <div className="xl:w-[330px] xl:shrink-0 border-t xl:border-t-0 xl:border-l border-border/40 bg-muted/20 p-4 space-y-2.5">
-          <p className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">Swap</p>
+          <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Swap</p>
           <Textarea
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
@@ -526,7 +526,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
               ))}
             {(scene.excluded_project_ref_urls || []).length > 0 && (
               <button
-                className="text-[10px] text-zinc-500 hover:text-zinc-300 underline underline-offset-2"
+                className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2"
                 onClick={handleRestoreProjectRefs}
                 title="Bring back the project references you removed from this scene"
               >
@@ -579,13 +579,13 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
           {(
             <>
               <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                <p className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">
+                <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
                   Motion — sent verbatim
                 </p>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 text-[10px] text-zinc-500"
+                  className="h-5 text-[10px] text-muted-foreground"
                   onClick={() => {
                     setMotionPrompt(composeMotionPrompt(scene.analysis));
                     setNegativePrompt(CLONE_ANIM_NEGATIVE_PROMPT);
@@ -604,7 +604,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
                 disabled={animating || animGenerating}
               />
               <button
-                className="w-full flex items-center justify-between text-[10px] text-zinc-500 hover:text-zinc-300"
+                className="w-full flex items-center justify-between text-[10px] text-muted-foreground hover:text-foreground"
                 onClick={() => setShowNegative((v) => !v)}
               >
                 <span>Negative prompt</span>
@@ -636,7 +636,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
                     className="w-14 h-9 text-xs text-center font-mono"
                     disabled={animating || animGenerating}
                   />
-                  <span className="text-xs text-zinc-500">s</span>
+                  <span className="text-xs text-muted-foreground">s</span>
                 </div>
                 <Button
                   variant={hasVideo ? 'outline' : 'secondary'}

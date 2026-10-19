@@ -19,7 +19,7 @@ export function AvatarExample() {
       <div className="space-y-3">
         {/* Video Player - Matching Generated Style */}
         <div 
-          className="relative aspect-video rounded-lg overflow-hidden border border-zinc-700/50 shadow-xl bg-black group"
+          className="relative aspect-video rounded-lg overflow-hidden border border-border/50 shadow-xl bg-black group"
           onMouseEnter={() => setShowControls(true)}
           onMouseLeave={() => setShowControls(false)}
         >
@@ -44,7 +44,7 @@ export function AvatarExample() {
         </div>
         
         {/* Sample Prompt Text */}
-        <p className="text-xs text-zinc-400 text-center">
+        <p className="text-xs text-muted-foreground text-center">
           Sample: "{featuredVideo.prompt}"
         </p>
       </div>

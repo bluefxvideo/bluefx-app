@@ -77,7 +77,7 @@ export function SimpleCaptionOverlay({ videoId }: { videoId?: string }) {
       return (
         <span
           key={index}
-          className={isActive ? 'text-yellow-300 font-bold' : 'text-white'}
+          className={isActive ? 'text-yellow-700 dark:text-yellow-300 font-bold' : 'text-white'}
           style={{ marginRight: index < chunkWords.length - 1 ? '0.25em' : '0' }}
         >
           {word}

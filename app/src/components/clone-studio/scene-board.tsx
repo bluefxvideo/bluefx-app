@@ -171,11 +171,11 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
 
   const headline = (
     <>
-          <Button variant="ghost" size="sm" onClick={onBack} className="text-zinc-400 -ml-2">
+          <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground -ml-2">
             <ArrowLeft className="w-4 h-4 mr-1" /> All projects
           </Button>
-          <h3 className="text-2xl font-bold text-white tracking-tight">{project.title || 'Untitled clone'}</h3>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] text-zinc-500 tabular-nums">
+          <h3 className="text-2xl font-bold text-foreground tracking-tight">{project.title || 'Untitled clone'}</h3>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] text-muted-foreground tabular-nums">
             <span>{project.source_platform}</span>
             <span className="text-zinc-700">·</span>
             <span>{Math.round(project.video_duration_seconds || 0)}s</span>
@@ -210,17 +210,17 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               boundaries; this is the uncut reference, always at hand */}
           {project.analysis_summary && (
             <div className="rounded-lg border border-border/40 bg-muted/20">
-              <p className="px-3 pt-2.5 font-mono text-[9px] uppercase tracking-widest text-zinc-500">
+              <p className="px-3 pt-2.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
                 Transcript — full audio
               </p>
               {transcript === undefined ? (
-                <p className="px-3 py-3 text-xs text-zinc-500 flex items-center gap-2">
+                <p className="px-3 py-3 text-xs text-muted-foreground flex items-center gap-2">
                   <Loader2 className="w-3 h-3 animate-spin" /> Transcribing the original audio…
                 </p>
               ) : transcript === '' ? (
-                <p className="px-3 py-3 text-xs text-zinc-500">No spoken audio detected in this video.</p>
+                <p className="px-3 py-3 text-xs text-muted-foreground">No spoken audio detected in this video.</p>
               ) : (
-                <pre className="px-3 py-2.5 text-xs leading-relaxed text-zinc-300 whitespace-pre-wrap font-sans max-h-[340px] lg:max-h-[420px] overflow-y-auto select-text">
+                <pre className="px-3 py-2.5 text-xs leading-relaxed text-foreground whitespace-pre-wrap font-sans max-h-[340px] lg:max-h-[420px] overflow-y-auto select-text">
                   {transcript}
                 </pre>
               )}
@@ -232,12 +232,12 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
           {project.analysis_summary && (
             <div className="rounded-lg border border-border/40 bg-muted/20 p-3 space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <p className="font-mono text-[9px] uppercase tracking-widest text-zinc-500">
+                <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
                   Soundtrack: the music of your ad
                 </p>
                 {musicBpm && (
                   <span
-                    className="font-mono text-[10px] text-zinc-400 tabular-nums px-1.5 py-0.5 rounded bg-muted/60 border border-border/40"
+                    className="font-mono text-[10px] text-muted-foreground tabular-nums px-1.5 py-0.5 rounded bg-muted/60 border border-border/40"
                     title="Measured from the original audio, not estimated by AI"
                   >
                     {musicBpm} BPM
@@ -258,7 +258,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-400">
+                          <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
                             {opt.label}
                           </span>
                           <div className="flex items-center gap-1">
@@ -288,7 +288,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
                             </Button>
                           </div>
                         </div>
-                        <p className="text-[11px] leading-relaxed text-zinc-400">{opt.prompt}</p>
+                        <p className="text-[11px] leading-relaxed text-muted-foreground">{opt.prompt}</p>
                       </div>
                     );
                   })}
@@ -350,7 +350,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
       {project.final_video_url && (
         <Card className="p-4 space-y-3 border-primary/40">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+            <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <Film className="w-4 h-4 text-primary" /> {planned && animatedCount === 0 ? 'The first version of your ad: pictures only' : 'Your cloned ad'}
             </h4>
             <a href={`${project.final_video_url}?download=${(project.title || 'cloned-ad').replace(/[^a-z0-9-]+/gi, '-')}.mp4`}>
@@ -378,12 +378,12 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
           onClick={() => setShowBoard((open) => !open)}
         >
           <span>
-            <span className="block text-sm font-semibold text-white">Work scene by scene</span>
-            <span className="block text-xs text-zinc-500">
+            <span className="block text-sm font-semibold text-foreground">Work scene by scene</span>
+            <span className="block text-xs text-muted-foreground">
               {project.scenes.length} scenes: every picture, instruction, video prompt and clip, with the ad you are remaking. For hands-on changes.
             </span>
           </span>
-          {showBoard ? <ChevronUp className="w-4 h-4 text-zinc-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0" />}
+          {showBoard ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
         </button>
       )}
 
@@ -399,12 +399,12 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
       {/* Hands-on: project photos + one instruction, then scene by scene */}
       <Card className="p-4 space-y-4">
         <div>
-          <p className="text-sm font-semibold text-white">{planned ? 'Photos and one instruction for every scene' : 'Or work scene by scene'}</p>
-          <p className="text-xs text-zinc-500">Set up once, then make and review each scene yourself. Every box the director fills in is here too, and you can change any of them.</p>
+          <p className="text-sm font-semibold text-foreground">{planned ? 'Photos and one instruction for every scene' : 'Or work scene by scene'}</p>
+          <p className="text-xs text-muted-foreground">Set up once, then make and review each scene yourself. Every box the director fills in is here too, and you can change any of them.</p>
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs text-zinc-300">
+          <p className="text-xs text-foreground">
             <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold mr-1.5">1</span>
             Add photos of <span className="text-white">your person and product</span>. The photos go into every scene
             automatically, so everyone stays consistent:
@@ -413,7 +413,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs text-zinc-300">
+          <p className="text-xs text-foreground">
             <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold mr-1.5">2</span>
             Say what to swap, once. Each scene gets only the parts that apply to it (review and tweak any card after):
           </p>
@@ -444,21 +444,21 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
       {summary && (
         <Card className="p-4">
           <button
-            className="w-full flex items-center justify-between text-sm font-medium text-white"
+            className="w-full flex items-center justify-between text-sm font-medium text-foreground"
             onClick={() => setShowSummary((v) => !v)}
           >
             <span>Ad breakdown (AI analysis)</span>
             {showSummary ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
           {showSummary && (
-            <div className="mt-3 space-y-3 text-sm text-zinc-300">
+            <div className="mt-3 space-y-3 text-sm text-foreground">
               <p>{summary.summary}</p>
               {summary.characters.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-xs font-semibold text-zinc-400 uppercase">Characters</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Characters</p>
                   {summary.characters.map((c) => (
                     <p key={c.id} className="text-xs">
-                      <span className="text-white font-medium">{c.id}:</span> {c.description}
+                      <span className="text-foreground font-medium">{c.id}:</span> {c.description}
                     </p>
                   ))}
                 </div>
@@ -471,10 +471,10 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
                 </div>
               )}
               {summary.visual_style && (
-                <p className="text-xs text-zinc-400"><span className="font-semibold">Style:</span> {summary.visual_style}</p>
+                <p className="text-xs text-muted-foreground"><span className="font-semibold">Style:</span> {summary.visual_style}</p>
               )}
               {summary.music_brief && (
-                <p className="text-xs text-zinc-400"><span className="font-semibold">Music:</span> {summary.music_brief}</p>
+                <p className="text-xs text-muted-foreground"><span className="font-semibold">Music:</span> {summary.music_brief}</p>
               )}
             </div>
           )}
@@ -496,7 +496,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
         {/* Add your own scene — any frame becomes a scene like the others */}
         <Card className="p-4 border-dashed flex flex-col items-center justify-center gap-3 min-h-[220px]">
           <ImagePlus className="w-6 h-6 text-zinc-600" />
-          <p className="text-sm text-zinc-400 text-center">
+          <p className="text-sm text-muted-foreground text-center">
             Add your own scene from an image — prompt and animate it like any other.
           </p>
           <div className="flex items-center gap-2">
@@ -504,7 +504,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               value={addAfter}
               onChange={(e) => setAddAfter(e.target.value)}
               disabled={addingScene}
-              className="h-8 rounded-md border border-border/60 bg-transparent text-xs px-2 text-zinc-300"
+              className="h-8 rounded-md border border-border/60 bg-transparent text-xs px-2 text-foreground"
             >
               <option value="end">At the end</option>
               {project.scenes.map((s) => (
@@ -565,21 +565,21 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
       {animatedCount > 0 && (
         <Card className="p-4 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">
-            <p className="text-sm font-medium text-white">
+            <p className="text-sm font-medium text-foreground">
               {animatedCount}/{project.scenes.length} scenes animated
             </p>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted-foreground">
               Or join your animated scenes as they are, in order and full length: no narrator, captions or text.
             </p>
           </div>
           <label
-            className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer"
+            className="flex items-center gap-2 text-xs text-foreground cursor-pointer"
             title="Trim every clip back to the source ad's exact cut lengths. Tighter rhythm, but actions in short scenes may get cut off."
           >
             <Checkbox checked={trimToOriginal} onCheckedChange={(v) => setTrimToOriginal(v === true)} />
             Cut to original ad timing
           </label>
-          <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+          <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
             <Checkbox checked={withMusic} onCheckedChange={(v) => setWithMusic(v === true)} />
             <Music className="w-3.5 h-3.5" /> AI music bed · {CLONE_MUSIC_CREDITS} cr
           </label>

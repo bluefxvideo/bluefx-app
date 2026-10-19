@@ -118,8 +118,8 @@ export function PhotoGrid({
               {isCleaning && (
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                   <div className="flex items-center gap-1.5 bg-black/60 rounded-full px-3 py-1.5">
-                    <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-                    <span className="text-xs text-white font-medium">Cleaning...</span>
+                    <Loader2 className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 animate-spin" />
+                    <span className="text-xs text-foreground font-medium">Cleaning...</span>
                   </div>
                 </div>
               )}

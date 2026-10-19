@@ -42,7 +42,7 @@ export function VideoPreview() {
             
             if (!imageUrl) {
               return (
-                <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                <div className="w-full h-full bg-secondary flex items-center justify-center">
                   <div className="text-center text-white">
                     <Film className="w-12 h-12 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">No image available</p>
@@ -88,7 +88,7 @@ export function VideoPreview() {
       </div>
 
       {/* Timeline */}
-      <div className="relative bg-gray-900/95 rounded-lg p-4 mt-4 overflow-hidden" style={{ height: '250px' }}>
+      <div className="relative bg-card/95 rounded-lg p-4 mt-4 overflow-hidden" style={{ height: '250px' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-4">
             <Button 
@@ -142,7 +142,7 @@ export function VideoPreview() {
         </div>
 
         {/* Time Ruler */}
-        <div className="relative h-6 bg-gray-800/50 rounded-t border-b border-gray-700 mb-2">
+        <div className="relative h-6 bg-secondary/50 rounded-t border-b border-border mb-2">
           <div className="absolute inset-0 flex justify-between items-center px-2 text-xs text-white/60">
             <span>0:00</span>
             <span>{Math.floor(project.duration / 2 / 60)}:{Math.floor((project.duration / 2) % 60).toString().padStart(2, '0')}</span>
@@ -180,18 +180,18 @@ export function VideoPreview() {
           }}
         >
           {/* Main Video Track */}
-          <div className="relative h-12 bg-gray-800 rounded">
+          <div className="relative h-12 bg-secondary rounded">
             <div className="absolute inset-x-2 top-1 text-xs text-white/60">Main Video</div>
             <div 
               className="absolute top-2 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded"
               style={{ left: '8px', right: '8px' }}
             >
-              <div className="p-1 text-xs text-white font-medium">Script to Video</div>
+              <div className="p-1 text-xs text-foreground font-medium">Script to Video</div>
             </div>
           </div>
 
           {/* Segments Track */}
-          <div className="relative h-10 bg-gray-800 rounded overflow-hidden">
+          <div className="relative h-10 bg-secondary rounded overflow-hidden">
             <div className="absolute inset-x-2 top-1 text-xs text-white/60">Segments</div>
             <div className="absolute top-1 left-2 right-2 h-8 flex gap-0.5">
               {(() => {
@@ -241,10 +241,10 @@ export function VideoPreview() {
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center z-10 ${
                       isCurrentlyPlaying ? 'bg-white/40' : 'bg-white/20'
                     }`}>
-                      <span className="text-xs text-white font-bold">{i + 1}</span>
+                      <span className="text-xs text-foreground font-bold">{i + 1}</span>
                     </div>
                     {segments.length <= 6 && (
-                      <span className="text-xs text-white ml-1 font-medium truncate z-10 max-w-8">
+                      <span className="text-xs text-foreground ml-1 font-medium truncate z-10 max-w-8">
                         {isCurrentlyPlaying ? 'Play' : 'Ready'}
                       </span>
                     )}
@@ -256,7 +256,7 @@ export function VideoPreview() {
           </div>
 
           {/* Captions Track */}
-          <div className="relative h-10 bg-gray-800 rounded">
+          <div className="relative h-10 bg-secondary rounded">
             <div className="absolute inset-x-2 top-1 text-xs text-white/60">T Captions</div>
             <div 
               className="absolute top-1 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded opacity-70"
