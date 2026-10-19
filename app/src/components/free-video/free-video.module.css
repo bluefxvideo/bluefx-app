@@ -2451,6 +2451,37 @@ p.timerDark {
 .root .soundBtn:focus-visible {
   outline-color: #ffffff;
 }
+/* The result page's video ad (board A and D): a big play button in the middle, the video ad's first picture behind it. */
+.root .bigPlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 80px;
+  height: 80px;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.root .bigPlay:hover {
+  background: #ffffff;
+}
+.root .bigPlay:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+@media (min-width: 960px) {
+  .root .bigPlay {
+    width: 88px;
+    height: 88px;
+  }
+}
 .playerMessage {
   position: absolute;
   inset: auto 12px 12px;

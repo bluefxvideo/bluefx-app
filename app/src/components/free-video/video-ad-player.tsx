@@ -15,6 +15,8 @@ interface VideoAdPlayerProps {
   onComplete?: () => void;
   /** More classes for the frame (the result page's is wider). */
   className?: string;
+  /** The result page (boards A and D): no playing on its own; the first picture and a big play button in the middle, a tap plays it with sound. */
+  tapToPlay?: boolean;
 }
 
 type PlayerMode = 'muted' | 'blocked' | 'sound';
@@ -24,7 +26,7 @@ type PlayerMode = 'muted' | 'blocked' | 'sound';
  * "Tap for sound" button restarts the video ad with sound and the normal controls. When the phone
  * blocks even muted autoplay (Low Power Mode), the same button says "Play the video ad".
  */
-export function VideoAdPlayer({ src, label, onPlayWithSound, onComplete, className }: VideoAdPlayerProps) {
+export function VideoAdPlayer({ src, label, onPlayWithSound, onComplete, className, tapToPlay = false }: VideoAdPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const withSound = useRef(false);
   const completed = useRef(false);
@@ -33,7 +35,7 @@ export function VideoAdPlayer({ src, label, onPlayWithSound, onComplete, classNa
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || tapToPlay) return;
     // Set before play(): browsers only autoplay a muted video.
     video.muted = true;
     const play = () => {
@@ -54,7 +56,7 @@ export function VideoAdPlayer({ src, label, onPlayWithSound, onComplete, classNa
     );
     observer.observe(video);
     return () => observer.disconnect();
-  }, []);
+  }, [tapToPlay]);
 
   const playWithSound = () => {
     const video = videoRef.current;
@@ -95,12 +97,19 @@ export function VideoAdPlayer({ src, label, onPlayWithSound, onComplete, classNa
           {PLAYER.loadError}
         </p>
       ) : (
-        mode !== 'sound' && (
+        mode !== 'sound' &&
+        (tapToPlay ? (
+          <button type="button" className={styles.bigPlay} onClick={playWithSound} aria-label={PLAYER.play}>
+            <svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5.5v13l11-6.5z" fill="#143D70" />
+            </svg>
+          </button>
+        ) : (
           <button type="button" className={styles.soundBtn} onClick={playWithSound}>
             <Volume2 aria-hidden="true" size={18} strokeWidth={2.25} />
             {mode === 'blocked' ? PLAYER.play : PLAYER.soundOn}
           </button>
-        )
+        ))
       )}
     </div>
   );

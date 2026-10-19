@@ -45,7 +45,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
       <section className={cn(styles.wrap, styles.hero)} aria-labelledby="fv-result-title">
         <div className={styles.heroGrid}>
           <div ref={heroRef} className={styles.heroVideo}>
-            <VideoAdPlayer src={videoUrl} label={PLAYER.label(domain)} onPlayWithSound={onPlayWithSound} onComplete={onComplete} className={styles.heroPlayerFrame} />
+            <VideoAdPlayer src={videoUrl} label={PLAYER.label(domain)} onPlayWithSound={onPlayWithSound} onComplete={onComplete} className={styles.heroPlayerFrame} tapToPlay />
           </div>
           {/* On a phone the head sits above the video and the text below it (display: contents); on a computer both sit beside it. */}
           <div className={styles.heroText}>
@@ -138,8 +138,8 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
         <p className={styles.compareAfter}>{compare.line(domain)}</p>
       </section>
 
-      {/* The phone's first button; a computer has it beside the video ad (board D shows none here). */}
-      <div className={cn(styles.wrap, styles.narrow, styles.sectionTight, styles.phoneOnly)}>
+      {/* The price and the button under the comparison, on a phone and on a computer (owner 2026-10-19: "i did like and want"). */}
+      <div className={cn(styles.wrap, styles.narrow, styles.sectionTight)}>
         <BuyBlock token={token} placement="fvres1" note={[buy.guarantee, written ? buy.loginWritten : buy.login]} />
       </div>
 
