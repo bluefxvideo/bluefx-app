@@ -290,7 +290,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
             </div>
           ))}
         </div>
-        <Reviews skip={written ? VIDEO_REVIEWS_UNDER_ADS : []} />
+        <Reviews />
       </section>
 
       <section className={styles.examples} aria-labelledby="fv-examples-title">
@@ -720,11 +720,11 @@ function videoReviewsOf(names: readonly string[]): VideoReviewItem[] {
     .filter((item): item is VideoReviewItem => Boolean(item && 'video' in item));
 }
 
-/** `skip`: the customer videos already shown under the first "Yes!" button. */
-function Reviews({ skip }: { skip: readonly string[] }) {
+/** Every customer, with Dov's quote first (owner 2026-10-20: all of them stay here, the 3 under the first button too). */
+function Reviews() {
   const { reviews } = RESULT_PAGE;
   const dov = SALES_PAGE.reviews.items.find((item) => item.name === 'Dov Rom');
-  const videos = videoReviewsOf(VIDEO_REVIEWS.filter((name) => !skip.includes(name)));
+  const videos = videoReviewsOf(VIDEO_REVIEWS);
   return (
     <ul className={styles.reviews}>
       {dov && (

@@ -50,7 +50,7 @@ const EXAMPLES = [
 
 /** The 5 customers with a video, in the mockup's order; their quotes are SALES_PAGE.reviews' (word for word from bluefx.net). */
 export const VIDEO_REVIEWS = ['Gregory Green', "Francis D'Costa", 'Sambath Sim', 'Deryck Jones', 'Bucky Helms'] as const;
-/** The 3 customer videos right under the first "Yes!" button, after the next 3 video ads (owner 2026-10-19: "after the first button i agree, we need testimonial"); the others stay in the customers section. */
+/** The 3 customer videos right under the first "Yes!" button, after the next 3 video ads (owner 2026-10-19: "after the first button i agree, we need testimonial"); the customers section keeps all of them too (owner 2026-10-20: "Put them the fuck back"). */
 export const VIDEO_REVIEWS_UNDER_ADS = ['Bucky Helms', "Francis D'Costa", 'Sambath Sim'] as const satisfies readonly (typeof VIDEO_REVIEWS)[number][];
 /** Where each face sits in its video's picture, for the small portrait crop. */
 export const REVIEW_FACES: Record<(typeof VIDEO_REVIEWS)[number], string> = {
