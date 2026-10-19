@@ -56,6 +56,21 @@ export const LANDING = {
   question: ['Business owners and marketers:', 'want more customers from social media?'],
   h1: { first: 'Type your website.', before: 'Get a ', highlight: 'free video ad', after: ' for your business.' },
   sub: 'The AI Media Machine turns the words and photos on your website into a video ad of about 40 seconds, with an AI presenter, a voice-over and music. You get the video ad by email, ready to post on Facebook, Instagram and TikTok.',
+  /**
+   * The sub, said by the AI Media Machine's robot in a speech bubble (owner 2026-10-19: "we could add the ai mm on the
+   * optin, and even the lil robot"): the name gets a face before the visitor meets it again on the result page.
+   * Phones show the short line between the reel and the field, and the sub stays under the field (owner 2026-10-07:
+   * on phones the field comes before the longer text). The sub above is also the page's description.
+   */
+  robot: {
+    hello: "Hi! I'm the AI Media Machine.",
+    text: 'I turn the words and photos on your website into a video ad of about 40 seconds, with an AI presenter, a voice-over and music. You get your video ad by email, ready to post on Facebook, Instagram and TikTok.',
+    short: "Type your website below, and I'll make your free video ad.",
+    /** A 5 s loop with a transparent background: HEVC with alpha for Safari, VP9 with alpha for the other browsers. */
+    hevc: '/free-video/robot.mov',
+    webm: '/free-video/robot.webm',
+    poster: '/free-video/robot-poster.webp',
+  },
   whyFreeLead: 'Why free?',
   whyFree: 'So you can see a video ad made for your own business before you buy anything from us.',
   /** The hand-drawn note pointing at the website field (wide screens only). */

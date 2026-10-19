@@ -169,6 +169,42 @@ export function PhoneReel() {
   );
 }
 
+/**
+ * The AI Media Machine's robot under the headline, saying what the page does in a speech bubble. The robot points
+ * down at the website field; Safari plays the HEVC file, the other browsers skip its type and play the WebM.
+ */
+export function RobotHello() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    // Set before play(): browsers only autoplay a muted video.
+    video.muted = true;
+    const play = () => void video.play().catch(() => undefined);
+    play();
+    // The browser pauses a silent video while the page is in the background; start it again when the page is shown.
+    const onShown = () => {
+      if (document.visibilityState === 'visible') play();
+    };
+    document.addEventListener('visibilitychange', onShown);
+    return () => document.removeEventListener('visibilitychange', onShown);
+  }, []);
+
+  return (
+    <div className={styles.robotRow}>
+      <p className={styles.robotBubble}>
+        <strong className={styles.robotHello}>{LANDING.robot.hello}</strong> <span className={styles.robotLong}>{LANDING.robot.text}</span>
+        <span className={styles.robotShort}>{LANDING.robot.short}</span>
+      </p>
+      <video ref={videoRef} className={styles.robot} poster={LANDING.robot.poster} muted loop playsInline preload="auto" aria-hidden="true">
+        <source src={LANDING.robot.hevc} type='video/quicktime; codecs="hvc1"' />
+        <source src={LANDING.robot.webm} type="video/webm" />
+      </video>
+    </div>
+  );
+}
+
 /** The hand-drawn "Start here!" note left of the top website field, with a curved arrow into the field (wide screens only). */
 export function StartHere() {
   return (
