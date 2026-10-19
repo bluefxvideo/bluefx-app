@@ -1,9 +1,9 @@
 /**
  * Light is the app's default from LIGHT_DEFAULT_SINCE on (owner 2026-10-19). Accounts made before then keep the dark
  * app they know, and that the tutorial videos show, until they pick Light themselves; new accounts, such as the free
- * video ad's buyers, start in light like the bluefx.net pages they come from. Set the date to the day this ships.
+ * video ad's buyers, start in light like the bluefx.net pages they come from. The date is when this shipped.
  */
-export const LIGHT_DEFAULT_SINCE = '2026-10-20T00:00:00Z';
+export const LIGHT_DEFAULT_SINCE = '2026-10-19T18:00:00Z';
 
 /** True for an account that keeps dark until its owner picks a theme. */
 export function keepsDarkByDefault(createdAt: string | undefined): boolean {
