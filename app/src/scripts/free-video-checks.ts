@@ -724,20 +724,19 @@ async function main(): Promise<void> {
   // 15c. ----------------------------------------------------------------------------------------
   section('15c. The next 3 video ads (next-ads.ts checkNextAds)');
   {
-    const site = 'JM Painting. "They did an amazing job on my walls. Very clean work." Free estimates within 24 hours. Licensed since 2012.';
+    const site = 'JM Painting. "They did an amazing job on my walls. Very clean work." Christine Andrews. James painted twice. Free estimates within 24 hours. Licensed since 2012.';
     const idea = (over: Partial<NextAdIdea>): NextAdIdea => ({
       kind: 'act-now',
-      hook: 'Get a free estimate within 24 hours',
-      highlight: 'within 24 hours',
-      title: 'How to get a free estimate',
-      brief: 'A painter offers a free estimate within 24 hours. Call or book on jmpaintingservices.com today.',
+      title: 'Your free estimate in 24 hours',
+      teaser: 'James explains how to get a free estimate within 24 hours.',
       frame: 'A painter in a white shirt holds a clipboard in a bright living room.',
       ...over,
     });
-    const happy = idea({ kind: 'happy-customer', hook: 'They did an amazing job on my walls', highlight: 'on my walls', quote: 'They did an amazing job on my walls.' });
-    check('checkNextAds: a quote word for word from the website and its numbers pass', checkNextAds(site, [happy, idea({ kind: 'problem-fixer' }), idea({})]).length === 0, checkNextAds(site, [happy, idea({ kind: 'problem-fixer' }), idea({})]).join('; '));
-    const madeUp = checkNextAds(site, [idea({ kind: 'happy-customer', hook: 'Best painters in all of New Jersey', highlight: 'in all of New Jersey' }), idea({ hook: 'Get 20% off every job', highlight: 'every job' }), idea({ highlight: 'within 48 hours' })]);
-    check('checkNextAds: a "review" the website never says, a number it never says and a highlight off the hook are caught', madeUp.some((p) => p.startsWith('#2: the quoted line')) && madeUp.some((p) => p.includes('"20"')) && madeUp.some((p) => p.startsWith('#4: the highlight')), madeUp.join('; '));
+    const happy = idea({ kind: 'happy-customer', title: 'Why Christine praises her new walls', teaser: 'Christine tells how the walls turned out.', customer: 'Christine' });
+    const clean = checkNextAds(site, [happy, idea({ kind: 'problem-fixer', title: 'The paint problem most homes hide', teaser: 'A painter shows the damage and the fix.' }), idea({})]);
+    check('checkNextAds: names and numbers from the website pass', clean.length === 0, clean.join('; '));
+    const madeUp = checkNextAds(site, [idea({ kind: 'happy-customer', title: 'Why Maria loves her walls', teaser: 'Maria tells her story.', customer: 'Maria' }), idea({ title: 'Get 20% off every job' }), idea({})]);
+    check('checkNextAds: a reviewer or a name the website never says and a number it never says are caught', madeUp.some((p) => p.startsWith('#2: the customer "Maria"')) && madeUp.some((p) => p.includes('"Maria" is not')) && madeUp.some((p) => p.includes('"20"')), madeUp.join('; '));
   }
 
   // 16. -----------------------------------------------------------------------------------------

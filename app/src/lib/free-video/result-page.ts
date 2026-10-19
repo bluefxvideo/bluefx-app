@@ -7,8 +7,8 @@
  * price on them (offer.ts RESULT_PAGE_PLACEMENTS).
  *
  * The bonuses run CLEAN_COPY_HOURS after the video ad was ready (offer.ts cleanCopyUntil): their free video ad without
- * the logo, and the 3 written video ads made for them within an hour of the purchase (bonus-ads.ts). After that, or
- * without written video ads, every line about them stays off the page.
+ * the logo, and the next 3 video ads, each made with one click in their account after the purchase (bonus-ads.ts).
+ * After that, or without planned video ads, every line about them stays off the page.
  *
  * Client-safe: plain data and pure functions. The owner's copy rules hold everywhere (copywriting-rules): digits, "your"
  * video ad, the customers as the subject, no em dashes, the AI Media Machine by name (never The Phantom).
@@ -132,19 +132,20 @@ export const RESULT_PAGE = {
     guarantee: '30-day money-back guarantee',
     secure: 'Secure checkout · Instant access',
     login: 'Your login arrives by email.',
-    loginWritten: 'Your login arrives by email, and your 3 video ads are ready within an hour.',
+    loginWritten: 'Your login arrives by email, and your 3 video ads are waiting inside.',
     last: `Includes ${MONTH} complete video ads every month · 30-day money-back guarantee`,
   },
 
   written: {
-    title: 'Your next 3 video ads are already written.',
+    /** Only a teaser is planned now; each video ad is made when the buyer clicks it (owner 2026-10-19, bonus-ads.ts). */
+    title: 'Your next 3 video ads are ready to make.',
     text: (domain: string, day: string | null) =>
-      `Video ads #2, #3 and #4 for ${domain} wait inside the AI Media Machine, the AI that made your free sample. Get the AI Media Machine ${day ? `by ${day}` : 'while your bonus runs'}, and all 3 video ads are ready to post within an hour.`,
+      `Video ads #2, #3 and #4 for ${domain} wait inside the AI Media Machine, the AI that made your free sample. Get the AI Media Machine ${day ? `by ${day}` : 'while your bonus runs'}, and each one is ready to post about 3 minutes after you click it.`,
     length: '0:40',
-    chip: 'Made for you within an hour',
+    chip: 'Ready with one click',
     meta: 'AI presenter · voice-over · music · captions',
     alt: (n: number, title: string) => `Video ad ${n}: ${title}`,
-    writing: (n: number) => `Writing video ad #${n}…`,
+    writing: (n: number) => `Planning video ad #${n}…`,
   },
 
   stack: {
@@ -154,10 +155,10 @@ export const RESULT_PAGE = {
         { text: 'A new video ad every 3 days, so new customers keep finding you' },
         { text: 'The AI Media Machine, yours for life' },
         { text: `${MONTH} complete video ads every month` },
-        written ? { text: `Your 3 written video ads for ${domain}` } : null,
+        written ? { text: `Your next 3 video ads for ${domain}` } : null,
         { text: 'Change anything in about 3 minutes' },
         bonus ? { bonus: true, text: 'your free video ad, without our BlueFX logo' } : null,
-        written ? { bonus: true, text: `your 3 written video ads, made for you within an hour, on top of your ${MONTH} video ads a month` } : null,
+        written ? { bonus: true, text: `your 3 video ads, each made with one click, on top of your ${MONTH} video ads a month` } : null,
       ].filter((item): item is { text: string; bonus?: boolean } => item !== null),
     bonusLabel: 'Bonus:',
     value: `Hiring out ${YEAR} video ads a year like yours would cost about ${FREELANCER_YEAR}.`,
@@ -273,7 +274,7 @@ export const RESULT_PAGE = {
   ps: {
     /** Only while the 3 written video ads are a bonus; otherwise the math is the only P.S. */
     ps: (name: string, domain: string, when: string | null) =>
-      `${name}, your 3 written video ads for ${domain} are waiting. Get the AI Media Machine ${when ? `by ${when}` : 'while your bonus runs'}, and all 3 video ads are ready to post within an hour, on top of your ${MONTH} video ads a month.`,
+      `${name}, your next 3 video ads for ${domain} are waiting. Get the AI Media Machine ${when ? `by ${when}` : 'while your bonus runs'}, and each one is ready to post about 3 minutes after you click it, on top of your ${MONTH} video ads a month.`,
     pps: (domain: string) =>
       `Here's the math. A freelancer charges about $${FREELANCER} for one video ad like yours. With the AI Media Machine, you can make ${YEAR} video ads a year for ${domain}. Hiring a freelancer for those ${YEAR} video ads would cost about `,
     ppsStrong: `${FREELANCER_YEAR} a year`,

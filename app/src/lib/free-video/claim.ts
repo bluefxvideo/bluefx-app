@@ -20,7 +20,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { createAdminClient } from '@/app/supabase/server';
 import { claimsTestLeads, fakeMode, OWNER_TEST_EMAILS, renderTargetAllowed } from '@/lib/free-video/config';
-import { bonusEarned, startBonusAds } from '@/lib/free-video/bonus-ads';
+import { offerBonusAds } from '@/lib/free-video/bonus-ads';
 import { asLead, customerIdByEmail, getLead, leadsTable, ownerAccountIdByEmail, readSettings, RETIRED_OWNER_TEST } from '@/lib/free-video/leads';
 import { cleanCopyEarned } from '@/lib/free-video/offer';
 import { checkCleanFile, cleanProps, inBackground } from '@/lib/free-video/unlock';
@@ -247,8 +247,8 @@ export async function copyLeadsToAccounts(own: (query: any) => any): Promise<num
         await claimFreeVideo(lead, userId);
         started++;
       }
-      // A purchase while the bonus ran: the 3 written video ads are made in the account (bonus-ads.ts).
-      if (bonusEarned(lead)) await startBonusAds(lead, userId);
+      // A purchase while the bonus ran: the 3 planned video ads wait in the account, each made on a click (bonus-ads.ts).
+      await offerBonusAds(lead, userId);
     } catch (failure) {
       console.error(`❌ [free-video] Sweep: copying lead ${lead.id} to its account failed:`, failure);
     }

@@ -636,9 +636,6 @@ function ResultScene({ domain }: { domain: string }) {
 
 function WrittenAd({ ad }: { ad: FreeVideoNextAdCard }) {
   const { written } = RESULT_PAGE;
-  // The yellow words run to the end of the line, its question mark or full stop included.
-  const at = ad.highlight ? ad.hook.toLowerCase().lastIndexOf(ad.highlight.toLowerCase()) : -1;
-  const cut = at > 0 && ad.hook.length - (at + ad.highlight.length) <= 2 ? at : ad.hook.length;
   return (
     <li className={styles.ad}>
       <div className={styles.adFrame}>
@@ -646,13 +643,8 @@ function WrittenAd({ ad }: { ad: FreeVideoNextAdCard }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={ad.imageUrl} alt={written.alt(ad.n, ad.title)} loading="lazy" />
         )}
-        <div className={styles.adShade} />
         <span className={styles.adNumber}>#{ad.n}</span>
         <span className={styles.adLength}>{written.length}</span>
-        <p className={styles.adHook}>
-          {ad.hook.slice(0, cut)}
-          {cut < ad.hook.length && <span className={styles.adHighlight}>{ad.hook.slice(cut)}</span>}
-        </p>
         <span className={styles.adChip}>
           <Sparkle />
           {written.chip}
@@ -660,13 +652,14 @@ function WrittenAd({ ad }: { ad: FreeVideoNextAdCard }) {
       </div>
       <div className={styles.adText}>
         <p className={styles.adTitle}>{ad.title}</p>
+        <p className={styles.adTeaser}>{ad.teaser}</p>
         <p className={styles.adMeta}>{written.meta}</p>
       </div>
     </li>
   );
 }
 
-/** A card while its video ad is still being written (the page asks again every few seconds). */
+/** A card while its video ad is still being planned (the page asks again every few seconds). */
 function WritingCard({ n }: { n: number }) {
   return (
     <li className={styles.ad}>

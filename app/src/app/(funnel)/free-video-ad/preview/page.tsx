@@ -65,12 +65,12 @@ const ready = (id: string, extra: Partial<FreeVideoView> = {}): FreeVideoView =>
   ...extra,
 });
 
-/** The next 3 video ads of a real dry run (next-ads-try.ts on jmpaintingservices.com, 2026-10-19), frames in storage. */
+/** The next 3 video ads of a real dry run (next-ads-try.ts on jmpaintingservices.com, 2026-10-19), pictures in storage. */
 const WRITTEN_FRAMES = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/free-video/next-ads/preview';
 const WRITTEN: FreeVideoNextAdCard[] = [
-  { n: 2, kind: 'happy-customer', hook: 'They did an amazing job on my walls.', highlight: 'job on my walls', title: 'Real customer review from Christine', imageUrl: `${WRITTEN_FRAMES}/n2.jpg` },
-  { n: 3, kind: 'problem-fixer', hook: "Is dirty siding reducing your home's curb appeal?", highlight: "home's curb appeal", title: 'Fixing dirty exterior siding before repainting', imageUrl: `${WRITTEN_FRAMES}/n3.jpg` },
-  { n: 4, kind: 'act-now', hook: 'Get a free on-site estimate within 24 hours', highlight: 'within 24 hours', title: 'How to get a free estimate today', imageUrl: `${WRITTEN_FRAMES}/n4.jpg` },
+  { n: 2, kind: 'happy-customer', title: 'Why Christine loves her clean paint job', teaser: 'Christine shares how the painters arrived on time, left no mess, and double checked her satisfaction.', imageUrl: `${WRITTEN_FRAMES}/n2.jpg?v=jm8` },
+  { n: 3, kind: 'problem-fixer', title: 'The faded exterior siding needing fresh paint', teaser: 'A presenter points to dirty, faded exterior siding and explains how surface washing and painting fixes it.', imageUrl: `${WRITTEN_FRAMES}/n3.jpg?v=jm8` },
+  { n: 4, kind: 'act-now', title: 'Your free estimate booked within 24 hours', teaser: 'A presenter holds a clipboard and explains how to get a clear, zero-pressure quote today.', imageUrl: `${WRITTEN_FRAMES}/n4.jpg?v=jm8` },
 ];
 const WRITTEN_DOMAIN = 'jmpaintingservices.com';
 
@@ -114,20 +114,20 @@ const FIXTURES: Fixture[] = [
   { id: 'checking', label: 'checking: held for the final check', placement: 'fvthank', view: waiting('checking', { state: 'checking' }) },
   {
     id: 'result',
-    label: 'RESULT PAGE: the 2 bonuses run, the next 3 video ads are written (the page a lead sees, 2026-10-19)',
+    label: 'RESULT PAGE: the 2 bonuses run, the next 3 video ads are planned (the page a lead sees, 2026-10-19)',
     placement: 'fvthank',
     view: ready('result', { domain: WRITTEN_DOMAIN, firstName: 'John', nextAds: WRITTEN }),
   },
   {
     id: 'result-writing',
-    label: 'RESULT PAGE: the video ad is ready, its next 3 video ads are still being written',
+    label: 'RESULT PAGE: the video ad is ready, its next 3 video ads are still being planned',
     placement: 'fvthank',
     view: ready('result-writing', { domain: WRITTEN_DOMAIN, firstName: 'John', nextAdsPending: true }),
   },
-  { id: 'result-no-ads', label: 'RESULT PAGE: the bonus runs, no written video ads (the writing failed)', placement: 'fvpage', view: ready('result-no-ads', { firstName: 'John' }) },
+  { id: 'result-no-ads', label: 'RESULT PAGE: the bonus runs, no planned video ads (the planning failed)', placement: 'fvpage', view: ready('result-no-ads', { firstName: 'John' }) },
   {
     id: 'result-late',
-    label: 'RESULT PAGE: visited after the 3-day bonus: no timer, no bonus lines, no written video ads',
+    label: 'RESULT PAGE: visited after the 3-day bonus: no timer, no bonus lines, no planned video ads',
     placement: 'fvpage',
     view: ready('result-late', { domain: WRITTEN_DOMAIN, firstName: 'John', nextAds: WRITTEN, cleanUntil: undefined }),
   },

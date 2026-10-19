@@ -181,27 +181,23 @@ export interface FreeVideoLead {
 /** The kinds of the next 3 video ads (lib/free-video/next-ads.ts). why-us stands in for happy-customer on a website without reviews. */
 export type FreeVideoNextAdKind = 'happy-customer' | 'why-us' | 'problem-fixer' | 'act-now';
 
-/** One of the next 3 video ads written for a finished free video ad, as stored on the lead. */
+/** One of the next 3 video ads planned for a finished free video ad, as stored on the lead: a teaser and the presenter's picture. */
 export interface FreeVideoNextAd {
   /** #2, #3 and #4: the free video ad is #1. */
   n: 2 | 3 | 4;
   kind: FreeVideoNextAdKind;
-  /** The opening line, on the card's first frame. */
-  hook: string;
-  /** The last words of the hook, shown in yellow. */
-  highlight: string;
+  /** The card's catchy title. */
   title: string;
-  /** The happy customer: the review sentence the hook quotes, and the name the website gives. */
-  quote?: string | null;
+  /** One line saying what the video ad shows (a teaser, not the script: the script is written when the buyer makes it). */
+  teaser: string;
+  /** The happy customer: the reviewer's first name as the website gives it. */
   customer?: string | null;
-  /** What the video ad says and shows; the bonus video ad is made from it after the purchase (bonus-ads.ts). */
-  brief: string;
   /** The free job's photo the ad uses (its asset id), or null. */
   photo?: string | null;
-  /** The first frame, described, and what the presenter does while saying the first words. */
+  /** The presenter's picture, described, and what the presenter does while saying the first words. */
   frame: string;
   action?: string | null;
-  /** The first frame, 4:5; null when the drawing failed. */
+  /** The presenter's picture, 4:5; null when the drawing failed. */
   imageUrl: string | null;
 }
 
@@ -209,14 +205,31 @@ export interface FreeVideoNextAd {
 export interface FreeVideoNextAds {
   business: string;
   ads: FreeVideoNextAd[];
-  /** What the checks found (a quote that is not on the website, a number the website never says); empty when clean. */
+  /** What the checks found (a reviewer the website never names, a number it never says); empty when clean. */
   problems: string[];
   costUsd: number;
   writtenAt: string;
+  /** The account that bought while the bonus ran: its AI Media Machine shows the 3, each made on a click (bonus-ads.ts). */
+  buyerId?: string;
 }
 
-/** A written video ad as the result page shows it. */
-export type FreeVideoNextAdCard = Pick<FreeVideoNextAd, 'n' | 'kind' | 'hook' | 'highlight' | 'title' | 'imageUrl'>;
+/** A bonus video ad waiting in a buyer's AI Media Machine (bonus-ads.ts bonusVideoAdsOf): its card, and how far it is. */
+export interface BonusVideoAd {
+  leadId: string;
+  n: 2 | 3 | 4;
+  /** The website the free video ad was made from, as people read it. */
+  site: string;
+  title: string;
+  teaser: string;
+  imageUrl: string | null;
+  /** The video ad's job id once it is made (the same every time). */
+  jobId: string;
+  /** new: not clicked yet; making: being made; done: in Your video ads; failed: a click makes it again. */
+  state: 'new' | 'making' | 'done' | 'failed';
+}
+
+/** A planned video ad as the result page shows it. */
+export type FreeVideoNextAdCard = Pick<FreeVideoNextAd, 'n' | 'kind' | 'title' | 'teaser' | 'imageUrl'>;
 
 /** A patch for transitionLead(); id and created_at never change. */
 export type FreeVideoLeadPatch = Partial<Omit<FreeVideoLead, 'id' | 'created_at'>>;

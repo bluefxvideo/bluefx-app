@@ -1,39 +1,38 @@
 /**
- * The 3 bonus video ads (owner 2026-10-19: "made when / after they buy"): a lead who buys the AI Media Machine while
- * the 2 free bonuses run (CLEAN_COPY_HOURS after the free video ad was ready) gets the next 3 video ads the result page
- * showed (next-ads.ts) made in the new account, at no credits, "ready to post within an hour" as the page promises.
+ * The 3 bonus video ads (owner 2026-10-19): a lead who buys the AI Media Machine while the 2 free bonuses run (72 hours
+ * after the free video ad was ready) gets the next 3 video ads the result page showed (next-ads.ts) in the new
+ * account, each made at no credits when the buyer clicks it (owner: "They click on it, and I think that's simple as it
+ * gets"; nothing is written or made before that click).
  *
- * - The 3 rows show in Your video ads at once; they are made one after the other (3 renders at once would slow every
- *   paying user's video down), and the ones whose turn has not come say so (job.bonus.waiting, kept alive by a
- *   heartbeat so they never look dead).
- * - Each is a normal Phantom job with an AI presenter: the director writes the script from the website's text and
- *   the written ad's brief, and the presenter is the person on the card the buyer saw (the card's first frame, made
- *   vertical), so the video ad opens the way its card did.
- * - The website's text and photos come from the free job (no second read of the website); a free job whose working
- *   files are gone reads the website again.
- * - The ids come from the lead, the account and the number, so a second start (the sweep runs every few minutes) finds
- *   the same rows. One that died with its server (a deploy) or failed is made again once; one that fails twice stays
- *   failed with a plain line, and the owner gets an alert.
+ * - The sweep hands the lead's 3 to the account (offerBonusAds: next_ads.buyerId) once the purchase is paired with the
+ *   lead and the account exists (claim.ts copyLeadsToAccounts).
+ * - Make a Video Ad lists them (bonusVideoAdsOf) and a click makes one (makeBonusVideoAd): a normal Phantom job with an
+ *   AI presenter, written by the director from the website's text and the card's title and teaser. The presenter is
+ *   the person on the card (the card's picture made vertical), so the video ad opens the way its card did. The
+ *   website's text and photos come from the free job (no second read of the website); a free job whose working files
+ *   are gone reads the website again.
+ * - The job's id comes from the lead, the account and the number: a second click opens the same video ad. One that
+ *   failed (or died with its server) is made again on the next click, at no credits, up to MAX_ATTEMPTS; the owner
+ *   gets an alert from the second failure on.
  *
- * Server only. The sweep calls startBonusAds from copyLeadsToAccounts (claim.ts) for every lead that bought.
+ * Server only. NEVER re-export anything from here in a server-action file (actions/tools/bonus-video-ads.ts wraps it).
  */
 import { createHash } from 'node:crypto';
 import { alertOwner } from '@/lib/free-video/alerts';
-import { CLEAN_COPY_HOURS } from '@/lib/free-video/offer';
+import { getLead, leadsTable } from '@/lib/free-video/leads';
 import { websiteTextOf } from '@/lib/free-video/next-ads';
+import { CLEAN_COPY_HOURS } from '@/lib/free-video/offer';
 import { inBackground } from '@/lib/free-video/unlock';
 import { displayDomain } from '@/lib/free-video/website';
-import { createJob, jobsTable, runSmartVideoJob, type SavedPlan, STALE_AFTER_MS, touchJob, writeJob } from '@/lib/smart-video/jobs';
+import { createJob, jobsTable, runSmartVideoJob, type SavedPlan, STALE_AFTER_MS } from '@/lib/smart-video/jobs';
 import type { ClientFile } from '@/lib/smart-video/prepare-assets';
 import { usage } from '@/lib/smart-video/usage';
-import type { FreeVideoLead, FreeVideoNextAd } from '@/types/free-video';
+import type { BonusVideoAd, FreeVideoLead, FreeVideoNextAd, FreeVideoNextAdKind } from '@/types/free-video';
 import type { SmartVideoJob } from '@/types/smart-video';
 
 const HOUR_MS = 3_600_000;
-/** A bonus video ad is made at most twice (a death or a failure, then once more). */
-const MAX_ATTEMPTS = 2;
-/** What the buyer reads on a bonus video ad that could not be made, twice. */
-export const BONUS_FAILED = 'This bonus video ad could not be made. We are on it: it shows up here as soon as it is made, at no credits.';
+/** A bonus video ad is made at most this many times (a failure or a death, then again on the next click). */
+const MAX_ATTEMPTS = 3;
 
 const PRESENTER_MODEL = 'openai/gpt-image-2.5/flare/edit';
 
@@ -44,7 +43,7 @@ export function bonusIdOf(leadId: string, userId: string, n: number): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
-/** Whether a lead's purchase earns the 3 bonus video ads: bought while the bonus ran, with its 3 written. A customer who already had the AI Media Machine never bought through the page. */
+/** Whether a lead's purchase earns the 3 bonus video ads: bought while the bonus ran, with its 3 planned. A customer who already had the AI Media Machine never bought through the page. */
 export function bonusEarned(lead: Pick<FreeVideoLead, 'status' | 'is_customer' | 'bought_at' | 'finished_at' | 'next_ads'>): boolean {
   if (lead.status !== 'done' || lead.is_customer || !lead.bought_at || !lead.finished_at) return false;
   if ((lead.next_ads?.ads?.length ?? 0) !== 3) return false;
@@ -53,143 +52,139 @@ export function bonusEarned(lead: Pick<FreeVideoLead, 'status' | 'is_customer' |
   return Number.isFinite(bought) && Number.isFinite(finished) && bought <= finished + CLEAN_COPY_HOURS * HOUR_MS;
 }
 
-/** The note the director reads beside the website's text; its first line is the video ad's name in Your video ads. */
-function noteOf(ad: FreeVideoNextAd, domain: string): string {
-  return [
-    ad.title,
-    `Make this video ad for ${domain}: ${ad.brief}`,
-    `Open the video ad with this line, word for word: "${ad.hook}"`,
-    'A presenter says that first line on camera.',
-  ].join('\n');
+/** The sweep's share: the lead's 3 become the account's (once). Throws on a failed write, so the next sweep tries again. */
+export async function offerBonusAds(lead: FreeVideoLead, userId: string): Promise<void> {
+  if (!bonusEarned(lead) || !lead.next_ads || lead.next_ads.buyerId === userId) return;
+  const { error } = await leadsTable()
+    .update({ next_ads: { ...lead.next_ads, buyerId: userId } })
+    .eq('id', lead.id);
+  if (error) throw new Error(`The bonus video ads of lead ${lead.id} could not be handed to the account: ${error.message}`);
+  console.log(`✅ [free-video] Lead ${lead.id}: its 3 bonus video ads wait in account ${userId}`);
 }
 
-/** Leads whose bonus video ads this process is making: a second start does nothing. */
-const making = new Set<string>();
+/** What the director is told beside the website's text, by kind; the card only promised a teaser. */
+const KIND_NOTE: Record<FreeVideoNextAdKind, (ad: FreeVideoNextAd) => string> = {
+  'happy-customer': (ad) =>
+    `A presenter tells the story of a real customer review on the website${ad.customer ? `, the one from ${ad.customer}` : ''}, as that customer, in the review's own words, with nothing the review does not say. Then one line about the business and its offer, and the call to action.`,
+  'why-us': () => 'Show why customers choose this business, from facts only this business has: its years, licenses, guarantees, awards, what is included, how it works.',
+  'problem-fixer': () => "Open with the problem the business's main service fixes, the one most of its customers have, in their own everyday words. Then show how this business solves it, with its real services and details.",
+  'act-now': () => "Lead with the business's best real offer from the website, and end with exactly how to get it: call, book, order or visit the website.",
+};
+
+/** The note the director reads beside the website's text; its first line is the video ad's name in Your video ads. */
+function noteOf(ad: FreeVideoNextAd, domain: string): string {
+  return [ad.title, `Make this video ad for ${domain}: ${ad.teaser}`, KIND_NOTE[ad.kind](ad), 'A presenter says the first line on camera.'].join('\n');
+}
 
 type Row = { id: string; status: string; job: SmartVideoJob; updated_at: string };
 
-/**
- * Starts (or picks up) the 3 bonus video ads of a lead in its buyer's account. Returns at once; the 3 are made in the
- * background. Safe to call again: rows that exist are not made twice, and a run another server is doing is left alone.
- */
-export async function startBonusAds(lead: FreeVideoLead, userId: string): Promise<void> {
-  if (making.has(lead.id) || !bonusEarned(lead) || !lead.next_ads) return;
-  const ads = lead.next_ads.ads;
-  const ids = ads.map((ad) => bonusIdOf(lead.id, userId, ad.n));
-  const { data, error } = await jobsTable().select('id, status, job, updated_at').in('id', ids).eq('user_id', userId);
-  if (error) throw new Error(`The bonus video ads could not be read: ${error.message}`);
-  const rows = new Map(((data ?? []) as Row[]).map((row) => [row.id, row]));
-  const alive = (row: Row) => row.status !== 'done' && row.status !== 'failed' && Date.now() - Date.parse(row.updated_at) < STALE_AFTER_MS;
-  // Another server is making them (its heartbeat is fresh): leave it alone.
-  if ([...rows.values()].some(alive)) return;
-  const todo = ads.filter((ad, index) => {
-    const row = rows.get(ids[index]);
-    if (!row) return true;
-    if (row.status === 'done') return false;
-    return (row.job.bonus?.attempt ?? 1) < MAX_ATTEMPTS;
+const working = (row: Row) => row.status !== 'done' && row.status !== 'failed' && Date.now() - Date.parse(row.updated_at) < STALE_AFTER_MS;
+
+/** The bonus video ads waiting in an account, with how far each one is. Throws on a failed read. */
+export async function bonusVideoAdsOf(userId: string): Promise<BonusVideoAd[]> {
+  const { data, error } = await leadsTable().select('id, website_domain, next_ads').eq('next_ads->>buyerId', userId).limit(5);
+  if (error) throw new Error(error.message);
+  const leads = (data ?? []) as Pick<FreeVideoLead, 'id' | 'website_domain' | 'next_ads'>[];
+  const cards = leads.flatMap((lead) => (lead.next_ads?.ads ?? []).map((ad) => ({ lead, ad, jobId: bonusIdOf(lead.id, userId, ad.n) })));
+  if (!cards.length) return [];
+  const { data: jobs, error: jobsError } = await jobsTable()
+    .select('id, status, job, updated_at')
+    .in(
+      'id',
+      cards.map((card) => card.jobId)
+    )
+    .eq('user_id', userId);
+  if (jobsError) throw new Error(jobsError.message);
+  const rows = new Map(((jobs ?? []) as Row[]).map((row) => [row.id, row]));
+  return cards.map(({ lead, ad, jobId }) => {
+    const row = rows.get(jobId);
+    const state: BonusVideoAd['state'] = !row ? 'new' : row.status === 'done' ? 'done' : working(row) ? 'making' : 'failed';
+    return { leadId: lead.id, n: ad.n, site: displayDomain(lead.website_domain), title: ad.title, teaser: ad.teaser, imageUrl: ad.imageUrl, jobId, state };
   });
-  if (!todo.length) return;
-
-  const domain = displayDomain(lead.website_domain);
-  const now = new Date().toISOString();
-  // Every row that is not there yet shows at once, waiting for its turn.
-  for (const [index, ad] of ads.entries()) {
-    if (rows.has(ids[index])) continue;
-    const job: SmartVideoJob = {
-      id: ids[index],
-      userId,
-      status: 'reading',
-      brief: noteOf(ad, domain),
-      link: lead.website_url,
-      length: 'auto',
-      format: 'vertical',
-      look: 'auto',
-      voiceOver: true,
-      music: true,
-      presenter: true,
-      creditsUsed: 0,
-      bonus: { leadId: lead.id, n: ad.n, site: domain, waiting: true, attempt: 1 },
-      createdAt: now,
-      updatedAt: now,
-    };
-    try {
-      await createJob(job);
-      rows.set(job.id, { id: job.id, status: job.status, job, updated_at: now });
-    } catch (failure) {
-      // Written a moment ago by another start: that one makes it.
-      if (!/duplicate|unique/i.test(String(failure))) throw failure;
-      return;
-    }
-  }
-
-  making.add(lead.id);
-  console.log(`🔄 [free-video] Lead ${lead.id}: making ${todo.length} bonus video ads in account ${userId}`);
-  inBackground(`The bonus video ads of lead ${lead.id}`, () =>
-    makeInTurn(lead, userId, todo.map((ad) => ({ ad, row: rows.get(bonusIdOf(lead.id, userId, ad.n)) as Row }))).finally(() => making.delete(lead.id))
-  );
 }
 
-/** Makes the bonus video ads one after the other; the waiting ones keep a heartbeat. */
-async function makeInTurn(lead: FreeVideoLead, userId: string, queue: { ad: FreeVideoNextAd; row: Row }[]): Promise<void> {
-  const waiting = new Set(queue.map(({ row }) => row.id));
-  const heartbeat = setInterval(() => waiting.forEach((id) => void touchJob(id).catch(() => undefined)), 45_000);
+/**
+ * Makes bonus video ad n of a lead in the account (a click on Make a Video Ad), at no credits, and returns its job id.
+ * A video ad already made or being made returns its id; one that failed or died is made again. Throws a plain message
+ * when the lead's bonus is not this account's.
+ */
+export async function makeBonusVideoAd(userId: string, leadId: string, n: number, viaAfter = false): Promise<string> {
+  const lead = await getLead(leadId);
+  const ad = lead?.next_ads?.ads.find((item) => item.n === n);
+  if (!lead || !ad || lead.next_ads?.buyerId !== userId) throw new Error('This bonus video ad is not in your account.');
+  const jobId = bonusIdOf(lead.id, userId, n);
+  const domain = displayDomain(lead.website_domain);
+  const { data, error } = await jobsTable().select('id, status, job, updated_at').eq('id', jobId).eq('user_id', userId).maybeSingle();
+  if (error) throw new Error(`Your bonus video ad could not be read: ${error.message}`);
+  const row = data as Row | null;
+  if (row && (row.status === 'done' || working(row))) return jobId;
+
+  const now = new Date().toISOString();
+  const attempt = row ? (row.job.bonus?.attempt ?? 1) + 1 : 1;
+  if (attempt > MAX_ATTEMPTS) return jobId;
+  const job: SmartVideoJob = {
+    id: jobId,
+    userId,
+    status: 'reading',
+    brief: noteOf(ad, domain),
+    link: lead.website_url,
+    length: 'auto',
+    format: 'vertical',
+    look: 'auto',
+    voiceOver: true,
+    music: true,
+    presenter: true,
+    creditsUsed: 0,
+    bonus: { leadId: lead.id, n: ad.n, site: domain, attempt },
+    createdAt: row?.job.createdAt ?? now,
+    updatedAt: now,
+  };
+  if (row) {
+    // A direct save: a failed row goes back to work (writeJob never revives a final one).
+    const { error: saveError } = await jobsTable().update({ status: job.status, job, updated_at: now }).eq('id', jobId).eq('user_id', userId);
+    if (saveError) throw new Error(`Your bonus video ad could not start: ${saveError.message}`);
+  } else {
+    try {
+      await createJob(job);
+    } catch (failure) {
+      // Two clicks at the same moment: the first one makes it.
+      if (/duplicate|unique/i.test(String(failure))) return jobId;
+      throw failure;
+    }
+  }
+  console.log(`🔄 [free-video] Bonus video ad #${n} of lead ${lead.id} starts in account ${userId} (attempt ${attempt})`);
+  inBackground(`Bonus video ad #${n} of lead ${lead.id}`, () => makeIt(lead, ad, job), viaAfter);
+  return jobId;
+}
+
+/** One bonus video ad, made like any Phantom job, with the free job's material and the card's presenter. */
+async function makeIt(lead: FreeVideoLead, ad: FreeVideoNextAd, job: SmartVideoJob): Promise<void> {
   const material = await materialOf(lead).catch((error) => {
     console.warn(`⚠️ [free-video] Lead ${lead.id}: the free job's text and photos could not be read, the website is read again:`, String(error).slice(0, 160));
     return null;
   });
-  const failed: number[] = [];
-  try {
-    for (const { ad, row } of queue) {
-      waiting.delete(row.id);
-      const attempt = row.status === 'reading' && row.job.bonus?.waiting && !row.job.error ? (row.job.bonus?.attempt ?? 1) : (row.job.bonus?.attempt ?? 1) + 1;
-      const start: SmartVideoJob = {
-        ...row.job,
-        status: 'reading',
-        error: undefined,
-        videoUrl: undefined,
-        renderProgress: undefined,
-        bonus: { ...(row.job.bonus as NonNullable<SmartVideoJob['bonus']>), waiting: false, attempt },
-        updatedAt: new Date().toISOString(),
-      };
-      // A direct save: a failed row goes back to work (writeJob never revives a final one).
-      const { error } = await jobsTable().update({ status: start.status, job: start, updated_at: start.updatedAt }).eq('id', start.id).eq('user_id', userId);
-      if (error) {
-        console.error(`❌ [free-video] Bonus video ad ${start.id} could not start:`, error.message);
-        failed.push(ad.n);
-        continue;
-      }
-      await runSmartVideoJob(start, [], {
-        ...(material ? { readLink: async () => material } : {}),
-        options: (base) => ({ ...base, presenter: true, presenterCast: ad.imageUrl ? () => presenterFromCard(ad, ad.imageUrl as string) : undefined }),
-      });
-      const { data: after } = await jobsTable().select('status, job').eq('id', start.id).maybeSingle();
-      if (after?.status === 'done') {
-        console.log(`✅ [free-video] Bonus video ad #${ad.n} of lead ${lead.id} is ready in account ${userId}`);
-        continue;
-      }
-      failed.push(ad.n);
-      // The second failure stays: one plain line for the buyer, and the owner hears about it.
-      if (attempt >= MAX_ATTEMPTS && after?.job) {
-        await writeJob({ ...(after.job as SmartVideoJob), id: start.id }, { status: 'failed', error: BONUS_FAILED }).catch(() => undefined);
-      }
-    }
-  } finally {
-    clearInterval(heartbeat);
+  await runSmartVideoJob(job, [], {
+    ...(material ? { readLink: async () => material } : {}),
+    options: (base) => ({ ...base, presenter: true, presenterCast: ad.imageUrl ? () => presenterFromCard(ad, ad.imageUrl as string) : undefined }),
+  });
+  const { data } = await jobsTable().select('status').eq('id', job.id).maybeSingle();
+  if (data?.status === 'done') {
+    console.log(`✅ [free-video] Bonus video ad #${ad.n} of lead ${lead.id} is ready in account ${job.userId}`);
+    return;
   }
-  if (failed.length) {
-    await alertOwner(
-      [
-        {
-          key: `bonus:${lead.id}:${failed.join('-')}:${queue.length}`,
-          line: `Bonus video ads ${failed.map((n) => `#${n}`).join(', ')} of ${lead.website_domain} (lead ${lead.id}) failed in the buyer's account ${userId}. The sweep tries a failed one once more; after that it needs a person.`,
-        },
-      ],
-      'a bonus video ad failed'
-    ).catch(() => undefined);
-  }
+  if ((job.bonus?.attempt ?? 1) < 2) return;
+  await alertOwner(
+    [
+      {
+        key: `bonus:${lead.id}:${ad.n}:${job.bonus?.attempt}`,
+        line: `Bonus video ad #${ad.n} of ${lead.website_domain} (lead ${lead.id}) failed again in the buyer's account ${job.userId} (attempt ${job.bonus?.attempt} of ${MAX_ATTEMPTS}). The buyer can click it once more; after that it needs a person.`,
+      },
+    ],
+    'a bonus video ad failed'
+  ).catch(() => undefined);
 }
 
-/** The free job's website text and its real photos, as the bonus jobs read them instead of the website. */
+/** The free job's website text and the website's own pictures (photos, products, the logo), as the bonus job reads them instead of the website. */
 async function materialOf(lead: FreeVideoLead): Promise<{ brief: string; files: ClientFile[] } | null> {
   if (!lead.job_id || lead.files_cleaned_at) return null;
   const { data, error } = await jobsTable().select('plan').eq('id', lead.job_id).maybeSingle();
@@ -197,7 +192,6 @@ async function materialOf(lead: FreeVideoLead): Promise<{ brief: string; files: 
   const saved = data.plan as SavedPlan;
   const brief = websiteTextOf(saved).trim();
   if (brief.length < 200) return null;
-  // The website's own pictures the free job kept (photos, products and the logo), never what it made from them.
   const media = saved.media?.assets ?? {};
   const own = (saved.plan?.assets ?? []).filter((asset) => ['photo', 'product', 'logo'].includes(asset.role) && media[asset.id]?.kind === 'image' && media[asset.id]?.url);
   const files: ClientFile[] = [];
@@ -215,8 +209,8 @@ async function materialOf(lead: FreeVideoLead): Promise<{ brief: string; files: 
   return { brief, files };
 }
 
-/** The person on the card as the video's presenter: the card's 4:5 first frame made vertical, the same person and place (about $0.07). */
-export async function presenterFromCard(ad: FreeVideoNextAd, frameUrl: string): Promise<{ photo: Buffer; action: string }> {
+/** The person on the card as the video's presenter: the card's 4:5 picture made vertical, the same person and place (about $0.07). */
+export async function presenterFromCard(ad: Pick<FreeVideoNextAd, 'action'>, frameUrl: string): Promise<{ photo: Buffer; action: string }> {
   const key = process.env.FAL_KEY;
   if (!key) throw new Error('FAL_KEY not configured');
   const res = await fetch(`https://fal.run/${PRESENTER_MODEL}`, {

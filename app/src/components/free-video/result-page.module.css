@@ -1142,6 +1142,13 @@
   color: var(--ink);
 }
 
+.adTeaser {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--body);
+}
+
 .adMeta {
   margin: 0;
   font-size: 13px;

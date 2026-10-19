@@ -698,9 +698,8 @@ function nextAdCardsOf(lead: FreeVideoLead): FreeVideoNextAdCard[] | null {
   return ads.map((ad, index) => ({
     n: ad.n,
     kind: ad.kind,
-    hook: ad.hook,
-    highlight: ad.highlight,
     title: ad.title,
+    teaser: ad.teaser,
     imageUrl: ad.imageUrl ?? lead.photos?.[index] ?? lead.photos?.[0] ?? null,
   }));
 }
