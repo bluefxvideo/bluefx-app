@@ -13,6 +13,7 @@ import {
   Monitor,
   Plus,
   Smartphone,
+  UserRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -40,9 +41,11 @@ const LONGER_THAN_USUAL_MINUTES = 6;
 
 /** Words in a change that ask for a different person on camera: the change then asks about the presenter's own price. */
 const PERSON_WORDS =
-  /\b(presenter|presenters|person|woman|women|man|men|girl|guy|lady|gentleman|actor|actress|spokesperson|influencer|host|on[- ]camera|myself)\b/i;
-/** A change about the narrator's voice is an ordinary change (the voice-over is re-recorded): no presenter question. */
+  /\b(presenter|presenters|person|woman|women|man|men|girl|guy|lady|gentleman|actor|actress|spokesperson|spokesman|spokeswoman|influencer|host|avatar|face|on[- ]camera|myself)\b/i;
+/** A change about the narrator's voice is an ordinary change (the voice-over is re-recorded): no presenter question... */
 const VOICE_WORDS = /\b(voice|voices|voice-over|voiceover|narrator|narration)\b/i;
+/** ...unless it also names the person on camera ("a woman presenter with a soft voice"). */
+const ON_CAMERA_WORDS = /\b(presenter|presenters|actor|actress|spokesperson|spokesman|spokeswoman|avatar|face|on[- ]camera)\b/i;
 
 const STYLES: { value: VideoLook; label: string; hint: string }[] = [
   { value: 'auto', label: 'AI picks', hint: 'The best fit for your business' },
@@ -150,7 +153,7 @@ function changeText(job: SmartVideoJob): string {
  */
 function plainWarning(warning: string): string {
   if (/tick (Change|Add) (the|a) presenter/i.test(warning)) {
-    return 'To put a different person on camera, type the change (for example "Use a woman presenter") and choose Yes, a new presenter.';
+    return `To put a different person on camera, press Change the person on camera under Type a change. A new presenter costs ${PHANTOM_PRESENTER_CHANGE_CREDITS} credits more than other changes.`;
   }
   return warning;
 }
@@ -947,6 +950,9 @@ function ChangeBox({
   const has = { voiceOver: job.voiceOver !== false, music: job.music !== false };
   const [sound, setSound] = useState(has);
   const [soundOpen, setSoundOpen] = useState(false);
+  // The client asked for the presenter choice with its own button, whatever the words say.
+  const [presenterOpen, setPresenterOpen] = useState(false);
+  const noteInput = useRef<HTMLTextAreaElement>(null);
   const addInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
 
@@ -955,8 +961,11 @@ function ChangeBox({
   const ownOpening = Boolean(opener?.speaker && opener.presenter === false);
   const canHavePresenter = job.format !== 'horizontal' && !job.listing && !ownOpening;
   const hasPresenter = Boolean(opener?.presenter ?? opener?.speaker);
-  // The presenter changes only when the client says yes to its own price (owner rule 2026-10-13), never from the words alone.
-  const asksForPerson = (PERSON_WORDS.test(note) && !VOICE_WORDS.test(note)) || Boolean(photo);
+  // The presenter changes only when the client says yes to its own price (owner rules 2026-10-13 and 2026-10-19: a new
+  // person on camera always costs more than a plain change), never from the words alone. The words only open the
+  // question; the button under the change opens it for any wording.
+  const asksForPerson = Boolean(photo) || (PERSON_WORDS.test(note) && (!VOICE_WORDS.test(note) || ON_CAMERA_WORDS.test(note)));
+  const showPresenter = canHavePresenter && (asksForPerson || presenterOpen);
   const soundChanged = sound.voiceOver !== has.voiceOver || sound.music !== has.music;
   const canChange = note.trim().length >= 3 || soundChanged;
   const presenterTotal = PHANTOM_REVISION_CREDITS + PHANTOM_PRESENTER_CHANGE_CREDITS;
@@ -967,6 +976,7 @@ function ChangeBox({
       setNote('');
       setAdded([]);
       setPhoto(null);
+      setPresenterOpen(false);
     }
   };
   const addFiles = (picked: File[]) => {
@@ -982,6 +992,7 @@ function ChangeBox({
       </label>
       <p className="-mt-1 text-base text-muted-foreground sm:text-[17px]">Say what to change in your own words.</p>
       <textarea
+        ref={noteInput}
         id="mva-change"
         value={note}
         onChange={(e) => setNote(e.target.value)}
@@ -1016,12 +1027,16 @@ function ChangeBox({
         </LinkButton>
       )}
 
-      {asksForPerson && canHavePresenter ? (
+      {showPresenter ? (
         <div className="flex flex-col gap-3 rounded-xl border-2 border-primary bg-primary/5 p-4 sm:p-5">
           <p className="text-lg font-bold sm:text-xl">{hasPresenter ? 'A new person on camera?' : 'A person on camera?'}</p>
           <p className="text-base leading-relaxed sm:text-[17px]">
-            {hasPresenter ? 'Your change asks for a different presenter.' : 'Your change asks for a person on camera.'} A
-            {hasPresenter ? ' new' : ''} presenter costs {PHANTOM_PRESENTER_CHANGE_CREDITS} credits more than other changes.
+            {asksForPerson
+              ? hasPresenter
+                ? 'Your change asks for a different presenter.'
+                : 'Your change asks for a person on camera.'
+              : 'Type who should be on camera in the box above, for example "a woman in her 50s", or add a photo of yourself.'}{' '}
+            A{hasPresenter ? ' new' : ''} presenter costs {PHANTOM_PRESENTER_CHANGE_CREDITS} credits more than other changes.
           </p>
           <input
             ref={photoInput}
@@ -1062,6 +1077,11 @@ function ChangeBox({
             </LinkButton>
           )}
           <p className="text-[15px] text-muted-foreground">If the presenter cannot be made, the {PHANTOM_PRESENTER_CHANGE_CREDITS} credits come back to you.</p>
+          {presenterOpen && !asksForPerson && (
+            <LinkButton onClick={() => setPresenterOpen(false)} disabled={revising}>
+              Back: keep the presenter
+            </LinkButton>
+          )}
         </div>
       ) : (
         <>
@@ -1074,6 +1094,19 @@ function ChangeBox({
             {revising && <Loader2 className="h-5 w-5 animate-spin" />}
             Make the change · {PHANTOM_REVISION_CREDITS} credits
           </BlueButton>
+          {canHavePresenter && (
+            <OutlineButton
+              onClick={() => {
+                setPresenterOpen(true);
+                noteInput.current?.focus();
+              }}
+              disabled={revising}
+              className="w-full"
+            >
+              <UserRound className="h-5 w-5 flex-shrink-0" />
+              {hasPresenter ? 'Change the person on camera' : 'Add a person on camera'} · {presenterTotal} credits
+            </OutlineButton>
+          )}
         </>
       )}
       <p className="text-base leading-relaxed text-muted-foreground">
