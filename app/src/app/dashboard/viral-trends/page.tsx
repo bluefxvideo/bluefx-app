@@ -157,9 +157,9 @@ export default function ViralTrendsPage() {
           </div>
           
           {/* Filter Tabs */}
-          <div className="flex gap-2">
-            <Button 
-              onClick={() => setFilterType('all')} 
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() => setFilterType('all')}
               variant={filterType === 'all' ? 'default' : 'outline'}
               size="sm"
             >

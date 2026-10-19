@@ -44,7 +44,7 @@ export function YouTubeRepurposePage() {
                 className={`text-sm font-medium ${
                   currentStep === step.number
                     ? 'text-foreground'
-                    : 'text-muted-foreground'
+                    : 'hidden sm:inline text-muted-foreground'
                 }`}
               >
                 {step.label}
@@ -52,7 +52,7 @@ export function YouTubeRepurposePage() {
             </div>
             {i < STEPS.length - 1 && (
               <div
-                className={`mx-2 h-px w-12 ${
+                className={`mx-1 sm:mx-2 h-px w-4 sm:w-12 ${
                   currentStep > step.number ? 'bg-green-500' : 'bg-border'
                 }`}
               />

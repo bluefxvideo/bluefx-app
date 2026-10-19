@@ -289,7 +289,7 @@ export default function DashboardPage() {
       </div>
       
       {/* Navigation Tabs */}
-      <div className="flex gap-8 border-b mb-6">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 sm:gap-x-8 border-b mb-6">
         <button 
           className="pb-3 text-sm font-medium text-foreground border-b-2 border-primary"
           onClick={() => router.push('/dashboard')}
@@ -394,7 +394,10 @@ export default function DashboardPage() {
               ))}
             </ol>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => router.push(nextStep?.route || '/dashboard/ai-cinematographer')}>
+              <Button
+                className="h-auto min-h-9 max-w-full shrink whitespace-normal text-center"
+                onClick={() => router.push(nextStep?.route || '/dashboard/ai-cinematographer')}
+              >
                 {nextStep ? nextStep.label : 'Start creating'}
               </Button>
               <Button variant="outline" onClick={() => router.push('/dashboard/script-generator')}>

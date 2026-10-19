@@ -272,7 +272,7 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex gap-8 border-b mb-6">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 sm:gap-x-8 border-b mb-6">
         <button 
           className="pb-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           onClick={() => router.push('/dashboard')}

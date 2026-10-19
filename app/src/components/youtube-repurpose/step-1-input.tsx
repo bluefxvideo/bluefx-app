@@ -242,9 +242,9 @@ export function Step1Input() {
 
       {/* WordPress Connection */}
       <Card className="p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Globe className="h-5 w-5 text-blue-500" />
+            <Globe className="h-5 w-5 shrink-0 text-blue-500" />
             <div>
               <Label className="text-lg font-semibold">WordPress Blog</Label>
               {wordpressConnected && wordpressSiteUrl && (

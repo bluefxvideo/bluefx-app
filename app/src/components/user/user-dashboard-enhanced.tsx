@@ -503,21 +503,21 @@ export function UserDashboardEnhanced() {
               {toolUsage.map((tool, index) => {
                 const Icon = getToolIcon(tool.tool_id)
                 return (
-                  <div key={index} className="flex items-center justify-between p-4 dark:bg-secondary/30 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 rounded-lg">
+                  <div key={index} className="flex items-center justify-between gap-3 p-4 dark:bg-secondary/30 rounded-lg">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="p-2 bg-blue-100 rounded-lg shrink-0">
                         <Icon className="h-5 w-5 text-blue-600" />
                       </div>
-                      <div>
-                        <h4 className="font-medium">
-                          {tool.tool_id.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                      <div className="min-w-0">
+                        <h4 className="font-medium break-words">
+                          {tool.tool_id.replace(/[-_]/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                         </h4>
                         <p className="text-sm text-muted-foreground">
                           Last used: {new Date(tool.last_used).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <div className="font-semibold">{tool.usage_count} uses</div>
                       <div className="text-sm text-muted-foreground">{tool.credits_used} credits</div>
                     </div>

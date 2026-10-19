@@ -235,7 +235,7 @@ export function UploadTab({
               <Button
                 variant="ghost"
                 size="sm"
-                className="w-full justify-between text-muted-foreground"
+                className="w-full h-auto min-h-8 justify-between whitespace-normal text-left text-muted-foreground"
               >
                 <span className="flex items-center gap-2">
                   <Upload className="w-3.5 h-3.5" />
