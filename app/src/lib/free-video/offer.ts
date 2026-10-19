@@ -45,6 +45,27 @@ export function isSalesPagePlacement(value: string): value is SalesPagePlacement
 }
 /** The AI Media Machine's own sales page, the one ClickBank sells from: the price, the stack, the guarantee and the checkout. */
 export const LIFETIME_PAGE_URL = 'https://ai.bluefx.net/lifetime/';
+
+/**
+ * The vendor tracking id a sales page button sends on (owner 2026-10-19, after a $297 sale nobody could place): the
+ * placement and, when the click comes from a lead, the first 8 characters of the lead's id ("fvready_1a2b3c4d": at most
+ * 19 of ClickBank's 24 characters, letters, digits and underscores only). The sales page passes ?vtid= on to its
+ * ClickBank buttons, ClickBank returns it with the sale (Zapier's trackingId), and the sweep pairs the sale with the
+ * lead even when the buyer pays with another email.
+ */
+export function salesPageVtid(placement: SalesPagePlacement, leadId?: string | null): string {
+  const short = String(leadId ?? '').toLowerCase().replace(/[^0-9a-f]/g, '').slice(0, 8);
+  return short.length === 8 ? `${placement}_${short}` : placement;
+}
+
+/** The sales page with the button's vendor tracking id on it (salesPageVtid). */
+export const salesPageUrl = (placement: SalesPagePlacement, leadId?: string | null) => `${LIFETIME_PAGE_URL}?vtid=${salesPageVtid(placement, leadId)}`;
+
+/** The 8 characters of a lead's id inside a sales page vtid ("fvready_1a2b3c4d" → "1a2b3c4d"), null for any other tracking id. */
+export function leadPrefixOfVtid(vtid: string | null | undefined): string | null {
+  const match = /^(?:fvready|fvreadyend|fvland)_([0-9a-f]{8})$/.exec(String(vtid ?? '').trim().toLowerCase());
+  return match ? match[1] : null;
+}
 /** Every lifetime offer button on a funnel page: the pages' own buttons, the offer card's and the result page's buttons to the sales page. A cta_click on one of these is an offer click. */
 export const OFFER_BUTTON_PLACEMENTS = [...PAGE_PLACEMENTS, ...CARD_PLACEMENTS, ...SALES_PAGE_PLACEMENTS] as const satisfies readonly Placement[];
 /** The placements used by the email buttons, in send order (E1, E2, E3). They open the lead's own video ad page, where the offer sits under the video ad. */

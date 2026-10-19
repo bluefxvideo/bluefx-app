@@ -75,6 +75,10 @@ export async function POST(request: NextRequest) {
   // Who drove the sale: ClickBank sends the affiliate nickname, empty when the
   // vendor sold it directly. Kept on the event so sales can be attributed later.
   const affiliate = ((payload.affiliate || payload.affiliate_id || '') as string).trim()
+  // Where the buyer came from: the vendor tracking id on the order link (?vtid=, e.g. fvready_1a2b3c4d from the free
+  // video result page) or an affiliate's tid. Zapier's ClickBank trigger sends it as trackingId (trackingId__@nil
+  // when empty). Kept on the event so the free video sweep can pair the sale with its lead (sweep.ts attributeSales).
+  const trackingId = String(payload.trackingId || payload.tracking_id || payload.vtid || payload.tid || '').trim().slice(0, 64)
   const targetProductIds = [monthlyProductId, monthlyProductId2, yearlyProductId, lifetimeProductId,
                             ...(isBluefx02 ? bluefx02LifetimeItems : [])]
 
@@ -134,7 +138,7 @@ export async function POST(request: NextRequest) {
       case 'SALE':
       case 'TEST_SALE':  // Handle test transactions
         await handleClickBankSale(customer, lineItems, receipt, isLifetimeProduct, isYearlyProduct,
-                                  { affiliate, vendor, itemNo: flatItemNo })
+                                  { affiliate, vendor, itemNo: flatItemNo, ...(trackingId ? { trackingId } : {}) })
         break
       case 'REFUND':
       case 'TEST_REFUND':
@@ -199,7 +203,7 @@ async function isLifetimeOwner(supabase: ReturnType<typeof createAdminClient>, u
   return sub?.plan_type === 'lifetime'
 }
 
-async function handleClickBankSale(customer: { email?: string; firstName?: string; lastName?: string }, lineItems: { amount?: string }[], receipt: string, isLifetimeProduct: boolean = false, isYearlyProduct: boolean = false, meta: { affiliate?: string; vendor?: string; itemNo?: string } = {}) {
+async function handleClickBankSale(customer: { email?: string; firstName?: string; lastName?: string }, lineItems: { amount?: string }[], receipt: string, isLifetimeProduct: boolean = false, isYearlyProduct: boolean = false, meta: { affiliate?: string; vendor?: string; itemNo?: string; trackingId?: string } = {}) {
   const supabase = createAdminClient()
   
   // Extract customer information

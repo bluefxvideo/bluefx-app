@@ -35,6 +35,7 @@ import { type SettleOutcome, settleLead } from '@/lib/free-video/runner';
 import { cleanRendersRunning, startCleanRender } from '@/lib/free-video/unlock';
 import { copyLeadsToAccounts } from '@/lib/free-video/claim';
 import { cleanWorkingFiles } from '@/lib/free-video/cleanup';
+import { leadPrefixOfVtid } from '@/lib/free-video/offer';
 import { displayDomain } from '@/lib/free-video/website';
 import { jobsTable } from '@/lib/smart-video/jobs';
 import type { FreeVideoGateResult, FreeVideoSettings } from '@/types/free-video';
@@ -477,15 +478,17 @@ async function collectAlerts(
 /**
  * P1: ClickBank (vendor bluefx02) and FastSpring sales of the last 3 days whose buyer has a lead created
  * before the sale → bought_at and sale_ref (set once), then the 'Free Video - Bought' group, the
- * automation's exit. Returns the leads newly marked.
+ * automation's exit. A lead is found by the buyer's email, or, for a ClickBank sale that came through the result
+ * page's button to the sales page, by the lead's id in the sale's tracking id (fvready_1a2b3c4d, offer.ts
+ * salesPageVtid; owner 2026-10-19: a $297 buyer paid with an email no lead had). Returns the leads newly marked.
  */
 async function attributeSales(): Promise<number> {
   try {
     const sales = (
-      await rows<{ processor: string; event_type: string; event_id: string; created_at: string; vendor: string | null; cb_email: string | null; fs_email: string | null }>(
+      await rows<{ processor: string; event_type: string; event_id: string; created_at: string; vendor: string | null; cb_email: string | null; fs_email: string | null; tracking: string | null }>(
         (createAdminClient() as any)
           .from('webhook_events')
-          .select('processor, event_type, event_id, created_at, vendor:payload->>vendor, cb_email:payload->customer->>email, fs_email:payload->>customerEmail')
+          .select('processor, event_type, event_id, created_at, vendor:payload->>vendor, cb_email:payload->customer->>email, fs_email:payload->>customerEmail, tracking:payload->>trackingId')
           .in('processor', ['clickbank', 'fastspring'])
           .in('event_type', ['SALE', 'SUBSCRIPTION'])
           .gt('created_at', isoMinutesAgo(3 * 24 * 60))
@@ -494,7 +497,12 @@ async function attributeSales(): Promise<number> {
       )
     )
       .filter((e) => (e.processor === 'clickbank' && e.event_type === 'SALE' && e.vendor === 'bluefx02') || (e.processor === 'fastspring' && e.event_type === 'SUBSCRIPTION'))
-      .map((e) => ({ email: String(e.cb_email || e.fs_email || '').trim().toLowerCase(), at: e.created_at, ref: `${e.processor}:${e.event_id}` }))
+      .map((e) => ({
+        email: String(e.cb_email || e.fs_email || '').trim().toLowerCase(),
+        at: e.created_at,
+        ref: `${e.processor}:${e.event_id}`,
+        leadPrefix: e.processor === 'clickbank' ? leadPrefixOfVtid(e.tracking) : null,
+      }))
       .filter((sale) => sale.email.includes('@'));
     if (!sales.length) return 0;
 
@@ -502,10 +510,32 @@ async function attributeSales(): Promise<number> {
       own(leadsTable().select('id, email, created_at').in('email', [...new Set(sales.map((s) => s.email))]).is('bought_at', null)).limit(500),
       'leads of buyers'
     );
-    let bought = 0;
+    const matches: { lead: { id: string; email: string }; sale: (typeof sales)[number] }[] = [];
     for (const lead of leads) {
       const sale = sales.find((s) => s.email === lead.email && Date.parse(s.at) > Date.parse(lead.created_at));
-      if (!sale) continue;
+      if (sale) matches.push({ lead, sale });
+    }
+    // A tagged sale whose buyer email no lead has: the lead whose id starts with the tag's 8 characters (a uuid range,
+    // since a uuid column has no prefix match), when exactly one unbought lead created before the sale fits.
+    for (const sale of sales) {
+      if (!sale.leadPrefix || matches.some((m) => m.sale.ref === sale.ref)) continue;
+      const fits = (
+        await rows<{ id: string; email: string; created_at: string }>(
+          own(
+            leadsTable()
+              .select('id, email, created_at')
+              .gte('id', `${sale.leadPrefix}-0000-0000-0000-000000000000`)
+              .lte('id', `${sale.leadPrefix}-ffff-ffff-ffff-ffffffffffff`)
+              .is('bought_at', null)
+          ).limit(2),
+          'lead of a tagged sale'
+        )
+      ).filter((lead) => Date.parse(sale.at) > Date.parse(lead.created_at));
+      if (fits.length === 1) matches.push({ lead: fits[0], sale });
+    }
+
+    let bought = 0;
+    for (const { lead, sale } of matches) {
       const { data, error } = await leadsTable()
         .update({ bought_at: sale.at, sale_ref: sale.ref.slice(0, 200), updated_at: new Date().toISOString() })
         .eq('id', lead.id)
@@ -513,7 +543,7 @@ async function attributeSales(): Promise<number> {
         .select('id');
       if (error || !data?.length) continue;
       bought++;
-      console.log(`✅ [free-video] Lead ${lead.id} bought (${sale.ref})`);
+      console.log(`✅ [free-video] Lead ${lead.id} bought (${sale.ref}${sale.email === lead.email ? '' : `, by its tracking id, paid as ${sale.email}`})`);
       await addToBoughtGroup(lead.email);
     }
     return bought;
