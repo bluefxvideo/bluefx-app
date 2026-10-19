@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
-import Link from 'next/link'
+import Link, { useLinkStatus } from 'next/link'
 // import NextImage from 'next/image'
 import {
   Image,
@@ -43,6 +43,7 @@ import {
   Star,
   Scissors,
   MonitorPlay,
+  Loader2,
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
 import { ThemeSwitch } from './theme-switch'
@@ -311,6 +312,15 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsib
   },
 ];
 
+/**
+ * A menu item's icon, or a spinner while its page is on the way (owner 2026-10-19: clicks that showed nothing for a
+ * second or two read as "the button doesn't work"). Must sit inside the item's <Link>.
+ */
+function MenuIcon({ icon: Icon, className }: { icon: React.ElementType; className?: string }) {
+  const { pending } = useLinkStatus()
+  return pending ? <Loader2 className={cn(className, 'animate-spin')} aria-label="Opening" /> : <Icon className={className} />
+}
+
 interface DashboardSidebarProps {
   isCollapsed?: boolean
 }
@@ -551,7 +561,8 @@ export function DashboardSidebar({
                       isCollapsed ? "w-8 h-8" : "w-10 h-10"
                     )}
                   >
-                    <Home
+                    <MenuIcon
+                      icon={Home}
                       className={cn(
                         "transition-all duration-300",
                         "w-5 h-5 text-white"
@@ -604,7 +615,8 @@ export function DashboardSidebar({
                       isToolActive('/dashboard/library') ? "bg-primary" : "bg-card"
                     )}
                   >
-                    <Library
+                    <MenuIcon
+                      icon={Library}
                       className={cn(
                         "w-5 h-5 transition-all duration-300",
                         isToolActive('/dashboard/library') ? "text-white" : "text-muted-foreground"
@@ -688,7 +700,8 @@ export function DashboardSidebar({
                                 : "bg-card"
                             )}
                           >
-                            <tool.icon
+                            <MenuIcon
+                              icon={tool.icon}
                               className={cn(
                                 "transition-all duration-300",
                                 "w-5 h-5", // Consistent icon size
@@ -873,30 +886,30 @@ export function DashboardSidebar({
                   {/* Profile */}
                   <Link
                     href="/dashboard/profile"
-                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10 flex items-center rounded-md"
+                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-foreground transition-colors hover:bg-primary/10 flex items-center rounded-md"
                     onClick={() => setShowAccountDropdown(false)}
                   >
-                    <User className="w-4 h-4 mr-2" />
+                    <User className="w-4 h-4 mr-2 text-primary" />
                     Profile
                   </Link>
 
                   {/* Subscription */}
                   <Link
                     href="/dashboard/subscription"
-                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10 flex items-center rounded-md"
+                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-foreground transition-colors hover:bg-primary/10 flex items-center rounded-md"
                     onClick={() => setShowAccountDropdown(false)}
                   >
-                    <CreditCard className="w-4 h-4 mr-2" />
+                    <CreditCard className="w-4 h-4 mr-2 text-primary" />
                     Subscription
                   </Link>
 
                   {/* Usage Analytics */}
                   <Link
                     href="/dashboard/usage"
-                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10 flex items-center rounded-md"
+                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-foreground transition-colors hover:bg-primary/10 flex items-center rounded-md"
                     onClick={() => setShowAccountDropdown(false)}
                   >
-                    <BarChart className="w-4 h-4 mr-2" />
+                    <BarChart className="w-4 h-4 mr-2 text-primary" />
                     Usage Analytics
                   </Link>
 
@@ -904,10 +917,10 @@ export function DashboardSidebar({
                   {isAdmin && (
                     <Link
                       href="/dashboard/admin"
-                      className="w-full justify-start h-auto p-2 text-base cursor-pointer text-amber-400 transition-colors hover:bg-amber-500/10 flex items-center rounded-md"
+                      className="w-full justify-start h-auto p-2 text-base cursor-pointer text-foreground transition-colors hover:bg-amber-500/10 flex items-center rounded-md"
                       onClick={() => setShowAccountDropdown(false)}
                     >
-                      <Shield className="w-4 h-4 mr-2" />
+                      <Shield className="w-4 h-4 mr-2 text-amber-400" />
                       Admin Panel
                     </Link>
                   )}
@@ -917,10 +930,10 @@ export function DashboardSidebar({
                   {/* Logout */}
                   <Button
                     variant="ghost"
-                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-colors"
+                    className="w-full justify-start gap-0 h-auto p-2 has-[>svg]:px-2 text-base cursor-pointer text-foreground hover:text-foreground hover:bg-red-500/20 transition-colors"
                     onClick={handleLogout}
                   >
-                    <LogOut className="w-4 h-4 mr-2" />
+                    <LogOut className="w-4 h-4 mr-2 text-red-400" />
                     Logout
                   </Button>
                 </div>
