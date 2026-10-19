@@ -23,8 +23,6 @@ import {
   User,
   LogOut,
   ChevronUp,
-  Moon,
-  Sun,
   PanelLeftClose,
   PanelLeft,
   Repeat,
@@ -47,13 +45,13 @@ import {
   MonitorPlay,
 } from 'lucide-react'
 import { createClient } from '@/app/supabase/client'
+import { ThemeSwitch } from './theme-switch'
 import { Badge } from '@/components/ui/badge'
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { signOut } from '@/actions/auth'
-import { useTheme } from 'next-themes'
 import { useDashboardLayout } from './dashboard-layout-context'
 
 // Tool interface
@@ -321,7 +319,6 @@ export function DashboardSidebar({
   isCollapsed = false
 }: DashboardSidebarProps) {
   const pathname = usePathname()
-  const { setTheme } = useTheme()
   const { toggleSidebar } = useDashboardLayout()
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -763,6 +760,9 @@ export function DashboardSidebar({
 
         {/* Footer with account management */}
         <div className="p-2 space-y-1 border-t border-border">
+          {/* Light or dark, one tap away (the app starts in light; the tutorial videos show dark) */}
+          <ThemeSwitch collapsed={isCollapsed} />
+
           {/* Credits Display — clickable: opens Buy Credits from anywhere.
               Always rendered; shows "…" until the balance loads (was hidden,
               which read as a flickering/missing badge). */}
@@ -911,34 +911,6 @@ export function DashboardSidebar({
                       Admin Panel
                     </Link>
                   )}
-
-                  <div className="border-t my-1" />
-
-                  {/* Light Theme */}
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10"
-                    onClick={() => {
-                      setShowAccountDropdown(false);
-                      setTheme("light");
-                    }}
-                  >
-                    <Sun className="w-4 h-4 mr-2" />
-                    Light Theme
-                  </Button>
-
-                  {/* Dark Theme */}
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start h-auto p-2 text-base cursor-pointer text-primary transition-colors hover:bg-primary/10"
-                    onClick={() => {
-                      setShowAccountDropdown(false);
-                      setTheme("dark");
-                    }}
-                  >
-                    <Moon className="w-4 h-4 mr-2" />
-                    Dark Theme
-                  </Button>
 
                   <div className="border-t my-1" />
 
