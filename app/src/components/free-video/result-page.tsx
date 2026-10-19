@@ -8,7 +8,7 @@ import { bonusDeadlineLabel, RESULT_PAGE, REVIEW_FACES, VIDEO_REVIEWS } from '@/
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
 import type { FreeVideoNextAdCard, FreeVideoView } from '@/types/free-video';
-import { FounderTour } from './lifetime-sales-page';
+import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { OfferButton } from './offer-button';
 import { VideoAdPlayer } from './video-ad-player';
 import styles from './result-page.module.css';
@@ -24,14 +24,13 @@ interface ResultPageProps {
   deadline: { day: string; when: string } | null;
   onPlayWithSound: () => void;
   onComplete: () => void;
-  onDownload: () => void;
 }
 
 /**
  * The result page of a free video ad for a lead (not a customer, not a buyer): result-page.ts has the words and the
  * order. Three buttons and the bar on phones open ClickBank's checkout through /go (fvres1, fvres2, fvres3, fvresbar).
  */
-export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onComplete, onDownload }: ResultPageProps) {
+export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onComplete }: ResultPageProps) {
   const { domain, firstName } = view;
   const videoUrl = view.videoUrl as string;
   const cards = view.nextAds ?? null;
@@ -45,25 +44,25 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
     <div className={styles.page}>
       <section className={cn(styles.wrap, styles.hero)} aria-labelledby="fv-result-title">
         <div className={styles.heroGrid}>
-          <div className={styles.heroHead}>
-            <Confetti />
-            <Robot className={styles.robot} label={hero.robot} burst />
-            <h1 id="fv-result-title" className={styles.h1}>
-              <span className={styles.h1Name}>{hero.congrats(firstName)}</span>
-              {hero.title}
-            </h1>
-          </div>
           <div ref={heroRef} className={styles.heroVideo}>
             <VideoAdPlayer src={videoUrl} label={PLAYER.label(domain)} onPlayWithSound={onPlayWithSound} onComplete={onComplete} className={styles.heroPlayerFrame} />
           </div>
-          <div className={cn(styles.stack, styles.heroSide)}>
-            <p className={styles.sample}>{hero.sample}</p>
-            <a className={styles.download} href={view.downloadUrl ?? videoUrl} onClick={onDownload}>
-              {hero.download}
-            </a>
-            {/* A computer shows the first button without scrolling (board D); a phone has it under the comparison. */}
-            <div className={styles.heroBuy}>
-              <BuyBlock token={token} placement="fvres1" note={[buy.guarantee]} />
+          {/* On a phone the head sits above the video and the text below it (display: contents); on a computer both sit beside it. */}
+          <div className={styles.heroText}>
+            <div className={styles.heroHead}>
+              <Confetti />
+              <Robot className={styles.robot} label={hero.robot} burst />
+              <h1 id="fv-result-title" className={styles.h1}>
+                <span className={styles.h1Name}>{hero.congrats(firstName)}</span>
+                {hero.title}
+              </h1>
+            </div>
+            <div className={cn(styles.stack, styles.heroSide)}>
+              <p className={styles.sample}>{hero.sample}</p>
+              {/* A computer shows the first button without scrolling (board D); a phone has it under the comparison. */}
+              <div className={styles.heroBuy}>
+                <BuyBlock token={token} placement="fvres1" note={[buy.guarantee]} />
+              </div>
             </div>
           </div>
         </div>
@@ -74,7 +73,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
           {how.title}
         </h2>
         <div className={styles.howGrid}>
-          <DemoWindow domain={domain} poster={view.poster ?? null} videoUrl={videoUrl} />
+          <DemoWindow domain={domain} />
           <ol className={styles.steps}>
             {how.steps.map((step, index) => (
               <li key={step.title} className={cn(styles.step, step.done && styles.stepDone)}>
@@ -94,21 +93,23 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
         <ResultScene domain={domain} />
       </section>
 
-      <section className={cn(styles.wrap, styles.narrow, styles.section, styles.stack)} aria-labelledby="fv-scroll-title">
-        <h2 id="fv-scroll-title" className={styles.h2}>
-          {scrolling.title}
-        </h2>
-        <p className={styles.text}>{scrolling.text}</p>
-        <p className={styles.text} style={{ color: '#0f172a' }}>
-          <strong>{scrolling.leadsStrong}</strong> {scrolling.leadsRest}
-        </p>
+      <section className={cn(styles.wrap, styles.narrow, styles.section, styles.stack, styles.scrolling)} aria-labelledby="fv-scroll-title">
+        <div className={styles.scrollText}>
+          <h2 id="fv-scroll-title" className={styles.h2}>
+            {scrolling.title}
+          </h2>
+          <p className={styles.text}>{scrolling.text}</p>
+          <p className={styles.text} style={{ color: '#0f172a' }}>
+            <strong>{scrolling.leadsStrong}</strong> {scrolling.leadsRest}
+          </p>
+        </div>
         <figure className={styles.figure}>
           <Image src={scrolling.image} alt={scrolling.alt} width={554} height={178} sizes="(min-width: 600px) 554px, 100vw" />
           <figcaption>{scrolling.caption}</figcaption>
         </figure>
       </section>
 
-      <section className={cn(styles.wrap, styles.narrow, styles.sectionTight, styles.stack)} aria-labelledby="fv-compare-title">
+      <section className={cn(styles.wrap, styles.narrow, styles.sectionTight, styles.stack, styles.compareSection)} aria-labelledby="fv-compare-title">
         <h2 id="fv-compare-title" className={styles.compareTitle}>
           {compare.title}
         </h2>
@@ -137,13 +138,14 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
         <p className={styles.compareAfter}>{compare.line(domain)}</p>
       </section>
 
-      <div className={cn(styles.wrap, styles.narrow, styles.sectionTight)}>
+      {/* The phone's first button; a computer has it beside the video ad (board D shows none here). */}
+      <div className={cn(styles.wrap, styles.narrow, styles.sectionTight, styles.phoneOnly)}>
         <BuyBlock token={token} placement="fvres1" note={[buy.guarantee, written ? buy.loginWritten : buy.login]} />
       </div>
 
       {written && (
         <section className={cn(styles.wrap, styles.section, styles.stack)} aria-labelledby="fv-written-title">
-          <div className={cn(styles.narrow, styles.stack)} style={{ marginInline: 0, padding: 0 }}>
+          <div className={cn(styles.stack, styles.writtenHead)}>
             <h2 id="fv-written-title" className={styles.writtenTitle}>
               {RESULT_PAGE.written.title}
             </h2>
@@ -157,7 +159,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
         </section>
       )}
 
-      <section className={cn(styles.wrap, styles.narrow, styles.section, styles.stack)} aria-labelledby="fv-stack-title">
+      <section className={cn(styles.wrap, styles.column, styles.section, styles.stack)} aria-labelledby="fv-stack-title">
         <div className={styles.offer}>
           <h2 id="fv-stack-title" className={styles.offerTitle}>
             {stack.title}
@@ -198,7 +200,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
         </div>
       </section>
 
-      <section className={cn(styles.wrap, styles.narrow, styles.section, styles.stack)} aria-label={founder.name}>
+      <section className={cn(styles.wrap, styles.column, styles.sectionTight, styles.stack)} aria-label={founder.name}>
         <div className={styles.founder}>
           <Image className={styles.founderFace} src={founder.photo} alt={founder.name} width={120} height={120} />
           <div className={styles.founderBody}>
@@ -228,8 +230,8 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
         </div>
       </section>
 
-      <section className={cn(styles.wrap, styles.section, styles.stack)} aria-labelledby="fv-faq-title">
-        <h2 id="fv-faq-title" className={cn(styles.h2, styles.h2Small)}>
+      <section className={cn(styles.wrap, styles.narrow, styles.section, styles.stack)} aria-labelledby="fv-faq-title">
+        <h2 id="fv-faq-title" className={cn(styles.h2, styles.h2Small, styles.centerWide)}>
           {faq.title}
         </h2>
         <dl className={styles.faq}>
@@ -246,11 +248,11 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
       </section>
 
       <section className={cn(styles.wrap, styles.section, styles.stack)} aria-labelledby="fv-reviews-title">
-        <p className={styles.kicker}>{reviews.kicker}</p>
-        <h2 id="fv-reviews-title" className={cn(styles.h2, styles.h2Small)}>
+        <p className={cn(styles.kicker, styles.centerWide)}>{reviews.kicker}</p>
+        <h2 id="fv-reviews-title" className={cn(styles.h2, styles.h2Small, styles.centerWide)}>
           {reviews.title}
         </h2>
-        <p className={styles.text}>{reviews.lead}</p>
+        <p className={cn(styles.text, styles.centerWide, styles.leadWide)}>{reviews.lead}</p>
         <div className={styles.tiles}>
           {reviews.tiles.map((tile) => (
             <div key={tile.big} className={styles.tile}>
@@ -264,10 +266,10 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
 
       <section className={styles.examples} aria-labelledby="fv-examples-title">
         <div className={cn(styles.wrap, styles.stack)}>
-          <h2 id="fv-examples-title" className={cn(styles.h2, styles.h2Small)}>
+          <h2 id="fv-examples-title" className={cn(styles.h2, styles.h2Small, styles.centerWide)}>
             {examples.title}
           </h2>
-          <p className={styles.text}>{examples.lead}</p>
+          <p className={cn(styles.text, styles.centerWide)}>{examples.lead}</p>
         </div>
         <ul className={styles.reel}>
           {examples.items.map((item) => (
@@ -287,22 +289,13 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
         </ul>
       </section>
 
-      <section className={cn(styles.wrap, styles.walkthrough)} aria-labelledby="fv-tour-title">
-        <div id={SALES_PAGE.tour.anchor} className={styles.stack}>
-          <p className={styles.kicker}>{SALES_PAGE.tour.kicker.toUpperCase()}</p>
-          <h2 id="fv-tour-title" className={cn(styles.h2, styles.h2Small)}>
-            {SALES_PAGE.tour.title}
-          </h2>
-          <p className={styles.text}>{SALES_PAGE.tour.lead}</p>
-          <FounderTour token={token} />
-        </div>
-      </section>
+      <Walkthrough token={token} />
 
-      <div className={cn(styles.wrap, styles.narrow, styles.section)}>
+      <div className={cn(styles.wrap, styles.column, styles.section)}>
         <BuyBlock token={token} placement="fvres3" note={[buy.last]} />
       </div>
 
-      <section className={cn(styles.wrap, styles.narrow, styles.section)} aria-label="P.S.">
+      <section className={cn(styles.wrap, styles.column, styles.section)} aria-label="P.S.">
         <div className={styles.ps}>
           <Image className={styles.psFace} src={founder.photo} alt={founder.name} width={88} height={88} />
           <div className={styles.psBody}>
@@ -518,8 +511,8 @@ function Confetti() {
 // ---------------------------------------------------------------------------------------------------------------
 // How it works
 
-/** The AI Media Machine's window, playing on a loop: their website typed, their video ad ready, a change typed. */
-function DemoWindow({ domain, poster, videoUrl }: { domain: string; poster: string | null; videoUrl: string }) {
+/** The AI Media Machine's window, playing on a loop as on the boards: the website typed, the video ad ready, "Use a woman presenter" typed and the new presenter in its place. */
+function DemoWindow({ domain }: { domain: string }) {
   const { demo } = RESULT_PAGE.how;
   return (
     <div className={styles.demo} role="img" aria-label={demo.label(domain)}>
@@ -550,12 +543,10 @@ function DemoWindow({ domain, poster, videoUrl }: { domain: string; poster: stri
         </div>
         <div className={styles.demoResult}>
           <div className={styles.demoThumb}>
-            {poster ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={poster} alt="" />
-            ) : (
-              <video src={`${videoUrl}#t=1`} muted playsInline preload="metadata" />
-            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={demo.before} alt="" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className={styles.demoNew} src={demo.after} alt="" />
           </div>
           <div className={styles.demoSide}>
             <div className={styles.demoReady}>{demo.ready}</div>
@@ -566,10 +557,6 @@ function DemoWindow({ domain, poster, videoUrl }: { domain: string; poster: stri
               </span>
             </div>
             <span className={styles.demoChangeButton}>{demo.makeChange}</span>
-            <span className={styles.demoChanged}>
-              <Tick size={12} stroke={3.6} color="#3F6A1C" />
-              {demo.changed}
-            </span>
           </div>
         </div>
       </div>
@@ -690,7 +677,7 @@ function Reviews() {
       {dov && (
         <li className={styles.review}>
           <div className={styles.reviewFace}>
-            <Image src={dov.photo} alt={dov.name} width={152} height={152} />
+            <Image src={dov.photo} alt={dov.name} width={240} height={240} sizes="120px" />
           </div>
           <div className={styles.reviewBody}>
             <Stars size={13} label={reviews.stars} />
@@ -734,7 +721,7 @@ function VideoReview({ item }: { item: VideoReviewItem }) {
         />
       ) : (
         <button type="button" className={styles.reviewThumb} onClick={() => setPlaying(true)} aria-label={reviews.play(item.name)}>
-          <Image src={video.poster} alt="" width={184} height={232} sizes="92px" style={{ objectPosition: REVIEW_FACES[item.name as keyof typeof REVIEW_FACES] ?? '50% 35%' }} />
+          <Image src={video.poster} alt="" width={640} height={360} sizes="(min-width: 960px) 352px, 92px" style={{ objectPosition: REVIEW_FACES[item.name as keyof typeof REVIEW_FACES] ?? '50% 35%' }} />
           <span className={styles.play} aria-hidden="true">
             <PlayIcon size={14} />
           </span>
@@ -790,6 +777,65 @@ function Viewer({ item, onClose }: { item: (typeof RESULT_PAGE.examples.items)[n
       </button>
       <video className={styles.viewerVideo} src={item.full} poster={item.poster} controls autoPlay playsInline />
     </div>
+  );
+}
+
+/** Szilard's walkthrough as the boards show it: the picture with its length, then the video in place on a tap, from the start or from a chapter. */
+function Walkthrough({ token }: { token: string }) {
+  const { tour } = SALES_PAGE;
+  const { walkthrough } = RESULT_PAGE;
+  const beacon = useFreeVideoBeacon(token);
+  const [from, setFrom] = useState<number | null>(null);
+  const play = (at: number) => {
+    if (from === null) beacon('tour_play');
+    setFrom(at);
+  };
+  return (
+    <section id={tour.anchor} className={cn(styles.wrap, styles.walkthrough)} aria-labelledby="fv-tour-title">
+      <div className={styles.walkText}>
+        <p className={styles.kicker}>{walkthrough.kicker}</p>
+        <h2 id="fv-tour-title" className={cn(styles.h2, styles.h2Small)}>
+          {tour.title}
+        </h2>
+        <p className={styles.text}>{tour.lead}</p>
+        <div className={cn(styles.jump, styles.jumpWide)}>
+          <span className={styles.jumpLabel}>{walkthrough.jump}</span>
+          {tour.chapters.map((chapter) => (
+            <button key={chapter.at} type="button" className={styles.jumpChip} onClick={() => play(chapter.at)}>
+              {chapter.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className={styles.walkVideo}>
+        {from === null ? (
+          <button type="button" className={styles.walkPoster} onClick={() => play(0)} aria-label={tour.playLabel}>
+            <Image src={tour.poster} alt={walkthrough.posterAlt} width={1280} height={720} sizes="(min-width: 960px) 584px, 100vw" />
+            <span className={styles.walkPlay} aria-hidden="true">
+              <PlayIcon size={28} />
+            </span>
+            <span className={styles.walkLength}>{walkthrough.length}</span>
+          </button>
+        ) : (
+          <iframe
+            key={from}
+            className={styles.walkPlayer}
+            src={`https://www.youtube-nocookie.com/embed/${tour.youtubeId}?autoplay=1&rel=0&playsinline=1&start=${from}`}
+            title={tour.title}
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+        )}
+        <div className={cn(styles.jump, styles.jumpPhone)}>
+          <span className={styles.jumpLabel}>{walkthrough.jump}</span>
+          {tour.chapters.map((chapter) => (
+            <button key={chapter.at} type="button" className={styles.jumpChip} onClick={() => play(chapter.at)}>
+              {chapter.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 

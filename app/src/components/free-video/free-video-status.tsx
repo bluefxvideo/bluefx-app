@@ -223,7 +223,6 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
             deadline={bonusDeadline}
             onPlayWithSound={() => beacon('video_play')}
             onComplete={() => beacon('video_complete')}
-            onDownload={() => beacon('download')}
           />
           {staleNotice}
         </>

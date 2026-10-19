@@ -81,7 +81,12 @@
   gap: 18px;
 }
 
+.heroText {
+  display: contents;
+}
+
 .heroHead {
+  order: 1;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -123,9 +128,14 @@
 }
 
 .heroVideo {
+  order: 2;
   width: 100%;
   max-width: 342px;
   margin: 0 auto;
+}
+
+.heroSide {
+  order: 3;
 }
 
 .heroPlayerFrame {
@@ -140,15 +150,6 @@
   color: var(--body);
   text-align: center;
   text-wrap: pretty;
-}
-
-.download {
-  align-self: center;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--navy);
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 .heroBuy {
@@ -618,18 +619,12 @@
   }
 }
 
-.demoChanged {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--green-dark);
+.demoThumb .demoNew {
   opacity: 0;
-  animation: changed 14s infinite;
+  animation: newShot 14s infinite;
 }
 
-@keyframes changed {
+@keyframes newShot {
   0%,
   70% {
     opacity: 0;
@@ -1489,10 +1484,9 @@
 }
 
 .tileBig {
-  font-size: clamp(16px, 4.9vw, 20px);
+  font-size: 20px;
   font-weight: 800;
   color: var(--navy);
-  white-space: nowrap;
 }
 
 .tileSmall {
@@ -1722,6 +1716,106 @@
 
 .walkthrough {
   padding-top: 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.walkText {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.walkVideo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.walkPoster {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.18);
+  background: var(--ink);
+  cursor: pointer;
+}
+
+.walkPoster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.walkPlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.walkLength {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(15, 23, 42, 0.8);
+  padding: 5px 10px;
+  border-radius: 8px;
+}
+
+.walkPlayer {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 14px;
+  background: #000000;
+}
+
+.jump {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.jumpWide {
+  display: none;
+}
+
+.jumpLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.jumpChip {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  background: #eef2fb;
+  border: 1px solid #c9d6ea;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
 }
 
 .ps {
@@ -1819,99 +1913,158 @@
 }
 
 /* ------------------------------------------------------------------------------------------------ */
-/* A computer (board D) */
+/* A computer (board D: 1120 px of content, sizes as on the board) */
+
+.column {
+  max-width: 760px;
+}
 
 @media (min-width: 960px) {
   .wrap {
-    padding-inline: 40px;
+    max-width: 1280px;
+    padding-inline: clamp(40px, 6.25vw, 80px);
+  }
+
+  .narrow {
+    max-width: calc(760px + 2 * clamp(40px, 6.25vw, 80px));
+  }
+
+  .column {
+    max-width: calc(600px + 2 * clamp(40px, 6.25vw, 80px));
+  }
+
+  .phoneOnly {
+    display: none;
+  }
+
+  .centerWide {
+    text-align: center;
+    align-self: center;
+  }
+
+  .leadWide {
+    max-width: 720px;
   }
 
   .h2 {
-    font-size: 32px;
+    font-size: 34px;
   }
 
+  .text {
+    font-size: 18px;
+  }
+
+  .kicker {
+    font-size: 13px;
+  }
+
+  /* The top: the video ad on the left, everything else beside it, centered on its height */
   .hero {
     padding-top: 48px;
   }
 
   .heroGrid {
-    display: grid;
-    grid-template-columns: 360px minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-    column-gap: 72px;
-    row-gap: 18px;
-    align-items: start;
+    flex-direction: row;
+    align-items: center;
+    gap: 72px;
   }
 
   .heroVideo {
-    grid-column: 1;
-    grid-row: 1 / span 2;
+    order: 0;
+    flex-shrink: 0;
+    width: 360px;
     max-width: 360px;
+    margin: 0;
+  }
+
+  .heroPlayerFrame {
+    border-radius: 18px;
+  }
+
+  .heroText {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    flex: 1;
+    min-width: 0;
+    max-width: 688px;
+  }
+
+  .heroHead,
+  .heroSide {
+    order: 0;
   }
 
   .heroHead {
-    grid-column: 2;
-    grid-row: 1;
     align-items: flex-start;
     text-align: left;
-  }
-
-  .heroSide {
-    grid-column: 2;
-    grid-row: 2;
+    gap: 18px;
   }
 
   .confetti {
     left: 0;
     width: 220px;
-    height: 170px;
+    height: 160px;
     transform: none;
   }
 
   .robot {
     width: 160px;
     height: 160px;
+    margin-left: 26px;
+    margin-bottom: -6px;
   }
 
   .h1 {
-    font-size: 40px;
-    line-height: 1.12;
+    font-size: 46px;
+    line-height: 1.1;
+    letter-spacing: -1px;
   }
 
   .sample {
     text-align: left;
     font-size: 18px;
-    max-width: 640px;
-  }
-
-  .download {
-    align-self: flex-start;
+    line-height: 1.5;
   }
 
   .heroBuy {
     display: flex;
-    max-width: 460px;
-    padding-top: 6px;
+    flex-direction: column;
+    width: 460px;
+    max-width: 100%;
+    padding-top: 14px;
   }
 
-  .heroBuy .cards {
-    justify-content: flex-start;
+  .buy {
+    width: 460px;
+    max-width: 100%;
+    margin-inline: auto;
   }
 
-  .heroBuy .buyNote {
-    text-align: left;
+  .buyButton {
+    min-height: 68px;
+    padding: 14px 22px;
+    font-size: 19px;
   }
 
+  /* How it works: the heading centered, the window and the steps side by side */
   .how {
     padding-top: 80px;
     gap: 28px;
+    align-items: center;
+  }
+
+  .how > .h2 {
+    text-align: center;
+    max-width: 900px;
   }
 
   .howGrid {
     display: grid;
     grid-template-columns: 500px minmax(0, 1fr);
     gap: 40px;
-    align-items: start;
+    align-items: center;
+    width: 100%;
   }
 
   .step {
@@ -1922,6 +2075,7 @@
     display: grid;
     grid-template-columns: 620px minmax(0, 1fr);
     align-items: center;
+    width: 100%;
   }
 
   .resultText {
@@ -1938,53 +2092,295 @@
   }
 
   .section {
-    padding-top: 64px;
+    padding-top: 72px;
+  }
+
+  .sectionTight {
+    padding-top: 56px;
+  }
+
+  /* Your customers are scrolling: the words beside the dashboard */
+  .scrolling.narrow {
+    max-width: calc(1036px + 2 * clamp(40px, 6.25vw, 80px));
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 56px;
+  }
+
+  .scrollText {
+    width: 460px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .scrollText .text {
+    line-height: 1.55;
+  }
+
+  .scrolling .figure {
+    width: 520px;
+  }
+
+  .scrolling .figure img {
+    max-width: 520px;
+    border-radius: 12px;
+  }
+
+  /* What 120 video ads cost */
+  .compareSection.narrow {
+    max-width: calc(680px + 2 * clamp(40px, 6.25vw, 80px));
+  }
+
+  .compareTitle {
+    font-size: 24px;
   }
 
   .compare {
-    gap: 16px;
+    gap: 20px;
   }
 
   .compareCard {
-    padding: 20px;
+    padding: 22px 20px;
+  }
+
+  .compareName {
+    font-size: 17px;
+  }
+
+  .compareLine,
+  .comparePer {
+    font-size: 16px;
   }
 
   .comparePrice {
     font-size: 40px;
   }
 
+  .compareAfter {
+    font-size: 17px;
+  }
+
+  /* The 3 video ads: the heading centered, 3 cards of 352 px */
+  .writtenHead {
+    align-items: center;
+    text-align: center;
+    max-width: 720px;
+    margin-inline: auto;
+  }
+
+  .writtenTitle {
+    font-size: 34px;
+  }
+
   .ads {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, 352px);
+    justify-content: center;
+    gap: 32px;
+    padding-top: 24px;
   }
 
-  .adHook {
-    font-size: 24px;
+  /* Everything you get, the price, the promise: one 600 px column */
+  .offer {
+    padding: 22px 24px 24px;
   }
 
-  .quotes {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .offerTitle {
+    font-size: 26px;
+  }
+
+  .offerItem {
+    font-size: 17px;
+  }
+
+  /* Questions: one 760 px column */
+  .faqItem {
+    padding: 18px 24px;
+  }
+
+  .faqQ {
+    font-size: 17px;
+  }
+
+  .faqA {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  /* Customers: 3 tiles of 760 px, then cards of 352 px with the video on top */
+  .tiles {
+    width: 760px;
+    max-width: 100%;
+    align-self: center;
+    gap: 16px;
+  }
+
+  .tile {
+    padding: 16px 8px;
+  }
+
+  .tileBig {
+    font-size: 26px;
+  }
+
+  .tileSmall {
+    font-size: 14px;
   }
 
   .reviews {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 24px;
+    padding-top: 12px;
   }
 
-  .faq {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .review,
+  .reviewPlaying {
+    width: 352px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
   }
 
-  .faqItem:nth-last-child(2) {
-    border-bottom: 0;
+  .reviewThumb {
+    width: 100%;
+    height: 198px;
+    border-radius: 0;
   }
 
-  .faqItem:nth-child(odd) {
-    border-right: 1px solid var(--soft);
+  .reviewFace {
+    width: 100%;
+    height: 198px;
+    align-items: center;
+    padding: 0;
+    background: #eef2fb;
+  }
+
+  .reviewFace img {
+    width: 120px;
+    height: 120px;
+    border-radius: 60px;
+  }
+
+  .play {
+    width: 52px;
+    height: 52px;
+    margin: -26px 0 0 -26px;
+    border-radius: 26px;
+  }
+
+  .reviewPlayer,
+  .reviewPlayerTall {
+    border-radius: 0;
+    aspect-ratio: 16 / 9;
+    max-width: none;
+    align-self: stretch;
+  }
+
+  .reviewBody {
+    flex: 1;
+    padding: 16px 18px 18px;
+    gap: 8px;
+  }
+
+  /* The names of a row line up, as on the board. */
+  .reviewBody .quoteWho {
+    margin-top: auto;
+  }
+
+  .reviewBody .quoteText {
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  .reviewBody .quoteWho {
+    font-size: 15px;
+  }
+
+  .reviewBody .reviewRole {
+    font-size: 14px;
+  }
+
+  /* More video ads: 2 rows of 5 */
+  .examples {
+    padding-top: 96px;
   }
 
   .reel {
-    padding-inline: 40px;
-    scroll-padding-left: 40px;
+    display: grid;
+    grid-template-columns: repeat(5, 208px);
+    justify-content: center;
+    gap: 22px 20px;
+    overflow: visible;
+    padding: 12px 0 0;
+  }
+
+  .reelItem {
+    width: 208px;
+  }
+
+  .reelVideo {
+    width: 208px;
+    height: 370px;
+  }
+
+  /* The walkthrough: the words on the left, the video on the right */
+  .walkthrough {
+    padding-top: 96px;
+    flex-direction: row;
+    align-items: center;
+    gap: 56px;
+  }
+
+  .walkText {
+    width: 480px;
+    flex-shrink: 0;
+    gap: 14px;
+  }
+
+  .walkVideo {
+    width: 584px;
+    max-width: 100%;
+  }
+
+  .walkPoster {
+    border-radius: 16px;
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.2);
+  }
+
+  .walkPlay {
+    width: 76px;
+    height: 76px;
+    margin: -38px 0 0 -38px;
+    border-radius: 38px;
+  }
+
+  .walkLength {
+    right: 14px;
+    bottom: 14px;
+    font-size: 14px;
+    padding: 6px 11px;
+  }
+
+  .jumpWide {
+    display: flex;
+  }
+
+  .jumpPhone {
+    display: none;
+  }
+
+  .jumpChip {
+    font-size: 14px;
+  }
+
+  .psText {
+    font-size: 17px;
   }
 
   .bar {
@@ -2028,8 +2424,12 @@
     border-color: #cfe3b8;
   }
 
-  .demoResult,
-  .demoChanged {
+  .demoResult {
+    animation: none;
+    opacity: 1;
+  }
+
+  .demoThumb .demoNew {
     animation: none;
     opacity: 1;
   }

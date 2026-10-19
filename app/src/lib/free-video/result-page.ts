@@ -65,8 +65,6 @@ export const RESULT_PAGE = {
     robot: 'The AI Media Machine robot giving a thumbs up and pointing at your video ad',
     sample:
       'Your free sample has our BlueFX logo and might need a few changes. With the full AI Media Machine, you change anything in about 3 minutes, and your new video ads come without our logo.',
-    /** The free sample stays a plain download, as promised (no button in front of it). */
-    download: 'Download your free sample',
   },
 
   how: {
@@ -79,9 +77,11 @@ export const RESULT_PAGE = {
       chips: ['Script', 'Presenter', 'Voice-over and music'],
       ready: 'Your video ad is ready',
       changeLabel: 'Type a change',
-      change: 'Use a different presenter',
+      change: 'Use a woman presenter',
       makeChange: 'Make the change',
-      changed: 'New version in about 3 minutes',
+      /** The boards' pictures: a sign shop's free video ad, then the same opening with a woman presenter. */
+      before: '/free-video/demo-before.jpg',
+      after: '/free-video/demo-after.jpg',
       label: (domain: string) => `The AI Media Machine making a video ad for ${domain}, then a change typed in one sentence`,
     },
     steps: [
@@ -280,6 +280,13 @@ export const RESULT_PAGE = {
       `Here's the math. A freelancer charges about $${FREELANCER} for one video ad like yours. With the AI Media Machine, you can make ${YEAR} video ads a year for ${domain}. Hiring a freelancer for those ${YEAR} video ads would cost about `,
     ppsStrong: `${FREELANCER_YEAR} a year`,
     ppsEnd: `. You pay ${OFFER.now}, once. And every video ad is one more chance for new customers to find you.`,
+  },
+
+  walkthrough: {
+    kicker: 'SEE IT WORKING',
+    jump: 'Jump to:',
+    length: '17:31',
+    posterAlt: 'Szilard inside the AI Media Machine',
   },
 
   bar: {
