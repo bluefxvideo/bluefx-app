@@ -119,7 +119,7 @@ export function VideoMakerOutput({ project, isWorking, onRegenerateClip, onTryEx
                 <img src={url} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
                 {project.script && (
                   <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-1.5 py-0.5">
-                    <span className="text-[10px] text-white/80">
+                    <span className="text-[12px] text-white/80">
                       #{index + 1}
                     </span>
                   </div>

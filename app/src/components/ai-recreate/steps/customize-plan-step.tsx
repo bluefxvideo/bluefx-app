@@ -209,7 +209,7 @@ export function CustomizePlanStep({
                       // The photo was never uploaded and the page reloaded: only a dead preview is left
                       <div
                         title="This photo was lost when the page reloaded. Remove it and add it again."
-                        className="w-full h-full flex items-center justify-center bg-amber-500/10 px-1 text-center text-[9px] leading-tight text-amber-600 dark:text-amber-400"
+                        className="w-full h-full flex items-center justify-center bg-amber-500/10 px-1 text-center text-[11px] leading-tight text-amber-600 dark:text-amber-400"
                       >
                         Add again
                       </div>
@@ -232,7 +232,7 @@ export function CustomizePlanStep({
                       onUpdateReferenceImages(updated);
                     }}
                     placeholder={`Product ${i + 1}`}
-                    className="w-16 text-[10px] text-center bg-secondary/30 border border-border/30 rounded px-1 py-0.5 text-muted-foreground"
+                    className="w-16 text-[12px] text-center bg-secondary/30 border border-border/30 rounded px-1 py-0.5 text-muted-foreground"
                   />
                 </div>
               ))}

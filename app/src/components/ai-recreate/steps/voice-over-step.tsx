@@ -229,7 +229,7 @@ export function VoiceOverStep({
 
                     <div className="pt-3">
                       <p className="text-xs font-medium truncate">{v.name}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{v.gender}</p>
+                      <p className="text-[12px] text-muted-foreground mt-0.5">{v.gender}</p>
                     </div>
                   </div>
                 );

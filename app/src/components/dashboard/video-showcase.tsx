@@ -154,7 +154,7 @@ function VideoCard({ video, onClick }: { video: ShowcaseVideo; onClick: () => vo
       {/* Short badge */}
       {isVertical && (
         <div className="absolute top-2 right-2 pointer-events-none">
-          <span className="px-1.5 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded">
+          <span className="px-1.5 py-0.5 bg-red-500 text-white text-[12px] font-bold rounded">
             SHORT
           </span>
         </div>

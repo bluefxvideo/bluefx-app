@@ -151,7 +151,7 @@ export function VoiceSelector({
               onClick={() => setActiveTab(tab.value)}
               disabled={disabled}
               className={cn(
-                'px-2 py-0.5 text-[10px] rounded-full border transition-colors',
+                'px-2 py-0.5 text-[12px] rounded-full border transition-colors',
                 activeTab === tab.value
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
@@ -172,7 +172,7 @@ export function VoiceSelector({
             {(activeTab === 'cloned' || activeTab === 'all') && filteredCloned.length > 0 && (
               <>
                 {activeTab === 'all' && (
-                  <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  <div className="px-2 py-1 text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
                     My Voices
                   </div>
                 )}
@@ -252,7 +252,7 @@ export function VoiceSelector({
               onClick={() => onSpeedChange(preset.value)}
               disabled={disabled}
               className={cn(
-                'flex-1 px-1 py-0.5 text-[10px] rounded border transition-colors',
+                'flex-1 px-1 py-0.5 text-[12px] rounded border transition-colors',
                 Math.abs(speed - preset.value) < 0.01
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
@@ -320,7 +320,7 @@ function VoiceRow({
             </Badge>
           )}
         </div>
-        <p className="text-[10px] text-muted-foreground truncate">{description}</p>
+        <p className="text-[12px] text-muted-foreground truncate">{description}</p>
       </div>
 
       {/* Play/Stop preview */}

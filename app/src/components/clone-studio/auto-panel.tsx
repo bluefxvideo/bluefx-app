@@ -52,7 +52,7 @@ const FINISH_LABEL: Record<FinishStage, string> = {
   failed: 'Stopped',
 };
 const select = 'h-8 rounded-md border border-border/60 bg-transparent text-xs px-2 text-foreground disabled:opacity-50';
-const label = 'font-mono text-[9px] uppercase tracking-widest text-muted-foreground';
+const label = 'font-mono text-[11px] uppercase tracking-widest text-muted-foreground';
 const BRIEF_EXAMPLE =
   "Nonna Rosa's Pizza is a family pizzeria at 642 Main Street. The owner is Tony. Every Friday the oven is fired up at noon and the dough sells out by eight. A margherita is 12 dollars. Open Tuesday to Sunday, noon to ten. To order, text 615-555-0199.";
 
@@ -189,7 +189,7 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
           </p>
         </div>
         {planned && !running && (
-          <button className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0" onClick={() => setEditing(true)}>
+          <button className="text-[13px] text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0" onClick={() => setEditing(true)}>
             Start over with other text or photos
           </button>
         )}
@@ -206,7 +206,7 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
           <div className="h-1.5 rounded-full bg-muted/60 overflow-hidden">
             <div className="h-full bg-primary transition-all" style={{ width: `${Math.min(98, progress.percent)}%` }} />
           </div>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             {run?.kind === 'motion' ? 'A clip takes 1 to 4 minutes, the finished ad a few more.' : 'The first version takes about 10 minutes.'} You can leave this page: the work goes on.
           </p>
         </div>
@@ -261,7 +261,7 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
               className="text-sm"
               disabled={starting}
             />
-            <p className="text-[10px] text-zinc-600">Only facts you give are used: the director invents no prices, phone numbers or claims.</p>
+            <p className="text-[12px] text-zinc-600">Only facts you give are used: the director invents no prices, phone numbers or claims.</p>
           </div>
 
           <div className="space-y-1.5">
@@ -288,7 +288,7 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
                 <option value="15">A cut of about 15 seconds</option>
               </select>
             </div>
-            <div className="flex-1 text-[11px] text-muted-foreground sm:text-right">
+            <div className="flex-1 text-[13px] text-muted-foreground sm:text-right">
               {CLONE_AUTO_CREDITS} credits for the plan and the finished ad, {CLONE_IMAGE_CREDITS} for each picture.
               <br />A scene the director leaves out or types as a card costs nothing.
             </div>
@@ -298,7 +298,7 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
             </Button>
           </div>
           {editing && (
-            <button className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2" onClick={() => setEditing(false)}>
+            <button className="text-[13px] text-muted-foreground hover:text-foreground underline underline-offset-2" onClick={() => setEditing(false)}>
               Keep the ad as it is
             </button>
           )}
@@ -386,8 +386,8 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
                 </div>
               )}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <p className="flex-1 text-[11px] text-muted-foreground">A clip that cannot be made is refunded and the scene keeps its picture. A talking clip that misses its line is taken once more at no charge.</p>
-                <button className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0" onClick={() => setChoosing((open) => !open)}>
+                <p className="flex-1 text-[13px] text-muted-foreground">A clip that cannot be made is refunded and the scene keeps its picture. A talking clip that misses its line is taken once more at no charge.</p>
+                <button className="text-[13px] text-muted-foreground hover:text-foreground underline underline-offset-2 shrink-0" onClick={() => setChoosing((open) => !open)}>
                   {choosing ? 'Hide the scenes' : 'Choose scene by scene'}
                 </button>
               </div>
@@ -408,12 +408,12 @@ export function AutoPanel({ project, onProjectUpdate, photos, onOpenScene }: Aut
                           <img src={scene.edited_image_url as string} alt={`Scene ${scene.n}`} className="h-12 w-9 object-cover rounded border border-border/50 bg-black/40 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-xs text-foreground truncate">{scene.finish?.line || (over ? `Shown while the scene ${over === 'previous' ? 'before' : 'after'} it speaks` : 'No words in this scene')}</p>
-                            <p className="text-[10px] text-zinc-600">
+                            <p className="text-[12px] text-zinc-600">
                               {speaker === 'on_camera' ? 'A person talks to the camera' : speaker === 'narrator' ? 'The narrator speaks' : 'Nobody speaks'}
                               {clip ? ' · has a clip' : ''}
                             </p>
                             {played && (
-                              <p className="text-[10px] text-muted-foreground truncate" title={scene.motion_prompt || undefined}>
+                              <p className="text-[12px] text-muted-foreground truncate" title={scene.motion_prompt || undefined}>
                                 The shot: {played}
                               </p>
                             )}

@@ -38,7 +38,7 @@ export function ToolTips({ storageKey, tips }: { storageKey: string; tips: React
         <ChevronDown className={cn('w-4 h-4 transition-transform', open && 'rotate-180')} />
       </button>
       {open && (
-        <ol className="list-decimal space-y-1.5 px-3 pb-3 pl-7 text-xs leading-relaxed text-muted-foreground">
+        <ol className="list-decimal space-y-2 px-3 pb-3 pl-7 text-sm leading-relaxed text-muted-foreground">
           {tips.map((tip, i) => (
             <li key={i}>{tip}</li>
           ))}

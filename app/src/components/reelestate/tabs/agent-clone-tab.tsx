@@ -274,7 +274,7 @@ export function AgentCloneTab({
                 <Button variant="outline" size="sm" onClick={() => agentFileRef.current?.click()}>
                   Change Photo
                 </Button>
-                <span className="text-[11px] text-muted-foreground">or drop a new one here</span>
+                <span className="text-[13px] text-muted-foreground">or drop a new one here</span>
               </div>
             ) : (
               <button
@@ -288,7 +288,7 @@ export function AgentCloneTab({
                   <Upload className="w-4 h-4 mr-2" />
                   Upload Your Photo
                 </span>
-                <span className="text-[11px] text-muted-foreground">or drop it here</span>
+                <span className="text-[13px] text-muted-foreground">or drop it here</span>
               </button>
             )}
           </div>
@@ -456,7 +456,7 @@ export function AgentCloneTab({
                         {shot.voiceVideoUrl ? 'Your voice is on this clip' : 'Put your own voice on this clip'}
                       </span>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[13px] text-muted-foreground">
                       Upload or drop a clean recording of your voice (10–30 seconds, no music). The picture and lip movement stay exactly as they are; only the voice changes.
                     </p>
                     <input
@@ -477,7 +477,7 @@ export function AgentCloneTab({
                         <Upload className="w-3.5 h-3.5 mr-1.5" />
                         {voiceFile || useLastSample ? 'Change sample' : 'Choose voice sample'}
                       </Button>
-                      <span className="text-[11px] text-muted-foreground truncate">
+                      <span className="text-[13px] text-muted-foreground truncate">
                         {voiceFile
                           ? `Selected: ${voiceFile.name}`
                           : useLastSample && lastVoiceSample
@@ -490,7 +490,7 @@ export function AgentCloneTab({
                         type="button"
                         onClick={() => setUseLastSample(true)}
                         disabled={isWorking}
-                        className="text-[11px] text-primary hover:underline text-left"
+                        className="text-[13px] text-primary hover:underline text-left"
                       >
                         Reuse the sample from last time ({lastVoiceSample.name})
                       </button>
@@ -554,7 +554,7 @@ export function AgentCloneTab({
                         <button
                           key={preset.value}
                           onClick={() => onUpdateShot(shot.id, { action: shot.action === preset.value ? '' : preset.value })}
-                          className={`px-2 py-0.5 rounded-full text-[11px] border transition-colors ${
+                          className={`px-2 py-0.5 rounded-full text-[13px] border transition-colors ${
                             shot.action === preset.value
                               ? 'bg-primary/15 border-primary/40 text-primary'
                               : 'border-border/50 text-muted-foreground hover:border-muted-foreground/50'

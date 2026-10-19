@@ -404,11 +404,11 @@ export function ProTab({
                     }`}
                   >
                     {isUploadingRef ? (
-                      <span className="text-[10px] text-muted-foreground">Uploading...</span>
+                      <span className="text-[12px] text-muted-foreground">Uploading...</span>
                     ) : (
                       <>
                         <Image className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-[10px] text-muted-foreground mt-1">Add</span>
+                        <span className="text-[12px] text-muted-foreground mt-1">Add</span>
                       </>
                     )}
                   </label>

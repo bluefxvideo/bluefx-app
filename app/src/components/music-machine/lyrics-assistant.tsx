@@ -209,7 +209,7 @@ export function LyricsAssistant({
             )}
           </Button>
         </div>
-        <p className="text-[10px] text-muted-foreground/70 mt-1.5">
+        <p className="text-[12px] text-muted-foreground/70 mt-1.5">
           Try: &quot;make line 2 more emotional&quot; or &quot;add a pre-chorus&quot;
         </p>
       </form>

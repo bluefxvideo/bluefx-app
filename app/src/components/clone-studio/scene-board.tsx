@@ -175,7 +175,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
             <ArrowLeft className="w-4 h-4 mr-1" /> All projects
           </Button>
           <h3 className="text-2xl font-bold text-foreground tracking-tight">{project.title || 'Untitled clone'}</h3>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] text-muted-foreground tabular-nums">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[13px] text-muted-foreground tabular-nums">
             <span>{project.source_platform}</span>
             <span className="text-zinc-700">·</span>
             <span>{Math.round(project.video_duration_seconds || 0)}s</span>
@@ -210,7 +210,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               boundaries; this is the uncut reference, always at hand */}
           {project.analysis_summary && (
             <div className="rounded-lg border border-border/40 bg-muted/20">
-              <p className="px-3 pt-2.5 font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+              <p className="px-3 pt-2.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                 Transcript — full audio
               </p>
               {transcript === undefined ? (
@@ -232,12 +232,12 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
           {project.analysis_summary && (
             <div className="rounded-lg border border-border/40 bg-muted/20 p-3 space-y-1.5">
               <div className="flex items-center justify-between gap-2">
-                <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                   Soundtrack: the music of your ad
                 </p>
                 {musicBpm && (
                   <span
-                    className="font-mono text-[10px] text-muted-foreground tabular-nums px-1.5 py-0.5 rounded bg-muted/60 border border-border/40"
+                    className="font-mono text-[12px] text-muted-foreground tabular-nums px-1.5 py-0.5 rounded bg-muted/60 border border-border/40"
                     title="Measured from the original audio, not estimated by AI"
                   >
                     {musicBpm} BPM
@@ -258,14 +258,14 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                          <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                             {opt.label}
                           </span>
                           <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-6 px-1.5 text-[10px]"
+                              className="h-6 px-1.5 text-[12px]"
                               onClick={() => {
                                 navigator.clipboard.writeText(opt.prompt);
                                 toast.success(`${opt.label} prompt copied — paste into Music Maker`);
@@ -276,7 +276,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
                             <Button
                               variant={active ? 'secondary' : 'outline'}
                               size="sm"
-                              className="h-6 px-2 text-[10px]"
+                              className="h-6 px-2 text-[12px]"
                               onClick={async () => {
                                 setMusicPrompt(opt.prompt);
                                 const result = await updateProjectMusicPrompt(project.id, opt.prompt);
@@ -288,7 +288,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
                             </Button>
                           </div>
                         </div>
-                        <p className="text-[11px] leading-relaxed text-muted-foreground">{opt.prompt}</p>
+                        <p className="text-[13px] leading-relaxed text-muted-foreground">{opt.prompt}</p>
                       </div>
                     );
                   })}
@@ -308,7 +308,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
                 placeholder="Describe the music bed — genre, tempo, instruments, mood…"
                 className="text-xs min-h-[72px]"
               />
-              <p className="text-[10px] text-zinc-600">
+              <p className="text-[12px] text-zinc-600">
                 This exact text is sent to the music engine when the ad is finished or assembled (the target length is added automatically).
                 Pick a direction above, edit freely, or copy one into Music Maker for a standalone track.
               </p>
@@ -325,7 +325,7 @@ export function SceneBoard({ project, onProjectUpdate, onBack }: SceneBoardProps
               preload="metadata"
               className="w-full rounded-lg border border-border/50 bg-black"
             />
-            <p className="text-[10px] text-zinc-600 text-right">
+            <p className="text-[12px] text-zinc-600 text-right">
               Tip: use the player&apos;s ⋮ menu → Picture in Picture to keep it floating while you scroll.
             </p>
           </div>

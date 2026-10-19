@@ -250,7 +250,7 @@ export function StoryboardTab({
                     className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Plus className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-[10px] text-muted-foreground">Add</span>
+                    <span className="text-[12px] text-muted-foreground">Add</span>
                   </button>
                 )}
               </div>

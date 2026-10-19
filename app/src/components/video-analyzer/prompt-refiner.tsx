@@ -128,7 +128,7 @@ export function PromptRefiner({ prompt, onPromptChange, disabled = false }: Prom
             key={idx}
             onClick={() => handleSuggestionClick(suggestion)}
             disabled={disabled || isRefining}
-            className="text-[10px] px-2 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+            className="text-[12px] px-2 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
           >
             {suggestion}
           </button>
@@ -161,7 +161,7 @@ export function PromptRefiner({ prompt, onPromptChange, disabled = false }: Prom
 
       {/* Modified indicator */}
       {hasChanges && (
-        <p className="text-[10px] text-green-600 dark:text-green-400">
+        <p className="text-[12px] text-green-600 dark:text-green-400">
           Prompt modified. Changes will be used when sending to Storyboard.
         </p>
       )}

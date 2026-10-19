@@ -240,23 +240,23 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
               <span className="font-mono text-xl font-bold text-foreground tracking-tight shrink-0">
                 SC&thinsp;{String(scene.n).padStart(2, '0')}
               </span>
-              <span className="font-mono text-[11px] text-muted-foreground tabular-nums shrink-0">
+              <span className="font-mono text-[13px] text-muted-foreground tabular-nums shrink-0">
                 {scene.is_custom ? `${duration}s` : `${scene.start.toFixed(1)}–${scene.end.toFixed(1)}s · ${duration}s`}
               </span>
               {(scene.is_custom || scene.analysis?.purpose) && (
-                <span className="text-[10px] uppercase tracking-widest text-muted-foreground shrink-0">
+                <span className="text-[12px] uppercase tracking-widest text-muted-foreground shrink-0">
                   {scene.is_custom ? 'custom' : scene.analysis.purpose}
                 </span>
               )}
               {leftOut && (
-                <span className="text-[10px] uppercase tracking-widest text-amber-700/80 dark:text-amber-300/80 shrink-0" title="The director left this scene out of the shorter cut. Change it under Finish the ad.">
+                <span className="text-[12px] uppercase tracking-widest text-amber-700/80 dark:text-amber-300/80 shrink-0" title="The director left this scene out of the shorter cut. Change it under Finish the ad.">
                   left out of this cut
                 </span>
               )}
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               {scene.credits_spent > 0 && (
-                <span className="font-mono text-[11px] text-zinc-600 tabular-nums">{scene.credits_spent} cr</span>
+                <span className="font-mono text-[13px] text-zinc-600 tabular-nums">{scene.credits_spent} cr</span>
               )}
               {scene.is_custom && (
                 <Button
@@ -304,12 +304,12 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
                   />
                 </a>
               )}
-              <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 font-mono text-[9px] uppercase tracking-widest text-zinc-400 pointer-events-none">
+              <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 font-mono text-[11px] uppercase tracking-widest text-zinc-400 pointer-events-none">
                 Original
               </span>
               {project.source_video_url && !scene.is_custom && (
                 <button
-                  className="absolute bottom-1.5 left-1.5 px-2 py-1.5 rounded-md bg-black/70 text-zinc-300 hover:bg-primary hover:text-white transition-colors text-[10px] flex items-center gap-1"
+                  className="absolute bottom-1.5 left-1.5 px-2 py-1.5 rounded-md bg-black/70 text-zinc-300 hover:bg-primary hover:text-white transition-colors text-[12px] flex items-center gap-1"
                   onClick={() => setShowOriginalClip((v) => !v)}
                   title={showOriginalClip ? 'Back to the frame' : 'Play this scene from the original ad'}
                 >
@@ -358,17 +358,17 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
                   {animGenerating && (
                     <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1">
                       <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                      <span className="text-[10px] text-foreground">Animating…</span>
+                      <span className="text-[12px] text-foreground">Animating…</span>
                     </div>
                   )}
                 </>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 border border-dashed border-border/60 rounded-md">
                   <ImagePlus className="w-5 h-5 text-zinc-600" />
-                  <span className="text-[10px] text-zinc-600">Generate to fill</span>
+                  <span className="text-[12px] text-zinc-600">Generate to fill</span>
                 </div>
               )}
-              <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 font-mono text-[9px] uppercase tracking-widest text-primary/90 pointer-events-none">
+              <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 font-mono text-[11px] uppercase tracking-widest text-primary/90 pointer-events-none">
                 Yours
               </span>
             </div>
@@ -383,7 +383,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
                   preload="metadata"
                   className="w-full h-full object-contain"
                 />
-                <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 font-mono text-[9px] uppercase tracking-widest text-green-400/90 pointer-events-none">
+                <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/70 font-mono text-[11px] uppercase tracking-widest text-green-400/90 pointer-events-none">
                   Clip
                 </span>
                 <a
@@ -421,7 +421,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
             if (strip.length < 1) return null;
             return (
               <div className="flex items-center gap-1.5 overflow-x-auto pt-1">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-600 shrink-0">Clip takes</span>
+                <span className="font-mono text-[11px] uppercase tracking-widest text-zinc-600 shrink-0">Clip takes</span>
                 {strip.map((url) => {
                   const isCurrent = url === scene.anim?.video_url;
                   return (
@@ -442,7 +442,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
                   );
                 })}
                 {strip.length === 1 && (
-                  <span className="text-[10px] text-zinc-600">
+                  <span className="text-[12px] text-zinc-600">
                     Re-animate to add takes — every clip is kept, click one to use it
                   </span>
                 )}
@@ -459,7 +459,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
             if (strip.length < 2) return null;
             return (
               <div className="flex items-center gap-1.5 overflow-x-auto pt-1">
-                <span className="font-mono text-[9px] uppercase tracking-widest text-zinc-600 shrink-0">Takes</span>
+                <span className="font-mono text-[11px] uppercase tracking-widest text-zinc-600 shrink-0">Takes</span>
                 {strip.map((url) => {
                   const isCurrent = url === scene.edited_image_url;
                   return (
@@ -485,7 +485,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
 
         {/* ——— ACTION RAIL ——— */}
         <div className="xl:w-[330px] xl:shrink-0 border-t xl:border-t-0 xl:border-l border-border/40 bg-muted/20 p-4 space-y-2.5">
-          <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Swap</p>
+          <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Swap</p>
           <Textarea
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
@@ -526,7 +526,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
               ))}
             {(scene.excluded_project_ref_urls || []).length > 0 && (
               <button
-                className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+                className="text-[12px] text-muted-foreground hover:text-foreground underline underline-offset-2"
                 onClick={handleRestoreProjectRefs}
                 title="Bring back the project references you removed from this scene"
               >
@@ -563,7 +563,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
               {uploadingRef ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Plus className="w-3 h-3 mr-1" />}
               Ref
             </Button>
-            <span className="text-[10px] text-zinc-600">or drop images here</span>
+            <span className="text-[12px] text-zinc-600">or drop images here</span>
           </div>
           <Button className="w-full" size="sm" onClick={handleGenerate} disabled={generating || locked}>
             {generating ? (
@@ -579,13 +579,13 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
           {(
             <>
               <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                   Motion — sent verbatim
                 </p>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-5 text-[10px] text-muted-foreground"
+                  className="h-5 text-[12px] text-muted-foreground"
                   onClick={() => {
                     setMotionPrompt(composeMotionPrompt(scene.analysis));
                     setNegativePrompt(CLONE_ANIM_NEGATIVE_PROMPT);
@@ -604,7 +604,7 @@ export function SceneCard({ project, scene, onProjectUpdate, locked = false }: S
                 disabled={animating || animGenerating}
               />
               <button
-                className="w-full flex items-center justify-between text-[10px] text-muted-foreground hover:text-foreground"
+                className="w-full flex items-center justify-between text-[12px] text-muted-foreground hover:text-foreground"
                 onClick={() => setShowNegative((v) => !v)}
               >
                 <span>Negative prompt</span>

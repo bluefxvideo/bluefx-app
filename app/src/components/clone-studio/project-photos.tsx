@@ -85,7 +85,7 @@ export function ProjectPhotos({ project, onProjectUpdate }: ProjectPhotosProps) 
         {uploading ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <ImagePlus className="w-4 h-4 mr-1.5" />}
         Add photos
       </Button>
-      <span className="text-[10px] text-zinc-600">or drag &amp; drop images here</span>
+      <span className="text-[12px] text-zinc-600">or drag &amp; drop images here</span>
     </div>
   );
 }

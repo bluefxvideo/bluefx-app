@@ -371,7 +371,7 @@ export function ImageGenerationStep({
                       ) : (
                         <button
                           onClick={() => editFileInputRef.current?.click()}
-                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground border border-dashed border-border/50 rounded px-2 py-1"
+                          className="flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground border border-dashed border-border/50 rounded px-2 py-1"
                         >
                           <Upload className="w-3 h-3" /> Add ref image
                         </button>

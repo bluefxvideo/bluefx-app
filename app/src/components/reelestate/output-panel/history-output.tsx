@@ -191,7 +191,7 @@ function HistoryRow({ item, onLoadProject, onDeleteGeneration }: {
             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${STATUS_COLORS[d.status] || ''}`}>
               {d.status.replace(/_/g, ' ')}
             </Badge>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-[13px] text-muted-foreground">
               {new Date(d.created_at).toLocaleDateString()}
             </span>
           </div>
@@ -246,7 +246,7 @@ function HistoryRow({ item, onLoadProject, onDeleteGeneration }: {
           <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${STATUS_COLORS[d.status] || ''}`}>
             {d.status.replace(/_/g, ' ')}
           </Badge>
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-[13px] text-muted-foreground">
             {new Date(d.created_at).toLocaleDateString()}
           </span>
         </div>

@@ -140,7 +140,7 @@ export function PhotoGrid({
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="h-6 text-[10px] px-2 bg-amber-600 hover:bg-amber-500 text-white"
+                    className="h-6 text-[12px] px-2 bg-amber-600 hover:bg-amber-500 text-white"
                     onClick={(e) => {
                       e.stopPropagation();
                       onCleanupPhoto(index);

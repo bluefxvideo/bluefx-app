@@ -59,7 +59,7 @@ export function ToolExamples<T extends ToolExample>({
           <Icon className="w-4 h-4" />
           {heading}
         </h2>
-        <p className="text-xs text-muted-foreground">{intro}</p>
+        <p className="text-sm text-muted-foreground">{intro}</p>
       </div>
 
       {/* A single example needs no selector */}
@@ -85,15 +85,15 @@ export function ToolExamples<T extends ToolExample>({
 
       <div className="space-y-1.5">
         <p className="text-sm font-medium">{example.title}</p>
-        <p className="text-xs text-muted-foreground">{example.shows}</p>
-        <p className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-xs font-medium">
+        <p className="text-sm text-muted-foreground">{example.shows}</p>
+        <p className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-sm font-medium">
           <Coins className="w-3.5 h-3.5 shrink-0 text-primary" />
           {cost(example)}
         </p>
       </div>
 
       <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
-        <p className="text-xs font-medium">What went in</p>
+        <p className="text-sm font-medium">What went in</p>
         {renderInputs(example)}
       </div>
 
@@ -102,7 +102,7 @@ export function ToolExamples<T extends ToolExample>({
           {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
           Try this example
         </Button>
-        <p className="text-center text-[11px] text-muted-foreground">{tryNote}</p>
+        <p className="text-center text-sm text-muted-foreground">{tryNote}</p>
       </div>
     </Card>
   );
@@ -139,12 +139,12 @@ export function ExampleImages({ urls, alt }: { urls: string[]; alt: string }) {
 
 /** The exact text that went into an example. */
 export function ExampleText({ children }: { children: ReactNode }) {
-  return <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">{children}</p>;
+  return <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{children}</p>;
 }
 
 /** A setting that shaped an example: shape, look, engine, length. */
 export function ExampleChip({ children }: { children: ReactNode }) {
-  return <span className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">{children}</span>;
+  return <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">{children}</span>;
 }
 
 /** A photo or clip that went into an example, with an optional caption under it. */
@@ -152,7 +152,7 @@ export function ExampleFile({ name, url, kind, caption }: { name: string; url: s
   const tile =
     kind === 'clip' ? (
       <div
-        className="flex h-12 w-12 items-center justify-center rounded-md border bg-background text-[10px] text-muted-foreground"
+        className="flex h-12 w-12 items-center justify-center rounded-md border bg-background text-[12px] text-muted-foreground"
         title={name}
       >
         clip
@@ -165,7 +165,7 @@ export function ExampleFile({ name, url, kind, caption }: { name: string; url: s
   return (
     <div className="flex flex-col items-center gap-1">
       {tile}
-      <span className="text-[10px] text-muted-foreground">{caption}</span>
+      <span className="text-xs text-muted-foreground">{caption}</span>
     </div>
   );
 }

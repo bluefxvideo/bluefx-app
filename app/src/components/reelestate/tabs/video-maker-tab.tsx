@@ -389,13 +389,13 @@ export function VideoMakerTab({
                           <div className="flex flex-col">
                             <span className="text-xs font-medium">Script ({project.script.segments.length} segments · about {scriptSeconds}s with this voice)</span>
                             {project.scriptGeneratedAt && (
-                              <span className="text-[10px] text-muted-foreground">Generated {formatTimeAgo(project.scriptGeneratedAt)}</span>
+                              <span className="text-[12px] text-muted-foreground">Generated {formatTimeAgo(project.scriptGeneratedAt)}</span>
                             )}
                           </div>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-6 text-[10px] gap-1 px-2"
+                            className="h-6 text-[12px] gap-1 px-2"
                             onClick={onRegenerateScript}
                             disabled={isWorking}
                           >
@@ -406,7 +406,7 @@ export function VideoMakerTab({
 
                         {/* Script stale warning */}
                         {project.scriptStale && (
-                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-700 dark:text-amber-400">
+                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[13px] text-amber-700 dark:text-amber-400">
                             <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
                             <span>Photos or duration changed. Regenerate to refresh the script.</span>
                           </div>
@@ -414,7 +414,7 @@ export function VideoMakerTab({
 
                         {/* The video is as long as the voiceover: say so before the voiceover is paid for */}
                         {scriptRunsLong && (
-                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-700 dark:text-amber-400">
+                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[13px] text-amber-700 dark:text-amber-400">
                             <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
                             <span>
                               This voice needs about {scriptSeconds} seconds for this script. You chose {project.targetDuration} seconds, and the video runs as long as the voiceover. For a shorter video: select fewer photos, shorten the lines, or click Regenerate to fit the script to this voice.
@@ -433,7 +433,7 @@ export function VideoMakerTab({
                                 />
                               )}
                               <textarea
-                                className="text-[11px] leading-relaxed w-full bg-transparent resize-none border-0 p-0 focus:outline-none focus:ring-0 min-h-[2rem]"
+                                className="text-[13px] leading-relaxed w-full bg-transparent resize-none border-0 p-0 focus:outline-none focus:ring-0 min-h-[2rem]"
                                 value={segment.voiceover}
                                 onChange={(e) => onUpdateScriptSegment(segment.index, e.target.value)}
                                 rows={2}
@@ -483,7 +483,7 @@ export function VideoMakerTab({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-6 text-[10px] gap-1 px-2"
+                            className="h-6 text-[12px] gap-1 px-2"
                             onClick={onRegenerateVoiceover}
                             disabled={isWorking}
                           >
@@ -494,7 +494,7 @@ export function VideoMakerTab({
 
                         {/* Voiceover stale warning */}
                         {project.voiceoverStale && (
-                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-700 dark:text-amber-400">
+                          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[13px] text-amber-700 dark:text-amber-400">
                             <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
                             <span>Script text or voice changed. Regenerate the voiceover to update the audio.</span>
                           </div>
@@ -700,7 +700,7 @@ function VoicePickerWithPreview({
           return (
             <div
               key={v.id}
-              className={`flex items-center gap-1 p-1.5 rounded border text-[11px] cursor-pointer transition-colors ${
+              className={`flex items-center gap-1 p-1.5 rounded border text-[13px] cursor-pointer transition-colors ${
                 isSelected
                   ? 'border-primary bg-primary/10'
                   : 'border-border/50 bg-background/30 hover:border-border'

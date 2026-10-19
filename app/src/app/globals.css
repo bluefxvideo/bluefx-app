@@ -3,6 +3,15 @@
 /* dark: follows the theme the user picked (the html class), not the computer's setting. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Bigger small text for older eyes (owner 2026-10-19: the tips and notes were hard to read with glasses):
+   text-xs 12 -> 14 px and text-sm 14 -> 16 px everywhere; spacing stays as it was. */
+@theme {
+  --text-xs: 0.875rem;
+  --text-xs--line-height: calc(1.25 / 0.875);
+  --text-sm: 1rem;
+  --text-sm--line-height: calc(1.5 / 1);
+}
+
 /* Your existing visual design preserved in shadcn/ui format */
 /* Light: the bluefx.net look (white page, navy, the site's green button). Also applied by a .light wrapper,
    so a preview can show light inside the dark app. */

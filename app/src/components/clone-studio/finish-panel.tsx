@@ -45,7 +45,7 @@ const STAGE_LABEL: Record<FinishStage, string> = {
 };
 const LOOK_LABEL: Record<FinishLook, string> = { clean: 'Clean', bold: 'Bold', elegant: 'Elegant', playful: 'Playful' };
 const select = 'h-8 rounded-md border border-border/60 bg-transparent text-xs px-2 text-foreground disabled:opacity-50';
-const label = 'font-mono text-[9px] uppercase tracking-widest text-muted-foreground';
+const label = 'font-mono text-[11px] uppercase tracking-widest text-muted-foreground';
 
 export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
   const [open, setOpen] = useState(false);
@@ -165,7 +165,7 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
               style={{ width: `${run.stage === 'clips' ? 8 : run.stage === 'voice' ? 20 : run.stage === 'rendering' ? 25 + run.progress * 0.7 : 97}%` }}
             />
           </div>
-          <p className="text-[11px] text-muted-foreground">This takes a few minutes. The finished ad appears at the top of this page.</p>
+          <p className="text-[13px] text-muted-foreground">This takes a few minutes. The finished ad appears at the top of this page.</p>
         </div>
       )}
 
@@ -202,7 +202,7 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
                   <option value="female">Female voice</option>
                   <option value="male">Male voice</option>
                 </select>
-                {!narrated && <span className="text-[10px] text-zinc-600">No scene uses the narrator</span>}
+                {!narrated && <span className="text-[12px] text-zinc-600">No scene uses the narrator</span>}
               </div>
               {narrated && onCamera && (
                 <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
@@ -231,7 +231,7 @@ export function FinishPanel({ project, onProjectUpdate }: FinishPanelProps) {
                   title="Colour of the text accents"
                 />
                 {settings.accent && (
-                  <button className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2" onClick={() => saveSetting({ accent: '' })}>
+                  <button className="text-[12px] text-muted-foreground hover:text-foreground underline underline-offset-2" onClick={() => saveSetting({ accent: '' })}>
                     Use the style&apos;s colour
                   </button>
                 )}
@@ -356,7 +356,7 @@ function FinishRow({ scene, disabled, onChange }: { scene: CloneScene; disabled:
               className="text-xs min-h-[56px]"
             />
             {originalWords && (
-              <p className="text-[10px] text-zinc-600 truncate" title={originalWords}>
+              <p className="text-[12px] text-zinc-600 truncate" title={originalWords}>
                 In the original: {originalWords}
               </p>
             )}
@@ -378,7 +378,7 @@ function FinishRow({ scene, disabled, onChange }: { scene: CloneScene; disabled:
               className="text-xs min-h-[56px]"
             />
             {original && (
-              <p className="text-[10px] text-zinc-600 truncate" title={original}>
+              <p className="text-[12px] text-zinc-600 truncate" title={original}>
                 In the original: {original}
               </p>
             )}

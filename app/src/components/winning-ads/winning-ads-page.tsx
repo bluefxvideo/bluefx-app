@@ -571,7 +571,7 @@ function AdCard({
         {/* "New" badge — top-left */}
         {fresh && (
           <div className="absolute top-2 left-2">
-            <Badge className="bg-amber-500/90 text-white text-[10px] border-0 px-1.5">
+            <Badge className="bg-amber-500/90 text-white text-[12px] border-0 px-1.5">
               New
             </Badge>
           </div>
@@ -582,7 +582,7 @@ function AdCard({
           <div className="absolute top-2 right-2">
             <Badge
               variant="secondary"
-              className="bg-emerald-500/90 text-white text-[10px] border-0"
+              className="bg-emerald-500/90 text-white text-[12px] border-0"
             >
               {ctrBadge}
             </Badge>
@@ -632,14 +632,14 @@ function AdCard({
         {isTikTok ? (
           <Badge
             variant="outline"
-            className="text-[10px] w-fit mb-3 text-muted-foreground border-border"
+            className="text-[12px] w-fit mb-3 text-muted-foreground border-border"
           >
             {ad.niche}
           </Badge>
         ) : (
           <Badge
             variant="outline"
-            className="text-[10px] w-fit mb-3 text-blue-600 dark:text-blue-400 border-blue-900"
+            className="text-[12px] w-fit mb-3 text-blue-600 dark:text-blue-400 border-blue-900"
           >
             Facebook Ads
           </Badge>

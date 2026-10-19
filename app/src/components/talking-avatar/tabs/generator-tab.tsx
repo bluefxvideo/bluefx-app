@@ -718,7 +718,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                           <Trash2 className="w-2.5 h-2.5 text-white" />
                         </button>
                       </div>
-                      <p className="text-[11px] font-medium text-center truncate leading-tight">{saved.name}</p>
+                      <p className="text-[13px] font-medium text-center truncate leading-tight">{saved.name}</p>
                     </Card>
                   ))}
                 </div>
@@ -784,7 +784,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                           onClick={() => setAvatarGenPreset(preset.id)}
                         >
                           <p className="font-medium">{preset.label}</p>
-                          <p className="text-[10px] text-muted-foreground">{preset.desc}</p>
+                          <p className="text-[12px] text-muted-foreground">{preset.desc}</p>
                         </button>
                       ))}
                     </div>
@@ -1030,7 +1030,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                       </div>
                     )}
                   </div>
-                  <p className="text-[11px] font-medium text-center truncate leading-tight">{template.name}</p>
+                  <p className="text-[13px] font-medium text-center truncate leading-tight">{template.name}</p>
                 </Card>
               ))}
             </div>
@@ -1094,7 +1094,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
                         <span className="font-medium">{option.label}</span>
                       </span>
                       {option.lines.map((line) => (
-                        <span key={line} className="text-[10px] opacity-70 whitespace-normal leading-tight">{line}</span>
+                        <span key={line} className="text-[12px] opacity-70 whitespace-normal leading-tight">{line}</span>
                       ))}
                     </Button>
                   );

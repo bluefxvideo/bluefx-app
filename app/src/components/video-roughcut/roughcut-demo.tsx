@@ -193,7 +193,7 @@ export function RoughcutDemo({ example }: { example: RoughcutExample }) {
             style={{ left: `${Math.min(100, (time / duration) * 100)}%` }}
           />
         </div>
-        <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
+        <div className="mt-1 flex items-center justify-between gap-3 text-[13px] text-muted-foreground">
           <span className="tabular-nums">0:00</span>
           <span className="truncate">{caption}</span>
           <span className="tabular-nums">{formatClock(Math.round(duration))}</span>
@@ -210,11 +210,11 @@ export function RoughcutDemo({ example }: { example: RoughcutExample }) {
                 onClick={() => show('raw', removal.start, true)}
                 className="w-full rounded-md border bg-card px-2.5 py-1.5 text-left text-xs hover:bg-muted/50"
               >
-                <span className="font-mono text-[11px] text-muted-foreground">
+                <span className="font-mono text-[13px] text-muted-foreground">
                   {formatClock(removal.start)} to {formatClock(removal.end)}
                 </span>{' '}
                 <span>“{removal.text}”</span>
-                <span className="block text-[11px] text-muted-foreground">{removal.reason}</span>
+                <span className="block text-[13px] text-muted-foreground">{removal.reason}</span>
               </button>
             </li>
           ))}

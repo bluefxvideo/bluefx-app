@@ -77,7 +77,7 @@ function ItemCard({ item }: { item: LibraryItem }) {
             <audio src={item.url} controls className="w-44 h-8" preload="none" />
           </div>
         )}
-        <span className="absolute top-2 left-2 text-[10px] font-medium px-1.5 py-0.5 rounded bg-black/60 text-white flex items-center gap-1">
+        <span className="absolute top-2 left-2 text-[12px] font-medium px-1.5 py-0.5 rounded bg-black/60 text-white flex items-center gap-1">
           <Icon className="w-3 h-3" />
           {item.draft ? 'Draft' : meta.label}
         </span>

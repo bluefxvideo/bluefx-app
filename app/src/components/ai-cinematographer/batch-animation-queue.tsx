@@ -322,7 +322,7 @@ export function BatchAnimationQueue({
                             &quot;{item.dialogue}&quot;
                           </p>
                           {item.includeDialogue && (
-                            <span className="text-[10px] bg-amber-100 dark:bg-amber-900/40 px-1 rounded">incl.</span>
+                            <span className="text-[12px] bg-amber-100 dark:bg-amber-900/40 px-1 rounded">incl.</span>
                           )}
                         </div>
                       )}

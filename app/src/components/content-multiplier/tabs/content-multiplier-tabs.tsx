@@ -153,7 +153,7 @@ export function ContentMultiplierTabs({ activeTab }: ContentMultiplierTabsProps)
                     }`} />
                   )}
                 </div>
-                <span className={`transition-all duration-300 text-[10px] ${
+                <span className={`transition-all duration-300 text-[12px] ${
                   isActive ? 'font-semibold drop-shadow-sm' : 'group-hover:font-medium'
                 }`}>
                   {tab.label}
@@ -218,7 +218,7 @@ export function ContentMultiplierTabs({ activeTab }: ContentMultiplierTabsProps)
                       }`} />
                     )}
                   </div>
-                  <span className={`transition-all duration-300 text-[10px] ${
+                  <span className={`transition-all duration-300 text-[12px] ${
                     isActive ? 'font-semibold drop-shadow-sm' : 'group-hover:font-medium'
                   }`}>
                     {tab.label}

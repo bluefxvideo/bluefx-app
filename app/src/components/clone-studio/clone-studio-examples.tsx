@@ -24,11 +24,11 @@ export function CloneStudioExamples({
       media={(example) => (
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <p className="text-center text-[11px] text-muted-foreground">The ad you clone</p>
+            <p className="text-center text-[13px] text-muted-foreground">The ad you clone</p>
             <ExampleVideo src={example.source.videoUrl} poster={example.source.posterUrl} landscape={false} />
           </div>
           <div className="space-y-1">
-            <p className="text-center text-[11px] text-muted-foreground">Your version</p>
+            <p className="text-center text-[13px] text-muted-foreground">Your version</p>
             <ExampleVideo src={example.videoUrl} poster={example.posterUrl} landscape={false} />
           </div>
         </div>

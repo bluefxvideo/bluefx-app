@@ -353,7 +353,7 @@ export function GeneratorTab({
               <Zap className="w-4 h-4" />
               <span className="font-medium">Fast</span>
             </span>
-            <span className="text-[10px] opacity-70">Ready in seconds</span>
+            <span className="text-xs opacity-80">Ready in seconds</span>
           </Button>
           <Button
             type="button"
@@ -366,7 +366,7 @@ export function GeneratorTab({
               <Sparkles className="w-4 h-4" />
               <span className="font-medium">Pro</span>
             </span>
-            <span className="text-[10px] opacity-70">Best value</span>
+            <span className="text-xs opacity-80">Best value</span>
           </Button>
           <Button
             type="button"
@@ -379,12 +379,12 @@ export function GeneratorTab({
               <Gem className="w-4 h-4" />
               <span className="font-medium">Ultra</span>
             </span>
-            <span className="text-[10px] opacity-70">Max quality</span>
+            <span className="text-xs opacity-80">Max quality</span>
           </Button>
         </div>
 
         {/* Model description badge */}
-        <div className="text-xs text-muted-foreground mb-4 p-2 rounded bg-muted/30">
+        <div className="text-sm leading-relaxed text-muted-foreground mb-4 p-3 rounded bg-muted/30">
           {formData.model === 'fast' ? (
             <>
               <strong>Fast Mode:</strong> Ready in seconds, up to 4K — great for social content and b-roll. Up to 20s videos,

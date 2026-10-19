@@ -198,7 +198,7 @@ export function AutomaticOutput({
           <ol className="mt-3 space-y-2">
             {job.script.map((scene, i) => (
               <li key={i} className="flex gap-3">
-                <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium">{i + 1}</span>
+                <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-muted text-[13px] font-medium">{i + 1}</span>
                 <div className="space-y-0.5">
                   <p>{scene.say}</p>
                   {scene.show.length > 0 && <p className="text-xs text-muted-foreground">On screen: {scene.show.join(' · ')}</p>}
@@ -292,12 +292,12 @@ function ListingLibrary({ jobs, currentId, onOpen }: { jobs: SmartVideoJob[]; cu
                   // The first second of the video is its thumbnail; only the file's header is fetched.
                   <video src={`${shown.videoUrl}#t=1`} preload="metadata" muted playsInline className="h-full w-full object-contain" />
                 )}
-                {running && <span className="absolute left-1.5 top-1.5 rounded-full bg-primary px-2 py-0.5 text-[10px] text-primary-foreground">Working</span>}
+                {running && <span className="absolute left-1.5 top-1.5 rounded-full bg-primary px-2 py-0.5 text-[12px] text-primary-foreground">Working</span>}
                 {latest.status === 'failed' &&
                   (shown ? (
-                    <span className="absolute left-1.5 top-1.5 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] text-black">Last change failed</span>
+                    <span className="absolute left-1.5 top-1.5 rounded-full bg-amber-500 px-2 py-0.5 text-[12px] text-black">Last change failed</span>
                   ) : (
-                    <span className="absolute left-1.5 top-1.5 rounded-full bg-destructive px-2 py-0.5 text-[10px] text-destructive-foreground">Failed</span>
+                    <span className="absolute left-1.5 top-1.5 rounded-full bg-destructive px-2 py-0.5 text-[12px] text-destructive-foreground">Failed</span>
                   ))}
               </div>
               <p className="truncate px-2 py-1.5 text-xs">

@@ -90,7 +90,7 @@ export function FileThumb({ file, disabled, onRemove }: { file: File; disabled: 
       {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL, nothing for next/image to optimise */}
       {url && !isVideo && <img src={url} alt={file.name} className="h-full w-full object-cover" />}
       {isVideo && (
-        <span className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/70 px-1 py-0.5 text-[10px] text-white">
+        <span className="absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/70 px-1 py-0.5 text-[12px] text-white">
           <FileVideo className="h-3 w-3" />
           clip
         </span>

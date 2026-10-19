@@ -355,17 +355,17 @@ export function MusicExample() {
                       <span className="text-sm font-medium truncate">
                         {track.title}
                       </span>
-                      <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                      <Badge variant="outline" className="text-[12px] flex-shrink-0">
                         {track.genre}
                       </Badge>
                     </div>
-                    <p className="text-[11px] text-muted-foreground truncate">
+                    <p className="text-[13px] text-muted-foreground truncate">
                       {track.prompt}
                     </p>
                   </div>
 
                   {/* Time display */}
-                  <span className="text-[11px] text-muted-foreground font-mono flex-shrink-0">
+                  <span className="text-[13px] text-muted-foreground font-mono flex-shrink-0">
                     {isActive && duration > 0
                       ? `${formatTime(currentTime)} / ${formatTime(duration)}`
                       : ""}

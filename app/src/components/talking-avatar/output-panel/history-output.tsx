@@ -243,7 +243,7 @@ export function HistoryOutput({
                 ) : (
                   <div className={`bg-black rounded overflow-hidden relative ${isTall ? 'aspect-[9/16] max-h-[420px] mx-auto' : 'aspect-video'}`}>
                     {voiceUrl && video.video_url && (
-                      <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-0.5 rounded-md border border-white/20 bg-black/60 p-0.5 text-[11px] backdrop-blur">
+                      <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-0.5 rounded-md border border-white/20 bg-black/60 p-0.5 text-[13px] backdrop-blur">
                         <button
                           type="button"
                           onClick={() => setShowOriginal(prev => { const next = new Set(prev); next.delete(video.id); return next; })}

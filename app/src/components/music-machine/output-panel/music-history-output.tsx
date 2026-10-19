@@ -369,22 +369,22 @@ export function MusicHistoryOutput({
                       <span className="text-sm font-medium truncate">
                         {music.track_title || 'Untitled Track'}
                       </span>
-                      <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                      <Badge variant="outline" className="text-[12px] flex-shrink-0">
                         {music.genre || 'Audio'}
                       </Badge>
                     </div>
-                    <p className="text-[11px] text-muted-foreground truncate">
+                    <p className="text-[13px] text-muted-foreground truncate">
                       {music.description || music.mood || 'Generated track'}
                     </p>
                   </div>
 
                   {/* Date */}
-                  <span className="text-[10px] text-muted-foreground flex-shrink-0 hidden sm:block">
+                  <span className="text-[12px] text-muted-foreground flex-shrink-0 hidden sm:block">
                     {formatDate(music.created_at)}
                   </span>
 
                   {/* Time display */}
-                  <span className="text-[11px] text-muted-foreground font-mono flex-shrink-0">
+                  <span className="text-[13px] text-muted-foreground font-mono flex-shrink-0">
                     {isActive && duration > 0
                       ? `${formatTime(currentTime)} / ${formatTime(duration)}`
                       : ''}

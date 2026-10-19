@@ -291,7 +291,7 @@ export function VideoPreview({ video, batchId, model, onCancel, onRegenerate, on
                 {video.voice_video_url ? 'Your voice is on this clip' : 'Put your own voice on this clip'}
               </span>
             </div>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-[13px] text-muted-foreground">
               Upload or drop a clean recording of your voice (10–30 seconds, no music). The picture and lip movement stay exactly as they are; only the voice changes.
             </p>
             <input
@@ -306,12 +306,12 @@ export function VideoPreview({ video, batchId, model, onCancel, onRegenerate, on
                 <Upload className="w-3.5 h-3.5 mr-1.5" />
                 {voiceFile || useLastSample ? 'Change sample' : 'Choose voice sample'}
               </Button>
-              <span className="text-[11px] text-muted-foreground truncate">
+              <span className="text-[13px] text-muted-foreground truncate">
                 {voiceFile ? `Selected: ${voiceFile.name}` : useLastSample && lastVoiceSample ? `Using last sample: ${lastVoiceSample.name}` : 'MP3, WAV or M4A, or drop it here'}
               </span>
             </div>
             {lastVoiceSample && !voiceFile && !useLastSample && (
-              <button type="button" onClick={() => setUseLastSample(true)} disabled={isSwitchingVoice} className="text-[11px] text-primary hover:underline text-left">
+              <button type="button" onClick={() => setUseLastSample(true)} disabled={isSwitchingVoice} className="text-[13px] text-primary hover:underline text-left">
                 Reuse the sample from last time ({lastVoiceSample.name})
               </button>
             )}
