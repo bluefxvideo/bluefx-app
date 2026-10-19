@@ -66,14 +66,19 @@ export async function offerBonusAds(lead: FreeVideoLead, userId: string): Promis
 const KIND_NOTE: Record<FreeVideoNextAdKind, (ad: FreeVideoNextAd) => string> = {
   'happy-customer': (ad) =>
     `A presenter tells the story of a real customer review on the website${ad.customer ? `, the one from ${ad.customer}` : ''}, as that customer, in the review's own words, with nothing the review does not say. Then one line about the business and its offer, and the call to action.`,
-  'why-us': () => 'Show why customers choose this business, from facts only this business has: its years, licenses, guarantees, awards, what is included, how it works.',
+  // No list of fact kinds here: the director warned the buyer that "years, licenses, guarantees or awards" were missing (2026-10-19 test).
+  'why-us': () => 'Show why customers choose this business: what makes it different, from facts on the website only.',
   'problem-fixer': () => "Open with the problem the business's main service fixes, the one most of its customers have, in their own everyday words. Then show how this business solves it, with its real services and details.",
   'act-now': () => "Lead with the business's best real offer from the website, and end with exactly how to get it: call, book, order or visit the website.",
 };
 
-/** The note the director reads beside the website's text; its first line is the video ad's name in Your video ads. */
+/**
+ * The note the director reads beside the website's text; its first line is the video ad's name in Your video ads. The
+ * presenter comes from the job's options: a line about it here made the director warn the buyer that "no video clip
+ * was provided for the presenter" while the presenter was in the video (2026-10-19 test).
+ */
 function noteOf(ad: FreeVideoNextAd, domain: string): string {
-  return [ad.title, `Make this video ad for ${domain}: ${ad.teaser}`, KIND_NOTE[ad.kind](ad), 'A presenter says the first line on camera.'].join('\n');
+  return [ad.title, `Make this video ad for ${domain}: ${ad.teaser}`, KIND_NOTE[ad.kind](ad)].join('\n');
 }
 
 type Row = { id: string; status: string; job: SmartVideoJob; updated_at: string };
