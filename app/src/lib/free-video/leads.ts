@@ -34,6 +34,7 @@ import {
   type FreeVideoLeadPatch,
   type FreeVideoLeadStatus,
   type FreeVideoLive,
+  type FreeVideoNextAdCard,
   type FreeVideoServerEvent,
   type FreeVideoSettings,
   type FreeVideoUnlockStatus,
@@ -666,6 +667,7 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
     case 'done': {
       const until = cleanCopyUntil(lead);
       const why = whyItWorksOf(lead);
+      const nextAds = nextAdCardsOf(lead);
       return lead.video_url
         ? {
             ...base,
@@ -674,6 +676,8 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
             downloadUrl: downloadLink(lead.video_url, `${displayDomain(lead.website_domain)}-video-ad-free.mp4`),
             ...(until ? { cleanUntil: until } : {}),
             ...(why ? { whyItWorks: why } : {}),
+            ...(lead.live?.presenterPhoto ? { poster: lead.live.presenterPhoto } : {}),
+            ...(nextAds ? { nextAds } : nextAdsPendingOf(lead) ? { nextAdsPending: true } : {}),
           }
         : { ...base, state: 'checking' };
     }
@@ -685,6 +689,29 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
     default:
       return { ...base, state: 'unreadable' };
   }
+}
+
+/** The result page's 3 written video ads (next-ads.ts); a frame that was not drawn shows one of the website's photos. Not for customers. */
+function nextAdCardsOf(lead: FreeVideoLead): FreeVideoNextAdCard[] | null {
+  const ads = lead.next_ads?.ads;
+  if (lead.is_customer || !ads || ads.length !== 3) return null;
+  return ads.map((ad, index) => ({
+    n: ad.n,
+    kind: ad.kind,
+    hook: ad.hook,
+    highlight: ad.highlight,
+    title: ad.title,
+    imageUrl: ad.imageUrl ?? lead.photos?.[index] ?? lead.photos?.[0] ?? null,
+  }));
+}
+
+/** How long after the video ad is ready the page waits for its 3 written video ads (they start while it renders). */
+const NEXT_ADS_WAIT_MINUTES = 6;
+
+/** The 3 are still being written: the video ad was ready moments ago and has none yet. */
+function nextAdsPendingOf(lead: FreeVideoLead): boolean {
+  if (lead.is_customer || lead.next_ads || !lead.finished_at) return false;
+  return Date.now() - Date.parse(lead.finished_at) < NEXT_ADS_WAIT_MINUTES * 60_000;
 }
 
 /** The first visit of /v/<token> (the email click-through metric). Never throws. */

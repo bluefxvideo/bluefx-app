@@ -174,7 +174,49 @@ export interface FreeVideoLead {
   unlock_emailed_at: string | null;
   /** Set by the cleanup when the working files were deleted (cleanup.ts). Optional: older reads do not select it. */
   files_cleaned_at?: string | null;
+  /** The next 3 video ads, written while the free video ad renders (next-ads.ts); null until then. Optional: older reads do not select it. */
+  next_ads?: FreeVideoNextAds | null;
 }
+
+/** The kinds of the next 3 video ads (lib/free-video/next-ads.ts). why-us stands in for happy-customer on a website without reviews. */
+export type FreeVideoNextAdKind = 'happy-customer' | 'why-us' | 'problem-fixer' | 'act-now';
+
+/** One of the next 3 video ads written for a finished free video ad, as stored on the lead. */
+export interface FreeVideoNextAd {
+  /** #2, #3 and #4: the free video ad is #1. */
+  n: 2 | 3 | 4;
+  kind: FreeVideoNextAdKind;
+  /** The opening line, on the card's first frame. */
+  hook: string;
+  /** The last words of the hook, shown in yellow. */
+  highlight: string;
+  title: string;
+  /** The happy customer: the review sentence the hook quotes, and the name the website gives. */
+  quote?: string | null;
+  customer?: string | null;
+  /** What the video ad says and shows; the bonus video ad is made from it after the purchase (bonus-ads.ts). */
+  brief: string;
+  /** The free job's photo the ad uses (its asset id), or null. */
+  photo?: string | null;
+  /** The first frame, described, and what the presenter does while saying the first words. */
+  frame: string;
+  action?: string | null;
+  /** The first frame, 4:5; null when the drawing failed. */
+  imageUrl: string | null;
+}
+
+/** free_video_leads.next_ads */
+export interface FreeVideoNextAds {
+  business: string;
+  ads: FreeVideoNextAd[];
+  /** What the checks found (a quote that is not on the website, a number the website never says); empty when clean. */
+  problems: string[];
+  costUsd: number;
+  writtenAt: string;
+}
+
+/** A written video ad as the result page shows it. */
+export type FreeVideoNextAdCard = Pick<FreeVideoNextAd, 'n' | 'kind' | 'hook' | 'highlight' | 'title' | 'imageUrl'>;
 
 /** A patch for transitionLead(); id and created_at never change. */
 export type FreeVideoLeadPatch = Partial<Omit<FreeVideoLead, 'id' | 'created_at'>>;
@@ -266,6 +308,12 @@ export interface FreeVideoView {
   live?: FreeVideoLive;
   /** ready: "Why this ad works", 3 to 5 short lines shown folded under the video ad (owner 2026-10-11). */
   whyItWorks?: string[];
+  /** ready: the presenter's photo, the first frame of the video ad (the result page's picture of it); absent without a presenter. */
+  poster?: string;
+  /** ready: the next 3 video ads, written for this website (next-ads.ts); absent until written. */
+  nextAds?: FreeVideoNextAdCard[];
+  /** ready: the next 3 video ads are being written right now, so the page asks again in a few seconds. */
+  nextAdsPending?: boolean;
 }
 
 /**

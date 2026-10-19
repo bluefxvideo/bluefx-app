@@ -37,6 +37,7 @@ import { qualityGate } from '@/lib/free-video/gate';
 import { asLead, getLead, leadsTable, readSettings, transitionLead } from '@/lib/free-video/leads';
 import { liveRecorder } from '@/lib/free-video/live';
 import { LIVE_DEMO } from '@/lib/free-video/live-demo';
+import { NEXT_ADS_USAGE, nextAdsWanted, startNextAds } from '@/lib/free-video/next-ads';
 import { deliverLead } from '@/lib/free-video/notify';
 import { startCleanRender } from '@/lib/free-video/unlock';
 import { displayDomain, isUnreadable, readBusinessSite } from '@/lib/free-video/website';
@@ -398,7 +399,8 @@ const NOTES_WAIT_MS = 15_000;
  * The hooks of a free job. Each paid step first checks that this attempt still owns its lead (review F1).
  * They also feed the live status page: the website photos, the plan, then every picture, clip, voice-over
  * and music file the moment it is saved, and "why this ad works" for the finished page. notesSaved() resolves
- * once that list is saved, or after NOTES_WAIT_MS.
+ * once that list is saved, or after NOTES_WAIT_MS. The next 3 video ads of the result page are written while the
+ * video ad renders (next-ads.ts), when the lead has none yet.
  */
 function freeHooks(lead: FreeVideoLead, watch: Ownership): { hooks: SmartVideoRunHooks; notesSaved: () => Promise<void> } {
   const live = liveRecorder(writeLive(lead.id, lead.job_id));
@@ -406,12 +408,14 @@ function freeHooks(lead: FreeVideoLead, watch: Ownership): { hooks: SmartVideoRu
   let siteText = '';
   let kept: SmartAsset[] = [];
   let notes: Promise<void> | null = null;
+  let nextAdsNeeded = false;
   live.reset();
   const hooks: SmartVideoRunHooks = {
     readLink: async (link) => {
       if (!(await watch.check())) throw new Error(LOST_LEAD);
-      const read = await readBusinessSite(link);
+      const [read, needed] = await Promise.all([readBusinessSite(link), nextAdsWanted(lead.id)]);
       siteText = read.brief;
+      nextAdsNeeded = needed;
       return read;
     },
     options: (base, assets) => {
@@ -437,7 +441,9 @@ function freeHooks(lead: FreeVideoLead, watch: Ownership): { hooks: SmartVideoRu
         console.warn(`⚠️ [free-video] Lead ${lead.id}: why-it-works skipped:`, String(error).slice(0, 160));
       }
       const rendered = freeRender(result);
-      return { ...rendered, usage: [...rendered.usage, AD_NOTES_USAGE] };
+      const saved = { plan: result.plan, props: result.props, media: result.media, brief: siteText };
+      const nextAds = nextAdsNeeded && startNextAds(lead.id, displayDomain(lead.website_domain), saved, false);
+      return { ...rendered, usage: [...rendered.usage, AD_NOTES_USAGE, ...(nextAds ? [NEXT_ADS_USAGE] : [])] };
     },
     onStored: (name, url) => live.stored(name, url),
     // 720p: the render about 40% faster (owner 2026-10-07); the $99 clean version renders at 1080p from the saved props.

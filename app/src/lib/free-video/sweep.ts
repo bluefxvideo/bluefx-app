@@ -34,6 +34,7 @@ import { addToBoughtGroup, deliverLead, deliverUnlock, viewUrl } from '@/lib/fre
 import { type SettleOutcome, settleLead } from '@/lib/free-video/runner';
 import { cleanRendersRunning, startCleanRender } from '@/lib/free-video/unlock';
 import { copyLeadsToAccounts } from '@/lib/free-video/claim';
+import { writeMissingNextAds } from '@/lib/free-video/next-ads';
 import { cleanWorkingFiles } from '@/lib/free-video/cleanup';
 import { leadPrefixOfVtid } from '@/lib/free-video/offer';
 import { displayDomain } from '@/lib/free-video/website';
@@ -73,6 +74,8 @@ export interface SweepReport {
   bought: number;
   /** Bought leads whose video ad this sweep started copying into the buyer's account (claim.ts). */
   claimed: number;
+  /** Finished leads whose next 3 video ads this sweep started writing (next-ads.ts). */
+  nextAds: number;
   /** Once an hour: free video ads whose working files this sweep deleted (cleanup.ts); null in the other sweeps. */
   cleaned: { leads: number; files: number } | null;
   breaker: { bad: number; finished: number; tripped: boolean };
@@ -137,6 +140,7 @@ function emptyReport(dry: boolean): SweepReport {
     unlock: { waiting: 0, rendering: 0, started: 0, emailed: 0 },
     bought: 0,
     claimed: 0,
+    nextAds: 0,
     cleaned: null,
     breaker: { bad: 0, finished: 0, tripped: false },
     alertsNew: 0,
@@ -224,6 +228,7 @@ export async function sweepFreeVideos({ dry }: { dry: boolean }): Promise<SweepR
   // 5. P1: sales; once an hour, the old working files.
   if (!dry) report.bought = await attributeSales();
   if (!dry) report.claimed = await copyLeadsToAccounts(own);
+  if (!dry) report.nextAds = await writeMissingNextAds(own);
   if (!dry && new Date().getUTCMinutes() < 3) report.cleaned = await cleanWorkingFiles(own, settings.system_user_id);
 
   // Numbers for the report, the cap alert and the breaker.

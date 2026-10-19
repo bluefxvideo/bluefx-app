@@ -34,15 +34,20 @@ import {
   cleanCopyUntil,
   isEmailPlacement,
   isPlacement,
+  isResultPagePlacement,
   isSalesPagePlacement,
+  leadPrefixOfVtid,
   LIFETIME_PAGE_URL,
   OFFER_BUTTON_PLACEMENTS,
   PAGE_PLACEMENTS,
+  RESULT_PAGE_PLACEMENTS,
+  resultCheckoutUrl,
   SALES_PAGE_PLACEMENTS,
   UNLOCK,
   unlockCheckoutUrl,
   unlockGoUrl,
 } from '@/lib/free-video/offer';
+import { checkNextAds, type NextAdIdea } from '@/lib/free-video/next-ads';
 import { fakeSavedPlan, freeOptions, PLAN_TOO_LONG, shapeFreePlan, trimFreePlan, withWatermark } from '@/lib/free-video/runner';
 import { checkFreeScript, namedOffer, websiteOffers } from '@/lib/free-video/script-checks';
 import { adFacts, cleanWhy, fallbackWhy, offerSaid, WHY_MAX, WHY_MAX_CHARS, WHY_MIN, whyItWorks, whyItWorksOf, whyPrompt } from '@/lib/free-video/why-it-works';
@@ -449,10 +454,21 @@ async function main(): Promise<void> {
     CARD_PLACEMENTS.every((placement) => isPlacement(placement) && !isEmailPlacement(placement) && /^\w{1,24}$/.test(placement) && checkoutUrl(placement).endsWith(`&vtid=${placement}`))
   );
   check(
-    'the offer clicks counted on the funnel pages include the card and the buttons to the sales page',
-    OFFER_BUTTON_PLACEMENTS.length === PAGE_PLACEMENTS.length + CARD_PLACEMENTS.length + SALES_PAGE_PLACEMENTS.length &&
-      [...CARD_PLACEMENTS, ...SALES_PAGE_PLACEMENTS].every((p) => (OFFER_BUTTON_PLACEMENTS as readonly string[]).includes(p))
+    'the offer clicks counted on the funnel pages include the card, the buttons to the sales page and the result page checkout buttons',
+    OFFER_BUTTON_PLACEMENTS.length === PAGE_PLACEMENTS.length + CARD_PLACEMENTS.length + SALES_PAGE_PLACEMENTS.length + RESULT_PAGE_PLACEMENTS.length &&
+      [...CARD_PLACEMENTS, ...SALES_PAGE_PLACEMENTS, ...RESULT_PAGE_PLACEMENTS].every((p) => (OFFER_BUTTON_PLACEMENTS as readonly string[]).includes(p))
   );
+  {
+    const lead = '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
+    const vtids = RESULT_PAGE_PLACEMENTS.map((p) => new URL(resultCheckoutUrl(p, lead)).searchParams.get('vtid') ?? '');
+    check(
+      "the result page's checkout buttons are checkout placements whose vtid carries the lead (fvres1_1a2b3c4d), at most 24 characters",
+      RESULT_PAGE_PLACEMENTS.every((p) => isPlacement(p) && isResultPagePlacement(p) && !isSalesPagePlacement(p) && !isEmailPlacement(p)) &&
+        vtids.every((v) => /^\w{1,24}$/.test(v) && leadPrefixOfVtid(v) === '1a2b3c4d') &&
+        resultCheckoutUrl('fvres1', null).endsWith('&vtid=fvres1'),
+      vtids.join(' ')
+    );
+  }
   check('the result page buttons open the sales page, not an email or a card placement', SALES_PAGE_PLACEMENTS.every((p) => isPlacement(p) && isSalesPagePlacement(p) && !isEmailPlacement(p)) && LIFETIME_PAGE_URL === 'https://ai.bluefx.net/lifetime/');
   check('the form\'s "one free video ad per business" box (fvland) opens the sales page too (owner 2026-10-18); the card stays a checkout', isSalesPagePlacement('fvland') && !CARD_PLACEMENTS.some((p) => isSalesPagePlacement(p)));
   check(
@@ -703,6 +719,25 @@ async function main(): Promise<void> {
     const first = Array.from({ length: REFUSAL_LIMITS.perIpPerDay }, (_, i) => takeRefusalLog(ip, t0 + i)).every(Boolean);
     check(`takeRefusalLog: ${REFUSAL_LIMITS.perIpPerDay} rows from one IP in a day, then none, then again a day later`, first && !takeRefusalLog(ip, t0 + 1000) && takeRefusalLog(ip, t0 + 24 * 60 * 60_000 + 1000));
     check('takeRefusalLog: another IP is not held back', takeRefusalLog('203.0.113.78', t0 + 2000));
+  }
+
+  // 15c. ----------------------------------------------------------------------------------------
+  section('15c. The next 3 video ads (next-ads.ts checkNextAds)');
+  {
+    const site = 'JM Painting. "They did an amazing job on my walls. Very clean work." Free estimates within 24 hours. Licensed since 2012.';
+    const idea = (over: Partial<NextAdIdea>): NextAdIdea => ({
+      kind: 'act-now',
+      hook: 'Get a free estimate within 24 hours',
+      highlight: 'within 24 hours',
+      title: 'How to get a free estimate',
+      brief: 'A painter offers a free estimate within 24 hours. Call or book on jmpaintingservices.com today.',
+      frame: 'A painter in a white shirt holds a clipboard in a bright living room.',
+      ...over,
+    });
+    const happy = idea({ kind: 'happy-customer', hook: 'They did an amazing job on my walls', highlight: 'on my walls', quote: 'They did an amazing job on my walls.' });
+    check('checkNextAds: a quote word for word from the website and its numbers pass', checkNextAds(site, [happy, idea({ kind: 'problem-fixer' }), idea({})]).length === 0, checkNextAds(site, [happy, idea({ kind: 'problem-fixer' }), idea({})]).join('; '));
+    const madeUp = checkNextAds(site, [idea({ kind: 'happy-customer', hook: 'Best painters in all of New Jersey', highlight: 'in all of New Jersey' }), idea({ hook: 'Get 20% off every job', highlight: 'every job' }), idea({ highlight: 'within 48 hours' })]);
+    check('checkNextAds: a "review" the website never says, a number it never says and a highlight off the hook are caught', madeUp.some((p) => p.startsWith('#2: the quoted line')) && madeUp.some((p) => p.includes('"20"')) && madeUp.some((p) => p.startsWith('#4: the highlight')), madeUp.join('; '));
   }
 
   // 16. -----------------------------------------------------------------------------------------

@@ -3,17 +3,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
-import { DOWNLOAD, LAYOUT, LIVE, PLAYER, READY_NEXT, STATUS, SUPPORT_EMAIL, UNLOCK_COPY } from '@/lib/free-video/copy';
-import { goUrl, unlockGoUrl, type PagePlacement } from '@/lib/free-video/offer';
+import { DOWNLOAD, LAYOUT, LIVE, PLAYER, STATUS, SUPPORT_EMAIL, UNLOCK_COPY } from '@/lib/free-video/copy';
+import { unlockGoUrl, type PagePlacement } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
 import type { FreeVideoUnlockState, FreeVideoUnlockView, FreeVideoView } from '@/types/free-video';
 import type { SmartVideoJobStatus } from '@/types/smart-video';
-import { BirthdayDeal } from './birthday-deal';
 import { LifetimeOffer } from './lifetime-offer';
-import { SALES_PAGE } from '@/lib/free-video/sales-page';
-import { ResultWalkthrough } from './lifetime-sales-page';
 import { LiveMaking } from './live-making';
-import { BonusTimer, useBonusEnded, useDeadline } from './sales-page-media';
+import { ResultPage, useBonusDeadline } from './result-page';
+import { useBonusEnded } from './sales-page-media';
 import { SaveToPhotos } from './save-to-photos';
 import { UnlockOffer } from './unlock-offer';
 import { VideoAdPlayer } from './video-ad-player';
@@ -25,6 +23,8 @@ const POLL_MAKING_MS = 4_000;
 const POLL_UNLOCK_MS = 5_000;
 /** Held for the owner's final check: every 30 s. */
 const POLL_CHECKING_MS = 30_000;
+/** Ready, while its next 3 video ads are still being written (the server says so for a few minutes): every 6 s. */
+const POLL_NEXT_ADS_MS = 6_000;
 /** A page left open stops checking after 90 minutes (the tab coming back into view starts a new 90). */
 const SESSION_MS = 90 * 60_000;
 /** The unlock click keeps the page checking for 30 minutes, even past the 90. */
@@ -139,7 +139,9 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
           return sessionLive || unlockLive ? POLL_UNLOCK_MS : false;
         default:
           // Ready, unlock not paid yet: wait for the payment only after the click.
-          return data.state === 'ready' && unlockState === 'available' && unlockLive ? POLL_UNLOCK_MS : false;
+          if (data.state === 'ready' && unlockState === 'available' && unlockLive) return POLL_UNLOCK_MS;
+          // The 3 written video ads land a moment after the video ad (next-ads.ts).
+          return data.state === 'ready' && data.nextAdsPending && sessionLive ? POLL_NEXT_ADS_MS : false;
       }
     },
   });
@@ -195,9 +197,9 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
     setSessionOver(false);
   }, []);
 
-  // The 3-day bonus: one line under the button while it runs (owner 2026-10-16: "keep").
+  // The 2 free bonuses (the video ad without the logo, the 3 written video ads made) and their deadline.
   const bonusEnded = useBonusEnded(view.cleanUntil);
-  const bonusWhen = useDeadline(view.cleanUntil);
+  const bonusDeadline = useBonusDeadline(view.cleanUntil);
 
   const staleNotice = stale ? <StaleNotice onCheck={restart} /> : null;
   const domain = view.domain;
@@ -208,9 +210,25 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
     const freeDownload = view.downloadUrl ?? view.videoUrl;
     // Paid, being made, ready or stuck: the clean version is theirs and leads the column.
     const purchased = unlock.state !== 'available' && unlock.state !== 'unavailable';
-    /** The button to the sales page and the walkthrough: for leads, never for customers or a lead whose clean version is paid for ($99, before that offer came off the page). */
+    /** The result page with the offer (result-page.tsx): for leads, never for customers or a lead whose clean version is paid for ($99, before that offer came off the page). */
     const offerOn = !view.isCustomer && !purchased;
     const bonus = Boolean(view.cleanUntil) && !bonusEnded;
+    if (offerOn) {
+      return (
+        <>
+          <ResultPage
+            view={view}
+            token={token}
+            bonus={bonus}
+            deadline={bonusDeadline}
+            onPlayWithSound={() => beacon('video_play')}
+            onComplete={() => beacon('video_complete')}
+            onDownload={() => beacon('download')}
+          />
+          {staleNotice}
+        </>
+      );
+    }
     const unlockOffer = (
       <UnlockOffer
         unlock={unlock}
@@ -253,48 +271,6 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
                 {/* A clean version paid for earlier comes first. The $99 offer itself is off the page (owner 2026-10-08: "the $99
                     offer is just in the way"); /go/fvunlock still opens its checkout for a tab that was open before. */}
                 {purchased && unlockOffer}
-                {/* The page from zero (owner 2026-10-16): what made the video ad, one button to the AI Media Machine's own sales
-                    page (the price is shown there, once, as tested), the 3-day bonus in one line. */}
-                {offerOn && (
-                  <div className={styles.readyNext}>
-                    <p className={styles.readyLine}>{READY_NEXT.line}</p>
-                    <p className={styles.readyOutcome}>{READY_NEXT.outcome(domain)}</p>
-                    {/* My photo and name over the birthday line, so "my 40th birthday" is someone (owner 2026-10-18). */}
-                    <BirthdayDeal />
-                    <p className={styles.readyListTitle}>{READY_NEXT.listTitle}</p>
-                    <ul className={cn(styles.ticks, styles.readyTicks)}>
-                      {READY_NEXT.items.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                    {/* Showing the change, not telling it (Hormozi review item 3): one typed sentence, a new presenter. */}
-                    <figure className={styles.readyDemo}>
-                      <video
-                        className={styles.readyDemoVideo}
-                        src={SALES_PAGE.changes.demo.video}
-                        poster={SALES_PAGE.changes.demo.poster}
-                        aria-label={SALES_PAGE.changes.demo.label}
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                        preload="metadata"
-                      />
-                      <figcaption className={styles.readyDemoCaption}>{READY_NEXT.demoCaption}</figcaption>
-                    </figure>
-                    <a className={styles.btn} href={goUrl('fvready', token)}>
-                      {READY_NEXT.buttonTop}
-                    </a>
-                    <p className={styles.readyTrust}>{READY_NEXT.trust}</p>
-                    {/* The 3-day bonus: one line and its countdown (owner 2026-10-16: "lets add the timer too"). */}
-                    {bonus && view.cleanUntil && (
-                      <div className={cn(styles.offerBonus, styles.readyBonusBox)}>
-                        <p className={styles.offerBonusTitle}>{bonusWhen ? READY_NEXT.bonus(bonusWhen) : READY_NEXT.bonusSoon}</p>
-                        <BonusTimer until={view.cleanUntil} />
-                      </div>
-                    )}
-                  </div>
-                )}
                 {/* The free sample, as promised: a plain download with nothing in front of it. */}
                 {!cleanReady && (
                   <a className={cn(styles.btn, styles.btnGhost, purchased && styles.btnGap)} href={freeDownload} onClick={() => beacon('download')}>
@@ -314,8 +290,6 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
             </div>
           </div>
         </section>
-        {/* Szilard's walkthrough and the same button again; never while the video ad is made (owner 2026-10-08). */}
-        {offerOn && <ResultWalkthrough token={token} />}
       </>
     );
   }

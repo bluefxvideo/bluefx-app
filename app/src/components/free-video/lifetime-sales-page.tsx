@@ -415,7 +415,7 @@ export function ResultWalkthrough({ token }: { token: string }) {
 }
 
 /** The walkthrough: its poster until a tap, then YouTube from the start or from a chapter (the player loads only then). */
-function FounderTour({ token }: { token: string }) {
+export function FounderTour({ token }: { token: string }) {
   const { tour } = SALES_PAGE;
   const beacon = useFreeVideoBeacon(token);
   /** Where the player starts, in seconds; null until the visitor plays it. */

@@ -7,7 +7,7 @@ import { SITE_URL } from '@/lib/free-video/config';
 import { unlockOpen } from '@/lib/free-video/cleanup';
 import { clientIp, getLeadByToken, isActiveCustomerId, markClicked } from '@/lib/free-video/leads';
 import { rememberCheckoutIds, requestFacts, trackCheckout } from '@/lib/free-video/meta';
-import { checkoutUrl, isEmailPlacement, isPlacement, isSalesPagePlacement, salesPageUrl, UNLOCK, unlockCheckoutUrl } from '@/lib/free-video/offer';
+import { checkoutUrl, isEmailPlacement, isPlacement, isResultPagePlacement, isSalesPagePlacement, resultCheckoutUrl, salesPageUrl, UNLOCK, unlockCheckoutUrl } from '@/lib/free-video/offer';
 import { CLICK_VISITOR_PARAM, VISITOR_ID_PATTERN } from '@/lib/free-video/internal-visit';
 import { CHECKOUT_EVENT_PARAM } from '@/lib/free-video/pixel';
 import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
@@ -33,6 +33,8 @@ import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
  *   placement and the lead's id, owner 2026-10-19), the click logged on the lead when there is one. Not a checkout: no
  *   InitiateCheckout for Facebook; the sales page's own buttons open ClickBank's order form, ClickBank's script there
  *   carries the hop on and the page's own script the vtid.
+ * - A checkout button of the result page (fvres1, fvres2, fvres3, fvresbar, owner 2026-10-19) → 302 to ClickBank's
+ *   checkout like the page buttons, with the lead's id in the vendor tracking id (resultCheckoutUrl).
  * - Anything else → 404. Every target is built here from fixed parts: never an open redirect.
  * - A checkout link carries the affiliate's ClickBank hop (clickbank.ts): the hopId and vq ClickBank's script appended
  *   to the button's link in the same browser, else the hop saved when the lead came in (a click from the emails on
@@ -128,5 +130,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
     if (validToken && !facts.internal) await markClicked(token, placement, visitorId);
     await trackCheckout({ token: validToken ? token : null, placement, eventId, facts });
   });
+  if (isResultPagePlacement(placement)) {
+    // The lead's id rides in the vtid, so a sale paid with another email still finds its lead (offer.ts resultCheckoutUrl).
+    const lead = validToken ? await getLeadByToken(token).catch(() => null) : null;
+    return redirect(withHop(resultCheckoutUrl(placement, lead?.id), hop));
+  }
   return redirect(withHop(checkoutUrl(placement), hop));
 }
