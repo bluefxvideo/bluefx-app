@@ -253,6 +253,94 @@
   font-size: 19px;
   line-height: 1.5;
 }
+/* The AI Media Machine's robot and its speech bubble (owner 2026-10-19). Wide screens: the bubble says the sub; phones:
+   a short line between the reel and the field, with the sub under the field. The robot points down at the field. */
+.robotRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  max-width: 700px;
+  margin: 0 auto;
+}
+.robotBubble {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  margin: 0 0 22px;
+  padding: 16px 20px;
+  border: 1.5px solid #c9d8ec;
+  border-radius: 20px;
+  background: var(--fv-white);
+  box-shadow: 0 6px 18px rgba(20, 61, 112, 0.08);
+  color: var(--fv-text);
+  font-size: 19px;
+  line-height: 1.5;
+  text-align: left;
+  text-wrap: pretty;
+}
+/* The tail, pointing at the robot. */
+.robotBubble::after {
+  content: '';
+  position: absolute;
+  right: -9px;
+  bottom: 24px;
+  width: 16px;
+  height: 16px;
+  border-top: 1.5px solid #c9d8ec;
+  border-right: 1.5px solid #c9d8ec;
+  background: var(--fv-white);
+  transform: rotate(45deg);
+}
+.robotHello {
+  color: var(--fv-ink);
+}
+.robotShort {
+  display: none;
+}
+.robot {
+  flex-shrink: 0;
+  width: 150px;
+  height: 150px;
+  margin-right: -12px;
+  object-fit: contain;
+}
+.toolSubPhone {
+  display: none;
+}
+@media (max-width: 639px) {
+  .robotRow {
+    order: 3;
+    gap: 2px;
+    margin-top: 8px;
+  }
+  .robotBubble {
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    font-size: 16px;
+  }
+  .robotBubble::after {
+    right: -7px;
+    bottom: 18px;
+    width: 12px;
+    height: 12px;
+  }
+  .robotLong {
+    display: none;
+  }
+  .robotShort {
+    display: inline;
+  }
+  .robot {
+    width: 96px;
+    height: 96px;
+    margin-right: -8px;
+  }
+  .toolSubPhone {
+    display: block;
+  }
+}
 /* The honest reason why the video ad is free (Kennedy): small, under the sub. */
 .toolWhy {
   max-width: 640px;

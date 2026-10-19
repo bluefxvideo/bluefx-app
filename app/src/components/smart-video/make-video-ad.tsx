@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
   Camera,
@@ -16,12 +17,14 @@ import {
   UserRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { listBonusVideoAds, makeBonusVideoAd } from '@/actions/tools/bonus-video-ads';
 import { cn } from '@/lib/utils';
 import { describeLink } from '@/lib/smart-video/link';
 import { PHANTOM_EXAMPLES } from '@/lib/smart-video/examples';
 import { PHANTOM_PRESENTER_CHANGE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import type { VideoLook } from '@/lib/smart-video/types';
 import { SMART_VIDEO_MAX_EDIT_FILES, SMART_VIDEO_MAX_FILE_MB, type SmartVideoJob } from '@/types/smart-video';
+import type { BonusVideoAd } from '@/types/free-video';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
 import type { useSmartVideo } from './hooks/use-smart-video';
 import { FileThumb, SoundSwitches, plainError } from './shared';
@@ -97,6 +100,7 @@ export function videoTitle(job: SmartVideoJob): string {
 
 /** What a video ad was made from, in a few words: "ascentequipment.com and your notes". */
 function madeFrom(job: SmartVideoJob): string {
+  if (job.bonus) return `${job.bonus.site}, your bonus video ad #${job.bonus.n}`;
   const parts: string[] = [];
   if (job.link) parts.push(siteOf(job.link));
   if (job.brief.trim() && job.brief.trim() !== job.link) parts.push('your notes');
@@ -360,8 +364,8 @@ export function MakeVideoAdView({
   smart: SmartVideo;
   /** The user's credits, when known. */
   balance?: number;
-  /** Dev preview only: open a state that otherwise needs clicks. */
-  preview?: { moreOpen?: boolean; changeNote?: string };
+  /** Dev preview only: open a state that otherwise needs clicks, and sample bonus video ads. */
+  preview?: { moreOpen?: boolean; changeNote?: string; bonusAds?: BonusVideoAd[] };
 }) {
   const { job } = smart;
   const groups = groupVersions(smart.history);
@@ -375,6 +379,7 @@ export function MakeVideoAdView({
   else if (job.freeLeadId && job.freeStage) main = <FreeVideoWaiting job={job} />;
   else if (job.freeLeadId && job.status === 'failed') main = <FreeVideoProblem job={job} />;
   else if (job.freeLeadId && isRunning(job)) main = <FreeVideoArriving job={job} />;
+  else if (job.bonus && job.status === 'failed') main = <BonusProblem job={job} />;
   else if (job.status === 'done' && job.videoUrl)
     main = (
       <Ready
@@ -405,6 +410,7 @@ export function MakeVideoAdView({
     <div className="mx-auto w-full max-w-[1000px] space-y-10 break-words px-4 py-6 text-foreground sm:px-8 sm:py-10">
       {smart.stalePage && <StaleBar />}
       {main}
+      <BonusVideoAds onOpen={smart.openJob} sample={preview?.bonusAds} />
       {groups.length > 0 ? (
         <VideoLibrary groups={groups} currentId={job?.id} onOpen={smart.openJob} />
       ) : (
@@ -1241,6 +1247,87 @@ function FreeVideoArriving({ job }: { job: SmartVideoJob }) {
         </div>
       </Panel>
     </div>
+  );
+}
+
+/** A bonus video ad that failed: a click on its card under Your bonus video ads makes it again, at no credits (no paid "try again" here). */
+function BonusProblem({ job }: { job: SmartVideoJob }) {
+  const bonus = job.bonus as NonNullable<SmartVideoJob['bonus']>;
+  return (
+    <div className="mx-auto max-w-[760px] space-y-6">
+      <PageHeader title={`Your bonus video ad #${bonus.n} for ${bonus.site}`} robot={false} />
+      <Panel className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+        <RobotLoop className="h-28 w-28 flex-shrink-0" />
+        <p className="text-lg leading-relaxed">
+          This bonus video ad could not be made this time. Click <b>Make it again</b> on its card under <b>Your bonus video ads</b>. It uses no credits.
+        </p>
+      </Panel>
+    </div>
+  );
+}
+
+/**
+ * The 3 bonus video ads of a free video ad buyer (lib/free-video/bonus-ads.ts): each card is the presenter, a title and
+ * a teaser, and one click makes that video ad at no credits. Shown until all 3 are made (they are in Your video ads).
+ */
+function BonusVideoAds({ onOpen, sample }: { onOpen: (jobId: string) => void; sample?: BonusVideoAd[] }) {
+  const queryClient = useQueryClient();
+  const { data: loaded = [] } = useQuery({
+    queryKey: ['bonus-video-ads'],
+    queryFn: () => listBonusVideoAds(),
+    enabled: !sample,
+    refetchInterval: (query) => (query.state.data?.some((ad) => ad.state === 'making') ? 8000 : false),
+  });
+  const ads = sample ?? loaded;
+  const make = useMutation({
+    mutationFn: (ad: BonusVideoAd) => makeBonusVideoAd({ leadId: ad.leadId, n: ad.n }),
+    onSuccess: (answer) => {
+      void queryClient.invalidateQueries({ queryKey: ['bonus-video-ads'] });
+      void queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
+      if (answer.success) onOpen(answer.data.jobId);
+      else toast.error(answer.error || 'Your bonus video ad could not start. Please try again in a minute.');
+    },
+    onError: () => toast.error('Your bonus video ad could not start. Please try again in a minute.'),
+  });
+  if (!ads.length || ads.every((ad) => ad.state === 'done')) return null;
+  return (
+    <section className="space-y-4" aria-labelledby="bonus-video-ads-title">
+      <div className="space-y-1">
+        <h2 id="bonus-video-ads-title" className="text-[22px] font-extrabold sm:text-2xl">
+          Your bonus video ads for {ads[0].site}
+        </h2>
+        <p className="text-lg text-muted-foreground">Click one, and it is ready in about 3 minutes. Your bonus video ads use no credits.</p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {ads.map((ad) => {
+          const starting = make.isPending && make.variables?.jobId === ad.jobId;
+          return (
+            <div key={ad.jobId} className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              <div className="relative aspect-[4/5] bg-sheet">
+                {ad.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={ad.imageUrl} alt={`Bonus video ad ${ad.n}: ${ad.title}`} className="h-full w-full object-cover" loading="lazy" />
+                )}
+                <span className="absolute left-2 top-2 rounded-lg bg-brand px-2.5 py-1 text-sm font-extrabold text-white">#{ad.n}</span>
+                {ad.state === 'making' && <span className="absolute right-2 top-2 rounded-full bg-brand px-2.5 py-1 text-xs font-bold text-white">Being made</span>}
+              </div>
+              <div className="flex flex-1 flex-col gap-2 p-4">
+                <p className="text-lg font-bold leading-snug">{ad.title}</p>
+                <p className="flex-1 text-base text-muted-foreground">{ad.teaser}</p>
+                {ad.state === 'done' || ad.state === 'making' ? (
+                  <OutlineButton onClick={() => onOpen(ad.jobId)}>{ad.state === 'done' ? 'Watch your video ad' : 'See it being made'}</OutlineButton>
+                ) : (
+                  <GreenButton className="min-h-[52px] text-lg sm:min-h-[56px] sm:text-xl" onClick={() => make.mutate(ad)} disabled={make.isPending}>
+                    {starting ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+                    {ad.state === 'failed' ? 'Make it again' : 'Make this video ad'}
+                  </GreenButton>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

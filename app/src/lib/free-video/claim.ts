@@ -20,6 +20,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { createAdminClient } from '@/app/supabase/server';
 import { claimsTestLeads, fakeMode, OWNER_TEST_EMAILS, renderTargetAllowed } from '@/lib/free-video/config';
+import { offerBonusAds } from '@/lib/free-video/bonus-ads';
 import { asLead, customerIdByEmail, getLead, leadsTable, ownerAccountIdByEmail, readSettings, RETIRED_OWNER_TEST } from '@/lib/free-video/leads';
 import { cleanCopyEarned } from '@/lib/free-video/offer';
 import { checkCleanFile, cleanProps, inBackground } from '@/lib/free-video/unlock';
@@ -239,18 +240,43 @@ export async function copyLeadsToAccounts(own: (query: any) => any): Promise<num
   let started = 0;
   for (const lead of leads.values()) {
     try {
-      const userId = await accountOfLead(lead);
+      const userId = await buyerAccountOf(lead);
       if (!userId) continue;
       const copy = await readJob(userId, copyIdOf(lead.id, userId));
-      if (copy?.status === 'done') continue;
-      if (copy && finishing.has(copy.id)) continue;
-      await claimFreeVideo(lead, userId);
-      started++;
+      if (copy?.status !== 'done' && !(copy && finishing.has(copy.id))) {
+        await claimFreeVideo(lead, userId);
+        started++;
+      }
+      // A purchase while the bonus ran: the 3 planned video ads wait in the account, each made on a click (bonus-ads.ts).
+      await offerBonusAds(lead, userId);
     } catch (failure) {
       console.error(`❌ [free-video] Sweep: copying lead ${lead.id} to its account failed:`, failure);
     }
   }
   return started;
+}
+
+/**
+ * The account a lead's purchase went to: the lead's own email's (accountOfLead), else, for a sale paid with another
+ * email and paired with the lead by its tracking id (sweep.ts attributeSales, sale_ref "clickbank:<event id>"), the
+ * account of the email the buyer paid with. null when there is none yet.
+ */
+async function buyerAccountOf(lead: FreeVideoLead): Promise<string | null> {
+  const own = await accountOfLead(lead);
+  if (own || !lead.sale_ref) return own;
+  const [processor, ...rest] = lead.sale_ref.split(':');
+  const eventId = rest.join(':');
+  if (!processor || !eventId) return null;
+  const { data, error } = await (createAdminClient() as any)
+    .from('webhook_events')
+    .select('cb_email:payload->customer->>email, fs_email:payload->>customerEmail')
+    .eq('processor', processor)
+    .eq('event_id', eventId)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`The sale ${lead.sale_ref} could not be read: ${error.message}`);
+  const email = String(data?.cb_email || data?.fs_email || '').trim().toLowerCase();
+  return email.includes('@') && email !== lead.email ? customerIdByEmail(email) : null;
 }
 
 /** The AI Media Machine account a lead's free video ad is copied into: the owner's own for his addresses, else the email's account with an active plan; null when there is none. Throws on a failed read. */

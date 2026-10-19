@@ -177,6 +177,12 @@ export interface SmartVideoOptions {
    * users.
    */
   presenter?: boolean;
+  /**
+   * The presenter's vertical photo and first-second action, given instead of cast from the brief (the bonus video ads
+   * of the free video funnel: the person on the card the buyer saw, bonus-ads.ts). A failure leaves scene 1 to the
+   * narrator, like a failed casting. Unset for paying users.
+   */
+  presenterCast?: () => Promise<{ photo: Buffer; action: string }>;
   /** More checks on the script (the free video funnel, script-checks.ts); unset for paying users. */
   checkScript?: (plan: DirectorPlan) => string | null;
   /** Another model or looser rules for the director (the free video funnel: Flash, owner 2026-10-07). */
@@ -199,7 +205,7 @@ async function produce(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera, pickMusic, presenter = false, checkScript, director }: SmartVideoOptions
+  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera, pickMusic, presenter = false, presenterCast, checkScript, director }: SmartVideoOptions
 ): Promise<Omit<SmartVideoResult, 'usage'>> {
   // A listing whose page is off the market often keeps a single photo: say so before anything is spent.
   const photos = assets.filter((a) => a.kind === 'image').length;
@@ -214,13 +220,19 @@ async function produce(
   // The presenter is cast and photographed while the director writes the script.
   const presenterPhoto =
     presenter && !listing && !horizontal
-      ? castPersona(brief)
-          .then(async (persona) => {
-            console.log(`🎭 Presenter: ${persona.photo} | hook: ${persona.action}`);
-            const photo = await castPresenter(persona.photo);
-            await store(photo, 'presenter.jpg', 'image/jpeg');
-            return { photo, action: persona.action };
-          })
+      ? (presenterCast
+          ? presenterCast().then(async (cast) => {
+              console.log(`🎭 Presenter given | hook: ${cast.action}`);
+              await store(cast.photo, 'presenter.jpg', 'image/jpeg');
+              return cast;
+            })
+          : castPersona(brief).then(async (persona) => {
+              console.log(`🎭 Presenter: ${persona.photo} | hook: ${persona.action}`);
+              const photo = await castPresenter(persona.photo);
+              await store(photo, 'presenter.jpg', 'image/jpeg');
+              return { photo, action: persona.action };
+            })
+        )
           .catch((error) => {
             console.warn('⚠️ Presenter not cast, the narrator says the first line:', String(error).slice(0, 160));
             return null;

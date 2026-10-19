@@ -174,7 +174,62 @@ export interface FreeVideoLead {
   unlock_emailed_at: string | null;
   /** Set by the cleanup when the working files were deleted (cleanup.ts). Optional: older reads do not select it. */
   files_cleaned_at?: string | null;
+  /** The next 3 video ads, written while the free video ad renders (next-ads.ts); null until then. Optional: older reads do not select it. */
+  next_ads?: FreeVideoNextAds | null;
 }
+
+/** The kinds of the next 3 video ads (lib/free-video/next-ads.ts). why-us stands in for happy-customer on a website without reviews. */
+export type FreeVideoNextAdKind = 'happy-customer' | 'why-us' | 'problem-fixer' | 'act-now';
+
+/** One of the next 3 video ads planned for a finished free video ad, as stored on the lead: a teaser and the presenter's picture. */
+export interface FreeVideoNextAd {
+  /** #2, #3 and #4: the free video ad is #1. */
+  n: 2 | 3 | 4;
+  kind: FreeVideoNextAdKind;
+  /** The card's catchy title. */
+  title: string;
+  /** One line saying what the video ad shows (a teaser, not the script: the script is written when the buyer makes it). */
+  teaser: string;
+  /** The happy customer: the reviewer's first name as the website gives it. */
+  customer?: string | null;
+  /** The free job's photo the ad uses (its asset id), or null. */
+  photo?: string | null;
+  /** The presenter's picture, described, and what the presenter does while saying the first words. */
+  frame: string;
+  action?: string | null;
+  /** The presenter's picture, 4:5; null when the drawing failed. */
+  imageUrl: string | null;
+}
+
+/** free_video_leads.next_ads */
+export interface FreeVideoNextAds {
+  business: string;
+  ads: FreeVideoNextAd[];
+  /** What the checks found (a reviewer the website never names, a number it never says); empty when clean. */
+  problems: string[];
+  costUsd: number;
+  writtenAt: string;
+  /** The account that bought while the bonus ran: its AI Media Machine shows the 3, each made on a click (bonus-ads.ts). */
+  buyerId?: string;
+}
+
+/** A bonus video ad waiting in a buyer's AI Media Machine (bonus-ads.ts bonusVideoAdsOf): its card, and how far it is. */
+export interface BonusVideoAd {
+  leadId: string;
+  n: 2 | 3 | 4;
+  /** The website the free video ad was made from, as people read it. */
+  site: string;
+  title: string;
+  teaser: string;
+  imageUrl: string | null;
+  /** The video ad's job id once it is made (the same every time). */
+  jobId: string;
+  /** new: not clicked yet; making: being made; done: in Your video ads; failed: a click makes it again. */
+  state: 'new' | 'making' | 'done' | 'failed';
+}
+
+/** A planned video ad as the result page shows it. */
+export type FreeVideoNextAdCard = Pick<FreeVideoNextAd, 'n' | 'kind' | 'title' | 'teaser' | 'imageUrl'>;
 
 /** A patch for transitionLead(); id and created_at never change. */
 export type FreeVideoLeadPatch = Partial<Omit<FreeVideoLead, 'id' | 'created_at'>>;
@@ -266,6 +321,12 @@ export interface FreeVideoView {
   live?: FreeVideoLive;
   /** ready: "Why this ad works", 3 to 5 short lines shown folded under the video ad (owner 2026-10-11). */
   whyItWorks?: string[];
+  /** ready: the presenter's photo, the first frame of the video ad (the result page's picture of it); absent without a presenter. */
+  poster?: string;
+  /** ready: the next 3 video ads, written for this website (next-ads.ts); absent until written. */
+  nextAds?: FreeVideoNextAdCard[];
+  /** ready: the next 3 video ads are being written right now, so the page asks again in a few seconds. */
+  nextAdsPending?: boolean;
 }
 
 /**

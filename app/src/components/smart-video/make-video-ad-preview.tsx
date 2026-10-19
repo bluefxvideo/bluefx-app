@@ -9,6 +9,7 @@ import { PHANTOM_EXAMPLES } from '@/lib/smart-video/examples';
 import { urlToFile } from '@/lib/url-to-file';
 import type { VideoFormat, VideoLook } from '@/lib/smart-video/types';
 import type { SmartVideoJob } from '@/types/smart-video';
+import type { BonusVideoAd } from '@/types/free-video';
 import { MakeVideoAdView, type SmartVideo } from './make-video-ad';
 import { PREVIEW_STATES, type PreviewState } from './preview-states';
 
@@ -133,6 +134,29 @@ const freeBase: SmartVideoJob = {
   updatedAt: ago(3),
 };
 
+/** The 3 bonus video ads of a buyer (a real dry run on jmpaintingservices.com, 2026-10-19). */
+const BONUS_PICTURES = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/free-video/next-ads/preview';
+const bonusAds = (states: BonusVideoAd['state'][]): BonusVideoAd[] =>
+  [
+    { n: 2 as const, title: 'Why Christine loves her clean paint job', teaser: 'Christine shares how the painters arrived on time, left no mess, and double checked her satisfaction.' },
+    { n: 3 as const, title: 'The faded exterior siding needing fresh paint', teaser: 'A presenter points to dirty, faded exterior siding and explains how surface washing and painting fixes it.' },
+    { n: 4 as const, title: 'Your free estimate booked within 24 hours', teaser: 'A presenter holds a clipboard and explains how to get a clear, zero-pressure quote today.' },
+  ].map((ad, index) => ({ ...ad, leadId: 'lead', site: 'jmpaintingservices.com', imageUrl: `${BONUS_PICTURES}/n${ad.n}.jpg?v=jm8`, jobId: id(20 + index), state: states[index] }));
+const bonusFailed: SmartVideoJob = {
+  id: id(21),
+  userId: 'preview',
+  status: 'failed',
+  brief: 'The faded exterior siding needing fresh paint',
+  link: 'https://jmpaintingservices.com/',
+  format: 'vertical',
+  presenter: true,
+  creditsUsed: 0,
+  bonus: { leadId: 'lead', n: 3, site: 'jmpaintingservices.com', attempt: 1 },
+  error: 'The job stopped unexpectedly (the server restarted during an update). Please run it again.',
+  createdAt: ago(600),
+  updatedAt: ago(400),
+};
+
 function jobsFor(state: PreviewState): { job: SmartVideoJob | null; history: SmartVideoJob[] } {
   const library = [original, change1, productAd, realtorAd];
   switch (state) {
@@ -155,6 +179,11 @@ function jobsFor(state: PreviewState): { job: SmartVideoJob | null; history: Sma
       return { job: { ...freeBase, status: 'directing', freeStage: 'making', freePreviewUrl: undefined }, history: [] };
     case 'free-arriving':
       return { job: freeBase, history: [freeBase] };
+    case 'bonus':
+    case 'bonus-making':
+      return { job: null, history: [{ ...freeBase, status: 'done', videoUrl: realtor.videoUrl, freeSite: 'jmpaintingservices.com' }] };
+    case 'bonus-failed':
+      return { job: bonusFailed, history: [bonusFailed] };
     default:
       return { job: null, history: library };
   }
@@ -227,7 +256,18 @@ export function MakeVideoAdPreview({ state, theme, empty, bare }: { state: Previ
           key={`${state}-${theme}`}
           smart={smart}
           balance={600}
-          preview={{ moreOpen: state === 'options', changeNote: state === 'presenter' ? 'Use a woman presenter in her 50s.' : undefined }}
+          preview={{
+            moreOpen: state === 'options',
+            changeNote: state === 'presenter' ? 'Use a woman presenter in her 50s.' : undefined,
+            bonusAds:
+              state === 'bonus'
+                ? bonusAds(['new', 'new', 'new'])
+                : state === 'bonus-making'
+                  ? bonusAds(['making', 'new', 'new'])
+                  : state === 'bonus-failed'
+                    ? bonusAds(['done', 'failed', 'new'])
+                    : undefined,
+          }}
         />
       </DashboardLayout>
       {!bare && (

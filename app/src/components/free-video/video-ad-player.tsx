@@ -3,6 +3,7 @@
 import { Volume2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { PLAYER } from '@/lib/free-video/copy';
+import { cn } from '@/lib/utils';
 import styles from './free-video.module.css';
 
 interface VideoAdPlayerProps {
@@ -12,6 +13,8 @@ interface VideoAdPlayerProps {
   onPlayWithSound?: () => void;
   /** The video ad played to the end with sound (the video_complete event). */
   onComplete?: () => void;
+  /** More classes for the frame (the result page's is wider). */
+  className?: string;
 }
 
 type PlayerMode = 'muted' | 'blocked' | 'sound';
@@ -21,7 +24,7 @@ type PlayerMode = 'muted' | 'blocked' | 'sound';
  * "Tap for sound" button restarts the video ad with sound and the normal controls. When the phone
  * blocks even muted autoplay (Low Power Mode), the same button says "Play the video ad".
  */
-export function VideoAdPlayer({ src, label, onPlayWithSound, onComplete }: VideoAdPlayerProps) {
+export function VideoAdPlayer({ src, label, onPlayWithSound, onComplete, className }: VideoAdPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const withSound = useRef(false);
   const completed = useRef(false);
@@ -68,7 +71,7 @@ export function VideoAdPlayer({ src, label, onPlayWithSound, onComplete }: Video
 
   return (
     // data-fv-player: the phone buy bar (buy-bar.tsx) never sits over the video ad, its "Tap for sound" button or its controls.
-    <div className={styles.phone} data-fv-player="">
+    <div className={cn(styles.phone, className)} data-fv-player="">
       <video
         ref={videoRef}
         className={styles.phoneVideo}

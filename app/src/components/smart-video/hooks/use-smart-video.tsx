@@ -70,7 +70,8 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   const { data: allJobs = [], error: historyError } = useQuery({
     queryKey: ['smart-video-jobs'],
     queryFn: () => listSmartVideoJobs(),
-    refetchInterval: (query) => (query.state.data?.some((item) => isRunning(item) && item.freeLeadId) ? LIST_POLL_MS : false),
+    // Videos the user did not start (a free video ad coming in, the bonus video ads) keep the list fresh while they are made.
+    refetchInterval: (query) => (query.state.data?.some((item) => isRunning(item) && (item.freeLeadId || item.bonus)) ? LIST_POLL_MS : false),
     // 'always': the app's 5-minute staleTime would otherwise skip the refresh.
     refetchOnWindowFocus: 'always',
   });
@@ -314,8 +315,8 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     website,
     revise,
     revising,
-    // A free video ad being made or copied in keeps the form free: the user did not start it.
-    isBusy: Boolean(uploading) || revising || (isRunning(job) && !job?.freeLeadId) || (Boolean(jobId) && job === undefined),
+    // A free video ad being made or copied in, or a bonus video ad, keeps the form free: the user did not start it.
+    isBusy: Boolean(uploading) || revising || (isRunning(job) && !job?.freeLeadId && !job?.bonus) || (Boolean(jobId) && job === undefined),
     start,
     reset,
     retryEdit,

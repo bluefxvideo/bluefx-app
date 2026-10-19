@@ -7,7 +7,7 @@ import { LifetimeOffer } from '@/components/free-video/lifetime-offer';
 import { FreeVideoStatus, type FreeVideoStatusDemo } from '@/components/free-video/free-video-status';
 import { EXAMPLE_VIDEOS, WHY_IT_WORKS } from '@/lib/free-video/copy';
 import { unlockGoUrl, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
-import type { FreeVideoView } from '@/types/free-video';
+import type { FreeVideoNextAdCard, FreeVideoView } from '@/types/free-video';
 import { LIVE_DEMO, LIVE_DEMO_DOMAIN, LIVE_DEMO_VIDEO, LIVE_DEMO_WHY } from '@/lib/free-video/live-demo';
 
 /**
@@ -65,6 +65,15 @@ const ready = (id: string, extra: Partial<FreeVideoView> = {}): FreeVideoView =>
   ...extra,
 });
 
+/** The next 3 video ads of a real dry run (next-ads-try.ts on jmpaintingservices.com, 2026-10-19), pictures in storage. */
+const WRITTEN_FRAMES = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/free-video/next-ads/preview';
+const WRITTEN: FreeVideoNextAdCard[] = [
+  { n: 2, kind: 'happy-customer', title: 'Why Christine loves her clean paint job', teaser: 'Christine shares how the painters arrived on time, left no mess, and double checked her satisfaction.', imageUrl: `${WRITTEN_FRAMES}/n2.jpg?v=jm8` },
+  { n: 3, kind: 'problem-fixer', title: 'The faded exterior siding needing fresh paint', teaser: 'A presenter points to dirty, faded exterior siding and explains how surface washing and painting fixes it.', imageUrl: `${WRITTEN_FRAMES}/n3.jpg?v=jm8` },
+  { n: 4, kind: 'act-now', title: 'Your free estimate booked within 24 hours', teaser: 'A presenter holds a clipboard and explains how to get a clear, zero-pressure quote today.', imageUrl: `${WRITTEN_FRAMES}/n4.jpg?v=jm8` },
+];
+const WRITTEN_DOMAIN = 'jmpaintingservices.com';
+
 /** The live page, step by step, with the pieces of a real run (live-demo.ts). */
 const liveView = (id: string, view: Partial<FreeVideoView>): FreeVideoView =>
   waiting(id, { state: 'making', domain: LIVE_DEMO_DOMAIN, ...view });
@@ -103,6 +112,25 @@ const FIXTURES: Fixture[] = [
   { id: 'making-customer', label: 'making, existing customer (no offer while the video ad is made, for anyone)', placement: 'fvthank', view: waiting('making-customer', { state: 'making', step: 'directing', isCustomer: true }) },
   { id: 'making-stale', label: 'making, the page stopped checking after 90 min', placement: 'fvthank', view: waiting('making-stale', { state: 'making', step: 'rendering', progress: 80 }), demo: { stale: true } },
   { id: 'checking', label: 'checking: held for the final check', placement: 'fvthank', view: waiting('checking', { state: 'checking' }) },
+  {
+    id: 'result',
+    label: 'RESULT PAGE: the 2 bonuses run, the next 3 video ads are planned (the page a lead sees, 2026-10-19)',
+    placement: 'fvthank',
+    view: ready('result', { domain: WRITTEN_DOMAIN, firstName: 'John', nextAds: WRITTEN }),
+  },
+  {
+    id: 'result-writing',
+    label: 'RESULT PAGE: the video ad is ready, its next 3 video ads are still being planned',
+    placement: 'fvthank',
+    view: ready('result-writing', { domain: WRITTEN_DOMAIN, firstName: 'John', nextAdsPending: true }),
+  },
+  { id: 'result-no-ads', label: 'RESULT PAGE: the bonus runs, no planned video ads (the planning failed)', placement: 'fvpage', view: ready('result-no-ads', { firstName: 'John' }) },
+  {
+    id: 'result-late',
+    label: 'RESULT PAGE: visited after the 3-day bonus: no timer, no bonus lines, no planned video ads',
+    placement: 'fvpage',
+    view: ready('result-late', { domain: WRITTEN_DOMAIN, firstName: 'John', nextAds: WRITTEN, cleanUntil: undefined }),
+  },
   { id: 'ready', label: 'ready (thank-you page, Save to Photos shown; the $99 offer is off the page since 2026-10-08)', placement: 'fvthank', view: ready('ready'), demo: { iphone: true } },
   { id: 'ready-clicked', label: 'ready, the $99 button was clicked in a tab opened before the offer came off (looks like ready)', placement: 'fvthank', view: ready('ready-clicked'), demo: { unlockClicked: true } },
   { id: 'ready-paid', label: 'ready, unlock paid', placement: 'fvthank', view: ready('ready-paid', { unlock: { state: 'paid' } }) },
