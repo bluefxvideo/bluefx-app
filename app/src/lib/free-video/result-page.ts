@@ -104,7 +104,7 @@ export const RESULT_PAGE = {
     result: {
       kicker: 'THE RESULT',
       title: (domain: string) => `New customers see your video ad and come to ${domain}`,
-      text: `Every month, the AI Media Machine makes ${MONTH} more video ads for you, so new customers keep coming.`,
+      text: `Every month, the AI Media Machine makes ${MONTH} more video ads for you, so more new customers come to you.`,
       image: '/free-video/result-drawing.webp',
       alt: 'A video ad on a phone, and new customers walking from the phone into a shop',
       /** The money each new customer brings, popping up at the shop's door (owner: "some odd number ... even $500"). */

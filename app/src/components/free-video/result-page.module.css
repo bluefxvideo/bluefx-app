@@ -297,8 +297,9 @@
   font-weight: 600;
 }
 
+/* Full white and a touch bigger, so the old price is easy to read (owner 2026-10-19: "$997 should be a bit more easy to see") */
 .buyWas {
-  opacity: 0.75;
+  font-size: 1.07em;
   text-decoration-thickness: 2px;
 }
 
@@ -1422,7 +1423,7 @@
 .priceWas {
   font-size: 22px;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--muted);
   text-decoration: line-through;
   text-decoration-color: #b91c1c;
   text-decoration-thickness: 2px;
