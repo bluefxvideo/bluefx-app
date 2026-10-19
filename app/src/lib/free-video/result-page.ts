@@ -50,6 +50,8 @@ const EXAMPLES = [
 
 /** The 5 customers with a video, in the mockup's order; their quotes are SALES_PAGE.reviews' (word for word from bluefx.net). */
 export const VIDEO_REVIEWS = ['Gregory Green', "Francis D'Costa", 'Sambath Sim', 'Deryck Jones', 'Bucky Helms'] as const;
+/** The 3 customer videos right under the first "Yes!" button, after the next 3 video ads (owner 2026-10-19: "after the first button i agree, we need testimonial"); the others stay in the customers section. */
+export const VIDEO_REVIEWS_UNDER_ADS = ['Bucky Helms', "Francis D'Costa", 'Sambath Sim'] as const satisfies readonly (typeof VIDEO_REVIEWS)[number][];
 /** Where each face sits in its video's picture, for the small portrait crop. */
 export const REVIEW_FACES: Record<(typeof VIDEO_REVIEWS)[number], string> = {
   'Gregory Green': '34% 30%',
@@ -114,7 +116,8 @@ export const RESULT_PAGE = {
 
   scrolling: {
     title: 'Your customers are scrolling right now',
-    text: `People spend over 2½ hours a day on Facebook, Instagram, YouTube and TikTok (DataReportal 2026), and 85% of people have been convinced to buy by a video (Wyzowl 2026). A new video ad every 3 days keeps your business in front of your customers.`,
+    /** A story the reader lived 5 minutes ago instead of statistics (owner 2026-10-19, Halbert: "story, ok agree"). */
+    text: 'How did you find the AI Media Machine? Probably through a video on Facebook or YouTube. Your customers are there too, over 2½ hours a day. A new video ad every 3 days keeps your business in front of your customers.',
     leadsStrong: 'Our own videos brought us 222,712 leads.',
     leadsRest: 'Your video ads are built the same way.',
     image: '/free-video/leadpages-leads.jpg',
@@ -143,7 +146,7 @@ export const RESULT_PAGE = {
     guarantee: '30-day money-back guarantee',
     secure: 'Secure checkout · Instant access',
     login: 'Your login arrives by email.',
-    loginWritten: 'Your login arrives by email, and your 3 written video ads are waiting inside.',
+    loginWritten: 'Your login arrives by email. Your next 3 video ads are already made and waiting inside.',
     last: `Includes ${MONTH} complete video ads every month · 30-day money-back guarantee`,
   },
 
@@ -169,13 +172,12 @@ export const RESULT_PAGE = {
         { text: 'A new video ad every 3 days, so new customers can find you' },
         { text: 'The AI Media Machine, yours for life' },
         { text: `${MONTH} complete video ads every month` },
-        written ? { text: `Your 3 written video ads for ${domain}` } : null,
+        written ? { text: `Your next 3 video ads for ${domain}, already made` } : null,
         { text: 'Change anything in about 3 minutes' },
         bonus ? { bonus: true, text: 'your free video ad, without our BlueFX logo' } : null,
-        written ? { bonus: true, text: `your 3 written video ads, each made with one click, on top of your ${MONTH} video ads a month` } : null,
+        written ? { bonus: true, text: `your next 3 video ads, already made and ready with one click, on top of your ${MONTH} video ads a month` } : null,
       ].filter((item): item is { text: string; bonus?: boolean } => item !== null),
     bonusLabel: 'Bonus:',
-    value: `Hiring out ${YEAR} video ads a year like yours would cost about ${FREELANCER_YEAR}.`,
     /** The 2 fragments under the stack (owner: "dov has a good testimonial with the 45% increase ... dercy is also great"). */
     proof: [
       {
@@ -224,7 +226,7 @@ export const RESULT_PAGE = {
     items: [
       {
         q: 'Will video ads bring me more customers?',
-        a: 'How did you find the AI Media Machine? Probably through a video on Facebook or YouTube. Your customers scroll there every day. A new video ad every 3 days keeps your business in front of your customers. Our own videos brought us 222,712 leads, and your video ads are built the same way.',
+        a: 'Your customers scroll Facebook, Instagram, YouTube and TikTok every day, and a new video ad every 3 days keeps your business in front of your customers. Our own videos brought us 222,712 leads, and your video ads are built the same way.',
       },
       {
         q: 'What can I change in my video ad?',
@@ -288,7 +290,7 @@ export const RESULT_PAGE = {
   ps: {
     /** Only while the 3 written video ads are a bonus; otherwise the math is the only P.S. */
     ps: (name: string, domain: string, when: string | null) =>
-      `${name}, your 3 written video ads for ${domain} are waiting. Get the AI Media Machine ${when ? `by ${when}` : 'while your bonus runs'}, and each one is ready to post about 3 minutes after you click it, on top of your ${MONTH} video ads a month.`,
+      `${name}, your next 3 video ads for ${domain} are already made. Get the AI Media Machine ${when ? `by ${when}` : 'while your bonus runs'}, and each one is ready to post about 3 minutes after you click it, on top of your ${MONTH} video ads a month.`,
     pps: (domain: string) =>
       `Here's the math. A freelancer charges about $${FREELANCER} for one video ad like yours. With the AI Media Machine, you can make ${YEAR} video ads a year for ${domain}. Hiring a freelancer for those ${YEAR} video ads would cost about `,
     ppsStrong: `${FREELANCER_YEAR} a year`,

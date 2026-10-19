@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
 import { PLAYER } from '@/lib/free-video/copy';
 import { goUrl, type ResultPagePlacement } from '@/lib/free-video/offer';
-import { bonusDeadlineLabel, RESULT_PAGE, REVIEW_FACES, VIDEO_REVIEWS } from '@/lib/free-video/result-page';
+import { bonusDeadlineLabel, RESULT_PAGE, REVIEW_FACES, VIDEO_REVIEWS, VIDEO_REVIEWS_UNDER_ADS } from '@/lib/free-video/result-page';
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
 import type { FreeVideoNextAdCard, FreeVideoView } from '@/types/free-video';
@@ -104,6 +104,12 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
           <div className={styles.adsBuy}>
             <BuyBlock token={token} placement="fvresads" note={[buy.guarantee, buy.loginWritten]} />
           </div>
+          {/* Customers in their own videos right under the button (owner 2026-10-19: "after the first button i agree, we need testimonial"). */}
+          <ul className={cn(styles.reviews, styles.adsProof)}>
+            {videoReviewsOf(VIDEO_REVIEWS_UNDER_ADS).map((item) => (
+              <VideoReview key={item.name} item={item} />
+            ))}
+          </ul>
         </section>
       )}
 
@@ -148,7 +154,48 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
         </figure>
       </section>
 
-      <section ref={compareRef} className={cn(styles.wrap, styles.narrow, styles.sectionTight, styles.stack, styles.compareSection)} aria-labelledby="fv-compare-title">
+      {/* Everything they get, right before the price comparison (owner 2026-10-19, Hormozi: the list before the price). */}
+      <section className={cn(styles.wrap, styles.column, styles.section, styles.stack)} aria-labelledby="fv-stack-title">
+        <div className={styles.offer}>
+          <h2 id="fv-stack-title" className={styles.offerTitle}>
+            {stack.title}
+          </h2>
+          <ul className={styles.offerList}>
+            {stack.items(domain, written, bonus).map((item) => (
+              <li key={item.text} className={styles.offerItem}>
+                <span className={cn(styles.offerTick, item.bonus && styles.offerTickBonus)} aria-hidden="true">
+                  {item.bonus ? <Gift /> : <Tick size={12} stroke={3.6} />}
+                </span>
+                <span>
+                  {item.bonus && <strong style={{ fontWeight: 800 }}>{stack.bonusLabel} </strong>}
+                  {item.text}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className={styles.quotes}>
+          {stack.proof.map((quote) => (
+            <figure key={quote.name} className={styles.quote} style={{ margin: 0 }}>
+              <Image className={styles.quoteFace} src={quote.photo} alt={quote.name} width={88} height={88} />
+              <div className={styles.quoteBody}>
+                <Stars size={13} label={reviews.stars} />
+                <blockquote className={styles.quoteText} style={{ margin: 0 }}>
+                  {quote.before}
+                  <strong>{quote.strong}</strong>
+                  {quote.after}
+                </blockquote>
+                <figcaption className={styles.quoteWho}>
+                  {quote.name}
+                  <span className={styles.quoteRole}>, {quote.role}</span>
+                </figcaption>
+              </div>
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      <section ref={compareRef} className={cn(styles.wrap, styles.narrow, styles.section, styles.stack, styles.compareSection)} aria-labelledby="fv-compare-title">
         <h2 id="fv-compare-title" className={styles.compareTitle}>
           {compare.title}
         </h2>
@@ -181,47 +228,6 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
       <div className={cn(styles.wrap, styles.narrow, styles.sectionTight)}>
         <BuyBlock token={token} placement="fvres1" note={[buy.guarantee, written ? buy.loginWritten : buy.login]} />
       </div>
-
-      <section className={cn(styles.wrap, styles.column, styles.section, styles.stack)} aria-labelledby="fv-stack-title">
-        <div className={styles.offer}>
-          <h2 id="fv-stack-title" className={styles.offerTitle}>
-            {stack.title}
-          </h2>
-          <ul className={styles.offerList}>
-            {stack.items(domain, written, bonus).map((item) => (
-              <li key={item.text} className={styles.offerItem}>
-                <span className={cn(styles.offerTick, item.bonus && styles.offerTickBonus)} aria-hidden="true">
-                  {item.bonus ? <Gift /> : <Tick size={12} stroke={3.6} />}
-                </span>
-                <span>
-                  {item.bonus && <strong style={{ fontWeight: 800 }}>{stack.bonusLabel} </strong>}
-                  {item.text}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className={styles.offerValue}>{stack.value}</p>
-        </div>
-        <div className={styles.quotes}>
-          {stack.proof.map((quote) => (
-            <figure key={quote.name} className={styles.quote} style={{ margin: 0 }}>
-              <Image className={styles.quoteFace} src={quote.photo} alt={quote.name} width={88} height={88} />
-              <div className={styles.quoteBody}>
-                <Stars size={13} label={reviews.stars} />
-                <blockquote className={styles.quoteText} style={{ margin: 0 }}>
-                  {quote.before}
-                  <strong>{quote.strong}</strong>
-                  {quote.after}
-                </blockquote>
-                <figcaption className={styles.quoteWho}>
-                  {quote.name}
-                  <span className={styles.quoteRole}>, {quote.role}</span>
-                </figcaption>
-              </div>
-            </figure>
-          ))}
-        </div>
-      </section>
 
       <section className={cn(styles.wrap, styles.column, styles.sectionTight, styles.stack)} aria-label={founder.name}>
         <div className={styles.founder}>
@@ -284,7 +290,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
             </div>
           ))}
         </div>
-        <Reviews />
+        <Reviews skip={written ? VIDEO_REVIEWS_UNDER_ADS : []} />
       </section>
 
       <section className={styles.examples} aria-labelledby="fv-examples-title">
@@ -707,12 +713,18 @@ function WritingCard({ n }: { n: number }) {
 // ---------------------------------------------------------------------------------------------------------------
 // Customers, more video ads
 
-function Reviews() {
+/** The customers with a video, by name, in the given order. */
+function videoReviewsOf(names: readonly string[]): VideoReviewItem[] {
+  return names
+    .map((name) => SALES_PAGE.reviews.items.find((item) => item.name === name))
+    .filter((item): item is VideoReviewItem => Boolean(item && 'video' in item));
+}
+
+/** `skip`: the customer videos already shown under the first "Yes!" button. */
+function Reviews({ skip }: { skip: readonly string[] }) {
   const { reviews } = RESULT_PAGE;
   const dov = SALES_PAGE.reviews.items.find((item) => item.name === 'Dov Rom');
-  const videos = VIDEO_REVIEWS.map((name) => SALES_PAGE.reviews.items.find((item) => item.name === name)).filter(
-    (item): item is Extract<(typeof SALES_PAGE.reviews.items)[number], { video: unknown }> => Boolean(item && 'video' in item)
-  );
+  const videos = videoReviewsOf(VIDEO_REVIEWS.filter((name) => !skip.includes(name)));
   return (
     <ul className={styles.reviews}>
       {dov && (

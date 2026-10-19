@@ -221,6 +221,11 @@
   padding-top: 16px;
 }
 
+/* The 3 customer videos under that button */
+.adsProof {
+  padding-top: 20px;
+}
+
 /* ------------------------------------------------------------------------------------------------ */
 /* Buttons with the price, the card logos and the line under them */
 
@@ -1312,15 +1317,6 @@
   background: var(--gold);
 }
 
-.offerValue {
-  margin: 0;
-  font-size: 15px;
-  line-height: 1.45;
-  color: var(--body);
-  border-top: 1px solid var(--line);
-  padding-top: 12px;
-}
-
 .quotes {
   display: grid;
   gap: 12px;
@@ -2129,6 +2125,10 @@
 
   .adsBuy {
     padding-top: 28px;
+  }
+
+  .adsProof {
+    padding-top: 32px;
   }
 
   .buyMore {
