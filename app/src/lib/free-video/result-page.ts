@@ -140,6 +140,8 @@ export const RESULT_PAGE = {
     /** Only a teaser is planned now; each video ad is made when the buyer clicks it (owner 2026-10-19, bonus-ads.ts). */
     /** The owner's words, word for word (2026-10-19: "keep already written its simple", then "actually, already made"). */
     title: 'Your next 3 video ads are already made.',
+    /** The id the E2 email links to ({$free_video_url}#next-ads, "See Your Next 3 Video Ads Here"). */
+    anchor: 'next-ads',
     text: (domain: string, day: string | null) =>
       `Video ads #2, #3 and #4 for ${domain} wait inside the AI Media Machine, the AI that made your free sample. Get the AI Media Machine ${day ? `by ${day}` : 'while your bonus runs'}, and each one is ready to post about 3 minutes after you click it.`,
     length: '0:40',

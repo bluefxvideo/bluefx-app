@@ -144,7 +144,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
       </div>
 
       {written && (
-        <section className={cn(styles.wrap, styles.section, styles.stack)} aria-labelledby="fv-written-title">
+        <section id={RESULT_PAGE.written.anchor} className={cn(styles.wrap, styles.section, styles.stack)} aria-labelledby="fv-written-title">
           <div className={cn(styles.stack, styles.writtenHead)}>
             <h2 id="fv-written-title" className={styles.writtenTitle}>
               {RESULT_PAGE.written.title}
