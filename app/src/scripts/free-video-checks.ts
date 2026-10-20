@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { FOUNDER_MESSAGE, FREE_PLAN, freeNote, isLive, LIMITS, WATERMARK } from '@/lib/free-video/config';
+import { FREE_PLAN, freeNote, isLive, LIMITS, WATERMARK } from '@/lib/free-video/config';
 import { EMAIL_DRAFTS, ERRORS, WHY_IT_WORKS } from '@/lib/free-video/copy';
 import { blockedCountry } from '@/lib/free-video/geo';
 import { copyIdOf, NOT_MADE, waitingJobOf } from '@/lib/free-video/claim';
@@ -541,10 +541,6 @@ async function main(): Promise<void> {
     const jsx = fs.readFileSync(composition, 'utf8');
     check('SmartVideo.jsx takes the watermark prop, its label and endCardSeconds', /export const SmartVideo = \(\{.*\bwatermark\b.*\}\) =>/.test(jsx) && jsx.includes('watermark.label') && jsx.includes('endCardSeconds'));
   } else skip('SmartVideo.jsx prop names', 'remotion folder not found');
-  // The founder message (owner 2026-10-20): joined after the free render only, never a render prop.
-  check('the founder message is a public storage file of about 70 s, outside the watermark prop', /^https:\/\/.+\/storage\/v1\/object\/public\/script-videos\/smart-video\/founder-message\/.+\.mp4$/.test(FOUNDER_MESSAGE.url) && FOUNDER_MESSAGE.seconds > 60 && FOUNDER_MESSAGE.seconds < 80 && !JSON.stringify(WATERMARK).includes('founder'));
-  const runnerSource = fs.readFileSync(path.resolve(__dirname, '../lib/free-video/runner.ts'), 'utf8');
-  check('only the free job joins it (runner.ts freeHooks appendVideo)', (runnerSource.match(/appendVideo: FOUNDER_MESSAGE/g) || []).length === 1);
 
   // 12. -----------------------------------------------------------------------------------------
   section('12. Email copy rules');

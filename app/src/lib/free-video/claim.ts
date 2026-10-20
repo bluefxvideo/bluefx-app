@@ -58,10 +58,10 @@ async function filesIn(dir: string): Promise<string[]> {
 }
 
 /**
- * Where the founder message starts in a free video ad's file (jobs.ts appendVideo): the end of the render, card included,
- * in whole frames (30 fps, as SmartVideo.jsx counts them). The job's length includes the message, so a free job clearly
- * longer than its render has one; null for a file without it (made before 2026-10-20, or the join failed) or an
- * unreadable row.
+ * Where the founder message starts in a free video ad's file: the end of the render, card included, in whole frames
+ * (30 fps, as SmartVideo.jsx counts them). Only the free video ads made on 2026-10-20 between 00:58 and 06:38 UTC carry
+ * it (f9083f4, removed: it made every free video ad about a minute slower); their job length includes it, so a free
+ * job clearly longer than its render has one. null for every other file or an unreadable row.
  */
 async function messageStart(jobId: string | null): Promise<number | null> {
   if (!jobId) return null;
@@ -179,8 +179,8 @@ async function finishCopy(lead: FreeVideoLead, initial: SmartVideoJob): Promise<
   const toDir = jobDir(job.userId, job.id);
   // A finished copy rendered again (it had the marked file) saves under a new name: the CDN may still hold video.mp4.
   const target = initial.status === 'done' ? `clean-${Date.now().toString(36)}.mp4` : 'video.mp4';
-  // A free file made since 2026-10-20 ends with the founder message (config FOUNDER_MESSAGE): the copy is cut where it
-  // starts, so a buyer's own video ad never carries it. An older free file is copied as it is (a storage copy).
+  // A free file that ends with the founder message (messageStart) is cut where the message starts, so a buyer's own video
+  // ad never carries it. Every other free file is copied as it is (a storage copy).
   const cut = { seconds: 0 };
   const copyFree = async () => {
     const at = await messageStart(lead.job_id);
