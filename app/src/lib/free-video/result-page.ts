@@ -148,7 +148,8 @@ export const RESULT_PAGE = {
     buttonMore: `that makes ${MONTH} new video ads for me every month`,
     was: OFFER.was,
     now: OFFER.now,
-    once: 'one payment',
+    /** "no monthly fee" (owner 2026-10-20, after a lead asked whether lifetime means unlimited): 10 a month is not a membership. */
+    once: 'one payment, no monthly fee',
     cards: 'Pay with Visa, Mastercard, American Express, Discover or PayPal',
     guarantee: '30-day money-back guarantee',
     secure: 'Secure checkout · Instant access',
@@ -231,6 +232,16 @@ export const RESULT_PAGE = {
   faq: {
     title: 'Questions',
     items: [
+      // The two questions a lead asked about "lifetime" (owner 2026-10-20) come first.
+      {
+        q: 'Is the AI Media Machine a monthly subscription?',
+        yes: 'No.',
+        a: `You pay ${OFFER.now} once, and there's no monthly fee. Every month, for life, your account refills with ${MONTH} new video ads like yours. You also have 30 days to get your money back.`,
+      },
+      {
+        q: 'How many video ads can I make?',
+        a: `${MONTH} complete video ads like yours every month, for life. In a busy month you can add a one-time recharge pack, from $9.99.`,
+      },
       {
         q: 'Will video ads bring me more customers?',
         a: 'Your customers scroll Facebook, Instagram, YouTube and TikTok every day, and a new video ad every 3 days keeps your business in front of your customers. Our own videos brought us 222,712 leads, and your video ads are built the same way.',
@@ -256,18 +267,9 @@ export const RESULT_PAGE = {
         a: 'Pick a look for each video ad: playful, elegant, bold, clean or whiteboard. Or let the AI Media Machine pick the best match for your business, with or without an AI presenter.',
       },
       {
-        q: 'How many video ads can I make?',
-        a: `${MONTH} complete video ads like yours every month, for life. In a busy month you can add a one-time recharge pack, from $9.99.`,
-      },
-      {
         q: 'Do I need to be technical?',
         yes: 'No.',
         a: 'If you can paste a link and click a button, you can make video ads with the AI Media Machine. The AI writes the script and makes the voice-over, the pictures and the music. The AI Media Machine runs in your browser, with nothing to install.',
-      },
-      {
-        q: 'Is the AI Media Machine a monthly subscription?',
-        yes: 'No.',
-        a: `You pay ${OFFER.now} once, and the AI Media Machine is yours for life. You also have 30 days to get your money back.`,
       },
     ] as { q: string; yes?: string; a: string }[],
   },
