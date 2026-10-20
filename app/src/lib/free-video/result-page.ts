@@ -69,6 +69,13 @@ export const RESULT_PAGE = {
     robot: 'The AI Media Machine robot giving a thumbs up and pointing at your video ad',
     /** The robot's name tag, so the name has a face. */
     robotLabel: 'AI Media Machine',
+    /**
+     * Right under their video ad, where they judge it (owner 2026-10-20: "some ads do have a small error so the client will
+     * want to edit and change stuff, so that's what I think his first judgment will be"). His line from boards A and D,
+     * word for word; the new hero had dropped it.
+     */
+    sample:
+      'Your free sample has our BlueFX logo and might need a few changes. With the full AI Media Machine, you change anything in about 3 minutes, and your new video ads come without our logo.',
     /** "so more customers can find", not "keep finding" (owner: "Why not make it more simple?"). */
     line: (domain: string) => `With the AI Media Machine, you get ${MONTH} new video ads like yours every month, so more customers can find ${domain}.`,
     /** A computer's hero: a plain link down to the 3 video ads instead of the price button. */

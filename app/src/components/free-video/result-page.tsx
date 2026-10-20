@@ -61,6 +61,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
               </h1>
             </div>
             <div className={cn(styles.stack, styles.heroSide)}>
+              <p className={styles.heroLine}>{hero.sample}</p>
               <p className={styles.heroLine}>{hero.line(domain)}</p>
               {/* No price at the top (owner 2026-10-19: "lets move the price down"): a computer gets the 3 video ads' pictures and a link down to them. */}
               {written && (
