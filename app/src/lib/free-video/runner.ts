@@ -17,6 +17,7 @@ import {
   END_CARD_SECONDS,
   fakeFailMode,
   fakeMode,
+  FOUNDER_MESSAGE,
   FREE_DIRECTOR,
   FREE_PLAN,
   FREE_RENDER_SCALE,
@@ -448,6 +449,8 @@ function freeHooks(lead: FreeVideoLead, watch: Ownership): { hooks: SmartVideoRu
     onStored: (name, url) => live.stored(name, url),
     // 720p: the render about 40% faster (owner 2026-10-07); the $99 clean version renders at 1080p from the saved props.
     renderScale: FREE_RENDER_SCALE,
+    // Szilard's message after the end card, in the same file (owner 2026-10-20); only this free file gets it.
+    appendVideo: FOUNDER_MESSAGE,
   };
   const notesSaved = async () => {
     // The model's list (if any) and every live write queued so far, capped as a whole: settleLead never waits on a

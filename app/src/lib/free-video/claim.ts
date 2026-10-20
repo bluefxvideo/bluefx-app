@@ -25,7 +25,7 @@ import { asLead, customerIdByEmail, getLead, leadsTable, ownerAccountIdByEmail, 
 import { cleanCopyEarned } from '@/lib/free-video/offer';
 import { checkCleanFile, cleanProps, inBackground } from '@/lib/free-video/unlock';
 import { BUCKET, jobDir, jobsTable, publicUrl, readJob, STALE_AFTER_MS, touchJob, upload, withRetry, writeJob } from '@/lib/smart-video/jobs';
-import { levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
+import { cutVideo, levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
 import type { FreeVideoLead } from '@/types/free-video';
 import type { SmartVideoJob } from '@/types/smart-video';
 
@@ -55,6 +55,24 @@ async function filesIn(dir: string): Promise<string[]> {
   const { data, error } = await createAdminClient().storage.from(BUCKET).list(dir, { limit: 1000 });
   if (error) throw new Error(`Could not list ${dir}: ${error.message}`);
   return (data ?? []).filter((entry) => entry.id !== null).map((entry) => entry.name);
+}
+
+/**
+ * Where the founder message starts in a free video ad's file (jobs.ts appendVideo): the end of the render, card included,
+ * in whole frames (30 fps, as SmartVideo.jsx counts them). The job's length includes the message, so a free job clearly
+ * longer than its render has one; null for a file without it (made before 2026-10-20, or the join failed) or an
+ * unreadable row.
+ */
+async function messageStart(jobId: string | null): Promise<number | null> {
+  if (!jobId) return null;
+  const { data } = await jobsTable().select('plan, job').eq('id', jobId).maybeSingle();
+  type Rendered = { duration?: unknown; watermark?: { endCardSeconds?: unknown } };
+  const props = (data?.plan as { props?: Rendered } | null | undefined)?.props;
+  const fileSeconds = Number((data?.job as { durationSeconds?: unknown } | null | undefined)?.durationSeconds);
+  const duration = Number(props?.duration);
+  if (!(duration > 0) || !(fileSeconds > 0)) return null;
+  const rendered = Math.ceil((duration + Math.max(0, Number(props?.watermark?.endCardSeconds) || 0)) * 30) / 30;
+  return fileSeconds - rendered > 5 ? rendered : null;
 }
 
 /** How far back the owner's own finished free video ads are copied to his account. */
@@ -161,13 +179,26 @@ async function finishCopy(lead: FreeVideoLead, initial: SmartVideoJob): Promise<
   const toDir = jobDir(job.userId, job.id);
   // A finished copy rendered again (it had the marked file) saves under a new name: the CDN may still hold video.mp4.
   const target = initial.status === 'done' ? `clean-${Date.now().toString(36)}.mp4` : 'video.mp4';
+  // A free file made since 2026-10-20 ends with the founder message (config FOUNDER_MESSAGE): the copy is cut where it
+  // starts, so a buyer's own video ad never carries it. An older free file is copied as it is (a storage copy).
+  const cut = { seconds: 0 };
   const copyFree = async () => {
+    const at = await messageStart(lead.job_id);
+    if (at) {
+      try {
+        const url = await upload(`${toDir}/video.mp4`, await cutVideo(publicUrl(`${freeDir}/video.mp4`), at), 'video/mp4');
+        cut.seconds = at;
+        return url;
+      } catch (error) {
+        console.error(`❌ [free-video] The founder message was not cut off copy ${job.id}, the whole free file stands in:`, error);
+      }
+    }
     await copyFile(`${freeDir}/video.mp4`, `${toDir}/video.mp4`);
     return publicUrl(`${toDir}/video.mp4`);
   };
   try {
     let videoUrl: string;
-    // The free file's length includes the 2 s end card; a clean version is the plan's own length.
+    // The free file's length includes the 2 s end card (and the founder message, cut off a copy); a clean version is the plan's own length.
     let durationSeconds = lead.duration_seconds ?? job.durationSeconds;
     const warnings: string[] = [];
     if (lead.clean_video_url) {
@@ -201,7 +232,7 @@ async function finishCopy(lead: FreeVideoLead, initial: SmartVideoJob): Promise<
       }
     }
     // warnings is always written, so a clean render again clears the "still shows the BlueFX mark" line.
-    job = await writeJob(job, { status: 'done', videoUrl, renderProgress: 100, durationSeconds, warnings: warnings.length ? warnings : undefined });
+    job = await writeJob(job, { status: 'done', videoUrl, renderProgress: 100, durationSeconds: cut.seconds || durationSeconds, warnings: warnings.length ? warnings : undefined });
     console.log(`✅ [free-video] Copy ${job.id} of lead ${lead.id} is ready in account ${job.userId}`);
   } catch (error) {
     console.error(`❌ [free-video] Copy ${job.id} of lead ${lead.id} failed:`, error);

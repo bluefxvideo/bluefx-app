@@ -326,7 +326,20 @@ export const UNLOCK_EMAIL = { retryHours: 6, alertAfterMinutes: 30 } as const;
  */
 export const WATERMARK = { label: 'BlueFX', endCardSeconds: END_CARD_SECONDS } as const;
 
-/** Quality gate. Lengths include the end card (END_CARD_SECONDS). */
+/**
+ * Szilard's founder message (owner 2026-10-20: "the video file is being added to every new video, the old ones stay the
+ * same"): his HeyGen talk edited in the ad studio (founder-msg), 720x1280, -14 LUFS. Every free video ad made from now on
+ * plays it after its end card, in the same file: the job joins it to the render while it levels the sound (runner.ts
+ * appendVideo, jobs.ts finish), about 10 to 30 s instead of rendering 2,092 more frames. The clean version and the next
+ * ads never get it; a buyer's copy of the free file is cut where it starts (claim.ts). `seconds` is the file's own
+ * length. A new version is a new file name (the CDN keeps the old one).
+ */
+export const FOUNDER_MESSAGE = {
+  url: `${process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ihzcmpngyjxraxzmckiv.supabase.co'}/storage/v1/object/public/script-videos/smart-video/founder-message/founder-message-1.mp4`,
+  seconds: 69.733,
+} as const;
+
+/** Quality gate. Lengths include the end card (END_CARD_SECONDS) and the founder message after it. */
 export const GATE = {
   minSeconds: 22,
   // No maxSeconds: a free ad is never rejected for being long (owner 2026-10-13).

@@ -9,7 +9,7 @@ import { listingLinkPhotos } from '@/lib/smart-video/listing';
 import type { DirectorPlan, SmartAsset } from '@/lib/smart-video/types';
 import { prepareAssets, type ClientFile } from '@/lib/smart-video/prepare-assets';
 import { downloadLinkPhotos, fromLink } from '@/lib/smart-video/sources';
-import { levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
+import { levelAndAppend, levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
 import { usageOf } from '@/lib/smart-video/usage';
 import type { SmartVideoJob, SmartVideoScriptScene } from '@/types/smart-video';
 
@@ -267,6 +267,14 @@ export interface SmartVideoRunHooks {
   onStored?: (name: string, url: string) => void;
   /** Renders smaller than the composition (the free video ads: 720p, about 40% faster). */
   renderScale?: number;
+  /** A finished video played after the render, in the same file (the free video ads: the founder message). */
+  appendVideo?: AppendVideo;
+}
+
+/** A finished video to play after a render: its address and its own length. */
+export interface AppendVideo {
+  url: string;
+  seconds: number;
 }
 
 export async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string; path: string }[], hooks: SmartVideoRunHooks = {}): Promise<void> {
@@ -359,7 +367,7 @@ export async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: 
     }
     await finish(job, hooks.beforeRender ? hooks.beforeRender(result) : result, brief, (next) => {
       job = next;
-    }, hooks.renderScale);
+    }, hooks.renderScale, hooks.appendVideo);
   } catch (error) {
     console.error(`❌ Smart Video job ${job.id} failed:`, error);
     // What the job had already spent at the APIs is kept with it (forViewer keeps it off the page).
@@ -387,8 +395,8 @@ export function scriptOf(plan: DirectorPlan): SmartVideoScriptScene[] {
   }));
 }
 
-/** Shared ending of a new video and a revision: save the plan, render, level the sound. */
-export async function finish(start: SmartVideoJob, result: SmartVideoResult, brief: string, track: (job: SmartVideoJob) => void, renderScale = 1): Promise<void> {
+/** Shared ending of a new video and a revision: save the plan, render, level the sound (and play appendVideo after it). */
+export async function finish(start: SmartVideoJob, result: SmartVideoResult, brief: string, track: (job: SmartVideoJob) => void, renderScale = 1, appendVideo?: AppendVideo): Promise<void> {
   let job = start;
   const dir = jobDir(job.userId, job.id);
   const { props, plan, media, durationSeconds, usage, warnings } = result;
@@ -425,8 +433,19 @@ export async function finish(start: SmartVideoJob, result: SmartVideoResult, bri
   }, renderScale);
 
   job = await writeJob(job, { status: 'finishing' });
-  const videoUrl = await upload(`${dir}/video.mp4`, await levelLoudness(renderedUrl), 'video/mp4');
-  job = await writeJob(job, { status: 'done', videoUrl, renderProgress: 100 });
+  let data: Buffer | null = null;
+  if (appendVideo) {
+    // The video ad itself never fails over what plays after it: without it, the render stands alone.
+    try {
+      data = await levelAndAppend(renderedUrl, appendVideo.url);
+    } catch (error) {
+      console.error(`❌ Smart Video job ${job.id}: ${appendVideo.url} not added after the video:`, error);
+    }
+  }
+  const appended = data ? appendVideo?.seconds ?? 0 : 0;
+  const videoUrl = await upload(`${dir}/video.mp4`, data ?? (await levelLoudness(renderedUrl)), 'video/mp4');
+  // The length includes what plays after the video (the gate compares it with the file).
+  job = await writeJob(job, { status: 'done', videoUrl, renderProgress: 100, ...(appended ? { durationSeconds: durationSeconds + appended } : {}) });
   track(job);
   console.log(`✅ Smart Video job ${job.id} done: ${videoUrl}`);
 }
