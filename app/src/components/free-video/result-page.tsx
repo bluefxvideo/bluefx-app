@@ -9,6 +9,7 @@ import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { cn } from '@/lib/utils';
 import type { FreeVideoNextAdCard, FreeVideoView } from '@/types/free-video';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
+import { ChatLauncher } from './chat-launcher';
 import { OfferButton } from './offer-button';
 import { VideoAdPlayer } from './video-ad-player';
 import styles from './result-page.module.css';
@@ -37,6 +38,7 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
   // The 3 written video ads are a bonus: on the page only while it runs.
   const written = bonus && (Boolean(cards) || Boolean(view.nextAdsPending));
   const compareRef = useRef<HTMLElement>(null);
+  const [barShown, setBarShown] = useState(false);
   const [viewing, setViewing] = useState<(typeof RESULT_PAGE.examples.items)[number] | null>(null);
   const { hero, how, scrolling, compare, buy, stack, founder, promise, faq, reviews, examples, ps } = RESULT_PAGE;
 
@@ -351,7 +353,8 @@ export function ResultPage({ view, token, bonus, deadline, onPlayWithSound, onCo
       </section>
 
       <Legal />
-      <StickyBar token={token} watch={compareRef} />
+      <StickyBar token={token} watch={compareRef} onShown={setBarShown} />
+      <ChatLauncher token={token} firstName={firstName} domain={domain} raised={barShown} />
       {viewing && <Viewer item={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
@@ -397,7 +400,7 @@ function BuyBlock({ token, placement, note }: { token: string; placement: Result
  * The bar at the bottom of a phone's screen once the comparison has scrolled up past the top (no price before the value,
  * owner 2026-10-19), away while another buy button or the footer is on screen.
  */
-function StickyBar({ token, watch }: { token: string; watch: React.RefObject<HTMLElement | null> }) {
+function StickyBar({ token, watch, onShown }: { token: string; watch: React.RefObject<HTMLElement | null>; onShown: (shown: boolean) => void }) {
   const [past, setPast] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const { buy, bar } = RESULT_PAGE;
@@ -442,6 +445,7 @@ function StickyBar({ token, watch }: { token: string; watch: React.RefObject<HTM
   }, []);
 
   const shown = past && !blocked;
+  useEffect(() => onShown(shown), [shown, onShown]);
   return (
     <aside className={cn(styles.bar, shown && styles.barOn)} aria-label={bar.label} aria-hidden={!shown} inert={!shown} data-fv-bar="">
       <Robot className={styles.barRobot} />

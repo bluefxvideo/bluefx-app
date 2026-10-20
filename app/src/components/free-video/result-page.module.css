@@ -1939,6 +1939,65 @@
 }
 
 /* ------------------------------------------------------------------------------------------------ */
+/* The chat bubble (chat-launcher.tsx): Szilard's face at the bottom right, above the buy bar on a phone */
+
+.chat {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 61;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: bottom 0.25s ease;
+}
+
+.chatRaised {
+  bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+}
+
+.chatFace {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  flex-shrink: 0;
+}
+
+.chatFace img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.28);
+  object-fit: cover;
+  display: block;
+  box-sizing: border-box;
+}
+
+.chatBadge {
+  position: absolute;
+  right: -3px;
+  bottom: -2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  background: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chatLabel {
+  display: none;
+}
+
+/* ------------------------------------------------------------------------------------------------ */
 /* The bar at the bottom of a phone's screen: the robot and the button */
 
 .bar {
@@ -2485,6 +2544,35 @@
 
   .bar {
     display: none;
+  }
+
+  .chat,
+  .chatRaised {
+    right: 28px;
+    bottom: 28px;
+  }
+
+  .chatFace {
+    width: 64px;
+    height: 64px;
+  }
+
+  .chatLabel {
+    display: block;
+    padding: 12px 18px;
+    border-radius: 999px;
+    background: #ffffff;
+    color: var(--ink);
+    font-size: 16px;
+    font-weight: 800;
+    white-space: nowrap;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
+  }
+
+  .chat:hover .chatLabel,
+  .chat:focus-visible .chatLabel {
+    background: var(--navy);
+    color: #ffffff;
   }
 }
 

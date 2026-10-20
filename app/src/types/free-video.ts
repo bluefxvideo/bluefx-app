@@ -407,7 +407,7 @@ export const FREE_VIDEO_STEP_OF: Record<SmartVideoJobStatus, 1 | 2 | 3 | 4 | 5> 
 // ---------------------------------------------------------------------------------------------
 
 /** tour_play: the founder's walkthrough of the AI Media Machine on the result page was started (SALES_PAGE.tour). */
-export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open', 'tour_play'] as const;
+export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open', 'tour_play', 'chat_open'] as const;
 /** A page event the browser may send. */
 export type FreeVideoEvent = (typeof FREE_VIDEO_EVENTS)[number];
 /**
