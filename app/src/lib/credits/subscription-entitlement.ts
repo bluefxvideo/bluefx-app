@@ -132,6 +132,39 @@ export async function cancelFastSpringSubscription(subscriptionId: string): Prom
   }
 }
 
+/**
+ * A paid purchase gives a suspended account its access back. Cancelling suspends the
+ * account (ClickBank CANCEL-REBILL, the FastSpring cancellation), so a customer who comes
+ * back and buys again stays behind the "Account Suspended" screen unless the purchase
+ * lifts it: on 2026-10-21 a returning buyer paid $396.21 for lifetime through ClickBank,
+ * got the plan and 600 credits, and could not log in (suspended since a July cancellation).
+ * The FastSpring webhook already lifts it on paid purchases; trials do not lift it there
+ * either. Never throws: the purchase is already recorded, and a webhook that fails after
+ * provisioning deletes its own event row.
+ */
+export async function liftSuspensionAfterPurchase(admin: AdminClient, userId: string, purchase: string): Promise<void> {
+  const { data: profile, error: readError } = await admin
+    .from('profiles')
+    .select('is_suspended, suspension_reason')
+    .eq('id', userId)
+    .maybeSingle()
+  if (readError) {
+    console.error(`❌ ${purchase}: could not read the suspension of ${userId}: ${readError.message}`)
+    return
+  }
+  if (!profile?.is_suspended) return
+
+  const { error } = await admin
+    .from('profiles')
+    .update({ is_suspended: false, suspension_reason: null, updated_at: new Date().toISOString() })
+    .eq('id', userId)
+  if (error) {
+    console.error(`❌ ${purchase}: could not lift the suspension of ${userId}, the buyer cannot log in: ${error.message}`)
+    return
+  }
+  console.log(`✅ ${purchase}: lifted the suspension of ${userId} ("${profile.suspension_reason || 'no reason'}")`)
+}
+
 /** Map a FastSpring (state, active) pair to our canonical status. */
 export function classifyFastSpring(fs: { state: string; active: boolean }): ReconciledStatus {
   if (fs.state === 'trial') return 'trial'

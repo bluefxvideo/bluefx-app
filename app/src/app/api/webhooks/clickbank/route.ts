@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/app/supabase/server'
 import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
+import { liftSuspensionAfterPurchase } from '@/lib/credits/subscription-entitlement'
 
 // Credit allocation constants - match FastSpring trial handling
 const TRIAL_CREDITS = 100;  // Trial users get limited credits (~$3-5 cost if fully used)
@@ -335,6 +336,8 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
       }
 
       await grantCredits(supabase, userId, creditsAllocation)
+      // A returning buyer is often still suspended by their old cancellation
+      if (!isTrial) await liftSuspensionAfterPurchase(supabase, userId, `ClickBank sale ${receipt}`)
 
       console.log(`✅ ${email} now on ${subscriptionType} via ClickBank - valid until ${periodEnd.toISOString().split('T')[0]}`)
       return // Exit early - the existing row carries the new plan
@@ -421,6 +424,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
   }
 
   await grantCredits(supabase, userId, creditsAllocation)
+  if (existingUser && !isTrial) await liftSuspensionAfterPurchase(supabase, userId, `ClickBank sale ${receipt}`)
 
   console.log(`ClickBank subscription processed successfully for ${email}`)
 }
@@ -580,6 +584,10 @@ async function handleClickBankRenewal(customer: { email?: string }, lineItems: {
       updated_at: new Date().toISOString()
     })
     .eq('user_id', user.id)
+
+  // A trial bought by a returning customer leaves their old suspension in place; the first
+  // real payment lifts it, so nobody is billed while locked out
+  await liftSuspensionAfterPurchase(supabase, user.id, `ClickBank rebill ${receipt}`)
 
   const renewalType = isYearlyProduct ? 'yearly' : 'monthly'
   console.log(`ClickBank ${renewalType} renewal processed: ${searchEmail} - ${creditsAllocation} credits renewed - valid for ${periodDays} days`)

@@ -3,6 +3,7 @@ import { createHash } from 'crypto'
 import { createAdminClient } from '@/app/supabase/server'
 import { subscribeToMailerLite, mailerLiteGroupsForJvzooProduct } from '@/lib/mailerlite/subscribe'
 import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
+import { liftSuspensionAfterPurchase } from '@/lib/credits/subscription-entitlement'
 
 // JVZoo IPN handler for the AI Media Machine funnel on aimediamachine.com.
 // JVZoo posts one form-encoded IPN per product transaction; cverify is the
@@ -280,12 +281,16 @@ async function provisionLifetime(sale: { email: string; custName: string; receip
         throw new Error(`Failed to update credits: ${creditsUpdateError.message}`)
       }
 
+      // A returning buyer is often still suspended by their old cancellation
+      await liftSuspensionAfterPurchase(supabase, userId, `JVZoo sale ${receipt}`)
+
       console.log(`✅ Upgraded existing user ${email} to lifetime via JVZoo (receipt ${receipt})`)
       return
     }
     // Existing auth user without a subscription row falls through to the
     // insert path below.
     await insertSubscriptionAndCredits(supabase, userId, email)
+    await liftSuspensionAfterPurchase(supabase, userId, `JVZoo sale ${receipt}`)
     return
   }
 
