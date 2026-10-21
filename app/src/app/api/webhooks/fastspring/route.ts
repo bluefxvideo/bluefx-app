@@ -513,7 +513,7 @@ async function processFastSpringEvent(eventType: string, eventData: FastSpringEv
 
     case 'subscription.canceled':
     case 'subscription.deactivated':
-      await handleFastSpringCancellation(eventData)
+      await handleFastSpringCancellation(eventData, eventType)
       break
 
     default:
@@ -1475,7 +1475,7 @@ async function handleFastSpringCreditPack(data: FastSpringEventData) {
   console.log(`✅ FastSpring credit pack processed: ${user.email} +${totalCreditsToAdd} bonus credits (total bonus: ${newBonusCredits})`)
 }
 
-async function handleFastSpringCancellation(data: FastSpringEventData) {
+async function handleFastSpringCancellation(data: FastSpringEventData, eventType: string) {
   const supabase = createAdminClient()
 
   const subscriptionId = data.id || data.reference || 'unknown'
@@ -1526,8 +1526,23 @@ async function handleFastSpringCancellation(data: FastSpringEventData) {
     return
   }
 
-  // Genuine cancellation of the user's active subscription. Stop access immediately by
-  // suspending the account (kept, NOT deleted) and mark the subscription cancelled.
+  // A paid plan runs to the end of the period the customer paid for (owner policy 2026-07-09,
+  // the in-app cancel route); only a trial ends at once. FastSpring sends subscription.canceled
+  // when renewal is turned off and subscription.deactivated when the subscription ends, so a
+  // paid plan is closed on the second. Suspending on the first locked out customers who had
+  // paid for a year: one turned off renewal on 2026-09-16 with her yearly plan paid until
+  // 2027-03-01. A trial (or one the cancel route already closed) is suspended right away.
+  if (eventType === 'subscription.canceled' && currentSub?.status === 'active') {
+    await supabase
+      .from('user_subscriptions')
+      .update({ cancel_at_period_end: true, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+    console.log(`FastSpring cancellation: ${userId} keeps access until the paid period ends (sub: ${subscriptionId})`)
+    return
+  }
+
+  // The subscription has ended (or a trial was cancelled). Stop access by suspending the
+  // account (kept, NOT deleted) and mark the subscription cancelled.
   await supabase
     .from('user_subscriptions')
     .update({ status: 'cancelled', cancel_at_period_end: true, updated_at: new Date().toISOString() })
