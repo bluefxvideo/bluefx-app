@@ -41,6 +41,8 @@ const ROBOT = { poster: '/free-video/robot-poster.webp', hevc: '/free-video/robo
 
 /** About 3 minutes is the promise; past this many minutes the wait says so instead of standing still. */
 const LONGER_THAN_USUAL_MINUTES = 6;
+// The tool's name (owner 2026-10-21). "Ad Maker" stays together, so a phone breaks it as Phantom / Ad Maker.
+const TITLE = 'Phantom Ad\u00a0Maker';
 
 /** Words in a change that ask for a different person on camera: the change then asks about the presenter's own price. */
 const PERSON_WORDS =
@@ -443,7 +445,7 @@ function Loading() {
 function Uploading({ done, total }: { done: number; total: number }) {
   return (
     <div className="mx-auto max-w-[760px] space-y-8">
-      <PageHeader title="Make a video ad" robot={false} />
+      <PageHeader title={TITLE} robot={false} />
       <Panel className="space-y-4">
         <div className="flex items-center gap-4">
           <RobotLoop className="h-24 w-24 flex-shrink-0" />
@@ -471,7 +473,7 @@ function StartScreen({ smart, balance, moreOpen }: { smart: SmartVideo; balance?
   return (
     <div className="mx-auto max-w-[760px] space-y-8">
       <PageHeader
-        title="Make a video ad"
+        title={TITLE}
         sub="Type your website, or a few lines about your business. The AI Media Machine makes the whole video ad for you: the script, a presenter, the voice-over and the music."
       />
       <Panel className={cn('space-y-5', dragging && 'ring-4 ring-primary/40')}>
@@ -1165,7 +1167,7 @@ function Failed({
   const retryCredits = PHANTOM_REVISION_CREDITS + (job.presenterRequest || job.presenterPhoto ? PHANTOM_PRESENTER_CHANGE_CREDITS : 0);
   return (
     <div className="mx-auto max-w-[760px] space-y-6">
-      <PageHeader title="Make a video ad" robot={false} />
+      <PageHeader title={TITLE} robot={false} />
       <Panel className="space-y-4">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-500">
           <AlertTriangle className="h-7 w-7" />

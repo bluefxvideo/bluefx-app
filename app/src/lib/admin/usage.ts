@@ -10,8 +10,8 @@
  */
 export const TOOL_NAMES: Record<string, string> = {
   // The Phantom, and ReelEstate's automatic listing video (the same engine)
-  'smart-video': 'The Phantom',
-  'phantom-presenter': 'The Phantom: AI presenter',
+  'smart-video': 'Phantom Ad Maker',
+  'phantom-presenter': 'Phantom Ad Maker: AI presenter',
   'listing-video': 'ReelEstate Automatic: video',
   'listing-video-clip': 'ReelEstate Automatic: animated photo',
 
@@ -37,13 +37,13 @@ export const TOOL_NAMES: Record<string, string> = {
   clone_studio_finish: 'Clone Studio: Finish the ad',
   clone_studio_auto: 'Clone Studio: Do it for me',
 
-  // Video Maker (AI Cinematographer)
-  'video-generation': 'Video Maker: video',
-  'starting-shot': 'Video Maker: starting shot',
-  'storyboard-generation': 'Video Maker: storyboard',
-  'storyboard-frame-extraction': 'Video Maker: storyboard frame',
-  'scene-image-generation': 'Video Maker: scene image',
-  'video-voice-switch': 'Video Maker: switch voice',
+  // Video Clip Maker (AI Cinematographer)
+  'video-generation': 'Video Clip Maker: clip',
+  'starting-shot': 'Video Clip Maker: starting shot',
+  'storyboard-generation': 'Video Clip Maker: storyboard',
+  'storyboard-frame-extraction': 'Video Clip Maker: storyboard frame',
+  'scene-image-generation': 'Video Clip Maker: scene image',
+  'video-voice-switch': 'Video Clip Maker: switch voice',
 
   // Script to Video
   'script-to-video-generation': 'Script to Video',
@@ -80,7 +80,7 @@ export const TOOL_NAMES: Record<string, string> = {
 
   // Older names still in the ledger
   voice_over: 'Voice Over',
-  media_generation: 'Video Maker',
+  media_generation: 'Video Clip Maker',
   content_generation: 'Content Multiplier',
   avatar_video: 'AI Avatar: video',
   ai_prediction: 'Thumbnail Maker',

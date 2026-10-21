@@ -161,7 +161,7 @@ export async function getLibraryItems(): Promise<{ success: boolean; items?: Lib
         id: `cin_${v.id}`, type: 'video',
         title: v.project_name || 'Video',
         url: v.final_video_url!, created_at: v.created_at,
-        tool_name: 'Video Maker', tool_route: '/dashboard/ai-cinematographer/history',
+        tool_name: 'Video Clip Maker', tool_route: '/dashboard/ai-cinematographer/history',
       });
     }
     for (const img of images.data || []) {

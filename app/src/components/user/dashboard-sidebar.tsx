@@ -76,18 +76,18 @@ const toolCategories: Array<{ id: string; name: string; tools: Tool[]; collapsib
     name: "Video Tools",
     tools: [
       {
-        name: "Make a Video Ad",
+        name: "Phantom Ad Maker",
         route: "/dashboard/smart-video",
         icon: MonitorPlay,
         gradient: "bg-primary",
         description: "Type your website. Get a finished video ad.",
       },
       {
-        name: "Video Maker",
+        name: "Video Clip Maker",
         route: "/dashboard/ai-cinematographer",
         icon: Video,
         gradient: "bg-primary",
-        description: "Professional AI video creation",
+        description: "Short AI video clips, one scene at a time",
       },
       {
         name: "Video Swap",

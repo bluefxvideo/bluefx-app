@@ -17,7 +17,7 @@ const cameraLabel = (motion: string) =>
     .join(' ');
 
 /**
- * Shown where the result appears while nothing is being made: real Video Maker
+ * Shown where the result appears while nothing is being made: real Video Clip Maker
  * clips, what went into each one, and a button that puts that input into the form.
  */
 export function VideoMakerExamples({
@@ -31,8 +31,8 @@ export function VideoMakerExamples({
 }) {
   return (
     <ToolExamples
-      heading="What Video Maker makes"
-      intro="Real Video Maker clips with made-up people and businesses. Under each one: exactly what went in. Your video appears here once you click Generate."
+      heading="What the Video Clip Maker makes"
+      intro="Real clips from the Video Clip Maker, with made-up people and businesses. Under each one: exactly what went in. Your clip appears here once you click Generate."
       examples={VIDEO_MAKER_EXAMPLES}
       media={(example) => <ExampleVideo src={example.videoUrl} poster={example.posterUrl} landscape={example.aspect_ratio === '16:9'} loop />}
       cost={(example) => {

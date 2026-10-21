@@ -8,10 +8,11 @@ import { useSmartVideo } from './hooks/use-smart-video';
 import { MakeVideoAdView } from './make-video-ad';
 import { plainError } from './shared';
 
-const TOOL = 'Make a Video Ad';
+/** The tool's name in the menu and the browser tab (owner 2026-10-21; it was "Make a Video Ad" from 2026-10-19). */
+const TOOL = 'Phantom Ad Maker';
 
 /**
- * Make a Video Ad (the engine is still called the Phantom in code): the page's data and side effects. What the
+ * Phantom Ad Maker (the smart-video engine): the page's data and side effects. What the
  * customer sees is MakeVideoAdView, which the dev preview (/dev-preview/make-video-ad) also shows from sample data.
  */
 export function SmartVideoPage() {

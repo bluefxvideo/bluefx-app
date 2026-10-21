@@ -20,7 +20,7 @@ import { createClient } from '@/app/supabase/client';
  */
 
 const TOOL_INFO: Record<string, { label: string; route: string }> = {
-  'ai-cinematographer': { label: 'Video Maker video', route: '/dashboard/ai-cinematographer' },
+  'ai-cinematographer': { label: 'Video clip', route: '/dashboard/ai-cinematographer' },
   'video-swap': { label: 'Video Swap', route: '/dashboard/video-swap' },
   'music-machine': { label: 'Music track', route: '/dashboard/music-maker' },
   'talking-avatar': { label: 'AI Avatar video', route: '/dashboard/talking-avatar' },

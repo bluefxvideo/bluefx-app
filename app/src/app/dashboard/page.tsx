@@ -85,7 +85,7 @@ export default function DashboardPage() {
   const milestoneSteps = [
     { done: !!milestones?.hasPhantom, label: 'Make your first video ad from your website (about 3 minutes)', route: '/dashboard/smart-video' },
     { done: !!milestones?.hasImage, label: 'Create your first image', route: '/dashboard/image-maker' },
-    { done: !!milestones?.hasVideo, label: 'Create your first video', route: '/dashboard/ai-cinematographer' },
+    { done: !!milestones?.hasVideo, label: 'Make your first video clip', route: '/dashboard/ai-cinematographer' },
     { done: !!milestones?.hasAudio, label: 'Add music or a voice over', route: '/dashboard/music-maker' },
   ];
   const allMilestonesDone = milestoneSteps.every((s) => s.done);
@@ -367,7 +367,7 @@ export default function DashboardPage() {
           <CardContent>
             {!milestones?.hasPhantom && (
               <p className="mb-4 text-sm text-foreground">
-                Start with Make a Video Ad: type your website, or a few lines about your business, and add photos if you like. The AI Media
+                Start with the Phantom Ad Maker: type your website, or a few lines about your business, and add photos if you like. The AI Media
                 Machine writes the script, puts a presenter on camera, records the voice-over and adds the music. Your video ad is ready in
                 about 3 minutes.
               </p>

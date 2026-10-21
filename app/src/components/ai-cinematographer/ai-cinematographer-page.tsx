@@ -636,7 +636,7 @@ Maintain visual consistency across all frames.`;
   return (
     <StandardToolPage
       icon={Video}
-      title="Video Maker"
+      title="Video Clip Maker"
       description="Create cinematic AI videos from text prompts"
       iconGradient="bg-primary"
       toolName="AI Cinematographer"
