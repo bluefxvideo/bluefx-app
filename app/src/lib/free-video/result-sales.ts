@@ -234,8 +234,8 @@ export const RESULT_SALES = {
     title: 'For My 40th Birthday: Lifetime Access to the AI Media Machine',
     timer: 'Birthday price ends in',
     regular: 'Regular price:',
-    /** "My", not "Your": it's the owner's birthday (Ogilvy). */
-    birthday: 'My birthday price:',
+    /** Ogilvy (2026-10-22): the heading above says "For My 40th Birthday", so the label needs neither "My" nor "40th"; the same name as the value stack. $297 stays red. */
+    birthday: 'Birthday price:',
     line: `One payment, no monthly fee. All 12 tools are yours for life, and your account refills with ${MONTH} complete video ads every month.`,
   },
 
@@ -376,7 +376,7 @@ export const RESULT_SALES = {
     total: 'Total Value:',
     totalValue: '$5,520 Per Year',
     lifetime: 'Lifetime Access:',
-    birthday: 'Your 40th-Birthday Price:',
+    birthday: 'Birthday Price:',
     grab: 'Grab Lifetime Access Today And Get',
     off: '94.62% OFF!',
     recharge: 'Busy month? Add a one-time recharge pack: $24.99 gives you 300 more credits, enough for 5 more complete video ads. Packs start at $9.99.',

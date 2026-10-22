@@ -143,7 +143,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           <BirthdayTimer label={price.timer} until={bonus ? view.cleanUntil : undefined} />
           <div className={s.prices}>
             <p className={s.priceRegular}>
-              {price.regular} <s>{OFFER.was}</s>
+              {price.regular} <s className={s.slash}>{OFFER.was}</s>
             </p>
             <p className={s.priceBirthday}>
               {price.birthday} <span>{OFFER.now}</span>
@@ -374,7 +374,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             {own.total} <span>{own.totalValue}</span>
           </p>
           <p className={s.finaleLifetime}>
-            {own.lifetime} <s>{OFFER.was}</s>
+            {own.lifetime} <s className={s.slash}>{OFFER.was}</s>
           </p>
           <p className={s.finaleBirthday}>
             {own.birthday} <span>{OFFER.now}</span>
