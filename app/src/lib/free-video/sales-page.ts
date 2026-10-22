@@ -14,7 +14,7 @@
  * (offer.ts CLEAN_COPY_HOURS), enforced in claim.ts, shown as the day and hour in the visitor's own time. The bonus is
  * valued at the $99 the clean video ad sold for. The freelancer numbers are the owner's own (bluefx.net/video-ad, the
  * lifetime page). The examples row is exactly the lifetime page's 9 vertical videos, in its order. No timer, no
- * reviews, BlueFX since 2009.
+ * reviews, BlueFX since 2008.
  *
  * The math uses 3 numbers (owner 2026-10-08, after his girlfriend got lost in "10, 297, 3 ... so its 10 or 100 or
  * ??"): $297 once, 10 video ads every month, so under $3 per video ad, against $600 for 1 video ad on Fiverr. No
@@ -178,7 +178,7 @@ export const SALES_PAGE = {
    */
   reviews: {
     title: 'What BlueFX customers say',
-    lead: '36,000+ customers since 2009.',
+    lead: '36,000+ customers since 2008.',
     starsLabel: '5 out of 5 stars',
     /** The one quote above the price (owner 2026-10-09: Dov's 45% "more believable" than Alex's $1 million). */
     nearPrice: 'Dov Rom',
@@ -305,7 +305,7 @@ export const SALES_PAGE = {
     /** The square portrait the owner picked 2026-10-09 ("my face is more easy to see"), 600 px. */
     photo: `${MEDIA}/founder-2.jpg`,
     name: 'Szilard Gyorfi',
-    role: 'Founder of BlueFX, making videos for businesses since 2009',
+    role: 'Founder of BlueFX, making videos for businesses since 2008',
     text: "I've spent my own money on Facebook ads for years, testing what gets people to click, watch and buy. The AI Media Machine is the same system I use every day.",
     risk: 'You risk nothing. I risk my reputation.',
     /** The named guarantee (Hormozi review 2026-10-09): the same 30-day refund ClickBank gives, with a name, in my words. */

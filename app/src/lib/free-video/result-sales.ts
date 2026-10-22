@@ -18,6 +18,12 @@ const YEAR = MONTH * 12;
 const FREELANCER = 200;
 const FREELANCER_YEAR = `$${(FREELANCER * YEAR).toLocaleString('en-US')}`;
 const ASSETS = 'https://ai.bluefx.net/assets';
+const SUPABASE = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public';
+const EXAMPLES = `${SUPABASE}/script-videos/smart-video/examples/free-video`;
+const IMAGE_MAKER = `${SUPABASE}/script-videos/examples/image-maker`;
+
+/** The 8 video ads at the top of the main sales page (ai.bluefx.net/lifetime/), Vimeo background players (owner 2026-10-22: "I have more video ads there"). */
+export const SALES_PAGE_HERO_VIMEO = ['1217606652', '1217606691', '1217606651', '1217606688', '1217606709', '1217606706', '1217606686', '1217606680'] as const;
 
 /** Which result page leads see: 'sales' (board J) or 'classic' (the page live since 2026-10-19). ?page= overrides it for a look. */
 export const RESULT_PAGE_VERSION: 'sales' | 'classic' = 'sales';
@@ -25,6 +31,8 @@ export const RESULT_PAGE_VERSION: 'sales' | 'classic' = 'sales';
 type ToolMedia =
   | { kind: 'gif'; src: string; alt: string }
   | { kind: 'video'; src: string; poster: string }
+  | { kind: 'phone'; src: string; poster: string }
+  | { kind: 'slides'; slides: { from: string | null; to: string; label: string }[] }
   | { kind: 'audio'; tracks: { label: string; src: string }[] }
   | { kind: 'placeholder'; label: string };
 
@@ -45,7 +53,8 @@ export const TOOL_GROUPS: { title: string; lead: string | null; tools: SalesTool
     tools: [
       {
         name: 'Phantom Ad Maker',
-        media: { kind: 'video', src: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/examples/free-video/loops/more-bakery.mp4', poster: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/examples/free-video/loops/more-bakery.jpg' },
+        // A whole video ad, presenter first and then the rest (owner: the cropped close-up looked strange).
+        media: { kind: 'phone', src: `${EXAMPLES}/aimm/more-bakery.mp4`, poster: `${EXAMPLES}/loops/more-bakery.jpg` },
         does: (domain) =>
           `The tool that made your video ad for ${domain}. 1 complete video ad: a script with a hook, a person on screen at the start, whiteboard or animated scenes after that, a voice-over, music, and words written the way a professional copywriter writes. Type your website, paste your own script or upload a few photos, and Phantom Ad Maker makes a finished video ad with a presenter, a voice-over and music. Want a change? Type the change, like "use a woman presenter", and the new version of your video ad is ready in about 3 minutes.`,
         forBusiness: `${MONTH} new video ads every month to post on YouTube, Instagram, Facebook and TikTok, so customers see your business every 3 days.`,
@@ -108,7 +117,15 @@ export const TOOL_GROUPS: { title: string; lead: string | null; tools: SalesTool
     tools: [
       {
         name: 'Image Maker',
-        media: { kind: 'placeholder', label: 'Image Maker demo coming soon' },
+        media: {
+          kind: 'slides',
+          slides: [
+            { from: `${IMAGE_MAKER}/product/bottle.jpg`, to: `${IMAGE_MAKER}/product/result.jpg`, label: 'The same bottle, in a new place' },
+            { from: `${IMAGE_MAKER}/combine/bella.jpg`, to: `${IMAGE_MAKER}/combine/result.jpg`, label: 'The baker holds the bottle' },
+            { from: `${IMAGE_MAKER}/restage/kitchen.jpg`, to: `${IMAGE_MAKER}/restage/result.jpg`, label: 'A kitchen photo restaged for a listing' },
+            { from: null, to: `${IMAGE_MAKER}/poster/result.jpg`, label: 'A bakery poster with every word spelled right' },
+          ],
+        },
         does: () => "Start from your own product photo. Image Maker puts your product in a new scene, in a person's hands, or on a poster with every word spelled right.",
         forBusiness: 'New pictures of your real product for every post and every video ad, without paying for a photo shoot, so customers see your real product.',
         amount: 'Up to 300 pictures a month',
@@ -162,7 +179,7 @@ export const TOOL_GROUPS: { title: string; lead: string | null; tools: SalesTool
     tools: [
       {
         name: 'ReelEstate',
-        media: { kind: 'placeholder', label: 'ReelEstate demo coming soon' },
+        media: { kind: 'video', src: `${SUPABASE}/script-videos/examples/reelestate/automatic/14-birchwood-lane-automatic.mp4`, poster: `${SUPABASE}/script-videos/examples/reelestate/listing/poster-animated.jpg` },
         does: () => 'Paste a listing link from Zillow or Realtor.com. ReelEstate cleans up the listing photos and makes a complete video of the home.',
         forBusiness: 'If you sell homes: a video for every listing the same day, so buyers on Facebook and Instagram see the home while the listing is new, and future sellers see how you market a home.',
         amount: 'Up to about 8 listing videos of 30 seconds a month',
@@ -186,6 +203,7 @@ export const RESULT_SALES = {
   top: {
     title: (name: string) => `Congratulations, ${name}! Your video ad is ready.`,
     sample: 'Your free sample has a SAMPLE stamp. With the AI Media Machine, your video ads come without the stamp.',
+    seeAll: 'See all 12 tools',
   },
 
   hero: {
@@ -245,7 +263,7 @@ export const RESULT_SALES = {
     scrollText:
       'How did you find the AI Media Machine? Probably through a video on Facebook or YouTube. Your customers are there too, over 2½ hours a day. When your business posts a new video every 3 days, your customers see your business, your products and your website, again and again.',
     leads: 'Our own videos brought BlueFX 222,712 leads since 2013.',
-    leadsImage: '/free-video/leadpages-leads.jpg',
+    leadsImage: '/free-video/leadpages-big.jpg',
     leadsAlt: 'Our Leadpages dashboard showing 222,712 leads',
   },
 
@@ -260,6 +278,7 @@ export const RESULT_SALES = {
     elsewhere: 'elsewhere',
     included: '✓ Included',
     proof: (tool: string) => `Real output from ${tool}, not edited.`,
+    yourPhoto: 'Your photo',
     play: (label: string) => `Play ${label}`,
     alsoIncluded: 'Also included: Logo Maker and Script Generator.',
   },
@@ -293,21 +312,21 @@ export const RESULT_SALES = {
   customers: {
     kicker: 'WHAT CUSTOMERS SAY',
     title: 'BlueFX customers, in their own words',
-    lead: "I've been building BlueFX since 2009, for more than 36,000 customers. Here are a few of those customers.",
+    lead: "I've been building BlueFX since 2008, for more than 36,000 customers. Here are a few of those customers.",
   },
 
   founder: {
     kicker: 'THE FOUNDER',
     title: 'I Spent $60K of My Own Money on Video Ads to Figure Out What Actually Brings In Customers. Then I Built the AI Media Machine.',
     name: 'Szilard Gyorfi',
-    role: 'Founder of BlueFX (est. 2009) & AI Media Machine',
+    role: 'Founder of BlueFX (est. 2008) & AI Media Machine',
     photo: '/free-video/owner.jpg',
     text: [
-      "I'm Szilard Gyorfi. I've been building BlueFX since 2009, from a one-man video template shop into a business that's served 36,000+ customers worldwide.",
+      "I'm Szilard Gyorfi. I've been building BlueFX since 2008, from a one-man video template shop into a business that's served 36,000+ customers worldwide.",
       "I've made 700+ videos for customers by hand, and each video took days, sometimes weeks.",
       "2 years ago I moved all my video work to AI. A video that used to take me a week now takes minutes. And now I'm giving you the AI Media Machine I use every day, the same AI Media Machine that made your video ad.",
     ],
-    stats: ['17 Years Building BlueFX', '$60K+ Spent Testing Video Ads', '100+ Products Launched', '777 YouTube Videos', '36K+ Customers Served'],
+    stats: ['18 Years Building BlueFX', '$60K+ Spent Testing Video Ads', '100+ Products Launched', '777 YouTube Videos', '36K+ Customers Served'],
   },
 
   lifetime: {
@@ -367,7 +386,7 @@ export const RESULT_SALES = {
       "Make video ads with the AI Media Machine for 30 days. If you're not happy, email me at support@bluefx.net and I'll refund every cent.",
       'Download your video ads, your 3 bonus video ads included. Every video ad you download stays yours, even after a refund.',
       "You pay once, so there's no subscription to cancel.",
-      'You risk nothing. I risk my reputation built over 17 years and 36,000 customers.',
+      'You risk nothing. I risk my reputation built over 18 years and 36,000 customers.',
     ],
     /** The 3 bonus video ads exist only while the bonus runs. */
     textNoBonus: 'Download your video ads. Every video ad you download stays yours, even after a refund.',

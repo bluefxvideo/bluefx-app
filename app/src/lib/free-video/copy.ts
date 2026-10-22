@@ -76,7 +76,7 @@ export const LANDING = {
   /** The hand-drawn note pointing at the website field (wide screens only). */
   startHere: 'Start here!',
   /** The small lines under the website field: the limit, what it does not cost, and one proof number. */
-  trust: ['One free video ad per business', 'No credit card, no account to create', '36,000+ customers since 2009'],
+  trust: ['One free video ad per business', 'No credit card, no account to create', '36,000+ customers since 2008'],
   /** The numbered steps beside the result card, in order. */
   steps: [
     { title: 'Add your website', text: 'The AI Media Machine reads the words and photos on your website.' },
@@ -108,11 +108,11 @@ export const STICKY = {
 
 /**
  * The proof strip under the top card (as Ubersuggest's "Trusted by over 250,000 users"). Only numbers the
- * owner already publishes: bluefx.net ("Used by 36,000+ customers", "since 2009", "Our clients have
+ * owner already publishes: bluefx.net ("Used by 36,000+ customers", "since 2009" there; the owner chose 2008 on 2026-10-22, as his sales video says), "Our clients have
  * brought in 220K+ leads") and the BlueFx Video AI YouTube channel (22K subscribers, 2026-10-06).
  */
 export const PROOF = {
-  lead: 'BlueFX has made videos for businesses since 2009',
+  lead: 'BlueFX has made videos for businesses since 2008',
   stats: [
     { value: '36,000+', label: 'customers' },
     { value: '22K', label: 'YouTube subscribers' },
@@ -129,7 +129,7 @@ export const FAQ = {
     { q: 'What do I need?', a: 'Only your website address. The AI Media Machine reads the words and photos on your website and writes the video ad from them.' },
     { q: 'What kind of business can use it?', a: 'Any business with its own website: restaurants, real estate agents, local services, online stores and more.' },
     { q: 'How do I get my video ad?', a: 'By email, as soon as the AI Media Machine finishes it. You can also watch and download the video ad on your video ad page.' },
-    { q: 'Who is behind this?', a: 'BlueFX. We have made videos for businesses since 2009, and 36,000+ customers have used our video tools and templates. Your free video ad is made by our AI Media Machine.' },
+    { q: 'Who is behind this?', a: 'BlueFX. We have made videos for businesses since 2008, and 36,000+ customers have used our video tools and templates. Your free video ad is made by our AI Media Machine.' },
   ],
 } as const;
 

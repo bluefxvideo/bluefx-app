@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { RESULT_PAGE, VIDEO_REVIEWS_UNDER_ADS } from '@/lib/free-video/result-page';
-import { RESULT_SALES, TOOL_GROUPS, type SalesTool } from '@/lib/free-video/result-sales';
+import { RESULT_SALES, SALES_PAGE_HERO_VIMEO, TOOL_GROUPS, type SalesTool } from '@/lib/free-video/result-sales';
 import { goUrl, OFFER, type ResultPagePlacement } from '@/lib/free-video/offer';
 import { PLAYER } from '@/lib/free-video/copy';
 import type { FreeVideoView } from '@/types/free-video';
@@ -12,7 +12,6 @@ import { ChatLauncher } from './chat-launcher';
 import { OfferButton } from './offer-button';
 import { VideoAdPlayer } from './video-ad-player';
 import {
-  Countdown,
   Legal,
   LoopVideo,
   PayCards,
@@ -66,18 +65,28 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </p>
 
       <section className={cn(rp.wrap, s.top)} aria-labelledby="fv-sales-title">
-        <h1 id="fv-sales-title" className={s.topTitle}>
-          {top.title(firstName)}
-        </h1>
         <div className={s.topVideo}>
           <VideoAdPlayer src={videoUrl} label={PLAYER.label(domain)} onPlayWithSound={onPlayWithSound} onComplete={onComplete} className={rp.heroPlayerFrame} tapToPlay />
         </div>
-        <p className={s.topSample}>{top.sample}</p>
+        {/* On a phone the title sits above the video (display: contents); on a computer the words fill the space beside it and lead down the page (owner 2026-10-22). */}
+        <div className={s.topText}>
+          <h1 id="fv-sales-title" className={s.topTitle}>
+            {top.title(firstName)}
+          </h1>
+          <p className={s.topSample}>{top.sample}</p>
+          <div className={s.topNext}>
+            <p className={s.topKicker}>{hero.kicker}</p>
+            <a className={s.topLink} href="#fv-sales-hero">
+              {top.seeAll}
+              <span aria-hidden="true"> ↓</span>
+            </a>
+          </div>
+        </div>
       </section>
 
       <section className={s.hero} aria-labelledby="fv-sales-hero">
         <div className={cn(rp.wrap, s.heroText)}>
-          <p className={s.heroKicker}>{hero.kicker}</p>
+          <p className={cn(s.heroKicker, s.phoneOnly)}>{hero.kicker}</p>
           <span className={s.heroPill}>{hero.pill}</span>
           <h2 id="fv-sales-hero" className={s.heroTitle}>
             {hero.titleStart}
@@ -91,7 +100,12 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           </p>
         </div>
         <ul className={s.heroReel}>
-          {RESULT_PAGE.examples.items.slice(0, 6).map((item) => (
+          {SALES_PAGE_HERO_VIMEO.map((id) => (
+            <li key={id}>
+              <VimeoTile id={id} />
+            </li>
+          ))}
+          {RESULT_PAGE.examples.items.map((item) => (
             <li key={item.id}>
               <button type="button" className={s.heroTile} onClick={() => setViewing(item)} aria-label={RESULT_PAGE.examples.watch(item.label)}>
                 <LoopVideo src={item.loop} poster={item.poster} />
@@ -126,7 +140,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           {price.title}
         </h2>
         <div className={s.priceBox}>
-          <BirthdayTimer label={price.timer} />
+          <BirthdayTimer label={price.timer} until={bonus ? view.cleanUntil : undefined} />
           <p className={s.priceDeal}>{price.deal}</p>
           <div className={s.prices}>
             <p className={s.priceRegular}>
@@ -183,12 +197,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
               </li>
             ))}
           </ul>
-          {view.cleanUntil && (
-            <div className={s.timerBlock}>
-              <p className={s.timerLabel}>{RESULT_SALES.bonus.timer}</p>
-              <Countdown until={view.cleanUntil} />
-            </div>
-          )}
+          {view.cleanUntil && <Clock label={RESULT_SALES.bonus.timer} until={Date.parse(view.cleanUntil)} />}
           <SalesBuy token={token} placement="fvresads" note={button.written} />
         </section>
       )}
@@ -212,13 +221,15 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             </li>
           ))}
         </ol>
-        <ResultScene domain={domain} />
+        <div className={s.sceneWrap}>
+          <ResultScene domain={domain} />
+        </div>
         <h3 className={s.h3}>{how.scrollTitle}</h3>
         <p className={rp.text}>{how.scrollText}</p>
-        <div className={s.leads}>
-          <Image src={how.leadsImage} alt={how.leadsAlt} width={554} height={178} sizes="(min-width: 600px) 280px, 50vw" />
-          <p>{how.leads}</p>
-        </div>
+        <figure className={s.leads}>
+          <Image src={how.leadsImage} alt={how.leadsAlt} width={1148} height={560} sizes="(min-width: 760px) 712px, 100vw" />
+          <figcaption>{how.leads}</figcaption>
+        </figure>
         <SalesBuy token={token} placement="fvres2" note={button.guarantee} />
       </section>
 
@@ -408,7 +419,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             {line}
           </p>
         ))}
-        <BirthdayTimer label={price.timer} />
+        <BirthdayTimer label={price.timer} until={bonus ? view.cleanUntil : undefined} />
         <SalesBuy token={token} placement="fvres6" note={button.guarantee} />
       </section>
 
@@ -484,6 +495,12 @@ function ToolCard({ n, tool, domain }: { n: number; tool: SalesTool; domain: str
           <LoopVideo src={media.src} poster={media.poster} />
         </div>
       )}
+      {media.kind === 'phone' && (
+        <div className={s.toolPhone}>
+          <LoopVideo src={media.src} poster={media.poster} />
+        </div>
+      )}
+      {media.kind === 'slides' && <Slides slides={media.slides} />}
       {media.kind === 'audio' && <AudioSamples tracks={media.tracks} />}
       {media.kind === 'placeholder' && <div className={cn(s.toolMedia, s.toolPlaceholder)}>{media.label}</div>}
       {media.kind !== 'audio' && media.kind !== 'placeholder' && <p className={s.caption}>{tools.proof(tool.name)}</p>}
@@ -538,10 +555,17 @@ function AudioSamples({ tracks }: { tracks: readonly { label: string; src: strin
 const BIRTHDAY_KEY = 'amm_founding_deadline_2h';
 const BIRTHDAY_WINDOW_MS = (117 * 60 + 23) * 1000;
 const BIRTHDAY_COOLDOWN_MS = 5 * 60 * 1000;
-function BirthdayTimer({ label }: { label: string }) {
-  const [until, setUntil] = useState<number | null>(null);
-  const [now, setNow] = useState<number | null>(null);
+/**
+ * The birthday price's clock. While their 3-day bonus runs it ends with the bonus (owner 2026-10-22: "maybe we need to
+ * go with the 3 days"), so the page has 1 deadline; after that, the sales page's per-visitor 1:57:23 window.
+ */
+function BirthdayTimer({ label, until }: { label: string; until?: string }) {
+  const [end, setEnd] = useState<number | null>(null);
   useEffect(() => {
+    if (until) {
+      setEnd(Date.parse(until));
+      return;
+    }
     const start = Date.now();
     let deadline = 0;
     try {
@@ -557,8 +581,16 @@ function BirthdayTimer({ label }: { label: string }) {
         // A private window: the clock still runs for this visit.
       }
     }
-    setUntil(deadline);
-    setNow(start);
+    setEnd(deadline);
+  }, [until]);
+  return <Clock label={label} until={end} />;
+}
+
+/** Days, hours, minutes and seconds until `until`, once a second; dashes before the page runs in the browser, gone at zero. */
+function Clock({ label, until }: { label: string; until: number | null }) {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
@@ -576,6 +608,65 @@ function BirthdayTimer({ label }: { label: string }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** One of the sales page's top video ads: a Vimeo background player, loaded when it comes near the screen; a tap plays it with sound. */
+function VimeoTile({ id }: { id: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [near, setNear] = useState(false);
+  const [sound, setSound] = useState(false);
+  useEffect(() => {
+    const tile = ref.current;
+    if (!tile || typeof IntersectionObserver === 'undefined') {
+      setNear(true);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && setNear(true), { rootMargin: '200px' });
+    observer.observe(tile);
+    return () => observer.disconnect();
+  }, []);
+  const src = sound
+    ? `https://player.vimeo.com/video/${id}?autoplay=1&title=0&byline=0&portrait=0&controls=1`
+    : `https://player.vimeo.com/video/${id}?background=1&autopause=0`;
+  return (
+    <div ref={ref} className={s.heroTile}>
+      {near && <iframe src={src} title="A video ad made with the AI Media Machine" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen />}
+      {!sound && (
+        <button type="button" className={s.heroTap} onClick={() => setSound(true)} aria-label="Play this video ad with sound">
+          <span className={s.heroSound} aria-hidden="true">
+            <PlayIcon size={11} fill="#ffffff" />
+          </span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Image Maker: their photo in the corner, the AI's picture big, one example every 3 seconds. */
+function Slides({ slides }: { slides: readonly { from: string | null; to: string; label: string }[] }) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setIndex((i) => (i + 1) % slides.length), 3000);
+    return () => window.clearInterval(timer);
+  }, [slides.length]);
+  return (
+    <div className={s.slides}>
+      {slides.map((slide, i) => (
+        <figure key={slide.to} className={cn(s.slide, i === index && s.slideOn)} aria-hidden={i !== index}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className={s.slideTo} src={slide.to} alt={slide.label} loading="lazy" />
+          {slide.from && (
+            <span className={s.slideFrom}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={slide.from} alt="" loading="lazy" />
+              <small>{RESULT_SALES.tools.yourPhoto}</small>
+            </span>
+          )}
+          <figcaption>{slide.label}</figcaption>
+        </figure>
+      ))}
     </div>
   );
 }

@@ -37,6 +37,17 @@
   padding-bottom: 8px;
 }
 
+/* Headlines, kickers and the line under a headline are centered, like the sales page; long paragraphs read left. */
+.section > h2,
+.section > h3,
+.section > p:first-child,
+.section > h2 + p,
+.groupTitle,
+.group > .groupTitle + p {
+  text-align: center;
+  text-wrap: balance;
+}
+
 .sectionTight {
   padding-top: 8px;
 }
@@ -110,6 +121,47 @@
 
 .topVideo {
   width: min(300px, 76vw);
+}
+
+/* Phone: the title above the video, the line under it; the lead down the page is the hero's own first line. */
+.topText {
+  display: contents;
+}
+
+.topTitle {
+  order: -1;
+}
+
+.topNext {
+  display: none;
+}
+
+.topKicker {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: var(--green-dark);
+}
+
+.topLink {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.topLink:hover {
+  background: #0f2f57;
+  color: #ffffff;
 }
 
 .topSample {
@@ -226,6 +278,28 @@
   display: block;
 }
 
+/* A Vimeo background player cropped to the phone frame, like the sales page's carousel. */
+.heroTile iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.heroTile iframe:only-child {
+  pointer-events: auto;
+}
+
+.heroTap {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
 .heroSound {
   position: absolute;
   right: 8px;
@@ -333,6 +407,12 @@
   text-align: center;
 }
 
+.timerBlock {
+  width: 100%;
+  max-width: 420px;
+  margin-inline: auto;
+}
+
 .clock {
   display: flex;
   gap: 8px;
@@ -392,11 +472,17 @@
 
 /* ---------- how ---------- */
 
+/* The classic page's drawing, always stacked (its computer layout puts the text in a narrow side column). */
+.sceneWrap > * {
+  display: flex !important;
+  flex-direction: column;
+}
+
 .leads {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
 }
 
 .leads img {
@@ -404,13 +490,14 @@
   height: auto;
   border-radius: 10px;
   border: 1px solid var(--line);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 }
 
-.leads p {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
+.leads figcaption {
+  font-size: 17px;
+  font-weight: 800;
   line-height: 1.45;
+  text-align: center;
 }
 
 /* ---------- the 12 tools ---------- */
@@ -483,6 +570,91 @@
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.toolPhone {
+  align-self: center;
+  width: min(240px, 70%);
+  aspect-ratio: 9 / 16;
+  border: 4px solid var(--ink);
+  border-radius: 22px;
+  overflow: hidden;
+  background: #111111;
+}
+
+.toolPhone video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.slides {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.slideOn {
+  opacity: 1;
+}
+
+.slideTo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.slideFrom {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
+}
+
+.slideFrom img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+}
+
+.slideFrom small {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.slide figcaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 18px 12px 10px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(15, 23, 42, 0.75) 100%);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .toolPlaceholder {
@@ -694,11 +866,12 @@
 }
 
 .face {
-  flex: 0 0 64px;
-  width: 64px;
-  height: 64px;
+  flex: 0 0 96px;
+  width: 96px;
+  height: 96px;
   border-radius: 999px;
   object-fit: cover;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.15);
 }
 
 .founderName {
@@ -878,6 +1051,48 @@
 
 .bar {
   justify-content: center;
+}
+
+@media (min-width: 960px) {
+  /* Computer: the video on the left, the words beside it lead into the page (owner 2026-10-22: "use that space"). */
+  .top {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 520px);
+    justify-content: center;
+    align-items: center;
+    column-gap: 56px;
+    padding-top: 32px;
+    padding-bottom: 36px;
+  }
+
+  .topText {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .top .topTitle {
+    order: 0;
+    text-align: left;
+    font-size: 38px;
+  }
+
+  .topSample {
+    text-align: left;
+    font-size: 17px;
+  }
+
+  .topNext {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+
+  .phoneOnly {
+    display: none;
+  }
 }
 
 @media (min-width: 760px) {

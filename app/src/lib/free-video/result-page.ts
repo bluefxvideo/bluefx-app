@@ -277,9 +277,9 @@ export const RESULT_PAGE = {
   reviews: {
     kicker: 'WHAT CUSTOMERS SAY',
     title: 'BlueFX customers, in their own words',
-    lead: "I've been building BlueFX since 2009, for more than 36,000 customers. Here are a few of those customers.",
+    lead: "I've been building BlueFX since 2008, for more than 36,000 customers. Here are a few of those customers.",
     tiles: [
-      { big: 'Since 2009', small: 'building BlueFX' },
+      { big: 'Since 2008', small: 'building BlueFX' },
       { big: '36,000+', small: 'customers' },
       { big: '222,712', small: 'leads from our own videos' },
     ],
