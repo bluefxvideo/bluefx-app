@@ -2024,7 +2024,7 @@ export function SampleEndClip({ voice = 'male' }) {
             </div>
           </div>
           <div style={{ ...place(0.605), opacity: plus }}>
-            <div style={text(56, 800, '#FFFFFF')}>Plus 11 more AI tools</div>
+            <div style={text(56, 800, '#FFFFFF')}>Plus 12 AI tools</div>
           </div>
           <div style={{ ...place(0.655), opacity: name, transform: `scale(${1.1 - name * 0.1})` }}>
             <div style={{ ...text(92, 800, BRAND.blue, { lineHeight: 1.02 }), position: 'relative', overflow: 'hidden', padding: `0 ${10 * k}px` }}>
