@@ -1942,7 +1942,7 @@ function EndCard() {
 // after its render (server.js), so no free video ad waits longer for it (owner 2026-10-22). It talks to the lead on the
 // result page (Hormozi's card): a SAMPLE stamp wipes off the card, then 3 lines and the BlueFX address, with a
 // spoken line in the voice of the video ad's voice-over (male and female versions).
-export const END_CLIP_FRAMES = 105; // 3.5 s
+export const END_CLIP_FRAMES = 165; // 5.5 s: the voice says the card (owner 2026-10-22)
 // The 12 tools as white line icons (24-unit paths), the first one, Phantom Ad Maker, the tool that made their video ad.
 const TOOL_ICONS = [
   'M4 6h16v12H4z M10 9l5 3-5 3z', // Phantom Ad Maker: a video ad
@@ -1974,16 +1974,17 @@ export function SampleEndClip({ voice = 'male' }) {
   const line = { lineHeight: 1, color: '#FFFFFF', whiteSpace: 'nowrap', WebkitTextStroke: `${Math.max(2, Math.round(W / 240))}px #111111`, paintOrder: 'stroke fill', fontFamily: font };
   const text = (size, weight, color, extra = {}) => ({ fontFamily: font, fontSize: Math.round(size * k), fontWeight: weight, color, lineHeight: 1.15, textAlign: 'center', whiteSpace: 'nowrap', ...extra });
   const place = (top, extra = {}) => ({ position: 'absolute', left: 0, right: 0, top: H * top, display: 'flex', flexDirection: 'column', alignItems: 'center', ...extra });
-  const head = at(15, 24);
-  const strike = at(21, 30);
-  const sub = at(20, 30);
+  // Timed to the voice line: sentence 1 from 0.4 s, sentence 2 (the tools) from about 2.2 s, sentence 3 (the name) from about 3.9 s.
+  const head = at(12, 20);
+  const strike = at(20, 29);
+  const sub = at(24, 34);
   const tile = 132 * k;
   const gap = 26 * k;
   const rowGap = 54 * k;
-  const plus = at(44, 52);
-  const name = at(48, 58);
-  const shine = interpolate(frame, [64, 80], [-30, 130], clamp);
-  const pill = at(54, 64);
+  const plus = at(66, 74);
+  const name = at(112, 122);
+  const shine = interpolate(frame, [130, 146], [-30, 130], clamp);
+  const pill = at(124, 134);
   return (
     <AbsoluteFill style={{ background: `radial-gradient(circle at ${glowX}% ${glowY}%, ${BRAND.deep}B3 0%, ${BRAND.deep}00 55%), ${BRAND.night}` }}>
       {ready && (
@@ -2010,7 +2011,7 @@ export function SampleEndClip({ voice = 'male' }) {
           <div style={{ ...place(0.32) }}>
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(4, ${tile}px)`, columnGap: gap, rowGap }}>
               {TOOL_ICONS.map((d, i) => {
-                const pop = interpolate(frame, [30 + i * 1.5, 36 + i * 1.5], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.6)) });
+                const pop = interpolate(frame, [58 + i * 1.5, 64 + i * 1.5], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.6)) });
                 return (
                   <div key={i} style={{ width: tile, height: tile, borderRadius: 30 * k, background: i === 0 ? BRAND.blue : BRAND.deep, boxShadow: i === 0 ? `0 0 ${40 * k}px ${BRAND.blue}AA` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', transform: `scale(${pop})`, opacity: Math.min(1, pop * 1.5) }}>
                     <svg width={tile * 0.52} height={tile * 0.52} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -2038,7 +2039,7 @@ export function SampleEndClip({ voice = 'male' }) {
           </div>
         </>
       )}
-      <Sequence from={6}>
+      <Sequence from={12}>
         <Audio src={staticFile(`brand/endclip-voice-${voice === 'female' ? 'female' : 'male'}.mp3`)} />
       </Sequence>
     </AbsoluteFill>
