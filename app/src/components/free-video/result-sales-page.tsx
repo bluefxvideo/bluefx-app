@@ -272,7 +272,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </div>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-old">
-        <p className={rp.kicker}>{oldWay.kicker}</p>
+        <p className={cn(rp.kicker, s.kicker)}>{oldWay.kicker}</p>
         <h2 id="fv-sales-old" className={rp.h2}>
           {oldWay.title}
         </h2>
@@ -311,7 +311,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </section>
 
       <section className={cn(rp.wrap, s.section)} aria-labelledby="fv-sales-customers">
-        <p className={cn(rp.kicker, rp.centerWide)}>{customers.kicker}</p>
+        <p className={cn(rp.kicker, s.kicker, rp.centerWide)}>{customers.kicker}</p>
         <h2 id="fv-sales-customers" className={cn(rp.h2, rp.centerWide)}>
           {customers.title}
         </h2>
@@ -320,7 +320,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </section>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-founder">
-        <p className={rp.kicker}>{founder.kicker}</p>
+        <p className={cn(rp.kicker, s.kicker)}>{founder.kicker}</p>
         <h2 id="fv-sales-founder" className={rp.h2}>
           {founder.title}
         </h2>

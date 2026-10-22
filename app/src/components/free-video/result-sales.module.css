@@ -646,6 +646,13 @@
   text-align: center;
 }
 
+/* The small section labels (THE DIFFERENCE, WHAT CUSTOMERS SAY, THE FOUNDER), as big as THE TOOLS (owner 2026-10-22). */
+.kicker {
+  font-size: 18px;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
 /* ---------- the 12 tools ---------- */
 
 .toolsBand {
@@ -660,7 +667,7 @@
 
 .toolsKicker {
   margin: 0;
-  font-size: 14px;
+  font-size: 20px;
   font-weight: 900;
   letter-spacing: 2px;
   color: #fde047;
@@ -701,7 +708,6 @@
 
 .toolsBand .groupTitle {
   color: #7dd3fc;
-  font-size: 15px;
 }
 
 .toolsBand .group > p:not(.groupTitle):not(.also) {
@@ -731,8 +737,8 @@
 }
 
 .groupTitle {
-  margin: 10px 0 0;
-  font-size: 13px;
+  margin: 14px 0 0;
+  font-size: 19px;
   font-weight: 900;
   letter-spacing: 1px;
   color: var(--navy);
