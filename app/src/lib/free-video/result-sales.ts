@@ -487,8 +487,8 @@ export const RESULT_SALES = {
     p3: `Your sale price is ${OFFER.now} instead of ${OFFER.was}, and you have 30 days to get every cent back. Get the AI Media Machine before the timer hits zero.`,
     bonus: (domain: string, when: string | null) =>
       `And your next 3 video ads for ${domain} are already made. Get the AI Media Machine ${when ? `by ${when}` : 'while your bonus runs'}, and each video ad is ready to post about 3 minutes after your click.`,
-    /** The key words in bold. */
-    bold: ['free sample', 'in about 3 minutes', 'all 12 tools', `${MONTH} complete video ads every month, for life`, `${OFFER.now} instead of ${OFFER.was}`, '30 days to get every cent back', 'already made', `about ${FREELANCER_YEAR}`, `you pay ${OFFER.now}, once`],
+    /** No bold words in the P.S. (owner 2026-10-22: "just awful"); only P.S. and P.P.S. are bold. */
+    bold: [] as string[],
     pps: (domain: string) =>
       `Here's the math. A freelancer charges about $${FREELANCER} for 1 video ad like yours, so ${YEAR} video ads a year cost about ${FREELANCER_YEAR}. With the AI Media Machine, you pay ${OFFER.now}, once. Every video ad is one more chance for new customers to find ${domain}.`,
   },
