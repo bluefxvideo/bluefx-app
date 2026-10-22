@@ -137,9 +137,11 @@
   gap: 6px;
 }
 
-.topRobot {
-  width: 112px;
-  height: 112px;
+/* Phones: no robot, so their video ad stays on the first screen (owner 2026-10-22: "on mobile it is too big"). */
+.topRobot,
+.topHead > svg,
+.topHead > span {
+  display: none;
 }
 
 .topHead h1 {
@@ -1160,6 +1162,15 @@
   .topHead {
     order: 0;
     align-items: flex-start;
+  }
+
+  .topRobot,
+  .topHead > svg {
+    display: block;
+  }
+
+  .topHead > span {
+    display: inline-flex;
   }
 
   .topRobot {
