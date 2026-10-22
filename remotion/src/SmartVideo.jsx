@@ -1943,32 +1943,99 @@ function EndCard() {
 // result page (Hormozi's card): a SAMPLE stamp wipes off the card, then 3 lines and the BlueFX address, with a
 // spoken line in the voice of the video ad's voice-over (male and female versions).
 export const END_CLIP_FRAMES = 105; // 3.5 s
+// The 12 tools as white line icons (24-unit paths), the first one, Phantom Ad Maker, the tool that made their video ad.
+const TOOL_ICONS = [
+  'M4 6h16v12H4z M10 9l5 3-5 3z', // Phantom Ad Maker: a video ad
+  'M3 7h13v10H3z M16 10l5-3v10l-5-3', // Video Clip Maker: a camera
+  'M12 4a4 4 0 1 1 0 8a4 4 0 0 1 0-8z M4 21c1-4 4-6 8-6s7 2 8 6', // AI Avatar: a presenter
+  'M7 7h10l-3-3 M17 17H7l3 3 M7 7v4 M17 17v-4', // Video Swap: a swap
+  'M4 5h16v14H4z M8 15V11 M12 15V8 M16 15v-2', // Analyzer & Ad Cloner: a chart
+  'M10 4a6 6 0 1 1 0 12a6 6 0 0 1 0-12z M15 15l5 5', // Find Video Ads: a magnifier
+  'M4 5h16v14H4z M4 16l5-5 4 4 3-3 4 4 M15 9h.01', // Image Maker: a picture
+  'M3 6h18v12H3z M7 10h6 M7 13h4', // Thumbnail Maker
+  'M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z M6 11a6 6 0 0 0 12 0 M12 17v4', // Voice: a microphone
+  'M9 18V6l10-2v12 M9 18a2 2 0 1 1-4 0a2 2 0 0 1 4 0z M19 16a2 2 0 1 1-4 0a2 2 0 0 1 4 0z', // Music: notes
+  'M4 11l8-7 8 7 M6 10v10h12V10 M10 20v-5h4v5', // ReelEstate: a house
+  'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z M5 17a3 3 0 0 1 3-3h11', // Ebook Writer: a book
+];
+
 export function SampleEndClip({ voice = 'male' }) {
   const frame = useCurrentFrame();
   const { W, H } = useFrame();
   const ready = useFonts(STYLES.playful, true);
-  // The SAMPLE stamp sits on the card and wipes off left to right (0.1 to 0.5 s), then the 3 lines come in.
-  const wipe = interpolate(frame, [3, 15], [0, 100], clamp);
-  const words = interpolate(frame, [13, 18], [0, 1], clamp);
   const k = W / 1080;
-  const text = (size, weight, color, extra = {}) => ({ fontFamily: `${BRAND_FONT[0]}, sans-serif`, fontSize: Math.round(size * k), fontWeight: weight, color, lineHeight: 1.15, textAlign: 'center', ...extra });
-  const line = { lineHeight: 1, color: '#FFFFFF', whiteSpace: 'nowrap', WebkitTextStroke: `${Math.max(2, Math.round(W / 240))}px #111111`, paintOrder: 'stroke fill', fontFamily: `${BRAND_FONT[0]}, sans-serif` };
+  const font = `${BRAND_FONT[0]}, sans-serif`;
+  const ease = { ...clamp, easing: Easing.out(Easing.cubic) };
+  // The SAMPLE stamp sits on the card and wipes off left to right (0.1 to 0.5 s).
+  const wipe = interpolate(frame, [3, 15], [0, 100], clamp);
+  const at = (from, to) => interpolate(frame, [from, to], [0, 1], ease);
+  const glowX = interpolate(frame, [0, END_CLIP_FRAMES], [30, 70], clamp);
+  const glowY = interpolate(frame, [0, END_CLIP_FRAMES], [25, 70], clamp);
+  const line = { lineHeight: 1, color: '#FFFFFF', whiteSpace: 'nowrap', WebkitTextStroke: `${Math.max(2, Math.round(W / 240))}px #111111`, paintOrder: 'stroke fill', fontFamily: font };
+  const text = (size, weight, color, extra = {}) => ({ fontFamily: font, fontSize: Math.round(size * k), fontWeight: weight, color, lineHeight: 1.15, textAlign: 'center', whiteSpace: 'nowrap', ...extra });
+  const place = (top, extra = {}) => ({ position: 'absolute', left: 0, right: 0, top: H * top, display: 'flex', flexDirection: 'column', alignItems: 'center', ...extra });
+  const head = at(15, 24);
+  const strike = at(21, 30);
+  const sub = at(20, 30);
+  const tile = 132 * k;
+  const gap = 26 * k;
+  const rowGap = 54 * k;
+  const plus = at(44, 52);
+  const name = at(48, 58);
+  const shine = interpolate(frame, [64, 80], [-30, 130], clamp);
+  const pill = at(54, 64);
   return (
-    <AbsoluteFill style={{ background: `radial-gradient(circle at 50% 45%, ${BRAND.deep}A6 0%, ${BRAND.deep}00 58%), ${BRAND.night}` }}>
+    <AbsoluteFill style={{ background: `radial-gradient(circle at ${glowX}% ${glowY}%, ${BRAND.deep}B3 0%, ${BRAND.deep}00 55%), ${BRAND.night}` }}>
       {ready && (
         <>
           <AbsoluteFill style={{ clipPath: `inset(0 0 0 ${wipe}%)` }}>
-            <div style={{ position: 'absolute', left: 0, right: 0, top: H * 0.45, transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(W * 0.012), opacity: 0.8 }}>
+            <div style={{ ...place(0.45), transform: 'translateY(-50%)', gap: Math.round(W * 0.012), opacity: 0.8 }}>
               <span style={{ ...line, fontWeight: 800, fontSize: Math.round(W * 0.15), letterSpacing: 2 }}>SAMPLE</span>
               <span style={{ ...line, fontWeight: 700, fontSize: Math.round(W * 0.065) }}>bluefx.net</span>
             </div>
           </AbsoluteFill>
-          <AbsoluteFill style={{ opacity: words, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: `0 ${Math.round(70 * k)}px` }}>
-            <div style={text(60, 700, '#FFFFFF', { whiteSpace: 'nowrap' })}>Remove the SAMPLE stamp</div>
-            <div style={text(44, 600, LIGHT_TEXT, { marginTop: Math.round(22 * k), whiteSpace: 'nowrap' })}>Change anything in about 3 minutes</div>
-            <div style={text(88, 800, BRAND.blue, { marginTop: Math.round(64 * k), lineHeight: 1.05, whiteSpace: 'nowrap' })}>Get the<br />AI Media Machine</div>
-            <div style={text(54, 700, '#FFFFFF', { position: 'absolute', bottom: Math.round(170 * k), left: 0, right: 0 })}>bluefx.net</div>
-          </AbsoluteFill>
+          <div style={{ ...place(0.17), opacity: head, transform: `translateY(${(1 - head) * -30 * k}px)` }}>
+            <div style={{ ...text(66, 800, '#FFFFFF'), position: 'relative' }}>
+              Remove the{' '}
+              <span style={{ position: 'relative' }}>
+                SAMPLE
+                <span style={{ position: 'absolute', left: 0, top: '52%', height: 8 * k, width: `${strike * 100}%`, background: BRAND.blue, borderRadius: 4 * k }} />
+              </span>{' '}
+              stamp
+            </div>
+          </div>
+          <div style={{ ...place(0.245), opacity: sub }}>
+            <div style={text(46, 600, LIGHT_TEXT)}>Change anything in about 3 minutes</div>
+          </div>
+          <div style={{ ...place(0.32) }}>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(4, ${tile}px)`, columnGap: gap, rowGap }}>
+              {TOOL_ICONS.map((d, i) => {
+                const pop = interpolate(frame, [30 + i * 1.5, 36 + i * 1.5], [0, 1], { ...clamp, easing: Easing.out(Easing.back(1.6)) });
+                return (
+                  <div key={i} style={{ width: tile, height: tile, borderRadius: 30 * k, background: i === 0 ? BRAND.blue : BRAND.deep, boxShadow: i === 0 ? `0 0 ${40 * k}px ${BRAND.blue}AA` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', transform: `scale(${pop})`, opacity: Math.min(1, pop * 1.5) }}>
+                    <svg width={tile * 0.52} height={tile * 0.52} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                      <path d={d} />
+                    </svg>
+                    {i === 0 && <span style={{ ...text(26, 700, BRAND.blue), position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: 8 * k }}>Your video ad</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div style={{ ...place(0.605), opacity: plus }}>
+            <div style={text(56, 800, '#FFFFFF')}>Plus 11 more AI tools</div>
+          </div>
+          <div style={{ ...place(0.655), opacity: name, transform: `scale(${1.1 - name * 0.1})` }}>
+            <div style={{ ...text(92, 800, BRAND.blue, { lineHeight: 1.02 }), position: 'relative', overflow: 'hidden', padding: `0 ${10 * k}px` }}>
+              Get the
+              <br />
+              AI Media Machine
+              <span style={{ position: 'absolute', top: 0, bottom: 0, left: `${shine}%`, width: '22%', background: 'linear-gradient(100deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0) 100%)', transform: 'skewX(-18deg)' }} />
+            </div>
+          </div>
+          <div style={{ ...place(0.79), opacity: pill }}>
+            <div style={{ ...text(52, 800, '#FFFFFF'), padding: `${12 * k}px ${44 * k}px`, border: `${4 * k}px solid ${BRAND.blue}`, borderRadius: 999 }}>bluefx.net</div>
+          </div>
         </>
       )}
       <Sequence from={6}>
