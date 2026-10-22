@@ -227,8 +227,8 @@ export const RESULT_SALES = {
     /** The sales page's current video until the new sales video is made (owner 2026-10-22). */
     vimeo: '1217606653',
     caption: 'Szilard Gyorfi, founder of BlueFX, shows the AI Media Machine.',
-    /** The owner's pick of 2 generated thumbnails (2026-10-22): "See what else it makes". */
-    poster: '/free-video/sales-video-thumb.jpg',
+    /** The owner's real photo in the video's purple studio (2026-10-22), no text; the play button in its purple. */
+    poster: '/free-video/sales-video-poster.jpg',
     play: 'Play the video: Szilard shows the AI Media Machine',
   },
 
