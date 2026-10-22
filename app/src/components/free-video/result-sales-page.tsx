@@ -12,7 +12,9 @@ import { ChatLauncher } from './chat-launcher';
 import { OfferButton } from './offer-button';
 import { VideoAdPlayer } from './video-ad-player';
 import {
+  Confetti,
   Legal,
+  Robot,
   LoopVideo,
   PayCards,
   PlayIcon,
@@ -70,9 +72,15 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         </div>
         {/* On a phone the title sits above the video (display: contents); on a computer the words fill the space beside it and lead down the page (owner 2026-10-22). */}
         <div className={s.topText}>
-          <h1 id="fv-sales-title" className={s.topTitle}>
-            {top.title(firstName)}
-          </h1>
+          {/* The robot with its confetti burst, as on the classic page (owner 2026-10-22: "the lil robot is gone"). */}
+          <div className={s.topHead}>
+            <Confetti />
+            <Robot className={cn(rp.robot, s.topRobot)} label={RESULT_PAGE.hero.robot} burst />
+            <span className={rp.robotLabel}>{RESULT_PAGE.hero.robotLabel}</span>
+            <h1 id="fv-sales-title" className={s.topTitle}>
+              {top.title(firstName)}
+            </h1>
+          </div>
           <p className={s.topSample}>{top.sample}</p>
           <div className={s.topNext}>
             <p className={s.topKicker}>{hero.kicker}</p>
