@@ -26,7 +26,7 @@ const IMAGE_MAKER = `${SUPABASE}/script-videos/examples/image-maker`;
 export const SALES_PAGE_HERO_VIMEO = ['1217606652', '1217606691', '1217606651', '1217606688', '1217606709', '1217606706', '1217606686', '1217606680'] as const;
 
 /** Video Swap's demo: the vertical or the horizontal cut of the same intro (the owner picks). */
-const VIDEO_SWAP_LOOK = 'vertical' as 'vertical' | 'horizontal';
+const VIDEO_SWAP_LOOK = 'horizontal' as 'vertical' | 'horizontal';
 
 /** Which result page leads see: 'sales' (board J) or 'classic' (the page live since 2026-10-19). ?page= overrides it for a look. */
 export const RESULT_PAGE_VERSION: 'sales' | 'classic' = 'sales';
@@ -348,7 +348,12 @@ export const RESULT_SALES = {
       "2 years ago I moved all my video work to AI. A video that used to take me a week now takes minutes. And now I'm giving you the AI Media Machine I use every day, the same AI Media Machine that made your video ad.",
     ],
     /** 4, so none sits alone on a row (Krug). */
-    stats: ['18 Years Building BlueFX', '$60K+ Spent Testing Video Ads', '777 YouTube Videos', '36K+ Customers Served'],
+    stats: [
+      { big: '18', small: 'years building BlueFX' },
+      { big: '$60K+', small: 'spent testing video ads' },
+      { big: '777', small: 'YouTube videos' },
+      { big: '36K+', small: 'customers served' },
+    ],
   },
 
   lifetime: {

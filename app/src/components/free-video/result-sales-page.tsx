@@ -237,7 +237,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <div className={s.sceneWrap}>
           <ResultScene domain={domain} />
         </div>
-        <h3 className={cn(s.h3, s.subSection)}>{how.scrollTitle}</h3>
+        <h3 className={cn(s.h3, s.subSection, s.leftHead)}>{how.scrollTitle}</h3>
         <p className={rp.text}>{how.scrollText}</p>
         <figure className={s.leads}>
           <Image src={how.leadsImage} alt={how.leadsAlt} width={1320} height={192} sizes="(min-width: 760px) 712px, 100vw" />
@@ -296,7 +296,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             </p>
           ))}
         </div>
-        <h3 className={s.h3}>{oldWay.costTitle}</h3>
+        <h3 className={cn(s.h3, s.subSection)}>{oldWay.costTitle}</h3>
         <div className={s.cost}>
           {[oldWay.freelancer, oldWay.machine].map((card, index) => (
             <div key={card.name} className={cn(s.costCard, index === 1 && s.costCardUs)}>
@@ -324,8 +324,8 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </div>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-founder">
-        <p className={cn(rp.kicker, s.kicker)}>{founder.kicker}</p>
-        <h2 id="fv-sales-founder" className={rp.h2}>
+        <p className={cn(rp.kicker, s.kicker, s.leftHead)}>{founder.kicker}</p>
+        <h2 id="fv-sales-founder" className={cn(rp.h2, s.leftHead)}>
           {founder.title}
         </h2>
         <div className={s.founderHead}>
@@ -342,13 +342,16 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         ))}
         <ul className={s.stats}>
           {founder.stats.map((stat) => (
-            <li key={stat}>{stat}</li>
+            <li key={stat.small}>
+              <strong>{stat.big}</strong>
+              <span>{stat.small}</span>
+            </li>
           ))}
         </ul>
       </section>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-lifetime">
-        <h2 id="fv-sales-lifetime" className={rp.h2}>
+        <h2 id="fv-sales-lifetime" className={cn(rp.h2, s.leftHead)}>
           {lifetime.title}
         </h2>
         {lifetime.paragraphs.map((paragraph) => (
@@ -427,7 +430,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </section>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-still">
-        <h2 id="fv-sales-still" className={rp.h2}>
+        <h2 id="fv-sales-still" className={cn(rp.h2, s.leftHead)}>
           {still.title}
         </h2>
         {still.text.map((line) => (
@@ -553,17 +556,20 @@ function ToolCard({ n, tool, domain }: { n: number; tool: SalesTool; domain: str
         <span className={s.toolNumber}>{n}</span>
         <h3 className={s.toolName}>{tool.name}</h3>
       </div>
+      {/* One frame for every demo (senior design review): a 16:9 stage, the picture whole inside it. */}
       {media.kind === 'gif' && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className={s.toolMedia} src={media.src} alt={media.alt} loading="lazy" />
+        <div className={s.stage}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={media.src} alt={media.alt} loading="lazy" />
+        </div>
       )}
       {media.kind === 'video' && (
-        <div className={cn(s.toolMedia, s.toolVideo)}>
+        <div className={s.stage}>
           <LoopVideo src={media.src} poster={media.poster} />
         </div>
       )}
       {media.kind === 'phone' && (
-        <div className={s.toolPhone}>
+        <div className={cn(s.stage, s.stageTall)}>
           <LoopVideo src={media.src} poster={media.poster} />
         </div>
       )}
@@ -575,12 +581,15 @@ function ToolCard({ n, tool, domain }: { n: number; tool: SalesTool; domain: str
         <strong>{tools.forBusiness}</strong> {tool.forBusiness}
       </p>
       {/* Krug: the monthly amount and the value on 1 row. */}
-      <p className={s.value}>
-        <span>
-          <strong className={s.amountInline}>{tool.amount}</strong> · {tool.value} {tools.elsewhere}
-        </span>
-        <span className={s.included}>{tools.included}</span>
-      </p>
+      <div className={s.toolFoot}>
+        <p className={s.amount}>{tool.amount}</p>
+        <p className={s.value}>
+          <span>
+            {tools.value} {tool.value} {tools.elsewhere}
+          </span>
+          <span className={s.included}>{tools.included}</span>
+        </p>
+      </div>
     </article>
   );
 }

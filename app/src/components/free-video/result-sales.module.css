@@ -32,7 +32,6 @@
 /* One card style. */
 .page :global([class*='result-page_review__']),
 .page :global([class*='result-page_ad__']),
-.page :global([class*='result-page_faqItem']),
 .tool,
 .guarantee,
 .stats li,
@@ -114,12 +113,25 @@
 }
 
 .section > h2:not(.toolsTitle) {
-  font-size: 26px;
-  line-height: 1.2;
+  font-size: 28px;
+  line-height: 1.18;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .section > h3 {
   font-size: 20px;
+  line-height: 1.25;
+}
+
+.section > h2,
+.section > h3 {
+  text-wrap: balance;
+}
+
+/* Headings over long body copy read left, with their text (senior design review). */
+.section > .leftHead {
+  text-align: left;
 }
 
 .group > .groupTitle + p {
@@ -127,7 +139,7 @@
 }
 
 .sectionTight {
-  padding-top: 8px;
+  padding-top: 32px;
 }
 
 .body {
@@ -1515,11 +1527,11 @@
   }
 
   .section > h2:not(.toolsTitle) {
-    font-size: 36px;
+    font-size: 40px;
   }
 
   .section > h3 {
-    font-size: 22px;
+    font-size: 24px;
   }
 
   .section {
@@ -1542,14 +1554,14 @@
   font-size: 26px;
 }
 
-/* The founder headline is long: a step smaller on a phone. */
+/* The founder headline is long: a step smaller. */
 .section > h2[id='fv-sales-founder'] {
   font-size: 24px;
 }
 
 @media (min-width: 760px) {
   .section > h2[id='fv-sales-founder'] {
-    font-size: 32px;
+    font-size: 34px;
   }
 }
 
@@ -1565,4 +1577,193 @@
   padding-top: 0;
   border-radius: 999px;
   overflow: hidden;
+}
+
+
+/* ---------- the spacing and width system (senior design review, 2026-10-22) ---------- */
+
+/* Every buy block: a deliberate pause, 40 px below the content above it; logos 12 px under the button, the line 8 px under the logos. */
+.section :global(div[class*='result-page_buy__']),
+.group :global(div[class*='result-page_buy__']) {
+  margin-top: 24px;
+  gap: 12px;
+}
+
+.section :global(p[class*='result-page_buyNote']) {
+  margin-top: -4px;
+}
+
+/* 2 widths on a computer: 760 px for text and boxes, 1120 px for grids. */
+.bonusItems,
+.bonusSection > p,
+.bonusSection > h2 {
+  max-width: 760px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.bonusSection :global(div[class*='result-page_buy__']) {
+  width: 100%;
+  max-width: 460px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* One frame for every tool demo: a 16:9 stage, the picture whole inside it. */
+.stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(20, 61, 112, 0.06);
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stage img,
+.stage video {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.stage img {
+  width: 100%;
+  height: 100%;
+}
+
+.stageTall video {
+  height: 100%;
+  width: auto;
+}
+
+.slides {
+  max-width: none !important;
+  aspect-ratio: 16 / 10 !important;
+}
+
+/* Tool card footer: the allowance, then value and "Included" on 1 line, under a hairline. */
+.toolFoot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.toolFoot .amount {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.toolFoot .value {
+  font-size: 14px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.toolFoot .included {
+  color: #2e7d32;
+}
+
+.group {
+  gap: 16px;
+}
+
+@media (min-width: 760px) {
+  .group {
+    gap: 24px;
+  }
+}
+
+/* Founder stats: big numbers, small labels, no borders. */
+.stats li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 96px;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: #ffffff;
+}
+
+.stats li strong {
+  font-size: 28px;
+  font-weight: 800;
+  color: #143d70;
+  line-height: 1;
+}
+
+.stats li span {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Hero, computer: the text centered against the video, no hairline. */
+@media (min-width: 960px) {
+  .top .topText {
+    justify-content: center;
+  }
+
+  .top .topNext {
+    border-top: 0;
+    padding-top: 8px;
+    margin-top: 8px;
+  }
+
+  .topRobot {
+    width: 120px !important;
+    height: 120px !important;
+  }
+
+  .top .topTitle {
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Testimonials: the names on one baseline at the bottom of each card. */
+.band :global([class*='result-page_reviewBody']) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.band :global([class*='result-page_quoteWho']) {
+  margin-top: auto;
+}
+
+/* Image Maker: the outgoing caption is gone before the next one comes in. */
+.slide figcaption {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.slideOn figcaption {
+  opacity: 1;
+  transition: opacity 0.3s ease 0.35s;
+}
+
+/* Walkthrough: chips on 1 row, the button in its own row below. */
+.page :global([class*='result-page_jump']) {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.page :global(button[class*='result-page_jumpChip']) {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
+.page :global(section[class*='result-page_walkthrough']) {
+  align-items: center;
 }
