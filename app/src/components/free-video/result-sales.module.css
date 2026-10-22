@@ -33,13 +33,13 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-top: 64px;
+  padding-top: 48px;
   padding-bottom: 8px;
 }
 
 /* A part inside a section that starts a new idea gets room above it. */
 .subSection {
-  margin-top: 40px;
+  margin-top: 24px;
 }
 
 /*
@@ -227,7 +227,7 @@
   align-items: center;
   gap: 14px;
   text-align: center;
-  max-width: 760px;
+  max-width: 1100px;
 }
 
 .heroKicker {
@@ -267,6 +267,7 @@
 
 .heroSub {
   margin: 0;
+  max-width: 760px;
   font-size: 18px;
   line-height: 1.5;
   color: #334155;
@@ -554,7 +555,29 @@
 }
 
 .priceProof {
-  margin-top: 4px;
+  margin: 0 auto;
+  max-width: 560px;
+}
+
+.priceProof li {
+  display: flex !important;
+  flex-direction: row !important;
+  padding: 12px 14px;
+  align-items: center !important;
+  gap: 14px;
+}
+
+.priceProof li > div {
+  text-align: left;
+}
+
+.priceProof img {
+  width: 64px !important;
+  height: 64px !important;
+}
+
+.priceProof blockquote {
+  font-size: 15px;
 }
 
 /* ---------- timers ---------- */
@@ -803,10 +826,8 @@
 .toolMedia {
   display: block;
   width: 100%;
-  max-height: 360px;
-  object-fit: contain;
+  height: auto;
   border-radius: 12px;
-  background: #0f172a;
 }
 
 .toolVideo {
@@ -1200,9 +1221,9 @@
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  padding: 9px 0;
+  padding: 11px 0;
   border-bottom: 1px solid var(--line);
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.4;
 }
 
@@ -1219,11 +1240,11 @@
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  padding: 9px 10px;
+  padding: 11px 12px;
   border-radius: 8px;
   background: #fef9c3;
   color: #854d0e;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.4;
 }
 
@@ -1406,7 +1427,8 @@
   }
 
   .heroTitle {
-    font-size: 52px;
+    font-size: 60px;
+    line-height: 1.2;
   }
 
   .heroTile {
@@ -1430,7 +1452,7 @@
   }
 
   .section {
-    padding-top: 96px;
+    padding-top: 64px;
   }
 }
 
@@ -1463,4 +1485,13 @@
 .leads img {
   max-width: 560px;
   margin: 0 auto;
+}
+
+.priceProof li > div:first-child {
+  flex: 0 0 72px;
+  width: 72px !important;
+  height: 72px;
+  padding-top: 0;
+  border-radius: 999px;
+  overflow: hidden;
 }

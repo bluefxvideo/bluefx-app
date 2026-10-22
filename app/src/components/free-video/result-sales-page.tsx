@@ -104,6 +104,8 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           <p className={cn(s.heroKicker, s.phoneOnly)}>{hero.kicker}</p>
           <span className={s.heroPill}>{hero.pill}</span>
           <h2 id="fv-sales-hero" className={s.heroTitle}>
+            {hero.titleLine1}
+            <br />
             {hero.titleStart}
             <span className={s.heroMark}>{hero.titleMark}</span>
             {hero.titleEnd}
@@ -209,7 +211,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
               </li>
             ))}
           </ul>
-          <SalesBuy token={token} placement="fvresads" note={button.written} />
+          <SalesBuy token={token} placement="fvresads" note={`${button.guarantee} ${button.written}`} />
         </section>
       )}
 
@@ -457,11 +459,15 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </div>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-label="P.S.">
-        <p className={s.body}>{ps.p1(firstName, domain)}</p>
+        <p className={s.body}>
+          <strong>P.S.</strong> {ps.p1(firstName, domain)}
+        </p>
         <p className={s.body}>{ps.p2}</p>
         <p className={s.body}>{ps.p3}</p>
         {written && <p className={s.body}>{ps.bonus(domain, deadline?.when ?? null)}</p>}
-        <p className={s.body}>{ps.pps(domain)}</p>
+        <p className={s.body}>
+          <strong>P.P.S.</strong> {ps.pps(domain)}
+        </p>
       </section>
 
       <Legal />
@@ -498,7 +504,7 @@ function SalesVideo() {
 }
 
 /** A buy button: the name, "$297 once, for life", the card logos, and a line under it. */
-function SalesBuy({ token, placement, label = RESULT_SALES.button.main, withPrice = true, note }: { token: string; placement: ResultPagePlacement; label?: string; withPrice?: boolean; note?: string }) {
+function SalesBuy({ token, placement, label = RESULT_SALES.button.main, withPrice = true, note = RESULT_SALES.button.guarantee }: { token: string; placement: ResultPagePlacement; label?: string; withPrice?: boolean; note?: string }) {
   return (
     <div className={rp.buy}>
       <OfferButton className={rp.buyButton} href={goUrl(placement, token)}>
