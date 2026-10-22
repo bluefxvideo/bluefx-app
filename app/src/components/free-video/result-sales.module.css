@@ -648,6 +648,81 @@
 
 /* ---------- the 12 tools ---------- */
 
+.toolsBand {
+  margin-top: 40px;
+  padding: 8px 0 44px;
+  background: linear-gradient(180deg, #0b1730 0%, #10264a 50%, #0b1730 100%);
+}
+
+.toolsBand .section {
+  padding-top: 44px;
+}
+
+.toolsKicker {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #fde047;
+  text-align: center;
+}
+
+.toolsTitle {
+  margin: 0;
+  font-size: 38px;
+  line-height: 1.08;
+  font-weight: 900;
+  letter-spacing: -1px;
+  color: #ffffff;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.toolsTitle span {
+  color: #fde047;
+}
+
+.toolsLead {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.55;
+  color: #cbd5e1;
+  text-align: center;
+}
+
+.toolsNote {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  font-style: italic;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.toolsBand .groupTitle {
+  color: #7dd3fc;
+  font-size: 15px;
+}
+
+.toolsBand .group > p:not(.groupTitle):not(.also) {
+  color: #cbd5e1;
+}
+
+.toolsBand .also {
+  color: #ffffff;
+  text-align: center;
+}
+
+.toolsBand :global(p[class*='buyNote']) {
+  color: #94a3b8;
+}
+
+@media (min-width: 760px) {
+  .toolsTitle {
+    font-size: 56px;
+  }
+}
+
 .group {
   display: flex;
   flex-direction: column;

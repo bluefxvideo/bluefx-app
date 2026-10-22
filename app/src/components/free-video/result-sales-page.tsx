@@ -243,13 +243,16 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <SalesBuy token={token} placement="fvres2" note={button.guarantee} />
       </section>
 
+      {/* The most important section (owner 2026-10-22): its own dark band and a headline as big as the hero's. */}
+      <div className={s.toolsBand}>
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-tools">
-        <p className={rp.kicker}>{tools.kicker}</p>
-        <h2 id="fv-sales-tools" className={rp.h2}>
-          {tools.title}
+        <p className={s.toolsKicker}>{tools.kicker}</p>
+        <h2 id="fv-sales-tools" className={s.toolsTitle}>
+          {tools.titleStart}
+          <span>{tools.titleMark}</span>
         </h2>
-        <p className={rp.text}>{tools.lead(domain)}</p>
-        <p className={s.note}>{tools.note}</p>
+        <p className={s.toolsLead}>{tools.lead(domain)}</p>
+        <p className={s.toolsNote}>{tools.note}</p>
         {(() => {
           let number = 0;
           return TOOL_GROUPS.map((group, index) => (
@@ -266,6 +269,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           ));
         })()}
       </section>
+      </div>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-old">
         <p className={rp.kicker}>{oldWay.kicker}</p>

@@ -283,6 +283,8 @@ export const RESULT_SALES = {
   tools: {
     kicker: 'THE TOOLS',
     title: "Here's Everything You're Getting For 94.62% Off!",
+    titleStart: "Here's Everything You're Getting For ",
+    titleMark: '94.62% Off!',
     lead: (domain: string) =>
       `Phantom Ad Maker made your video ad for ${domain}. Here are all 12 tools, with what each tool makes for your business and what the same job rents for elsewhere. One payment gets you all 12 tools.`,
     note: 'The amount under each tool is what the tool makes in a month, if you spend the whole month on that 1 tool.',
