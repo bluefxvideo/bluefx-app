@@ -4,7 +4,7 @@ import { MyVideo } from './MyVideo.js';
 import { ScriptToVideo } from './ScriptToVideo.js';
 import { VideoEditor } from './VideoEditor.js';
 import { ReelEstateVideo } from './ReelEstateVideo.jsx';
-import { SmartVideo, smartVideoMetadata } from './SmartVideo.jsx';
+import { SmartVideo, smartVideoMetadata, SampleEndClip, END_CLIP_FRAMES } from './SmartVideo.jsx';
 
 /**
  * Remotion Root - Register all compositions here
@@ -93,6 +93,9 @@ export const RemotionRoot = () => {
         defaultProps={{ scenes: [], assets: {}, audio: {}, duration: 10 }}
         calculateMetadata={smartVideoMetadata}
       />
+
+      {/* The free video ad's shared end clip, rendered once at the free size (720x1280) and stitched on by server.js */}
+      <Composition id="SampleEndClip" component={SampleEndClip} durationInFrames={END_CLIP_FRAMES} fps={30} width={1080} height={1920} defaultProps={{ voice: 'male' }} />
 
       {/* Video Editor composition - handles editor data */}
       <Composition

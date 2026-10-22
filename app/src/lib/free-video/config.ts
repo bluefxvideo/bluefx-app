@@ -326,6 +326,15 @@ export const UNLOCK_EMAIL = { retryHours: 6, alertAfterMinutes: 30 } as const;
  */
 export const WATERMARK = { label: 'BlueFX', endCardSeconds: END_CARD_SECONDS } as const;
 
+/**
+ * Since 2026-10-22 (owner, from Hormozi's review): the "SAMPLE" stamp with the BlueFX address instead of the faint
+ * "BlueFX" (SmartVideo.jsx SampleStamp), and instead of the rendered card the shared end clip, stitched on by the
+ * render server (server.js appendEndClip; `endClip` = the voice-over's gender). END_CLIP_SECONDS is the clip's length
+ * (public/brand/endclip-*.mp4, 105 frames + the audio's padding), counted in the job's length for the gate.
+ */
+export const SAMPLE_STAMP = { stamp: true, label: 'SAMPLE', site: 'bluefx.net' } as const;
+export const END_CLIP_SECONDS = 3.52;
+
 /** Quality gate. Lengths include the end card (END_CARD_SECONDS). */
 export const GATE = {
   minSeconds: 22,

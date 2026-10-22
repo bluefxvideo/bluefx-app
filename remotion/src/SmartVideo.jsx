@@ -1862,6 +1862,50 @@ function CenterWatermark({ until, liftFrom = Infinity, label }) {
   );
 }
 
+// The free video ad's SAMPLE stamp (owner 2026-10-22, from Hormozi's review: the faint white "BlueFX" in the middle
+// almost vanished on the whiteboard's cream paper and sat on the presenter's mouth). Two lines, "SAMPLE" and the
+// BlueFX address, white with a dark outline so they read on paper and on footage, see-through as a whole. It never
+// moves within a scene: on a presenter it sits on the chest (64% down, above the subtitles), inside the drawing or
+// picture on every other scene (36% down), and in the top fifth on the last scene so the business's own address
+// stays readable. Between scenes it slides for 8 frames, under the scene transition.
+const STAMP_Y = { speaker: 0.64, last: 0.12, other: 0.36 };
+const stampYOf = (scene, last) => (last ? STAMP_Y.last : scene?.speaker ? STAMP_Y.speaker : STAMP_Y.other);
+
+function SampleStamp({ scenes, label, site }) {
+  const frame = useCurrentFrame();
+  const { W, H, landscape } = useFrame();
+  const starts = scenes.map((scene) => Math.round(scene.start * FPS));
+  let i = 0;
+  while (i + 1 < starts.length && frame >= starts[i + 1]) i++;
+  const here = stampYOf(scenes[i], i === scenes.length - 1);
+  const before = i > 0 ? stampYOf(scenes[i - 1], false) : here;
+  const y = interpolate(frame, [starts[i] || 0, (starts[i] || 0) + 8], [before, here], clamp);
+  const big = Math.round(W * (landscape ? 0.06 : 0.11));
+  const line = { fontFamily: `${BRAND_FONT[0]}, sans-serif`, lineHeight: 1, color: '#FFFFFF', whiteSpace: 'nowrap', WebkitTextStroke: `${Math.max(2, Math.round(W / 240))}px #111111`, paintOrder: 'stroke fill' };
+  return (
+    <AbsoluteFill style={{ zIndex: 110, pointerEvents: 'none' }}>
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: H * y,
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: Math.round(W * 0.012),
+          opacity: 0.55,
+          filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.45))',
+        }}
+      >
+        <span style={{ ...line, fontWeight: 800, fontSize: big, letterSpacing: 2 }}>{label}</span>
+        {site && <span style={{ ...line, fontWeight: 700, fontSize: Math.round(big * 0.45) }}>{site}</span>}
+      </div>
+    </AbsoluteFill>
+  );
+}
+
 // The closing card in BlueFX's own colours. No transition and no sound: the music carries over it and fades out.
 function EndCard() {
   const frame = useCurrentFrame();
@@ -1889,6 +1933,47 @@ function EndCard() {
       <div style={{ fontWeight: 800, fontSize: 92, lineHeight: 1.05, color: BRAND.blue, textAlign: 'center' }}>AI Media Machine</div>
       <div style={{ marginTop: landscape ? 30 : 64, fontWeight: 600, fontSize: 44, lineHeight: 1.2, color: LIGHT_TEXT }}>Get your free video ad at</div>
       <div style={{ marginTop: 6, fontWeight: 800, fontSize: landscape ? 88 : 104, lineHeight: 1.1, color: '#FFFFFF' }}>bluefx.net</div>
+    </AbsoluteFill>
+  );
+}
+
+// ---------- the shared end clip ----------
+// The free video ad's ending, rendered ONCE (remotion/scripts/render-end-clip.mjs) and stitched to every free video ad
+// after its render (server.js), so no free video ad waits longer for it (owner 2026-10-22). It talks to the lead on the
+// result page (Hormozi's card): a SAMPLE stamp wipes off the card, then 3 lines and the BlueFX address, with a
+// spoken line in the voice of the video ad's voice-over (male and female versions).
+export const END_CLIP_FRAMES = 105; // 3.5 s
+export function SampleEndClip({ voice = 'male' }) {
+  const frame = useCurrentFrame();
+  const { W, H } = useFrame();
+  const ready = useFonts(STYLES.playful, true);
+  // The SAMPLE stamp sits on the card and wipes off left to right (0.1 to 0.5 s), then the 3 lines come in.
+  const wipe = interpolate(frame, [3, 15], [0, 100], clamp);
+  const words = interpolate(frame, [13, 18], [0, 1], clamp);
+  const k = W / 1080;
+  const text = (size, weight, color, extra = {}) => ({ fontFamily: `${BRAND_FONT[0]}, sans-serif`, fontSize: Math.round(size * k), fontWeight: weight, color, lineHeight: 1.15, textAlign: 'center', ...extra });
+  const line = { lineHeight: 1, color: '#FFFFFF', whiteSpace: 'nowrap', WebkitTextStroke: `${Math.max(2, Math.round(W / 240))}px #111111`, paintOrder: 'stroke fill', fontFamily: `${BRAND_FONT[0]}, sans-serif` };
+  return (
+    <AbsoluteFill style={{ background: `radial-gradient(circle at 50% 45%, ${BRAND.deep}A6 0%, ${BRAND.deep}00 58%), ${BRAND.night}` }}>
+      {ready && (
+        <>
+          <AbsoluteFill style={{ clipPath: `inset(0 0 0 ${wipe}%)` }}>
+            <div style={{ position: 'absolute', left: 0, right: 0, top: H * 0.45, transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: Math.round(W * 0.012), opacity: 0.8 }}>
+              <span style={{ ...line, fontWeight: 800, fontSize: Math.round(W * 0.15), letterSpacing: 2 }}>SAMPLE</span>
+              <span style={{ ...line, fontWeight: 700, fontSize: Math.round(W * 0.065) }}>bluefx.net</span>
+            </div>
+          </AbsoluteFill>
+          <AbsoluteFill style={{ opacity: words, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: `0 ${Math.round(70 * k)}px` }}>
+            <div style={text(60, 700, '#FFFFFF', { whiteSpace: 'nowrap' })}>Remove the SAMPLE stamp</div>
+            <div style={text(44, 600, LIGHT_TEXT, { marginTop: Math.round(22 * k), whiteSpace: 'nowrap' })}>Change anything in about 3 minutes</div>
+            <div style={text(88, 800, BRAND.blue, { marginTop: Math.round(64 * k), lineHeight: 1.05, whiteSpace: 'nowrap' })}>Get the<br />AI Media Machine</div>
+            <div style={text(54, 700, '#FFFFFF', { position: 'absolute', bottom: Math.round(170 * k), left: 0, right: 0 })}>bluefx.net</div>
+          </AbsoluteFill>
+        </>
+      )}
+      <Sequence from={6}>
+        <Audio src={staticFile(`brand/endclip-voice-${voice === 'female' ? 'female' : 'male'}.mp3`)} />
+      </Sequence>
     </AbsoluteFill>
   );
 }
@@ -1942,7 +2027,8 @@ export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful'
         {ready && captions?.words?.length > 0 && (
           <Captions words={captions.words} cuts={scenes.filter((scene) => scene.cut || !subtitled(captions.words, scene)).map((scene) => scene.start)} />
         )}
-        {ready && watermark && (
+        {ready && watermark?.stamp && <SampleStamp scenes={scenes} label={watermark.label || 'SAMPLE'} site={watermark.site} />}
+        {ready && watermark && !watermark.stamp && (
           <CenterWatermark until={endSeconds > 0 ? endAt : Infinity} liftFrom={scenes.length > 1 ? Math.round(scenes[scenes.length - 1].start * FPS) : Infinity} label={watermark.label || 'BlueFX'} />
         )}
         {/* The card runs to the composition's last frame, so rounding can never leave a blank frame after it. */}

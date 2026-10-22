@@ -14,7 +14,8 @@ import { createAdminClient } from '@/app/supabase/server';
 import {
   CLAIM_GRACE_MINUTES,
   claimsTestLeads,
-  END_CARD_SECONDS,
+  END_CLIP_SECONDS,
+  SAMPLE_STAMP,
   fakeFailMode,
   fakeMode,
   FREE_DIRECTOR,
@@ -353,8 +354,8 @@ export function shapeFreePlan(directed: DirectorPlan): DirectorPlan {
 export function withWatermark(result: SmartVideoResult): SmartVideoResult {
   return {
     ...result,
-    props: { ...result.props, watermark: { ...WATERMARK } },
-    durationSeconds: result.durationSeconds + END_CARD_SECONDS,
+    props: { ...result.props, watermark: { ...SAMPLE_STAMP, endClip: result.plan.voice?.gender === 'female' ? 'female' : 'male' } },
+    durationSeconds: result.durationSeconds + END_CLIP_SECONDS,
   };
 }
 

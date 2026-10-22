@@ -1071,6 +1071,46 @@ async function levelLoudness(file) {
   }
 }
 
+/**
+ * The free video ad's shared end clip (public/brand/endclip-<voice>.mp4, SmartVideo.jsx SampleEndClip, rendered once
+ * by scripts/render-end-clip.mjs at the free size with this server's settings): stitched to the end of the render
+ * without re-encoding, so the free video ad is not rendered any longer for it (owner 2026-10-22). When the 2 files
+ * don't join as they are, the join is encoded once; when even that fails, the render ships without the clip.
+ */
+async function appendEndClip(file, voice) {
+  const clip = path.join(__dirname, "public", "brand", `endclip-${voice === "female" ? "female" : "male"}.mp4`);
+  if (!fs.existsSync(clip)) {
+    console.warn(`⚠️ End clip missing (${clip}), the free video ad ships without it`);
+    return false;
+  }
+  const joined = file.replace(/\.mp4$/, ".joined.mp4");
+  const list = file.replace(/\.mp4$/, ".join.txt");
+  const run = (args) =>
+    RenderInternals.callFf({ bin: "ffmpeg", args, indent: false, logLevel: "error", binariesDirectory: null, cancelSignal: undefined });
+  fs.writeFileSync(list, [file, clip].map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join("\n"));
+  try {
+    try {
+      await run(["-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", list, "-c", "copy", "-movflags", "+faststart", joined]);
+    } catch (copyError) {
+      console.warn(`⚠️ End clip did not join as it is, encoding the join: ${String(copyError).slice(0, 200)}`);
+      await run([
+        "-v", "error", "-y", "-i", file, "-i", clip,
+        "-filter_complex", "[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]",
+        "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-pix_fmt", "yuvj420p", "-c:a", "aac", "-ar", "48000", "-movflags", "+faststart", joined,
+      ]);
+    }
+    fs.renameSync(joined, file);
+    console.log(`🎬 End clip stitched (${voice}): ${path.basename(file)}`);
+    return true;
+  } catch (error) {
+    console.warn(`⚠️ Could not stitch the end clip, keeping the render as it is: ${String(error).slice(0, 200)}`);
+    if (fs.existsSync(joined)) fs.rmSync(joined, { force: true });
+    return false;
+  } finally {
+    fs.rmSync(list, { force: true });
+  }
+}
+
 // Background render function for async mode
 async function performBackgroundRender(
   composition,
@@ -1212,6 +1252,11 @@ async function performBackgroundRender(
     // Check if file was created
     if (!fs.existsSync(outputLocation)) {
       throw new Error("Output file was not created despite successful render");
+    }
+
+    // A free video ad gets the shared end clip (SmartVideo props.watermark.endClip = the voice-over's gender).
+    if (composition.id === "SmartVideo" && inputProps?.watermark?.endClip) {
+      await appendEndClip(outputLocation, inputProps.watermark.endClip);
     }
 
     // Exports from the editor get the same loudness as every finished Phantom video.
