@@ -1767,3 +1767,44 @@
 .page :global(section[class*='result-page_walkthrough']) {
   align-items: center;
 }
+
+/* The 3 x $100 option under a buy button (owner 2026-10-23): an underlined link in the body colour, never a second button. */
+.split {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  text-align: center;
+}
+
+.splitLowest,
+.splitSchedule {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.splitLink {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--ink, #1a1a1a);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.splitLink:hover {
+  color: #143d70;
+}
+
+.splitShort {
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.toolsBand .splitLink {
+  color: #ffffff;
+}

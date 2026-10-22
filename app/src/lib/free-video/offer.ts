@@ -30,6 +30,7 @@ export const PLACEMENTS = [
   'fvres5',
   'fvres6',
   'fvrestools',
+  'fvsplit',
   'fvmail1',
   'fvmail2',
   'fvmail3',
@@ -91,7 +92,7 @@ export const salesPageUrl = (placement: SalesPagePlacement, leadId?: string | nu
  * and the lead's id as the vendor tracking id (resultCheckoutUrl), so a sale paid with another email still finds its
  * lead, and the click is an InitiateCheckout like every checkout click.
  */
-export const RESULT_PAGE_PLACEMENTS = ['fvres1', 'fvres2', 'fvres3', 'fvresads', 'fvresbar', 'fvres4', 'fvres5', 'fvres6', 'fvrestools'] as const satisfies readonly Placement[];
+export const RESULT_PAGE_PLACEMENTS = ['fvres1', 'fvres2', 'fvres3', 'fvresads', 'fvresbar', 'fvres4', 'fvres5', 'fvres6', 'fvrestools', 'fvsplit'] as const satisfies readonly Placement[];
 export type ResultPagePlacement = (typeof RESULT_PAGE_PLACEMENTS)[number];
 export function isResultPagePlacement(value: string): value is ResultPagePlacement {
   return (RESULT_PAGE_PLACEMENTS as readonly string[]).includes(value);
@@ -99,7 +100,7 @@ export function isResultPagePlacement(value: string): value is ResultPagePlaceme
 
 /** The 8 characters of a lead's id inside a vtid that carries one ("fvready_1a2b3c4d", "fvres1_1a2b3c4d" → "1a2b3c4d"), null for any other tracking id. */
 export function leadPrefixOfVtid(vtid: string | null | undefined): string | null {
-  const match = /^(?:fvready|fvreadyend|fvland|fvres1|fvres2|fvres3|fvres4|fvres5|fvres6|fvresads|fvresbar|fvrestools)_([0-9a-f]{8})$/.exec(String(vtid ?? '').trim().toLowerCase());
+  const match = /^(?:fvready|fvreadyend|fvland|fvres1|fvres2|fvres3|fvres4|fvres5|fvres6|fvresads|fvresbar|fvrestools|fvsplit)_([0-9a-f]{8})$/.exec(String(vtid ?? '').trim().toLowerCase());
   return match ? match[1] : null;
 }
 /** Every lifetime offer button on a funnel page: the pages' own buttons, the offer card's, the result page's buttons to the sales page and its checkout buttons. A cta_click on one of these is an offer click. */
@@ -132,13 +133,20 @@ export function isPlacement(value: string): value is Placement {
  */
 export const LIFETIME_CHECKOUT_URL = 'https://bluefx02.pay.clickbank.net/?cbitems=1&cbfid=55851&template=aimmbt';
 
+/**
+ * The same lifetime deal in 3 payments of $100, 30 days apart (ClickBank item 2; the webhook gives lifetime on the
+ * first payment). Owner 2026-10-23, after price objections: back as one link under the price box's button (fvsplit).
+ */
+export const SPLIT_CHECKOUT_URL = 'https://bluefx02.pay.clickbank.net/?cbitems=2&cbfid=55851&template=aimmbt';
+
 /** The checkout with the placement as ClickBank's vendor tracking id (vtid: letters, digits and underscores). */
 export const checkoutUrl = (placement: Placement) => `${LIFETIME_CHECKOUT_URL}&vtid=${placement}`;
 
 /** A result page button's checkout: its placement and the lead's id in the vtid ("fvres1_1a2b3c4d", at most 17 of ClickBank's 24 characters). */
 export function resultCheckoutUrl(placement: ResultPagePlacement, leadId?: string | null): string {
   const short = String(leadId ?? '').toLowerCase().replace(/[^0-9a-f]/g, '').slice(0, 8);
-  return `${LIFETIME_CHECKOUT_URL}&vtid=${short.length === 8 ? `${placement}_${short}` : placement}`;
+  const base = placement === 'fvsplit' ? SPLIT_CHECKOUT_URL : LIFETIME_CHECKOUT_URL;
+  return `${base}&vtid=${short.length === 8 ? `${placement}_${short}` : placement}`;
 }
 
 /** The same-origin link the buttons use: /go logs the click on the lead, then 302s to checkoutUrl(placement) (an email button: to the video ad page). */

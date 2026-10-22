@@ -168,7 +168,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             </p>
           </div>
           <p className={s.priceLine}>{price.line}</p>
-          <SalesBuy token={token} placement="fvres1" note={button.guarantee} />
+          <SalesBuy token={token} placement="fvres1" note={button.guarantee} split="full" />
         </div>
         <ul className={cn(rp.reviews, s.priceProof)}>
           <li className={rp.review}>
@@ -533,15 +533,45 @@ function Bold({ text, words }: { text: string; words: readonly string[] }) {
 }
 
 /** A buy button: the name, "$297 once, for life", the card logos, and a line under it. */
-function SalesBuy({ token, placement, label = RESULT_SALES.button.main, withPrice = true, note = RESULT_SALES.button.guarantee }: { token: string; placement: ResultPagePlacement; label?: string; withPrice?: boolean; note?: string }) {
+function SalesBuy({
+  token,
+  placement,
+  label = RESULT_SALES.button.main,
+  withPrice = true,
+  note = RESULT_SALES.button.guarantee,
+  split = 'short',
+}: {
+  token: string;
+  placement: ResultPagePlacement;
+  label?: string;
+  withPrice?: boolean;
+  note?: string;
+  /** The 3 x $100 link under the button: 'full' in the price box (the schedule spelled out), 'short' elsewhere. */
+  split?: 'full' | 'short' | false;
+}) {
+  const { button } = RESULT_SALES;
   return (
     <div className={rp.buy}>
       <OfferButton className={rp.buyButton} href={goUrl(placement, token)}>
         {label}
-        {withPrice && <span className={rp.buyPrice}>{RESULT_SALES.button.price}</span>}
+        {withPrice && <span className={rp.buyPrice}>{button.price}</span>}
       </OfferButton>
       <PayCards />
       {note && <p className={rp.buyNote}>{note}</p>}
+      {split === 'full' && (
+        <div className={s.split}>
+          <p className={s.splitLowest}>{button.splitLowest}</p>
+          <OfferButton className={s.splitLink} href={goUrl('fvsplit', token)}>
+            {button.splitLink} &rarr;
+          </OfferButton>
+          <p className={s.splitSchedule}>{button.splitSchedule}</p>
+        </div>
+      )}
+      {split === 'short' && (
+        <OfferButton className={cn(s.splitLink, s.splitShort)} href={goUrl('fvsplit', token)}>
+          {button.splitShort} &rarr;
+        </OfferButton>
+      )}
     </div>
   );
 }

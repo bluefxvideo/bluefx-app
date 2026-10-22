@@ -260,6 +260,15 @@ export const RESULT_SALES = {
     guarantee: '30-day money-back guarantee. Your login arrives by email.',
     written: 'Your next 3 video ads are already made and waiting inside.',
     cards: 'Pay with Visa, Mastercard, American Express, Discover or PayPal',
+    /**
+     * The 3 x $100 option (owner 2026-10-23 after price objections; wording merged from Ogilvy, Hormozi, Kennedy and
+     * Halbert: an underlined link, never a second button; $297 stays "the lowest-cost option"; the schedule spelled out).
+     * The price box shows all 3 lines, every other button the short link.
+     */
+    splitLowest: 'Paying once is the lowest-cost option.',
+    splitLink: 'Or split it into 3 payments of $100',
+    splitSchedule: '$100 today, $100 in 30 days, $100 in 60 days. $300 total. All 12 tools from day 1.',
+    splitShort: 'Or pay in 3 parts: $100 today, in 30 days and in 60 days',
   },
 
   bonus: {
