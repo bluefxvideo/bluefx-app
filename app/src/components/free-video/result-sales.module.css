@@ -7,7 +7,65 @@
 .page {
   --red: #e11d2e;
   --blue: #1d4ed8;
+  /* The design review (2026-10-22): ONE navy for every dark area, a deeper button green with AA contrast. */
+  --navy: #143d70;
+  --green: #2e7d32;
+  --green-dark: #1b5e20;
+  --green-soft: #eef6ec;
+  --muted: #475569;
   padding-bottom: 96px;
+}
+
+/* One button everywhere. */
+.page :global(a[class*='buyButton']),
+.page :global(button[class*='buyButton']) {
+  background: #2e7d32;
+  border-radius: 10px;
+  min-height: 56px;
+  box-shadow: 0 2px 0 #1b5e20, 0 8px 20px rgba(15, 23, 42, 0.12);
+}
+
+.page :global(a[class*='buyButton']:hover) {
+  background: #1b5e20;
+}
+
+/* One card style. */
+.page :global([class*='result-page_review__']),
+.page :global([class*='result-page_ad__']),
+.page :global([class*='result-page_faqItem']),
+.tool,
+.guarantee,
+.stats li,
+.costCard {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+/* "THE RESULT" card: the standard card, no amber border. */
+.page :global([class*='result-page_result__']) {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+/* Section labels on light backgrounds: navy (no green or amber labels). */
+.kicker,
+.page :global([class*='result-page_resultKicker']) {
+  color: #143d70 !important;
+}
+
+/* White full-width bands so sections alternate (customers, everything you own, questions). */
+.band {
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  margin-top: 40px;
+  padding-bottom: 40px;
+}
+
+.band .section {
+  padding-top: 40px;
 }
 
 .banner {
@@ -94,9 +152,9 @@
 .note,
 .caption {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.45;
-  color: var(--muted);
+  color: #475569;
   font-style: italic;
   text-align: center;
 }
@@ -242,9 +300,9 @@
 .heroPill {
   padding: 6px 14px;
   border-radius: 999px;
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
-  color: var(--navy);
+  border: 1px solid #143d70;
+  background: #143d70;
+  color: #ffffff;
   font-size: 15px;
   font-weight: 600;
 }
@@ -614,7 +672,7 @@
   align-items: center;
   padding: 8px 0;
   border-radius: 8px;
-  background: var(--ink);
+  background: #143d70;
   color: #ffffff;
 }
 
@@ -701,7 +759,7 @@
 .toolsBand {
   margin-top: 32px;
   padding: 0 0 28px;
-  background: linear-gradient(180deg, #0b1730 0%, #10264a 50%, #0b1730 100%);
+  background: #143d70;
 }
 
 .toolsBand .section {
@@ -745,12 +803,22 @@
   font-size: 14px;
   line-height: 1.45;
   font-style: italic;
-  color: #94a3b8;
+  color: #b6c3d6;
   text-align: center;
 }
 
 .toolsBand .groupTitle {
-  color: #7dd3fc;
+  color: #ffffff;
+}
+
+.toolsBand .groupTitle::before {
+  content: '';
+  display: block;
+  width: 32px;
+  height: 3px;
+  margin: 0 auto 10px;
+  border-radius: 2px;
+  background: #fde047;
 }
 
 .toolsBand .group > p:not(.groupTitle):not(.also) {
@@ -763,7 +831,7 @@
 }
 
 .toolsBand :global(p[class*='buyNote']) {
-  color: #94a3b8;
+  color: #b6c3d6;
 }
 
 @media (min-width: 760px) {
@@ -875,11 +943,14 @@
   inset: 0;
   margin: 0;
   opacity: 0;
-  transition: opacity 0.6s ease;
+  visibility: hidden;
+  transition: opacity 0.6s ease, visibility 0s linear 0.6s;
 }
 
 .slideOn {
   opacity: 1;
+  visibility: visible;
+  transition: opacity 0.6s ease, visibility 0s;
 }
 
 .slideBack {
@@ -1021,8 +1092,8 @@
   min-height: 44px;
   padding: 0 16px;
   border-radius: 999px;
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
+  border: 1px solid #c9d6e8;
+  background: #eef3fa;
   color: var(--navy);
   font-size: 15px;
   font-weight: 700;
@@ -1258,7 +1329,7 @@
   gap: 8px;
   padding: 26px 16px 30px;
   border-radius: 16px;
-  background: #0b1220;
+  background: #143d70;
   text-align: center;
 }
 

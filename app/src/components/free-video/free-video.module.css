@@ -110,8 +110,9 @@
   flex: 1 0 auto;
 }
 .footer {
-  background: #2d2d2d;
-  color: #a3a3a3;
+  background: #143d70;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: #c7d2e3;
   font-size: 13px;
 }
 .footerIn {

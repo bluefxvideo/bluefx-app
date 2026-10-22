@@ -58,7 +58,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
   // Krug: on a phone the chat bubble covered the line under their video ad; it comes in once they scroll past it.
   const [chatOn, setChatOn] = useState(false);
   useEffect(() => {
-    const check = () => setChatOn(window.innerWidth >= 960 || window.scrollY > 640);
+    const check = () => setChatOn(window.scrollY > 640);
     check();
     window.addEventListener('scroll', check, { passive: true });
     window.addEventListener('resize', check);
@@ -312,6 +312,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <SalesBuy token={token} placement="fvres4" />
       </section>
 
+      <div className={s.band}>
       <section className={cn(rp.wrap, s.section)} aria-labelledby="fv-sales-customers">
         <p className={cn(rp.kicker, s.kicker, rp.centerWide)}>{customers.kicker}</p>
         <h2 id="fv-sales-customers" className={cn(rp.h2, rp.centerWide)}>
@@ -320,6 +321,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <p className={cn(rp.text, rp.centerWide, rp.leadWide)}>{customers.lead}</p>
         <Reviews />
       </section>
+      </div>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-founder">
         <p className={cn(rp.kicker, s.kicker)}>{founder.kicker}</p>
@@ -357,6 +359,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         ))}
       </section>
 
+      <div className={s.band}>
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-own">
         <h2 id="fv-sales-own" className={rp.h2}>
           {own.title}
@@ -400,6 +403,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <SalesBuy token={token} placement="fvres5" note={button.guarantee} />
         <p className={s.small}>{own.source}</p>
       </section>
+      </div>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-guarantee">
         <div className={s.guarantee}>
@@ -435,6 +439,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <SalesBuy token={token} placement="fvres6" note={button.guarantee} />
       </section>
 
+      <div className={s.band}>
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-faq">
         <h2 id="fv-sales-faq" className={rp.h2}>
           {faq.title}
@@ -452,6 +457,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           ))}
         </dl>
       </section>
+      </div>
 
       <Walkthrough token={token} />
       <div className={cn(rp.wrap, rp.narrow, s.sectionTight)}>
