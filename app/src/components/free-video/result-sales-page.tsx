@@ -460,13 +460,21 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-label="P.S.">
         <p className={s.body}>
-          <strong>P.S.</strong> {ps.p1(firstName, domain)}
+          <strong>P.S.</strong> <Bold text={ps.p1(firstName, domain)} words={ps.bold} />
         </p>
-        <p className={s.body}>{ps.p2}</p>
-        <p className={s.body}>{ps.p3}</p>
-        {written && <p className={s.body}>{ps.bonus(domain, deadline?.when ?? null)}</p>}
         <p className={s.body}>
-          <strong>P.P.S.</strong> {ps.pps(domain)}
+          <Bold text={ps.p2} words={ps.bold} />
+        </p>
+        <p className={s.body}>
+          <Bold text={ps.p3} words={ps.bold} />
+        </p>
+        {written && (
+          <p className={s.body}>
+            <Bold text={ps.bonus(domain, deadline?.when ?? null)} words={ps.bold} />
+          </p>
+        )}
+        <p className={s.body}>
+          <strong>P.P.S.</strong> <Bold text={ps.pps(domain)} words={ps.bold} />
         </p>
       </section>
 
@@ -500,6 +508,18 @@ function SalesVideo() {
         </button>
       )}
     </div>
+  );
+}
+
+/** The text with the given phrases in bold (the P.S.'s key words, owner 2026-10-22). */
+function Bold({ text, words }: { text: string; words: readonly string[] }) {
+  const found = words.filter((word) => text.includes(word));
+  if (!found.length) return <>{text}</>;
+  const pattern = new RegExp(`(${found.map((word) => word.replace(/[.*+?^${}()|[\]\\$]/g, '\\$&')).join('|')})`);
+  return (
+    <>
+      {text.split(pattern).map((part, index) => (found.includes(part) ? <strong key={index}>{part}</strong> : part))}
+    </>
   );
 }
 

@@ -222,7 +222,7 @@ export const RESULT_SALES = {
     titleEnd: '?',
     subStart: 'For the first time ever, you can ',
     subStrong: 'access over $5,520.00-a-year worth of our best AI video tools',
-    subEnd: ', including the AI that clones winning ads and the AI that made your video ad, for a minuscule fraction of the normal price...',
+    subEnd: ', including the AI that made your video ad, for a minuscule fraction of the normal price...',
     note: 'The video ads play by themselves, silent, like on the sales page. Tap any video ad to hear it.',
   },
 
@@ -487,6 +487,8 @@ export const RESULT_SALES = {
     p3: `Your sale price is ${OFFER.now} instead of ${OFFER.was}, and you have 30 days to get every cent back. Get the AI Media Machine before the timer hits zero.`,
     bonus: (domain: string, when: string | null) =>
       `And your next 3 video ads for ${domain} are already made. Get the AI Media Machine ${when ? `by ${when}` : 'while your bonus runs'}, and each video ad is ready to post about 3 minutes after your click.`,
+    /** The key words in bold. */
+    bold: ['free sample', 'in about 3 minutes', 'all 12 tools', `${MONTH} complete video ads every month, for life`, `${OFFER.now} instead of ${OFFER.was}`, '30 days to get every cent back', 'already made', `about ${FREELANCER_YEAR}`, `you pay ${OFFER.now}, once`],
     pps: (domain: string) =>
       `Here's the math. A freelancer charges about $${FREELANCER} for 1 video ad like yours, so ${YEAR} video ads a year cost about ${FREELANCER_YEAR}. With the AI Media Machine, you pay ${OFFER.now}, once. Every video ad is one more chance for new customers to find ${domain}.`,
   },
