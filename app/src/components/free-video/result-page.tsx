@@ -847,9 +847,11 @@ export function Walkthrough({ token }: { token: string }) {
   const play = (at: number) => {
     if (from === null) beacon('tour_play');
     setFrom(at);
+    // Playing, the video takes the full width (owner 2026-10-22: "if people click on it, it should become bigger"): keep it in view.
+    window.requestAnimationFrame(() => document.getElementById(tour.anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
   return (
-    <section id={tour.anchor} className={cn(styles.wrap, styles.walkthrough)} aria-labelledby="fv-tour-title">
+    <section id={tour.anchor} className={cn(styles.wrap, styles.walkthrough, from !== null && styles.walkthroughPlaying)} aria-labelledby="fv-tour-title">
       <div className={styles.walkText}>
         <p className={styles.kicker}>{walkthrough.kicker}</p>
         <h2 id="fv-tour-title" className={cn(styles.h2, styles.h2Small)}>

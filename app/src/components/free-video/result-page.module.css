@@ -2512,6 +2512,21 @@
     box-shadow: 0 14px 40px rgba(15, 23, 42, 0.2);
   }
 
+  /* Once it plays, the words go above and the video gets the whole width. */
+  .walkthroughPlaying {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+  }
+
+  .walkthroughPlaying .walkText {
+    width: auto;
+  }
+
+  .walkthroughPlaying .walkVideo {
+    width: 100%;
+  }
+
   .walkPlay {
     width: 76px;
     height: 76px;

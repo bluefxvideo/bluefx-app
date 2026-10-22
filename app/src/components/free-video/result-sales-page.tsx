@@ -123,15 +123,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <h2 id="fv-sales-video" className={rp.h2}>
           {salesVideo.title}
         </h2>
-        <div className={s.vsl}>
-          <iframe
-            src={`https://player.vimeo.com/video/${salesVideo.vimeo}?title=0&byline=0&portrait=0`}
-            title={salesVideo.caption}
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-            loading="lazy"
-          />
-        </div>
+        <SalesVideo />
         <p className={s.caption}>{salesVideo.caption}</p>
       </section>
 
@@ -458,6 +450,31 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       <ChatLauncher token={token} firstName={firstName} domain={domain} raised={barShown} />
       <SalesBar token={token} watch={priceRef} onShown={setBarShown} />
       {viewing && <Viewer item={viewing} onClose={() => setViewing(null)} />}
+    </div>
+  );
+}
+
+/** The sales video: its thumbnail until a tap, then the Vimeo player with sound. */
+function SalesVideo() {
+  const { salesVideo } = RESULT_SALES;
+  const [playing, setPlaying] = useState(false);
+  return (
+    <div className={s.vsl}>
+      {playing ? (
+        <iframe
+          src={`https://player.vimeo.com/video/${salesVideo.vimeo}?autoplay=1&title=0&byline=0&portrait=0`}
+          title={salesVideo.caption}
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowFullScreen
+        />
+      ) : (
+        <button type="button" className={s.vslPoster} onClick={() => setPlaying(true)} aria-label={salesVideo.play}>
+          <Image src={salesVideo.poster} alt="" fill sizes="(min-width: 760px) 712px, 100vw" />
+          <span className={s.vslPlay} aria-hidden="true">
+            <PlayIcon size={30} />
+          </span>
+        </button>
+      )}
     </div>
   );
 }
