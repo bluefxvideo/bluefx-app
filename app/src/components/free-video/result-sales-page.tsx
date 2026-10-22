@@ -55,6 +55,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
   const cards = view.nextAds ?? null;
   const written = bonus && (Boolean(cards) || Boolean(view.nextAdsPending));
   const priceRef = useRef<HTMLElement>(null);
+  const reelRef = useRef<HTMLUListElement>(null);
   const [barShown, setBarShown] = useState(false);
   const [viewing, setViewing] = useState<(typeof RESULT_PAGE.examples.items)[number] | null>(null);
   const { banner, top, hero, salesVideo, price, button, how, tools, oldWay, customers, founder, lifetime, own, guarantee, still, faq, ps } = RESULT_SALES;
@@ -84,7 +85,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           <p className={s.topSample}>{top.sample}</p>
           <div className={s.topNext}>
             <p className={s.topKicker}>{hero.kicker}</p>
-            <a className={s.topLink} href="#fv-sales-hero">
+            <a className={s.topLink} href="#fv-sales-reel">
               {top.seeAll}
               <span aria-hidden="true"> ↓</span>
             </a>
@@ -107,7 +108,15 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             {hero.subEnd}
           </p>
         </div>
-        <ul className={s.heroReel}>
+        {/* Like the sales page's carousel: a fixed width, the edges fade, arrows on a computer, swipe on a phone. */}
+        <div id="fv-sales-reel" className={s.reelWrap}>
+          <button type="button" className={cn(s.reelArrow, s.reelArrowLeft)} onClick={() => reelRef.current?.scrollBy({ left: -340, behavior: 'smooth' })} aria-label="Earlier video ads">
+            ‹
+          </button>
+          <button type="button" className={cn(s.reelArrow, s.reelArrowRight)} onClick={() => reelRef.current?.scrollBy({ left: 340, behavior: 'smooth' })} aria-label="More video ads">
+            ›
+          </button>
+        <ul ref={reelRef} className={s.heroReel}>
           {SALES_PAGE_HERO_VIMEO.map((id) => (
             <li key={id}>
               <VimeoTile id={id} />
@@ -124,6 +133,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             </li>
           ))}
         </ul>
+        </div>
         <p className={cn(rp.wrap, s.note)}>{hero.note}</p>
       </section>
 

@@ -257,6 +257,13 @@
   font-weight: 800;
 }
 
+.reelWrap {
+  position: relative;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
 .heroReel {
   display: flex;
   gap: 12px;
@@ -265,7 +272,48 @@
   list-style: none;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  justify-content: safe center;
+  scrollbar-width: none;
+  /* The edges fade, so the reader sees there is more to swipe (as on the sales page). */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent 100%);
+}
+
+.heroReel::-webkit-scrollbar {
+  display: none;
+}
+
+.reelArrow {
+  display: none;
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  margin-top: -26px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #ffffff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.reelArrowLeft {
+  left: 4px;
+}
+
+.reelArrowRight {
+  right: 4px;
+}
+
+@media (min-width: 760px) {
+  .reelArrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 4px;
+  }
 }
 
 .heroReel li {

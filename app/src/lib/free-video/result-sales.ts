@@ -207,7 +207,8 @@ export const RESULT_SALES = {
   top: {
     title: (name: string) => `Congratulations, ${name}! Your video ad is ready.`,
     sample: 'Your free sample has a SAMPLE stamp. With the AI Media Machine, your video ads come without the stamp.',
-    seeAll: 'See all 12 tools',
+    /** The button scrolls to the example video ads right below (owner 2026-10-22), so it names those. */
+    seeAll: 'See more examples',
   },
 
   hero: {
