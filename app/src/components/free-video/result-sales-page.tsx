@@ -654,6 +654,9 @@ function Slides({ slides }: { slides: readonly { from: string | null; to: string
     <div className={s.slides}>
       {slides.map((slide, i) => (
         <figure key={slide.to} className={cn(s.slide, i === index && s.slideOn)} aria-hidden={i !== index}>
+          {/* The whole picture fits (owner: a cropped face looked strange); a blurred copy fills the sides. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className={s.slideBack} src={slide.to} alt="" aria-hidden="true" loading="lazy" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className={s.slideTo} src={slide.to} alt={slide.label} loading="lazy" />
           {slide.from && (
