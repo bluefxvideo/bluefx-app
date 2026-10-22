@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
-import { RESULT_PAGE, VIDEO_REVIEWS_UNDER_ADS } from '@/lib/free-video/result-page';
+import { RESULT_PAGE } from '@/lib/free-video/result-page';
 import { RESULT_SALES, SALES_PAGE_HERO_VIMEO, TOOL_GROUPS, type SalesTool } from '@/lib/free-video/result-sales';
 import { goUrl, OFFER, type ResultPagePlacement } from '@/lib/free-video/offer';
 import { PLAYER } from '@/lib/free-video/copy';
@@ -23,8 +23,6 @@ import {
   Shield,
   Stars,
   Tick,
-  VideoReview,
-  videoReviewsOf,
   Viewer,
   Walkthrough,
   WritingCard,
@@ -57,6 +55,18 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
   const priceRef = useRef<HTMLElement>(null);
   const reelRef = useRef<HTMLUListElement>(null);
   const [barShown, setBarShown] = useState(false);
+  // Krug: on a phone the chat bubble covered the line under their video ad; it comes in once they scroll past it.
+  const [chatOn, setChatOn] = useState(false);
+  useEffect(() => {
+    const check = () => setChatOn(window.innerWidth >= 960 || window.scrollY > 640);
+    check();
+    window.addEventListener('scroll', check, { passive: true });
+    window.addEventListener('resize', check);
+    return () => {
+      window.removeEventListener('scroll', check);
+      window.removeEventListener('resize', check);
+    };
+  }, []);
   const [viewing, setViewing] = useState<(typeof RESULT_PAGE.examples.items)[number] | null>(null);
   const { banner, top, hero, salesVideo, price, button, how, tools, oldWay, customers, founder, lifetime, own, guarantee, still, faq, ps } = RESULT_SALES;
   const dov = RESULT_PAGE.stack.proof[0];
@@ -85,10 +95,6 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           <p className={s.topSample}>{top.sample}</p>
           <div className={s.topNext}>
             <p className={s.topKicker}>{hero.kicker}</p>
-            <a className={s.topLink} href="#fv-sales-reel">
-              {top.seeAll}
-              <span aria-hidden="true"> ↓</span>
-            </a>
           </div>
         </div>
       </section>
@@ -134,7 +140,6 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           ))}
         </ul>
         </div>
-        <p className={cn(rp.wrap, s.note)}>{hero.note}</p>
       </section>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-video">
@@ -151,7 +156,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         </h2>
         <div className={s.priceBox}>
           <p className={s.priceReason}>{price.reason}</p>
-          <BirthdayTimer label={price.timer} until={bonus ? view.cleanUntil : undefined} />
+          <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={bonus ? view.cleanUntil : undefined} />
           <div className={s.prices}>
             <p className={s.priceRegular}>
               {price.regular} <s className={s.slash}>{OFFER.was}</s>
@@ -181,9 +186,6 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
               </p>
             </div>
           </li>
-          {videoReviewsOf(VIDEO_REVIEWS_UNDER_ADS).map((item) => (
-            <VideoReview key={item.name} item={item} />
-          ))}
         </ul>
       </section>
 
@@ -192,7 +194,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           <h2 id="fv-sales-bonus" className={rp.h2}>
             {RESULT_SALES.bonus.title(domain)}
           </h2>
-          <p className={rp.text}>{RESULT_SALES.bonus.text(domain, deadline?.day ?? null)}</p>
+          <p className={cn(rp.text, s.intro)}>{RESULT_SALES.bonus.text(domain, deadline?.day ?? null)}</p>
           {written && (
             <ul className={rp.ads}>
               {(cards ?? ([2, 3, 4] as const).map((n) => ({ n, pending: true }) as const)).map((card) =>
@@ -207,7 +209,6 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
               </li>
             ))}
           </ul>
-          {view.cleanUntil && <Clock label={RESULT_SALES.bonus.timer} until={Date.parse(view.cleanUntil)} />}
           <SalesBuy token={token} placement="fvresads" note={button.written} />
         </section>
       )}
@@ -234,10 +235,10 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <div className={s.sceneWrap}>
           <ResultScene domain={domain} />
         </div>
-        <h3 className={s.h3}>{how.scrollTitle}</h3>
+        <h3 className={cn(s.h3, s.subSection)}>{how.scrollTitle}</h3>
         <p className={rp.text}>{how.scrollText}</p>
         <figure className={s.leads}>
-          <Image src={how.leadsImage} alt={how.leadsAlt} width={1148} height={560} sizes="(min-width: 760px) 712px, 100vw" />
+          <Image src={how.leadsImage} alt={how.leadsAlt} width={1320} height={192} sizes="(min-width: 760px) 712px, 100vw" />
           <figcaption>{how.leads}</figcaption>
         </figure>
         <SalesBuy token={token} placement="fvres2" note={button.guarantee} />
@@ -263,8 +264,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
                 number += 1;
                 return <ToolCard key={tool.name} n={number} tool={tool} domain={domain} />;
               })}
-              {index === TOOL_GROUPS.length - 1 && <p className={s.also}>{tools.alsoIncluded}</p>}
-              <SalesBuy token={token} placement="fvrestools" label={button.tools} withPrice={false} />
+              {(index === 1 || index === TOOL_GROUPS.length - 1) && <SalesBuy token={token} placement="fvrestools" />}
             </div>
           ));
         })()}
@@ -276,7 +276,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <h2 id="fv-sales-old" className={rp.h2}>
           {oldWay.title}
         </h2>
-        <p className={rp.text}>{oldWay.intro}</p>
+        <p className={cn(rp.text, s.intro)}>{oldWay.intro}</p>
         <Image className={s.drawing} src={oldWay.image} alt={oldWay.alt} width={900} height={600} sizes="(min-width: 760px) 712px, 100vw" />
         <div className={s.oldList}>
           <p className={s.oldTitle}>{oldWay.oldTitle}</p>
@@ -359,7 +359,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <h2 id="fv-sales-own" className={rp.h2}>
           {own.title}
         </h2>
-        <p className={rp.text}>{own.lead}</p>
+        <p className={cn(rp.text, s.intro)}>{own.lead}</p>
         <Image className={s.product} src={own.image} alt={own.imageAlt} width={1200} height={800} sizes="(min-width: 760px) 712px, 100vw" />
         <ul className={s.rows}>
           {own.rows.map((row) => (
@@ -374,9 +374,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             {own.bonusRows.map((row) => (
               <li key={row.label}>
                 <span>
-                  <strong>
-                    {row.label} {deadline ? `until ${deadline.when}` : ''}:
-                  </strong>{' '}
+                  <strong>{row.label}:</strong>{' '}
                   {typeof row.text === 'function' ? row.text(domain) : row.text}
                 </span>
                 <strong>{row.value}</strong>
@@ -398,16 +396,14 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           <p className={s.finaleOff}>{own.off}</p>
         </div>
         <SalesBuy token={token} placement="fvres5" note={button.guarantee} />
-        <p className={s.small}>{own.recharge}</p>
-        {bonus && deadline && <p className={s.small}>{own.bonusEnds(deadline.when)}</p>}
         <p className={s.small}>{own.source}</p>
       </section>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-guarantee">
         <div className={s.guarantee}>
-          <Shield />
           <div className={s.guaranteeBody}>
-            <h2 id="fv-sales-guarantee" className={rp.h2}>
+            <h2 id="fv-sales-guarantee" className={cn(rp.h2, s.guaranteeTitle)}>
+              <Shield />
               {guarantee.title}
             </h2>
             <div className={s.founderHead}>
@@ -433,7 +429,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             {line}
           </p>
         ))}
-        <BirthdayTimer label={price.timer} until={bonus ? view.cleanUntil : undefined} />
+        <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={bonus ? view.cleanUntil : undefined} />
         <SalesBuy token={token} placement="fvres6" note={button.guarantee} />
       </section>
 
@@ -469,7 +465,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </section>
 
       <Legal />
-      <ChatLauncher token={token} firstName={firstName} domain={domain} raised={barShown} />
+      {chatOn && <ChatLauncher token={token} firstName={firstName} domain={domain} raised={barShown} />}
       <SalesBar token={token} watch={priceRef} onShown={setBarShown} />
       {viewing && <Viewer item={viewing} onClose={() => setViewing(null)} />}
     </div>
@@ -542,15 +538,14 @@ function ToolCard({ n, tool, domain }: { n: number; tool: SalesTool; domain: str
       {media.kind === 'slides' && <Slides slides={media.slides} />}
       {media.kind === 'audio' && <AudioSamples tracks={media.tracks} />}
       {media.kind === 'placeholder' && <div className={cn(s.toolMedia, s.toolPlaceholder)}>{media.label}</div>}
-      {media.kind !== 'audio' && media.kind !== 'placeholder' && <p className={s.caption}>{tools.proof(tool.name)}</p>}
       <p className={s.body}>{tool.does(domain)}</p>
       <p className={s.forBusiness}>
         <strong>{tools.forBusiness}</strong> {tool.forBusiness}
       </p>
-      <p className={s.amount}>{tool.amount}</p>
+      {/* Krug: the monthly amount and the value on 1 row. */}
       <p className={s.value}>
         <span>
-          {tools.value} <strong>{tool.value}</strong> {tools.elsewhere}
+          <strong className={s.amountInline}>{tool.amount}</strong> · {tool.value} {tools.elsewhere}
         </span>
         <span className={s.included}>{tools.included}</span>
       </p>

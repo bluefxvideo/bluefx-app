@@ -33,19 +33,39 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-top: 40px;
+  padding-top: 64px;
   padding-bottom: 8px;
 }
 
-/* Headlines, kickers and the line under a headline are centered, like the sales page; long paragraphs read left. */
+/* A part inside a section that starts a new idea gets room above it. */
+.subSection {
+  margin-top: 40px;
+}
+
+/*
+ * Krug's system (owner 2026-10-22): headings, labels and short intros (2 lines or fewer, marked .intro) are centered;
+ * every longer paragraph reads left. One H2 size for every section; the hero headline and the tools headline keep
+ * their own big size (owner: "those are very important headlines").
+ */
 .section > h2,
 .section > h3,
-.section > p:first-child,
-.section > h2 + p,
 .groupTitle,
-.group > .groupTitle + p {
+.intro {
   text-align: center;
   text-wrap: balance;
+}
+
+.section > h2:not(.toolsTitle) {
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+.section > h3 {
+  font-size: 20px;
+}
+
+.group > .groupTitle + p {
+  text-align: center;
 }
 
 .sectionTight {
@@ -783,6 +803,8 @@
 .toolMedia {
   display: block;
   width: 100%;
+  max-height: 360px;
+  object-fit: contain;
   border-radius: 12px;
   background: #0f172a;
 }
@@ -801,7 +823,7 @@
 
 .toolPhone {
   align-self: center;
-  width: min(240px, 70%);
+  width: min(200px, 60%);
   aspect-ratio: 9 / 16;
   border: 4px solid var(--ink);
   border-radius: 22px;
@@ -818,6 +840,9 @@
 
 .slides {
   position: relative;
+  width: 100%;
+  max-width: 340px;
+  align-self: center;
   aspect-ratio: 1 / 1.12;
   border-radius: 12px;
   overflow: hidden;
@@ -929,13 +954,18 @@
   color: var(--navy);
 }
 
+.amountInline {
+  color: var(--navy);
+  font-weight: 800;
+}
+
 .value {
   margin: 0;
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 6px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.4;
   color: var(--muted);
   flex-wrap: wrap;
@@ -1131,6 +1161,7 @@
 .stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* 4 boxes: 2 by 2 on a phone, 4 across on a computer. */
   gap: 8px;
   margin: 0;
   padding: 0;
@@ -1268,6 +1299,7 @@
 .guarantee {
   display: flex;
   gap: 14px;
+  text-align: left;
   padding: 18px;
   border-radius: 16px;
   background: #ffffff;
@@ -1361,6 +1393,11 @@
   .phoneOnly {
     display: none;
   }
+
+  /* The robot's name tag already says it beside their video ad (Krug). */
+  .heroPill {
+    display: none;
+  }
 }
 
 @media (min-width: 760px) {
@@ -1381,6 +1418,49 @@
   }
 
   .stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+
+  .section > h2:not(.toolsTitle) {
+    font-size: 36px;
+  }
+
+  .section > h3 {
+    font-size: 22px;
+  }
+
+  .section {
+    padding-top: 96px;
+  }
+}
+
+.guaranteeTitle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.guaranteeTitle svg {
+  flex: 0 0 auto;
+}
+
+.section > .guarantee h2 {
+  font-size: 26px;
+}
+
+/* The founder headline is long: a step smaller on a phone. */
+.section > h2[id='fv-sales-founder'] {
+  font-size: 24px;
+}
+
+@media (min-width: 760px) {
+  .section > h2[id='fv-sales-founder'] {
+    font-size: 32px;
+  }
+}
+
+.leads img {
+  max-width: 560px;
+  margin: 0 auto;
 }

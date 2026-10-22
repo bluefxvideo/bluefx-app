@@ -58,10 +58,11 @@ export const TOOL_GROUPS: { title: string; lead: string | null; tools: SalesTool
         name: 'Phantom Ad Maker',
         // A whole video ad, presenter first and then the rest (owner: the cropped close-up looked strange).
         media: { kind: 'phone', src: `${EXAMPLES}/aimm/more-bakery.mp4`, poster: `${EXAMPLES}/loops/more-bakery.jpg` },
+        // Krug: about 3 lines on a phone (was 12).
         does: (domain) =>
-          `The tool that made your video ad for ${domain}. 1 complete video ad: a script with a hook, a person on screen at the start, whiteboard or animated scenes after that, a voice-over, music, and words written the way a professional copywriter writes. Type your website, paste your own script or upload a few photos, and Phantom Ad Maker makes a finished video ad with a presenter, a voice-over and music. Want a change? Type the change, like "use a woman presenter", and the new version of your video ad is ready in about 3 minutes.`,
+          `The tool that made your video ad for ${domain}. Type your website, paste a script or upload a few photos, and get a finished video ad with a hook, a presenter, scenes, a voice-over and music. Type any change, and the new version is ready in about 3 minutes.`,
         forBusiness: `${MONTH} new video ads every month to post on YouTube, Instagram, Facebook and TikTok, so customers see your business every 3 days.`,
-        amount: `Up to ${MONTH} complete video ads a month`,
+        amount: `${MONTH} complete video ads a month`,
         value: '$100/mo',
       },
       {
@@ -239,9 +240,11 @@ export const RESULT_SALES = {
      * on the page 7 times and made it about the owner). The birthday is said once, here, as the reason for the sale;
      * everywhere else it is the reader's own sale price. Every line stays true for a reader who returns to a fresh timer.
      */
-    title: 'Lifetime Access to the AI Media Machine, on Sale for a Short Time',
+    title: 'Lifetime access to the AI Media Machine, on sale for a short time',
     reason: "Why the sale? I just turned 40, and I only turn 40 once, so I'm celebrating with a sale that runs for a short time.",
     timer: 'Your sale price ends in',
+    /** While the 3-day bonus runs, 1 deadline for both (Krug). */
+    timerBonus: 'Your sale price and both bonuses end in',
     regular: 'Regular price:',
     birthday: 'Your sale price:',
     line: `One payment, no monthly fee. All 12 tools are yours for life, and your account refills with ${MONTH} complete video ads every month.`,
@@ -262,8 +265,8 @@ export const RESULT_SALES = {
     text: (domain: string, day: string | null) =>
       `Video ads #2, #3 and #4 for ${domain} wait inside the AI Media Machine, the AI that made your free sample. Get the AI Media Machine ${day ? `by ${day}` : 'while your bonus runs'}, and each video ad is ready to post about 3 minutes after your click.`,
     items: [
-      { label: 'Bonus 1:', text: 'your free video ad, without the SAMPLE stamp ($200 value: what a freelancer charges for 1 video ad like yours)' },
-      { label: 'Bonus 2:', text: `your next 3 video ads, already made and ready with one click, on top of your ${MONTH} video ads a month ($600 value)` },
+      { label: 'Bonus 1 (ends with the timer):', text: 'your free video ad, without the SAMPLE stamp ($200 value: what a freelancer charges for 1 video ad like yours)' },
+      { label: 'Bonus 2 (ends with the timer):', text: `your next 3 video ads, already made and ready with one click, on top of your ${MONTH} video ads a month ($600 value)` },
     ],
     timer: 'Your 2 free bonuses end in',
   },
@@ -276,7 +279,7 @@ export const RESULT_SALES = {
     scrollText:
       'How did you find the AI Media Machine? Probably through a video on Facebook or YouTube. Your customers are there too, over 2½ hours a day. When your business posts a new video every 3 days, your customers see your business, your products and your website, again and again.',
     leads: 'Our own videos brought BlueFX 222,712 leads since 2013.',
-    leadsImage: '/free-video/leadpages-big.jpg',
+    leadsImage: '/free-video/leadpages-count.jpg',
     leadsAlt: 'Our Leadpages dashboard showing 222,712 leads',
   },
 
@@ -287,7 +290,8 @@ export const RESULT_SALES = {
     titleMark: '94.62% Off!',
     lead: (domain: string) =>
       `Phantom Ad Maker made your video ad for ${domain}. Here are all 12 tools, with what each tool makes for your business and what the same job rents for elsewhere. One payment gets you all 12 tools.`,
-    note: 'The amount under each tool is what the tool makes in a month, if you spend the whole month on that 1 tool.',
+    /** Said once here instead of under every demo (Krug). */
+    note: 'Every demo below is real output from the AI Media Machine, not edited.',
     forBusiness: 'For your business:',
     value: 'Real-World Value:',
     elsewhere: 'elsewhere',
@@ -300,7 +304,7 @@ export const RESULT_SALES = {
 
   oldWay: {
     kicker: 'THE DIFFERENCE',
-    title: 'The Old Way Is Slow, Expensive, and Full of Guesswork. The AI Media Machine Is the Shortcut.',
+    title: 'The old way is slow, expensive and full of guesswork. The AI Media Machine is the shortcut.',
     intro: 'Most business owners get video ads the hard way. Hire a freelancer. Wait days. Spend hundreds of dollars.',
     image: '/free-video/old-new-way.jpg',
     alt: 'Drawing: a stressed business owner at a desk full of papers, then the same owner smiling with a phone while customers walk in',
@@ -332,7 +336,7 @@ export const RESULT_SALES = {
 
   founder: {
     kicker: 'THE FOUNDER',
-    title: 'I Spent $60K of My Own Money on Video Ads to Figure Out What Actually Brings In Customers. Then I Built the AI Media Machine.',
+    title: 'I spent $60K of my own money on video ads to figure out what actually brings in customers. Then I built the AI Media Machine.',
     name: 'Szilard Gyorfi',
     role: 'Founder of BlueFX (est. 2008) & AI Media Machine',
     photo: '/free-video/owner.jpg',
@@ -341,11 +345,12 @@ export const RESULT_SALES = {
       "I've made 700+ videos for customers by hand, and each video took days, sometimes weeks.",
       "2 years ago I moved all my video work to AI. A video that used to take me a week now takes minutes. And now I'm giving you the AI Media Machine I use every day, the same AI Media Machine that made your video ad.",
     ],
-    stats: ['18 Years Building BlueFX', '$60K+ Spent Testing Video Ads', '100+ Products Launched', '777 YouTube Videos', '36K+ Customers Served'],
+    /** 4, so none sits alone on a row (Krug). */
+    stats: ['18 Years Building BlueFX', '$60K+ Spent Testing Video Ads', '777 YouTube Videos', '36K+ Customers Served'],
   },
 
   lifetime: {
-    title: 'Why Lifetime? And Why Only During This Window',
+    title: 'Why lifetime? And why only during this window',
     /** The owner's bold openings (his hand edit on board J). */
     paragraphs: [
       { lead: '', text: 'Let me be straight with you.' },
@@ -358,7 +363,7 @@ export const RESULT_SALES = {
   },
 
   own: {
-    title: "Here's Everything You Own After One Payment",
+    title: "Here's everything you own after one payment",
     lead: 'Each price below is what a tool that does the same job rents for elsewhere, every month.',
     image: '/free-video/aimm-product.jpg',
     imageAlt: 'All 12 tools of the AI Media Machine',
@@ -376,12 +381,11 @@ export const RESULT_SALES = {
       { text: 'Music', value: '$10/mo' },
       { text: 'ReelEstate', value: '$24/mo' },
       { text: 'Ebook Writer', value: '$20/mo' },
-      { text: 'Logo Maker and Script Generator', value: 'included' },
       { text: 'All future updates', value: 'included' },
     ],
     bonusRows: [
-      { label: 'BONUS 1', text: 'your free video ad, without the SAMPLE stamp', value: '$200 value' },
-      { label: 'BONUS 2', text: (domain: string) => `your next 3 video ads for ${domain}, already made`, value: '$600 value' },
+      { label: 'BONUS 1 (ends with the timer)', text: 'your free video ad, without the SAMPLE stamp', value: '$200 value' },
+      { label: 'BONUS 2 (ends with the timer)', text: (domain: string) => `your next 3 video ads for ${domain}, already made`, value: '$600 value' },
     ],
     total: 'Total Value:',
     totalValue: '$5,520 Per Year',
@@ -395,7 +399,7 @@ export const RESULT_SALES = {
   },
 
   guarantee: {
-    title: 'My 30-Day Money-Back Guarantee',
+    title: 'My 30-day money-back guarantee',
     name: 'Szilard Gyorfi, founder of BlueFX',
     text: [
       "Make video ads with the AI Media Machine for 30 days. If you're not happy, email me at support@bluefx.net and I'll refund every cent.",
@@ -409,7 +413,7 @@ export const RESULT_SALES = {
   },
 
   still: {
-    title: 'Still Thinking About the AI Media Machine?',
+    title: 'Still thinking about the AI Media Machine?',
     text: [
       `Right now, other businesses in your market post videos on YouTube, Instagram, Facebook and TikTok every day, and customers see those businesses first. With the AI Media Machine, your business posts a new video every 3 days too: ${MONTH} complete video ads every month, for life.`,
       `Your sale price of ${OFFER.now} runs until the timer on this page hits zero. Lifetime access regularly sells for ${OFFER.was}.`,
