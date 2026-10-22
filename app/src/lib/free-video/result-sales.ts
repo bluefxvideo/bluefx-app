@@ -25,6 +25,9 @@ const IMAGE_MAKER = `${SUPABASE}/script-videos/examples/image-maker`;
 /** The 8 video ads at the top of the main sales page (ai.bluefx.net/lifetime/), Vimeo background players (owner 2026-10-22: "I have more video ads there"). */
 export const SALES_PAGE_HERO_VIMEO = ['1217606652', '1217606691', '1217606651', '1217606688', '1217606709', '1217606706', '1217606686', '1217606680'] as const;
 
+/** Video Swap's demo: the vertical or the horizontal cut of the same intro (the owner picks). */
+const VIDEO_SWAP_LOOK = 'vertical' as 'vertical' | 'horizontal';
+
 /** Which result page leads see: 'sales' (board J) or 'classic' (the page live since 2026-10-19). ?page= overrides it for a look. */
 export const RESULT_PAGE_VERSION: 'sales' | 'classic' = 'sales';
 
@@ -80,7 +83,8 @@ export const TOOL_GROUPS: { title: string; lead: string | null; tools: SalesTool
       },
       {
         name: 'Video Swap',
-        media: { kind: 'placeholder', label: 'Video Swap demo coming soon' },
+        // The intro of the owner's UGC Ad Clone video: him and 2 women, the same moves (owner 2026-10-22). VIDEO_SWAP_LOOK picks the cut.
+        media: VIDEO_SWAP_LOOK === 'vertical' ? { kind: 'phone', src: '/free-video/video-swap-vertical.mp4', poster: '/free-video/video-swap-vertical.jpg' } : { kind: 'video', src: '/free-video/video-swap-horizontal.mp4', poster: '/free-video/video-swap-horizontal.jpg' },
         does: () => 'Put a new person into any video. The motion stays the same.',
         forBusiness: 'Your face in a video ad you never filmed, so customers on Facebook and Instagram get to know the person behind your business.',
         amount: 'Up to about 75 seconds of video a month',
@@ -226,11 +230,12 @@ export const RESULT_SALES = {
   },
 
   price: {
-    title: `Lifetime access sells for ${OFFER.was}. For my 40th birthday, until the timer hits zero, lifetime access is just ${OFFER.now}:`,
+    /** Ogilvy (2026-10-22): the headline gives the reason and names the product; the box below shows the numbers. Was: "Lifetime access sells for $997. For my 40th birthday, until the timer hits zero, lifetime access is just $297:" */
+    title: 'For My 40th Birthday: Lifetime Access to the AI Media Machine',
     timer: 'Birthday price ends in',
-    deal: '40th Birthday Deal',
     regular: 'Regular price:',
-    birthday: 'Your birthday price:',
+    /** "My", not "Your": it's the owner's birthday (Ogilvy). */
+    birthday: 'My birthday price:',
     line: `One payment, no monthly fee. All 12 tools are yours for life, and your account refills with ${MONTH} complete video ads every month.`,
   },
 

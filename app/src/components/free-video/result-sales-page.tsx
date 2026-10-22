@@ -141,7 +141,6 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         </h2>
         <div className={s.priceBox}>
           <BirthdayTimer label={price.timer} until={bonus ? view.cleanUntil : undefined} />
-          <p className={s.priceDeal}>{price.deal}</p>
           <div className={s.prices}>
             <p className={s.priceRegular}>
               {price.regular} <s>{OFFER.was}</s>
