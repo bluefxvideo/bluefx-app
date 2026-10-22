@@ -356,6 +356,14 @@
   gap: 2px;
 }
 
+.priceReason {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--ink);
+}
+
 .priceRegular {
   margin: 0;
   font-size: 18px;

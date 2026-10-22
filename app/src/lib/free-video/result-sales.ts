@@ -230,12 +230,16 @@ export const RESULT_SALES = {
   },
 
   price: {
-    /** Ogilvy (2026-10-22): the headline gives the reason and names the product; the box below shows the numbers. Was: "Lifetime access sells for $997. For my 40th birthday, until the timer hits zero, lifetime access is just $297:" */
-    title: 'For My 40th Birthday: Lifetime Access to the AI Media Machine',
-    timer: 'Birthday price ends in',
+    /**
+     * Ogilvy's refinement of Kennedy's Version 1 (owner 2026-10-22, after Halbert, Hormozi and Kennedy: the birthday was
+     * on the page 7 times and made it about the owner). The birthday is said once, here, as the reason for the sale;
+     * everywhere else it is the reader's own sale price. Every line stays true for a reader who returns to a fresh timer.
+     */
+    title: 'Lifetime Access to the AI Media Machine, on Sale for a Short Time',
+    reason: "Why the sale? I just turned 40, and I only turn 40 once, so I'm celebrating with a sale that runs for a short time.",
+    timer: 'Your sale price ends in',
     regular: 'Regular price:',
-    /** Ogilvy (2026-10-22): the heading above says "For My 40th Birthday", so the label needs neither "My" nor "40th"; the same name as the value stack. $297 stays red. */
-    birthday: 'Birthday price:',
+    birthday: 'Your sale price:',
     line: `One payment, no monthly fee. All 12 tools are yours for life, and your account refills with ${MONTH} complete video ads every month.`,
   },
 
@@ -342,8 +346,8 @@ export const RESULT_SALES = {
       { lead: '', text: "Bought separately, the 12 tools inside the AI Media Machine would cost you $460 a month, every month. Miss a payment, and you lose the tools. I know you're tired of monthly fees. Everybody is." },
       { lead: 'So lifetime access', text: ` works differently: pay once, and the AI Media Machine is yours forever. Lifetime access sells for ${OFFER.was}. One payment instead of $5,520 every year.` },
       { lead: 'Is this for real?', text: ` Yes. One payment of ${OFFER.now} gets you the full AI Media Machine: all 12 tools, everything you see on this page, every update we ship in the future, and ${MONTH} complete video ads like yours every month, for life.` },
-      { lead: `Why ${OFFER.now} and not ${OFFER.was}?`, text: ` I just turned 40! To celebrate, I'm dropping the price of the AI Media Machine from ${OFFER.was} to ${OFFER.now}. When my birthday celebration ends, the price goes back to ${OFFER.was}.` },
-      { lead: "What's the catch?", text: ` The timer. When the timer on this page hits zero, the birthday pricing is gone and lifetime access goes back to ${OFFER.was}. I can only give a discount this big for my birthday.` },
+      { lead: `Why ${OFFER.now} and not ${OFFER.was}?`, text: ` ${OFFER.now} is your sale price until the timer hits zero.` },
+      { lead: "What's the catch?", text: ` The timer. Your sale price of ${OFFER.now} lasts until the timer on this page hits zero. The regular price of lifetime access is ${OFFER.was}.` },
     ],
   },
 
@@ -376,7 +380,7 @@ export const RESULT_SALES = {
     total: 'Total Value:',
     totalValue: '$5,520 Per Year',
     lifetime: 'Lifetime Access:',
-    birthday: 'Birthday Price:',
+    birthday: 'Your Sale Price:',
     grab: 'Grab Lifetime Access Today And Get',
     off: '94.62% OFF!',
     recharge: 'Busy month? Add a one-time recharge pack: $24.99 gives you 300 more credits, enough for 5 more complete video ads. Packs start at $9.99.',
@@ -402,7 +406,7 @@ export const RESULT_SALES = {
     title: 'Still Thinking About the AI Media Machine?',
     text: [
       `Right now, other businesses in your market post videos on YouTube, Instagram, Facebook and TikTok every day, and customers see those businesses first. With the AI Media Machine, your business posts a new video every 3 days too: ${MONTH} complete video ads every month, for life.`,
-      `When the timer hits zero, the birthday pricing is gone and lifetime access goes back to ${OFFER.was}. Pay ${OFFER.now} once now, or ${OFFER.was} later.`,
+      `Your sale price of ${OFFER.now} runs until the timer on this page hits zero. Lifetime access regularly sells for ${OFFER.was}.`,
     ],
   },
 
@@ -468,7 +472,7 @@ export const RESULT_SALES = {
     p1: (name: string, domain: string) =>
       `P.S. ${name}, your video ad for ${domain} is a free sample. Your free sample might not be perfect, might need a few changes, and carries a SAMPLE stamp with bluefx.net.`,
     p2: `With the AI Media Machine, you type any change and get the new version of your video ad in about 3 minutes, without the stamp. You also get all 12 tools and ${MONTH} complete video ads every month, for life.`,
-    p3: `For my 40th birthday, lifetime access is ${OFFER.now} instead of ${OFFER.was}, and you have 30 days to get every cent back. Get the AI Media Machine before the timer hits zero.`,
+    p3: `Your sale price is ${OFFER.now} instead of ${OFFER.was}, and you have 30 days to get every cent back. Get the AI Media Machine before the timer hits zero.`,
     bonus: (domain: string, when: string | null) =>
       `And your next 3 video ads for ${domain} are already made. Get the AI Media Machine ${when ? `by ${when}` : 'while your bonus runs'}, and each video ad is ready to post about 3 minutes after your click.`,
     pps: (domain: string) =>
