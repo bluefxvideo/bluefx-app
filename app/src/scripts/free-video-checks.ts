@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { FREE_PLAN, freeNote, isLive, LIMITS, WATERMARK } from '@/lib/free-video/config';
+import { END_CLIP_SECONDS, FREE_PLAN, freeNote, isLive, LIMITS, WATERMARK } from '@/lib/free-video/config';
 import { EMAIL_DRAFTS, ERRORS, WHY_IT_WORKS } from '@/lib/free-video/copy';
 import { blockedCountry } from '@/lib/free-video/geo';
 import { copyIdOf, NOT_MADE, waitingJobOf } from '@/lib/free-video/claim';
@@ -532,14 +532,23 @@ async function main(): Promise<void> {
   section('11. The watermark prop and the clean version');
   const result = { props: { duration: 33, format: 'vertical', scenes: [] }, durationSeconds: 33 } as unknown as SmartVideoResult;
   const marked = withWatermark(result);
-  check('props.watermark is { label: "BlueFX", endCardSeconds: 2 }', JSON.stringify(marked.props.watermark) === JSON.stringify({ label: 'BlueFX', endCardSeconds: 2 }) && JSON.stringify(WATERMARK) === JSON.stringify({ label: 'BlueFX', endCardSeconds: 2 }));
-  check('the job length includes the 2 s card; props.duration does not', marked.durationSeconds === 35 && marked.props.duration === 33);
+  // Since 2026-10-22: the SAMPLE stamp, and the shared end clip stitched on by the render server (END_CLIP_SECONDS).
+  check('props.watermark is the SAMPLE stamp with the end clip in the voice-over\'s gender (male without a plan)', JSON.stringify(marked.props.watermark) === JSON.stringify({ stamp: true, label: 'SAMPLE', site: 'bluefx.net', endClip: 'male' }));
+  const female = withWatermark({ ...result, plan: { voice: { gender: 'female', direction: '' } } } as unknown as SmartVideoResult);
+  check('a female voice-over gets the female end clip', (female.props.watermark as { endClip?: string }).endClip === 'female');
+  check('the old BlueFX mark stays for older props (WATERMARK unchanged)', JSON.stringify(WATERMARK) === JSON.stringify({ label: 'BlueFX', endCardSeconds: 2 }));
+  check('the job length includes the end clip; props.duration does not', Math.abs(marked.durationSeconds - (33 + END_CLIP_SECONDS)) < 0.001 && marked.props.duration === 33);
+  const clips = ['male', 'female'].map((voice) => path.resolve(__dirname, `../../../remotion/public/brand/endclip-${voice}.mp4`));
+  check('both end clips are in the render server\'s public folder', clips.every((clip) => fs.existsSync(clip)));
   const clean = cleanProps(marked.props);
   check('the clean props drop only the watermark (original length, no end card)', !('watermark' in clean) && clean.duration === 33 && clean.format === 'vertical' && 'watermark' in marked.props);
   const composition = path.resolve(__dirname, '../../../remotion/src/SmartVideo.jsx');
   if (fs.existsSync(composition)) {
     const jsx = fs.readFileSync(composition, 'utf8');
     check('SmartVideo.jsx takes the watermark prop, its label and endCardSeconds', /export const SmartVideo = \(\{.*\bwatermark\b.*\}\) =>/.test(jsx) && jsx.includes('watermark.label') && jsx.includes('endCardSeconds'));
+    check('SmartVideo.jsx draws the SAMPLE stamp for watermark.stamp', jsx.includes('watermark?.stamp') && jsx.includes('function SampleStamp'));
+    const server = fs.readFileSync(path.resolve(__dirname, '../../../remotion/server.js'), 'utf8');
+    check('server.js stitches the end clip for watermark.endClip', server.includes('inputProps?.watermark?.endClip') && server.includes('appendEndClip'));
   } else skip('SmartVideo.jsx prop names', 'remotion folder not found');
 
   // 12. -----------------------------------------------------------------------------------------

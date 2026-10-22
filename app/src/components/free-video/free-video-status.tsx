@@ -11,6 +11,8 @@ import type { SmartVideoJobStatus } from '@/types/smart-video';
 import { LifetimeOffer } from './lifetime-offer';
 import { LiveMaking } from './live-making';
 import { ResultPage, useBonusDeadline } from './result-page';
+import { ResultSalesPage } from './result-sales-page';
+import { RESULT_PAGE_VERSION } from '@/lib/free-video/result-sales';
 import { useBonusEnded } from './sales-page-media';
 import { SaveToPhotos } from './save-to-photos';
 import { UnlockOffer } from './unlock-offer';
@@ -199,6 +201,12 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
 
   // The 2 free bonuses (the video ad without the logo, the 3 written video ads made) and their deadline.
   const bonusEnded = useBonusEnded(view.cleanUntil);
+  // Which result page: RESULT_PAGE_VERSION, or ?page=classic / ?page=sales for a look at the other one.
+  const [pageVersion, setPageVersion] = useState<'sales' | 'classic'>(RESULT_PAGE_VERSION);
+  useEffect(() => {
+    const asked = new URLSearchParams(window.location.search).get('page');
+    if (asked === 'classic' || asked === 'sales') setPageVersion(asked);
+  }, []);
   const bonusDeadline = useBonusDeadline(view.cleanUntil);
 
   const staleNotice = stale ? <StaleNotice onCheck={restart} /> : null;
@@ -214,9 +222,10 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
     const offerOn = !view.isCustomer && !purchased;
     const bonus = Boolean(view.cleanUntil) && !bonusEnded;
     if (offerOn) {
+      const Page = pageVersion === 'classic' ? ResultPage : ResultSalesPage;
       return (
         <>
-          <ResultPage
+          <Page
             view={view}
             token={token}
             bonus={bonus}

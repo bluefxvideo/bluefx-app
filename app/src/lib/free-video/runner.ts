@@ -354,7 +354,7 @@ export function shapeFreePlan(directed: DirectorPlan): DirectorPlan {
 export function withWatermark(result: SmartVideoResult): SmartVideoResult {
   return {
     ...result,
-    props: { ...result.props, watermark: { ...SAMPLE_STAMP, endClip: result.plan.voice?.gender === 'female' ? 'female' : 'male' } },
+    props: { ...result.props, watermark: { ...SAMPLE_STAMP, endClip: result.plan?.voice?.gender === 'female' ? 'female' : 'male' } },
     durationSeconds: result.durationSeconds + END_CLIP_SECONDS,
   };
 }

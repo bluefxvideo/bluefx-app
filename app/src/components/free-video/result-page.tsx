@@ -464,7 +464,7 @@ function StickyBar({ token, watch, onShown }: { token: string; watch: React.RefO
 // The robot and the confetti
 
 /** The AI Media Machine's robot with a transparent background: HEVC with alpha for Safari, VP9 with alpha elsewhere. */
-function Robot({ className, label, burst = false }: { className: string; label?: string; burst?: boolean }) {
+export function Robot({ className, label, burst = false }: { className: string; label?: string; burst?: boolean }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const video = ref.current;
@@ -543,7 +543,7 @@ function confettiFrom(robot: HTMLElement) {
   requestAnimationFrame(frame);
 }
 
-function Confetti() {
+export function Confetti() {
   return (
     <svg className={styles.confetti} viewBox="0 0 342 140" aria-hidden="true">
       <rect x="62" y="26" width="11" height="5" rx="1.5" fill="#7CB342" transform="rotate(25 67 28)" />
@@ -626,7 +626,7 @@ const WALKERS = [
 ];
 
 /** THE RESULT: the whiteboard drawing with customers walking from the video ad on the phone into the shop, and the money they bring popping up at the door. */
-function ResultScene({ domain }: { domain: string }) {
+export function ResultScene({ domain }: { domain: string }) {
   const { result } = RESULT_PAGE.how;
   return (
     <div className={styles.result}>
@@ -673,7 +673,7 @@ function ResultScene({ domain }: { domain: string }) {
 // ---------------------------------------------------------------------------------------------------------------
 // The 3 written video ads
 
-function WrittenAd({ ad }: { ad: FreeVideoNextAdCard }) {
+export function WrittenAd({ ad }: { ad: FreeVideoNextAdCard }) {
   const { written } = RESULT_PAGE;
   return (
     <li className={styles.ad}>
@@ -699,7 +699,7 @@ function WrittenAd({ ad }: { ad: FreeVideoNextAdCard }) {
 }
 
 /** A card while its video ad is still being planned (the page asks again every few seconds). */
-function WritingCard({ n }: { n: number }) {
+export function WritingCard({ n }: { n: number }) {
   return (
     <li className={styles.ad}>
       <div className={styles.adFrame}>
@@ -719,14 +719,14 @@ function WritingCard({ n }: { n: number }) {
 // Customers, more video ads
 
 /** The customers with a video, by name, in the given order. */
-function videoReviewsOf(names: readonly string[]): VideoReviewItem[] {
+export function videoReviewsOf(names: readonly string[]): VideoReviewItem[] {
   return names
     .map((name) => SALES_PAGE.reviews.items.find((item) => item.name === name))
     .filter((item): item is VideoReviewItem => Boolean(item && 'video' in item));
 }
 
 /** Every customer, with Dov's quote first (owner 2026-10-20: all of them stay here, the 3 under the first button too). */
-function Reviews() {
+export function Reviews() {
   const { reviews } = RESULT_PAGE;
   const dov = SALES_PAGE.reviews.items.find((item) => item.name === 'Dov Rom');
   const videos = videoReviewsOf(VIDEO_REVIEWS);
@@ -756,10 +756,10 @@ function Reviews() {
   );
 }
 
-type VideoReviewItem = Extract<(typeof SALES_PAGE.reviews.items)[number], { video: unknown }>;
+export type VideoReviewItem = Extract<(typeof SALES_PAGE.reviews.items)[number], { video: unknown }>;
 
 /** A customer's own video: its picture until a tap, then the player in the card. */
-function VideoReview({ item }: { item: VideoReviewItem }) {
+export function VideoReview({ item }: { item: VideoReviewItem }) {
   const [playing, setPlaying] = useState(false);
   const { reviews } = RESULT_PAGE;
   const video = item.video;
@@ -800,7 +800,7 @@ function VideoReview({ item }: { item: VideoReviewItem }) {
 }
 
 /** A 6 s silent loop that plays while it is on screen. */
-function LoopVideo({ src, poster }: { src: string; poster: string }) {
+export function LoopVideo({ src, poster }: { src: string; poster: string }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const video = ref.current;
@@ -817,7 +817,7 @@ function LoopVideo({ src, poster }: { src: string; poster: string }) {
 }
 
 /** The whole video ad with sound, over the page; Escape, the button or a tap beside it closes it. */
-function Viewer({ item, onClose }: { item: (typeof RESULT_PAGE.examples.items)[number]; onClose: () => void }) {
+export function Viewer({ item, onClose }: { item: (typeof RESULT_PAGE.examples.items)[number]; onClose: () => void }) {
   const close = useCallback(() => onClose(), [onClose]);
   const closeRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -839,7 +839,7 @@ function Viewer({ item, onClose }: { item: (typeof RESULT_PAGE.examples.items)[n
 }
 
 /** Szilard's walkthrough as the boards show it: the picture with its length, then the video in place on a tap, from the start or from a chapter. */
-function Walkthrough({ token }: { token: string }) {
+export function Walkthrough({ token }: { token: string }) {
   const { tour } = SALES_PAGE;
   const { walkthrough } = RESULT_PAGE;
   const beacon = useFreeVideoBeacon(token);
@@ -901,7 +901,7 @@ function Walkthrough({ token }: { token: string }) {
 // The countdown, ClickBank's notice, small pictures
 
 /** Days, hours, minutes and seconds until the bonus ends, once a second (dashes on the server and in the first render). */
-function Countdown({ until }: { until: string }) {
+export function Countdown({ until }: { until: string }) {
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     setNow(Date.now());
@@ -930,7 +930,7 @@ function Countdown({ until }: { until: string }) {
 }
 
 /** ClickBank sells the lifetime license, so its retailer notice goes with the checkout buttons (as on the sales page). */
-function Legal() {
+export function Legal() {
   const { legal } = SALES_PAGE;
   return (
     <div className={cn(styles.wrap, styles.narrow, styles.legal)} data-fv-bar-hide="">
@@ -950,7 +950,7 @@ function Legal() {
   );
 }
 
-function PayCards() {
+export function PayCards() {
   return (
     <div className={styles.cards} role="img" aria-label={RESULT_PAGE.buy.cards}>
       <svg width="42" height="26" viewBox="0 0 48 30" aria-hidden="true">
@@ -988,7 +988,7 @@ function PayCards() {
   );
 }
 
-function Tick({ size, stroke, color = '#FFFFFF' }: { size: number; stroke: number; color?: string }) {
+export function Tick({ size, stroke, color = '#FFFFFF' }: { size: number; stroke: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 12.5l5 5L20 6.5" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" />
@@ -996,7 +996,7 @@ function Tick({ size, stroke, color = '#FFFFFF' }: { size: number; stroke: numbe
   );
 }
 
-function Gift() {
+export function Gift() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
       <path
@@ -1018,7 +1018,7 @@ function Sparkle() {
   );
 }
 
-function ArrowDown() {
+export function ArrowDown() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 5v14M6 13l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -1026,7 +1026,7 @@ function ArrowDown() {
   );
 }
 
-function Shield() {
+export function Shield() {
   return (
     <svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}>
       <path d="M12 2.5l8 3v6.2c0 4.6-3.3 8.4-8 9.8-4.7-1.4-8-5.2-8-9.8V5.5z" fill="#143D70" />
@@ -1035,7 +1035,7 @@ function Shield() {
   );
 }
 
-function PlayIcon({ size, fill = '#143D70' }: { size: number; fill?: string }) {
+export function PlayIcon({ size, fill = '#143D70' }: { size: number; fill?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
       <path d="M8 5.5v13l11-6.5z" fill={fill} />
@@ -1043,7 +1043,7 @@ function PlayIcon({ size, fill = '#143D70' }: { size: number; fill?: string }) {
   );
 }
 
-function Stars({ size, label }: { size: number; label: string }) {
+export function Stars({ size, label }: { size: number; label: string }) {
   return (
     <div className={styles.stars} role="img" aria-label={label}>
       {[0, 1, 2, 3, 4].map((i) => (

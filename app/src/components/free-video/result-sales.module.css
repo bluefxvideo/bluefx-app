@@ -1,0 +1,903 @@
+/*
+ * The result page "the sales page way" (result-sales-page.tsx), design board J on the canvas. Shares the classic page's
+ * colours, buttons, reviews, steps and questions (result-page.module.css, imported as rp); this file holds what is new.
+ * Light only, like the whole funnel.
+ */
+
+.page {
+  --red: #e11d2e;
+  --blue: #1d4ed8;
+  padding-bottom: 96px;
+}
+
+.banner {
+  margin: 0;
+  padding: 10px 16px;
+  background: var(--red);
+  color: #ffffff;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.banner strong {
+  font-weight: 800;
+}
+
+.banner u {
+  text-underline-offset: 4px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 40px;
+  padding-bottom: 8px;
+}
+
+.sectionTight {
+  padding-top: 8px;
+}
+
+.body {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.body strong {
+  font-weight: 800;
+}
+
+.h3 {
+  margin: 8px 0 0;
+  font-size: 21px;
+  line-height: 1.25;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.note,
+.caption {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+  font-style: italic;
+  text-align: center;
+}
+
+.small {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.strongLine {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+/* ---------- their video ad ---------- */
+
+.top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding-top: 20px;
+  padding-bottom: 24px;
+  background: #ffffff;
+  max-width: none;
+}
+
+.topTitle {
+  margin: 0;
+  max-width: 560px;
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 900;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.topVideo {
+  width: min(300px, 76vw);
+}
+
+.topSample {
+  margin: 0;
+  max-width: 460px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ---------- the big headline and the playing video ads ---------- */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 30px 0 32px;
+  background: linear-gradient(180deg, #ffffff 0%, #eef4fb 100%);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.heroText {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  max-width: 760px;
+}
+
+.heroKicker {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: var(--green-dark);
+  text-wrap: balance;
+}
+
+.heroPill {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: var(--navy);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: 36px;
+  line-height: 1.08;
+  font-weight: 900;
+  letter-spacing: -1px;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.heroMark {
+  background: linear-gradient(180deg, transparent 55%, #fde047 55%);
+  padding: 0 2px;
+}
+
+.heroSub {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.heroSub strong {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.heroReel {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+  padding: 4px 20px 10px;
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  justify-content: safe center;
+}
+
+.heroReel li {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+}
+
+.heroTile {
+  position: relative;
+  display: block;
+  width: 150px;
+  aspect-ratio: 9 / 16;
+  padding: 0;
+  border: 4px solid var(--ink);
+  border-radius: 22px;
+  overflow: hidden;
+  background: #111111;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+  cursor: pointer;
+}
+
+.heroTile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.heroSound {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- the sales video ---------- */
+
+.vsl {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0f172a;
+}
+
+.vsl iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* ---------- the price box ---------- */
+
+.priceBox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 14px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 2px solid var(--green);
+  text-align: center;
+}
+
+.priceDeal {
+  margin: 0;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.prices {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.priceRegular {
+  margin: 0;
+  font-size: 17px;
+  color: var(--muted);
+}
+
+.priceRegular s {
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration-color: #ef4444;
+  text-decoration-thickness: 2px;
+}
+
+.priceBirthday {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.priceBirthday span {
+  color: #b91c1c;
+}
+
+.priceLine {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.priceProof {
+  margin-top: 4px;
+}
+
+/* ---------- timers ---------- */
+
+.timerBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timerLabel {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #b91c1c;
+  text-align: center;
+}
+
+.clock {
+  display: flex;
+  gap: 8px;
+}
+
+.clock div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  border-radius: 8px;
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.clock span {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock small {
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+/* ---------- the bonus ---------- */
+
+.bonusSection {
+  max-width: 1120px;
+}
+
+.bonusItems {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bonusItems li {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fef9c3;
+  color: #854d0e;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.bonusItems strong {
+  font-weight: 800;
+}
+
+/* ---------- how ---------- */
+
+.leads {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.leads img {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
+.leads p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+/* ---------- the 12 tools ---------- */
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 12px;
+}
+
+.groupTitle {
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--navy);
+}
+
+.tool {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.toolHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toolNumber {
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolName {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.toolMedia {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+  background: #0f172a;
+}
+
+.toolVideo {
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+}
+
+.toolVideo video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.toolPlaceholder {
+  aspect-ratio: 16 / 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  border: 2px dashed #cbd5e1;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  box-sizing: border-box;
+}
+
+.forBusiness {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.amount {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.value {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.value strong {
+  color: var(--ink);
+}
+
+.included {
+  font-weight: 700;
+  color: var(--green-dark);
+}
+
+.also {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.audio {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.audioButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: var(--navy);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.audioOn {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #ffffff;
+}
+
+/* ---------- old way ---------- */
+
+.drawing {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+
+.oldList,
+.newList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 14px;
+}
+
+.oldList {
+  background: #fef2f2;
+}
+
+.newList {
+  background: var(--green-soft);
+}
+
+.oldTitle,
+.newTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.oldTitle {
+  color: #991b1b;
+}
+
+.newTitle {
+  color: var(--green-dark);
+}
+
+.oldItem,
+.newItem {
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.oldItem span {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.newItem span {
+  color: var(--green-dark);
+  font-weight: 800;
+}
+
+.cost {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.costCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.costCardUs {
+  border: 2px solid var(--green);
+}
+
+.costName {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #991b1b;
+}
+
+.costCardUs .costName,
+.costCardUs .costPrice {
+  color: var(--green-dark);
+}
+
+.costLine {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.costPrice {
+  margin: 4px 0 0;
+  font-size: 23px;
+  font-weight: 900;
+  color: #b91c1c;
+  white-space: nowrap;
+}
+
+.costPer {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---------- founder ---------- */
+
+.founderHead {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.face {
+  flex: 0 0 64px;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.founderName {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.founderRole {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stats li {
+  padding: 10px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+/* ---------- everything you own ---------- */
+
+.product {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+
+.rows,
+.bonusRows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rows li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.rows li strong {
+  white-space: nowrap;
+  color: var(--green-dark);
+}
+
+.bonusRows {
+  gap: 6px;
+}
+
+.bonusRows li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: #fef9c3;
+  color: #854d0e;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.bonusRows li > strong {
+  white-space: nowrap;
+}
+
+.finale {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 26px 16px 30px;
+  border-radius: 16px;
+  background: #0b1220;
+  text-align: center;
+}
+
+.finale p {
+  margin: 0;
+}
+
+.finaleTotal {
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+.finaleTotal span,
+.finaleBirthday span {
+  color: #fde047;
+}
+
+.finaleLifetime {
+  font-size: 22px;
+  font-weight: 700;
+  color: #e5e7eb;
+}
+
+.finaleLifetime s {
+  font-size: 26px;
+  color: #ffffff;
+  text-decoration-color: #ef4444;
+  text-decoration-thickness: 2px;
+}
+
+.finaleBirthday {
+  margin-bottom: 10px !important;
+  font-size: 21px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.finaleGrab {
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.finaleOff {
+  font-size: 62px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -2px;
+  color: #fde047;
+}
+
+/* ---------- the guarantee ---------- */
+
+.guarantee {
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.guarantee > svg {
+  flex: 0 0 auto;
+}
+
+.guaranteeBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.signature {
+  margin: 0;
+  font-family: 'Brush Script MT', 'Segoe Script', cursive;
+  font-size: 34px;
+  color: #1e3a8a;
+}
+
+/* ---------- the phone bar ---------- */
+
+.bar {
+  justify-content: center;
+}
+
+@media (min-width: 760px) {
+  .topTitle {
+    font-size: 32px;
+  }
+
+  .heroTitle {
+    font-size: 52px;
+  }
+
+  .heroTile {
+    width: 170px;
+  }
+
+  .finaleOff {
+    font-size: 84px;
+  }
+
+  .stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
