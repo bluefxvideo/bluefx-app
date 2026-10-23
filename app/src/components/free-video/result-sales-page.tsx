@@ -93,6 +93,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             </h1>
           </div>
           <p className={s.topSample}>{top.sample}</p>
+          <EditTutorial />
           <div className={s.topNext}>
             <p className={s.topKicker}>{hero.kicker}</p>
           </div>
@@ -533,6 +534,41 @@ function Bold({ text, words }: { text: string; words: readonly string[] }) {
 }
 
 /** A buy button: the name, "$297 once, for life", the card logos, and a line under it. */
+/** The owner's tutorial on changing a video ad: its picture and title; a click plays it in place. */
+function EditTutorial() {
+  const { tutorial } = RESULT_SALES.top;
+  const [playing, setPlaying] = useState(false);
+  if (playing) {
+    return (
+      <div className={s.tutorialPlayer}>
+        <iframe
+          src={`https://www.youtube-nocookie.com/embed/${tutorial.youtubeId}?autoplay=1&rel=0`}
+          title={tutorial.label}
+          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+  return (
+    <button type="button" className={s.tutorial} onClick={() => setPlaying(true)}>
+      <span className={s.tutorialThumb}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`https://i.ytimg.com/vi/${tutorial.youtubeId}/maxresdefault.jpg`} alt="" loading="lazy" />
+        <span className={s.tutorialPlay} aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22">
+            <path d="M8 5v14l11-7z" fill="currentColor" />
+          </svg>
+        </span>
+      </span>
+      <span className={s.tutorialWords}>
+        <strong>{tutorial.label}</strong>
+        <span>{tutorial.text}</span>
+      </span>
+    </button>
+  );
+}
+
 function SalesBuy({
   token,
   placement,

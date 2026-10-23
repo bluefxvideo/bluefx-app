@@ -210,6 +210,12 @@ export const RESULT_SALES = {
     sample: 'Your free sample has a SAMPLE stamp. With the AI Media Machine, your video ads come without the stamp.',
     /** The button scrolls to the example video ads right below (owner 2026-10-22), so it names those. */
     seeAll: 'See more examples',
+    /** The owner's tutorial, under their video ad (owner 2026-10-23: "at the top, just under the result that they made"). */
+    tutorial: {
+      youtubeId: 'pgBrSmI1cOE',
+      label: 'Watch: how you change this video ad',
+      text: '11 minutes. Change the words, the person on camera, your photo, the voice and the music.',
+    },
   },
 
   hero: {

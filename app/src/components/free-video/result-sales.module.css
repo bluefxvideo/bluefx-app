@@ -1808,3 +1808,112 @@
 .toolsBand .splitLink {
   color: #ffffff;
 }
+
+/* The owner's tutorial under the video ad (owner 2026-10-23): a card the eye finds right after the result. */
+.tutorial {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  width: 100%;
+  max-width: 520px;
+  padding: 10px;
+  border: 2px solid var(--navy);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(20, 61, 112, 0.14);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.tutorial:hover {
+  background: #f3f7fc;
+}
+
+.tutorialThumb {
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #000000;
+}
+
+.tutorialThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tutorialPlay {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e11d2e;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.tutorialWords {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 4px 4px;
+  text-align: center;
+}
+
+/* On a computer the picture sits beside the words. */
+@media (min-width: 760px) {
+  .tutorial {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .tutorialThumb {
+    width: 190px;
+  }
+
+  .tutorialWords {
+    padding: 0;
+    text-align: left;
+  }
+}
+
+.tutorialWords strong {
+  font-size: 19px;
+  line-height: 1.3;
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.tutorialWords span {
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.tutorialPlayer {
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #000000;
+}
+
+.tutorialPlayer iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
