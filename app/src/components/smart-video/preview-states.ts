@@ -17,5 +17,6 @@ export const PREVIEW_STATES = [
   { id: 'bonus', label: 'Bonus video ads waiting' },
   { id: 'bonus-making', label: 'Bonus video ad being made' },
   { id: 'bonus-failed', label: 'Bonus video ad failed' },
+  { id: 'bonus-sites', label: 'Bonus video ads of 2 websites' },
 ] as const;
 export type PreviewState = (typeof PREVIEW_STATES)[number]['id'];

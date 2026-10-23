@@ -1291,16 +1291,43 @@ function BonusVideoAds({ onOpen, sample }: { onOpen: (jobId: string) => void; sa
     },
     onError: () => toast.error('Your bonus video ad could not start. Please try again in a minute.'),
   });
-  if (!ads.length || ads.every((ad) => ad.state === 'done')) return null;
+  // One group per website, newest first (the server's order); a website whose 3 are all made is in Your video ads.
+  const groups: BonusVideoAd[][] = [];
+  for (const ad of ads) {
+    const group = groups.find((items) => items[0].leadId === ad.leadId);
+    if (group) group.push(ad);
+    else groups.push([ad]);
+  }
+  const open = groups.filter((items) => items.some((ad) => ad.state !== 'done'));
+  if (!open.length) return null;
   return (
-    <section className="space-y-4" aria-labelledby="bonus-video-ads-title">
-      <div className="space-y-1">
-        <h2 id="bonus-video-ads-title" className="text-[22px] font-extrabold sm:text-2xl">
-          Your bonus video ads for {ads[0].site}
-        </h2>
-        <p className="text-lg text-muted-foreground">Click one, and it is ready in about 3 minutes. Your bonus video ads use no credits.</p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+    <div className="space-y-8">
+      {open.map((items) => (
+        <section key={items[0].leadId} className="space-y-4" aria-labelledby={`bonus-video-ads-${items[0].leadId}`}>
+          <div className="space-y-1">
+            <h2 id={`bonus-video-ads-${items[0].leadId}`} className="text-[22px] font-extrabold sm:text-2xl">
+              Your bonus video ads for {items[0].site}
+            </h2>
+            <p className="text-lg text-muted-foreground">Click one, and it is ready in about 3 minutes. Your bonus video ads use no credits.</p>
+          </div>
+          <BonusCards ads={items} onOpen={onOpen} make={make} />
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function BonusCards({
+  ads,
+  onOpen,
+  make,
+}: {
+  ads: BonusVideoAd[];
+  onOpen: (jobId: string) => void;
+  make: { isPending: boolean; variables?: BonusVideoAd; mutate: (ad: BonusVideoAd) => void };
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-3">
         {ads.map((ad) => {
           const starting = make.isPending && make.variables?.jobId === ad.jobId;
           return (
@@ -1328,8 +1355,7 @@ function BonusVideoAds({ onOpen, sample }: { onOpen: (jobId: string) => void; sa
             </div>
           );
         })}
-      </div>
-    </section>
+    </div>
   );
 }
 

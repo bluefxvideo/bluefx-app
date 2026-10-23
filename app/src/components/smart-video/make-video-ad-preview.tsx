@@ -136,12 +136,12 @@ const freeBase: SmartVideoJob = {
 
 /** The 3 bonus video ads of a buyer (a real dry run on jmpaintingservices.com, 2026-10-19). */
 const BONUS_PICTURES = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/free-video/next-ads/preview';
-const bonusAds = (states: BonusVideoAd['state'][]): BonusVideoAd[] =>
+const bonusAds = (states: BonusVideoAd['state'][], leadId = 'lead', site = 'jmpaintingservices.com'): BonusVideoAd[] =>
   [
     { n: 2 as const, title: 'Why Christine loves her clean paint job', teaser: 'Christine shares how the painters arrived on time, left no mess, and double checked her satisfaction.' },
     { n: 3 as const, title: 'The faded exterior siding needing fresh paint', teaser: 'A presenter points to dirty, faded exterior siding and explains how surface washing and painting fixes it.' },
     { n: 4 as const, title: 'Your free estimate booked within 24 hours', teaser: 'A presenter holds a clipboard and explains how to get a clear, zero-pressure quote today.' },
-  ].map((ad, index) => ({ ...ad, leadId: 'lead', site: 'jmpaintingservices.com', imageUrl: `${BONUS_PICTURES}/n${ad.n}.jpg?v=jm8`, jobId: id(20 + index), state: states[index] }));
+  ].map((ad, index) => ({ ...ad, leadId, site, imageUrl: `${BONUS_PICTURES}/n${ad.n}.jpg?v=jm8`, jobId: `${leadId}-${id(20 + index)}`, state: states[index] }));
 const bonusFailed: SmartVideoJob = {
   id: id(21),
   userId: 'preview',
@@ -180,6 +180,7 @@ function jobsFor(state: PreviewState): { job: SmartVideoJob | null; history: Sma
     case 'free-arriving':
       return { job: freeBase, history: [freeBase] };
     case 'bonus':
+    case 'bonus-sites':
     case 'bonus-making':
       return { job: null, history: [{ ...freeBase, status: 'done', videoUrl: realtor.videoUrl, freeSite: 'jmpaintingservices.com' }] };
     case 'bonus-failed':
@@ -266,7 +267,9 @@ export function MakeVideoAdPreview({ state, theme, empty, bare }: { state: Previ
                   ? bonusAds(['making', 'new', 'new'])
                   : state === 'bonus-failed'
                     ? bonusAds(['done', 'failed', 'new'])
-                    : undefined,
+                    : state === 'bonus-sites'
+                      ? [...bonusAds(['new', 'new', 'new'], 'newest', 'aispartan.com'), ...bonusAds(['done', 'new', 'new'])]
+                      : undefined,
           }}
         />
       </DashboardLayout>

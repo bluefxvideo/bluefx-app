@@ -1,7 +1,6 @@
 /**
- * The 3 bonus video ads (owner 2026-10-19): a lead who buys the AI Media Machine while the 2 free bonuses run (72 hours
- * after the free video ad was ready) gets the next 3 video ads the result page showed (next-ads.ts) in the new
- * account, each made at no credits when the buyer clicks it (owner: "They click on it, and I think that's simple as it
+ * The 3 bonus video ads (owner 2026-10-19; since 2026-10-23 for every account a free video ad lands in, whenever the
+ * purchase): the account gets the next 3 video ads the result page showed (next-ads.ts), each made at no credits when the buyer clicks it (owner: "They click on it, and I think that's simple as it
  * gets"; nothing is written or made before that click).
  *
  * - The sweep hands the lead's 3 to the account (offerBonusAds: next_ads.buyerId) once the purchase is paired with the
@@ -21,7 +20,6 @@ import { createHash } from 'node:crypto';
 import { alertOwner } from '@/lib/free-video/alerts';
 import { getLead, leadsTable } from '@/lib/free-video/leads';
 import { websiteTextOf } from '@/lib/free-video/next-ads';
-import { CLEAN_COPY_HOURS } from '@/lib/free-video/offer';
 import { inBackground } from '@/lib/free-video/unlock';
 import { displayDomain } from '@/lib/free-video/website';
 import { createJob, jobsTable, runSmartVideoJob, type SavedPlan, STALE_AFTER_MS } from '@/lib/smart-video/jobs';
@@ -30,7 +28,6 @@ import { usage } from '@/lib/smart-video/usage';
 import type { BonusVideoAd, FreeVideoLead, FreeVideoNextAd, FreeVideoNextAdKind } from '@/types/free-video';
 import type { SmartVideoJob } from '@/types/smart-video';
 
-const HOUR_MS = 3_600_000;
 /** A bonus video ad is made at most this many times (a failure or a death, then again on the next click). */
 const MAX_ATTEMPTS = 3;
 
@@ -43,18 +40,16 @@ export function bonusIdOf(leadId: string, userId: string, n: number): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
-/** Whether a lead's purchase earns the 3 bonus video ads: bought while the bonus ran, with its 3 planned. A customer who already had the AI Media Machine never bought through the page. */
-export function bonusEarned(lead: Pick<FreeVideoLead, 'status' | 'is_customer' | 'bought_at' | 'finished_at' | 'next_ads'>): boolean {
-  if (lead.status !== 'done' || lead.is_customer || !lead.bought_at || !lead.finished_at) return false;
-  if ((lead.next_ads?.ads?.length ?? 0) !== 3) return false;
-  const bought = Date.parse(lead.bought_at);
-  const finished = Date.parse(lead.finished_at);
-  return Number.isFinite(bought) && Number.isFinite(finished) && bought <= finished + CLEAN_COPY_HOURS * HOUR_MS;
-}
-
-/** The sweep's share: the lead's 3 become the account's (once). Throws on a failed write, so the next sweep tries again. */
+/**
+ * The sweep's share: the lead's 3 become the account's (once), for every account a free video ad is copied into:
+ * a buyer whenever they bought, an existing customer, the owner (owner 2026-10-23: "Let them have it. It doesn't
+ * matter if they buy, even if they buy it later on ... Every time I make a new ad, I should get that plus the three
+ * unfinished ads"). Only the cards move; each video ad is made on its click. Cards already handed to another account
+ * stay there. Throws on a failed write, so the next sweep tries again.
+ */
 export async function offerBonusAds(lead: FreeVideoLead, userId: string): Promise<void> {
-  if (!bonusEarned(lead) || !lead.next_ads || lead.next_ads.buyerId === userId) return;
+  if (lead.status !== 'done' || !lead.next_ads || (lead.next_ads.ads?.length ?? 0) !== 3) return;
+  if (lead.next_ads.buyerId) return;
   const { error } = await leadsTable()
     .update({ next_ads: { ...lead.next_ads, buyerId: userId } })
     .eq('id', lead.id);
@@ -87,7 +82,12 @@ const working = (row: Row) => row.status !== 'done' && row.status !== 'failed' &
 
 /** The bonus video ads waiting in an account, with how far each one is. Throws on a failed read. */
 export async function bonusVideoAdsOf(userId: string): Promise<BonusVideoAd[]> {
-  const { data, error } = await leadsTable().select('id, website_domain, next_ads').eq('next_ads->>buyerId', userId).limit(5);
+  // Newest website first: each free video ad brings its own 3 (Make a Video Ad shows them by website).
+  const { data, error } = await leadsTable()
+    .select('id, website_domain, next_ads')
+    .eq('next_ads->>buyerId', userId)
+    .order('finished_at', { ascending: false })
+    .limit(20);
   if (error) throw new Error(error.message);
   const leads = (data ?? []) as Pick<FreeVideoLead, 'id' | 'website_domain' | 'next_ads'>[];
   const cards = leads.flatMap((lead) => (lead.next_ads?.ads ?? []).map((ad) => ({ lead, ad, jobId: bonusIdOf(lead.id, userId, ad.n) })));

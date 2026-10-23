@@ -275,12 +275,12 @@ const writing = new Set<string>();
 const failedAt = new Map<string, number>();
 const RETRY_AFTER_MS = 6 * 60 * 60_000;
 
-/** Whether a lead still needs its 3: none yet, and not a customer (a customer makes video ads in the AI Media Machine). False on a failed read and in fake mode. */
+/** Whether a lead still needs its 3: none yet. A customer's lead gets them too, as cards in the account (bonus-ads.ts, owner 2026-10-23). False on a failed read and in fake mode. */
 export async function nextAdsWanted(leadId: string): Promise<boolean> {
   if (fakeMode()) return false;
   try {
-    const { data, error } = await leadsTable().select('next_ads, is_customer').eq('id', leadId).maybeSingle();
-    return !error && Boolean(data) && !data.next_ads && !data.is_customer;
+    const { data, error } = await leadsTable().select('next_ads').eq('id', leadId).maybeSingle();
+    return !error && Boolean(data) && !data.next_ads;
   } catch {
     return false;
   }
@@ -335,7 +335,6 @@ export async function writeMissingNextAds(own: (query: any) => any): Promise<num
       .select('id, job_id, website_domain')
       .eq('status', 'done')
       .is('next_ads', null)
-      .eq('is_customer', false)
       .gt('finished_at', isoMinutesAgo(CLEAN_COPY_HOURS * 60))
       .lt('finished_at', isoMinutesAgo(5))
   )
