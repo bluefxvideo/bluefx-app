@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
-import { PLAYER } from '@/lib/free-video/copy';
+import { LAYOUT, PLAYER } from '@/lib/free-video/copy';
 import { goUrl, type ResultPagePlacement } from '@/lib/free-video/offer';
 import { bonusDeadlineLabel, RESULT_PAGE, REVIEW_FACES, VIDEO_REVIEWS, VIDEO_REVIEWS_UNDER_ADS } from '@/lib/free-video/result-page';
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
@@ -948,6 +948,11 @@ export function Legal() {
       {legal.notes.map((note) => (
         <p key={note.slice(0, 24)}>{note}</p>
       ))}
+      <p className={styles.legalCredit} data-fv-geo-credit="">
+        <a href={LAYOUT.geoCreditUrl} target="_blank" rel="noopener noreferrer">
+          {LAYOUT.geoCredit}
+        </a>
+      </p>
     </div>
   );
 }

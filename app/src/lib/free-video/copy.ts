@@ -33,7 +33,7 @@ export const LAYOUT = {
   terms: 'Terms',
   termsUrl: 'https://bluefx.net/terms/',
   copyright: '© BlueFX',
-  /** DB-IP's free country database finds the visitor's country (geo.ts); its license (CC BY 4.0) asks for this credit. */
+  /** DB-IP's free country database (owner 2026-10-23: keep it, but small: the last line of the page's legal notes, or the footer's small print on pages without them) finds the visitor's country (geo.ts); its license (CC BY 4.0) asks for this credit. */
   geoCredit: 'IP geolocation by DB-IP',
   geoCreditUrl: 'https://db-ip.com',
 } as const;

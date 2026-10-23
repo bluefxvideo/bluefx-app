@@ -127,6 +127,29 @@
   color: #d4d4d4;
   text-decoration: underline;
 }
+/* The DB-IP credit: small print under the links (owner 2026-10-23). */
+.footerLegal {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 20px 18px;
+  color: #9fb0c8;
+}
+/* A page with its own legal notes carries the credit there (result-page.tsx Legal). */
+.root:has([data-fv-geo-credit]) .footerLegal {
+  display: none;
+}
+.footerLegal p {
+  margin: 0;
+}
+.footer .footerCredit {
+  margin-top: -6px;
+  font-size: 10.5px;
+  opacity: 0.6;
+}
+.footer .footerCredit a {
+  color: inherit;
+  text-decoration: none;
+}
 .footer :focus-visible {
   outline-color: #ffffff;
 }

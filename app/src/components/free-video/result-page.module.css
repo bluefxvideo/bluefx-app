@@ -1941,6 +1941,16 @@
   color: var(--muted);
 }
 
+/* The DB-IP credit (owner 2026-10-23): the last, faintest line of the notes. */
+.legal .legalCredit {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.legal .legalCredit a {
+  text-decoration: none;
+}
+
 /* ------------------------------------------------------------------------------------------------ */
 /* The chat bubble (chat-launcher.tsx): Szilard's face at the bottom right, above the buy bar on a phone */
 
