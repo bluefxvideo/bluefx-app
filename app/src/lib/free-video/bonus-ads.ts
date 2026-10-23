@@ -18,11 +18,13 @@
  */
 import { createHash } from 'node:crypto';
 import { alertOwner } from '@/lib/free-video/alerts';
-import { FREE_DIRECTOR } from '@/lib/free-video/config';
+import { FREE_DIRECTOR, freeNote } from '@/lib/free-video/config';
+import { checkFreeScript } from '@/lib/free-video/script-checks';
 import { getLead, leadsTable } from '@/lib/free-video/leads';
 import { websiteTextOf } from '@/lib/free-video/next-ads';
 import { inBackground } from '@/lib/free-video/unlock';
 import { displayDomain } from '@/lib/free-video/website';
+import { libraryTrackUrl } from '@/lib/smart-video/music-library';
 import { createJob, jobsTable, runSmartVideoJob, type SavedPlan, STALE_AFTER_MS } from '@/lib/smart-video/jobs';
 import type { ClientFile } from '@/lib/smart-video/prepare-assets';
 import { usage } from '@/lib/smart-video/usage';
@@ -132,11 +134,13 @@ export async function makeBonusVideoAd(userId: string, leadId: string, n: number
     id: jobId,
     userId,
     status: 'reading',
-    brief: noteOf(ad, domain),
+    // The card's note first (its first line names the video ad), then the free video ad's own note: the same length,
+    // hand-drawn look and drawing rules as the free video ad (owner 2026-10-23: "exactly the same way").
+    brief: `${noteOf(ad, domain)}\n\n${freeNote(domain)}`,
     link: lead.website_url,
     length: 'auto',
     format: 'vertical',
-    look: 'auto',
+    look: 'whiteboard',
     voiceOver: true,
     music: true,
     presenter: true,
@@ -174,7 +178,17 @@ async function makeIt(lead: FreeVideoLead, ad: FreeVideoNextAd, job: SmartVideoJ
     // The same script writer as the free video ad (owner 2026-10-23: "if you were able to make an initial ad, why are
     // you not able to exactly the same way make also the three other ads?"): Flash with the looser rules. The strict
     // director rejected bonus plans over block counts until its tries ran out, or timed out.
-    options: (base) => ({ ...base, director: FREE_DIRECTOR, presenter: true, presenterCast: ad.imageUrl ? () => presenterFromCard(ad, ad.imageUrl as string) : undefined }),
+    // Like the free video ad too: a checked track from the music library (a new song took 3 tries and minutes, then fell
+    // back to the library anyway: 9-minute bonus ads, 2026-10-23) and a still camera on animated photos.
+    options: (base) => ({
+      ...base,
+      director: FREE_DIRECTOR,
+      stillCamera: true,
+      pickMusic: (musicPrompt, _style, script) => libraryTrackUrl(musicPrompt, script),
+      checkScript: (plan) => checkFreeScript(plan, material?.brief ?? ''),
+      presenter: true,
+      presenterCast: ad.imageUrl ? () => presenterFromCard(ad, ad.imageUrl as string) : undefined,
+    }),
   });
   const { data } = await jobsTable().select('status').eq('id', job.id).maybeSingle();
   if (data?.status === 'done') {
