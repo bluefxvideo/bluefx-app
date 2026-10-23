@@ -227,6 +227,28 @@ export const RESULT_SALES = {
     },
   },
 
+  /**
+   * The walkthrough near the end of the page: the owner's edit tutorial instead of the 17-minute tour (owner 2026-10-23:
+   * "replace the tut at the bottom too"). Chapters from his own script. The classic page and the walkthrough email keep
+   * the 17-minute tour.
+   */
+  walkthroughVideo: {
+    anchor: 'walkthrough',
+    youtubeId: 'pgBrSmI1cOE',
+    poster: 'https://i.ytimg.com/vi/pgBrSmI1cOE/maxresdefault.jpg?v=2',
+    title: 'Watch me use the AI Media Machine on my own screen',
+    lead: '11 minutes: I change a video ad for dentists, put myself on camera, change the music and the voice, show the 3 extra video ads and open every tool you get.',
+    playLabel: 'Play the 11 minute walkthrough',
+    chapters: [
+      { label: 'Change a video ad', at: 174 },
+      { label: 'Put yourself on camera', at: 288 },
+      { label: 'Music and voice', at: 327 },
+      { label: 'Your 3 extra video ads', at: 433 },
+      { label: 'Every tool', at: 511 },
+    ],
+    length: '11:08',
+  },
+
   hero: {
     kicker: 'You just saw what 1 tool of the AI Media Machine can do. Now let me show you all 12 tools you get.',
     pill: 'AI Media Machine',
@@ -503,7 +525,7 @@ export const RESULT_SALES = {
       {
         q: 'Do I have to use all 12 tools?',
         a: [
-          'No. Start with Phantom Ad Maker, the tool that made your video ad: type your website, and Phantom Ad Maker makes your next video ad. Open the other 11 tools when your business needs a new kind of video ad, a voice-over, music or an ebook. The 17-minute walkthrough below shows all 12 tools.',
+          'No. Start with Phantom Ad Maker, the tool that made your video ad: type your website, and Phantom Ad Maker makes your next video ad. Open the other 11 tools when your business needs a new kind of video ad, a voice-over, music or an ebook. The 11-minute walkthrough below shows all 12 tools.',
         ],
       },
     ],

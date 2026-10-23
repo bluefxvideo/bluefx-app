@@ -463,7 +463,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </section>
       </div>
 
-      <Walkthrough token={token} />
+      <Walkthrough token={token} video={RESULT_SALES.walkthroughVideo} />
       <div className={cn(rp.wrap, rp.narrow, s.sectionTight)}>
         <SalesBuy token={token} placement="fvres3" />
       </div>

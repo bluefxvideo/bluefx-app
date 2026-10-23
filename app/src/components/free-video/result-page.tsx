@@ -839,9 +839,21 @@ export function Viewer({ item, onClose }: { item: (typeof RESULT_PAGE.examples.i
 }
 
 /** Szilard's walkthrough as the boards show it: the picture with its length, then the video in place on a tap, from the start or from a chapter. */
-export function Walkthrough({ token }: { token: string }) {
-  const { tour } = SALES_PAGE;
-  const { walkthrough } = RESULT_PAGE;
+/** A walkthrough video: the sales page's 17-minute tour, or another one (the result page "the sales page way" shows the edit tutorial). */
+export type WalkthroughVideo = {
+  anchor: string;
+  youtubeId: string;
+  poster: string;
+  title: string;
+  lead: string;
+  playLabel: string;
+  chapters: readonly { label: string; at: number }[];
+  length: string;
+};
+
+export function Walkthrough({ token, video }: { token: string; video?: WalkthroughVideo }) {
+  const tour = video ?? SALES_PAGE.tour;
+  const walkthrough = { ...RESULT_PAGE.walkthrough, ...(video ? { length: video.length } : {}) };
   const beacon = useFreeVideoBeacon(token);
   const [from, setFrom] = useState<number | null>(null);
   const play = (at: number) => {
@@ -870,7 +882,7 @@ export function Walkthrough({ token }: { token: string }) {
       <div className={styles.walkVideo}>
         {from === null ? (
           <button type="button" className={styles.walkPoster} onClick={() => play(0)} aria-label={tour.playLabel}>
-            <Image src={tour.poster} alt={walkthrough.posterAlt} width={1280} height={720} sizes="(min-width: 960px) 584px, 100vw" />
+            <Image src={tour.poster} alt={walkthrough.posterAlt} width={1280} height={720} sizes="(min-width: 960px) 584px, 100vw" unoptimized={tour.poster.startsWith('https://')} />
             <span className={styles.walkPlay} aria-hidden="true">
               <PlayIcon size={28} />
             </span>
