@@ -1851,17 +1851,18 @@
 
 .tutorialPlay {
   position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 56px;
-  height: 56px;
+  left: 10px;
+  bottom: 10px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding-left: 2px;
   border-radius: 999px;
-  background: #e11d2e;
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--navy);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .tutorialWords {
@@ -1910,7 +1911,7 @@
   align-items: center;
   justify-content: center;
   padding: 16px;
-  background: rgba(0, 0, 0, 0.88);
+  background: rgba(0, 0, 0, 0.95);
 }
 
 .tutorialClose {
@@ -1929,11 +1930,86 @@
 }
 
 .tutorialPlayer {
-  width: min(100%, 1200px, calc((100vh - 120px) * 16 / 9));
+  width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
   border-radius: 12px;
   background: #000000;
+}
+
+/* The player and the buy button under it, as large as the screen allows. */
+.tutorialStage {
+  width: min(100%, 1200px, calc((100vh - 220px) * 16 / 9));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tutorialStage :global(p[class*='buyNote']) {
+  color: #d6dde8;
+}
+
+.tutorialBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 520px;
+}
+
+.tutorialJump {
+  margin: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.tutorialJump::-webkit-scrollbar {
+  display: none;
+}
+
+.tutorialJump button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tutorialJump > span {
+  align-self: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.tutorialJump button {
+  padding: 6px 10px;
+  border: 1px solid #c9d5e6;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--navy);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tutorialJump button:hover {
+  background: #eef3fa;
+}
+
+@media (min-width: 760px) {
+  .tutorialBox {
+    align-items: flex-start;
+  }
+
+  .tutorialJump {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
 }
 
 .tutorialPlayer iframe {

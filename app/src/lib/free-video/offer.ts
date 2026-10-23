@@ -31,6 +31,7 @@ export const PLACEMENTS = [
   'fvres6',
   'fvrestools',
   'fvsplit',
+  'fvrestut',
   'fvmail1',
   'fvmail2',
   'fvmail3',
@@ -92,7 +93,7 @@ export const salesPageUrl = (placement: SalesPagePlacement, leadId?: string | nu
  * and the lead's id as the vendor tracking id (resultCheckoutUrl), so a sale paid with another email still finds its
  * lead, and the click is an InitiateCheckout like every checkout click.
  */
-export const RESULT_PAGE_PLACEMENTS = ['fvres1', 'fvres2', 'fvres3', 'fvresads', 'fvresbar', 'fvres4', 'fvres5', 'fvres6', 'fvrestools', 'fvsplit'] as const satisfies readonly Placement[];
+export const RESULT_PAGE_PLACEMENTS = ['fvres1', 'fvres2', 'fvres3', 'fvresads', 'fvresbar', 'fvres4', 'fvres5', 'fvres6', 'fvrestools', 'fvsplit', 'fvrestut'] as const satisfies readonly Placement[];
 export type ResultPagePlacement = (typeof RESULT_PAGE_PLACEMENTS)[number];
 export function isResultPagePlacement(value: string): value is ResultPagePlacement {
   return (RESULT_PAGE_PLACEMENTS as readonly string[]).includes(value);
@@ -100,7 +101,7 @@ export function isResultPagePlacement(value: string): value is ResultPagePlaceme
 
 /** The 8 characters of a lead's id inside a vtid that carries one ("fvready_1a2b3c4d", "fvres1_1a2b3c4d" → "1a2b3c4d"), null for any other tracking id. */
 export function leadPrefixOfVtid(vtid: string | null | undefined): string | null {
-  const match = /^(?:fvready|fvreadyend|fvland|fvres1|fvres2|fvres3|fvres4|fvres5|fvres6|fvresads|fvresbar|fvrestools|fvsplit)_([0-9a-f]{8})$/.exec(String(vtid ?? '').trim().toLowerCase());
+  const match = /^(?:fvready|fvreadyend|fvland|fvres1|fvres2|fvres3|fvres4|fvres5|fvres6|fvresads|fvresbar|fvrestools|fvsplit|fvrestut)_([0-9a-f]{8})$/.exec(String(vtid ?? '').trim().toLowerCase());
   return match ? match[1] : null;
 }
 /** Every lifetime offer button on a funnel page: the pages' own buttons, the offer card's, the result page's buttons to the sales page and its checkout buttons. A cta_click on one of these is an offer click. */

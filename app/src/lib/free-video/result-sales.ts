@@ -213,8 +213,17 @@ export const RESULT_SALES = {
     /** The owner's tutorial, under their video ad (owner 2026-10-23: "at the top, just under the result that they made"). */
     tutorial: {
       youtubeId: 'pgBrSmI1cOE',
-      label: 'Watch: how you change this video ad',
-      text: '11 minutes. Change the words, the person on camera, your photo, the voice and the music.',
+      label: 'Change anything in your video ad: here is how',
+      text: '11 minutes, real example, no editing skills needed. You make the changes inside the AI Media Machine.',
+      /** Jump links into the tutorial (seconds), from the owner's own script (2026-10-23). */
+      chapters: [
+        { at: 174, label: 'A new person on camera' },
+        { at: 288, label: 'Put yourself on camera' },
+        { at: 327, label: 'Change the music' },
+        { at: 387, label: 'Change the voice' },
+        { at: 433, label: 'Your 3 extra video ads' },
+      ],
+      jump: 'Jump to:',
     },
   },
 

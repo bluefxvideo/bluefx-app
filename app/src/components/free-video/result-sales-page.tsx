@@ -93,7 +93,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             </h1>
           </div>
           <p className={s.topSample}>{top.sample}</p>
-          <EditTutorial />
+          <EditTutorial token={token} />
           <div className={s.topNext}>
             <p className={s.topKicker}>{hero.kicker}</p>
           </div>
@@ -534,57 +534,71 @@ function Bold({ text, words }: { text: string; words: readonly string[] }) {
 }
 
 /** A buy button: the name, "$297 once, for life", the card logos, and a line under it. */
-/** The owner's tutorial on changing a video ad: its picture and title; a click plays it in place. */
-function EditTutorial() {
+/**
+ * The owner's tutorial on changing a video ad (owner 2026-10-23, Ogilvy: right under their own video ad, because the
+ * first thing people ask is how to change it). The card, then jump links into it; it opens big over the page, with the
+ * buy button under the player, and the buy button stays under the card once they close it (all 5 experts).
+ */
+function EditTutorial({ token }: { token: string }) {
   const { tutorial } = RESULT_SALES.top;
-  const [playing, setPlaying] = useState(false);
+  const [start, setStart] = useState<number | null>(null);
+  const [watched, setWatched] = useState(false);
+  const close = () => {
+    setStart(null);
+    setWatched(true);
+  };
   useEffect(() => {
-    if (!playing) return;
-    const close = (event: KeyboardEvent) => event.key === 'Escape' && setPlaying(false);
-    window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
-  }, [playing]);
+    if (start === null) return;
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && close();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [start]);
+  const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   return (
-    <>
-      {/* A tap opens the tutorial big, over the page (owner 2026-10-23: "they will open that up so they can see fully"). */}
-      {playing && (
-        <div className={s.tutorialOverlay} role="dialog" aria-modal="true" aria-label={tutorial.label} onClick={() => setPlaying(false)}>
-          <button type="button" className={s.tutorialClose} onClick={() => setPlaying(false)} aria-label="Close">
+    <div className={s.tutorialBox}>
+      {start !== null && (
+        <div className={s.tutorialOverlay} role="dialog" aria-modal="true" aria-label={tutorial.label} onClick={close}>
+          <button type="button" className={s.tutorialClose} onClick={close} aria-label="Close">
             &times;
           </button>
-          <div className={s.tutorialPlayer} onClick={(event) => event.stopPropagation()}>
-            <iframe
-              src={`https://www.youtube-nocookie.com/embed/${tutorial.youtubeId}?autoplay=1&rel=0`}
-              title={tutorial.label}
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-            />
+          <div className={s.tutorialStage} onClick={(event) => event.stopPropagation()}>
+            <div className={s.tutorialPlayer}>
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${tutorial.youtubeId}?autoplay=1&rel=0&start=${start}`}
+                title={tutorial.label}
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen
+              />
+            </div>
+            <SalesBuy token={token} placement="fvrestut" split={false} />
           </div>
         </div>
       )}
-      <TutorialCard onOpen={() => setPlaying(true)} />
-    </>
-  );
-}
-
-function TutorialCard({ onOpen }: { onOpen: () => void }) {
-  const { tutorial } = RESULT_SALES.top;
-  return (
-    <button type="button" className={s.tutorial} onClick={onOpen}>
-      <span className={s.tutorialThumb}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`https://i.ytimg.com/vi/${tutorial.youtubeId}/maxresdefault.jpg`} alt="" loading="lazy" />
-        <span className={s.tutorialPlay} aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="22" height="22">
-            <path d="M8 5v14l11-7z" fill="currentColor" />
-          </svg>
+      <button type="button" className={s.tutorial} onClick={() => setStart(0)}>
+        <span className={s.tutorialThumb}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`https://i.ytimg.com/vi/${tutorial.youtubeId}/maxresdefault.jpg?v=2`} alt="" loading="lazy" />
+          <span className={s.tutorialPlay} aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16">
+              <path d="M8 5v14l11-7z" fill="currentColor" />
+            </svg>
+          </span>
         </span>
-      </span>
-      <span className={s.tutorialWords}>
-        <strong>{tutorial.label}</strong>
-        <span>{tutorial.text}</span>
-      </span>
-    </button>
+        <span className={s.tutorialWords}>
+          <strong>{tutorial.label}</strong>
+          <span>{tutorial.text}</span>
+        </span>
+      </button>
+      <p className={s.tutorialJump}>
+        <span>{tutorial.jump}</span>
+        {tutorial.chapters.map((chapter) => (
+          <button key={chapter.at} type="button" onClick={() => setStart(chapter.at)}>
+            {clock(chapter.at)} {chapter.label}
+          </button>
+        ))}
+      </p>
+      {watched && <SalesBuy token={token} placement="fvrestut" split={false} />}
+    </div>
   );
 }
 
