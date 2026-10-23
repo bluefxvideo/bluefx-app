@@ -19,7 +19,7 @@ import { captionDigits, withDigits, type NumberSpan } from './numbers';
 import { alignScript, cueTime } from './timing';
 import { buildTheme, cropToFrame, cutOutLogo } from './brand';
 import { tracePng } from './drawing-path';
-import { castPersona, castPresenter, PRESENTER_ASSET, PRESENTER_MAX_WORDS, talkingPresenter } from './presenter';
+import { castPersona, castPresenter, PRESENTER_ASSET, PRESENTER_MAX_WORDS, swapIntoPresenter, talkingPresenter } from './presenter';
 import {
   LISTING_MAX_PAUSE,
   LISTING_MIN_PHOTOS,
@@ -141,6 +141,8 @@ export interface ReviseOptions {
   presenter?: string;
   /** The client ticked it and uploaded their own photo of the person (prepare-assets presenterPhotoFromUpload): filmed as it is. */
   presenterPhoto?: Buffer;
+  /** With presenterPhoto on a video that has a presenter: film the photo as it is. Absent: the person takes the current presenter's place. */
+  presenterPhotoAsIs?: boolean;
 }
 
 export interface SmartVideoOptions {
@@ -497,10 +499,21 @@ export async function reviseSmartVideo(
     const kept = opener?.asset === PRESENTER_ASSET && previous.media.assets[PRESENTER_ASSET] ? previous.plan.scenes[0] : null;
     const words = options.presenter?.trim() || null;
     const asked = Boolean(words || options.presenterPhoto);
+    let swapFailed = false;
     const request = presenterAllowed && asked;
-    const uploaded = request ? options.presenterPhoto ?? null : null;
+    let uploaded = request ? options.presenterPhoto ?? null : null;
     // The director sees the current presenter, so a new person keeps the place, the prop and the framing.
-    const oldPhoto = request && kept && !uploaded ? await presenterPhotoOf(previous.media.assets[PRESENTER_ASSET].url) : null;
+    const oldPhoto = request && kept ? await presenterPhotoOf(previous.media.assets[PRESENTER_ASSET].url) : null;
+    // The client's photo on a video that has a presenter: the client takes the presenter's place (same place, clothes
+    // and pose), unless they asked for their photo as it is. When that fails, their photo is filmed as it is.
+    if (uploaded && oldPhoto && !options.presenterPhotoAsIs) {
+      const own = uploaded;
+      uploaded = await swapIntoPresenter(oldPhoto, own).catch((error) => {
+        console.warn('⚠️ Putting the client in the presenter\'s place failed, their photo is filmed as it is:', String(error).slice(0, 200));
+        swapFailed = true;
+        return own;
+      });
+    }
     // A change of the sound alone needs no new plan: the same video is rendered with another soundtrack.
     const revised =
       note.trim() || request
@@ -512,11 +525,12 @@ export async function reviseSmartVideo(
             previous.media.format,
             added,
             listing,
-            presenterAllowed ? { current: Boolean(kept), photo: oldPhoto, request: request ? words : null, uploaded } : null
+            presenterAllowed ? { current: Boolean(kept), photo: uploaded ? null : oldPhoto, request: request ? words : null, uploaded } : null
           )
         : { plan: previous.plan, newPresenter: null, removePresenter: false };
     const plan = revised.plan;
     const warnings: string[] = [];
+    if (swapFailed) warnings.push("Your photo could not be put in the presenter's place this time, so it is filmed as it is.");
     // Without "Change the presenter" the presenter's scene stays as it was filmed (their clip says the old words),
     // unless the note asked to remove them.
     if (kept && !request) {

@@ -97,6 +97,35 @@ export async function castPresenter(photo: string): Promise<Buffer> {
   return Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer());
 }
 
+const EDIT_MODEL = 'openai/gpt-image-2.5/flare/edit';
+
+/**
+ * The client's own photo put in the current presenter's place (owner 2026-10-23: "I want to be the exact doctor"): the
+ * same place, clothes, pose, prop and framing as the presenter's photo, with the client's face, hair and build. Returns
+ * a vertical photo ready to film (about $0.07).
+ */
+export async function swapIntoPresenter(presenterPhoto: Buffer, person: Buffer): Promise<Buffer> {
+  const dataUri = (data: Buffer) => `data:image/jpeg;base64,${data.toString('base64')}`;
+  const res = await fetch(`https://fal.run/${EDIT_MODEL}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` },
+    body: JSON.stringify({
+      prompt:
+        'Image 1 is a scene. Image 2 is a real person. Make image 1 again with the person from image 2 in it: their exact face, head shape, hair, skin, age and build, so they are clearly the same person as in image 2. Keep everything else from image 1: the same clothes, pose, hands, framing, place, light and camera. Looking into the camera, mouth closed, a slight smile. Photorealistic, realistic skin texture. Nothing written anywhere: no text, no letters, no logos.',
+      image_urls: [dataUri(presenterPhoto), dataUri(person)],
+      image_size: { width: 1088, height: 1920 },
+      quality: 'high',
+      output_format: 'jpeg',
+      num_images: 1,
+    }),
+    signal: AbortSignal.timeout(240_000),
+  });
+  if (!res.ok) throw new Error(`Putting the client in the presenter's place failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  const json = await res.json();
+  usage.presenterPhoto();
+  return Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer());
+}
+
 /** The longest scene 1 the presenter says; a longer one stays with the narrator. */
 export const PRESENTER_MAX_WORDS = 16;
 

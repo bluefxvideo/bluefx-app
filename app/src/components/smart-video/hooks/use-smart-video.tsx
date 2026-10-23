@@ -160,7 +160,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
       note: string,
       added: File[] = [],
       sound?: { voiceOver: boolean; music: boolean },
-      presenter?: { who?: string; photo?: File }
+      presenter?: { who?: string; photo?: File; photoAsIs?: boolean }
     ) => {
       if (!jobId) return false;
       setRevising(true);
@@ -182,7 +182,16 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
           uploads = slots.slice(0, added.length);
           if (presenter?.photo) presenterPhoto = slots[added.length];
         }
-        const revised = await reviseSmartVideoJob({ jobId, note, ...sound, uploadJobId, uploads, presenter: presenter?.who, presenterPhoto });
+        const revised = await reviseSmartVideoJob({
+          jobId,
+          note,
+          ...sound,
+          uploadJobId,
+          uploads,
+          presenter: presenter?.who,
+          presenterPhoto,
+          ...(presenterPhoto && presenter?.photoAsIs ? { presenterPhotoAsIs: true } : {}),
+        });
         if (!revised.success) throw new Error(revised.error);
         setJobId(revised.data.jobId);
         queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
@@ -213,6 +222,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
           uploads: [],
           presenter: failed.presenterRequest,
           presenterPhoto: failed.presenterPhoto,
+          ...(failed.presenterPhotoAsIs ? { presenterPhotoAsIs: true } : {}),
         });
         if (!revised.success) throw new Error(revised.error);
         setJobId(revised.data.jobId);

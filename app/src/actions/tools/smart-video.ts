@@ -276,7 +276,7 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
       ...(parent.listing ? { listing: parent.listing } : {}),
       parentId: parent.id,
       note: parsed.note,
-      ...(wantsPresenter ? { presenter: true, presenterRequest, presenterPhoto } : {}),
+      ...(wantsPresenter ? { presenter: true, presenterRequest, presenterPhoto, ...(presenterPhoto && parsed.presenterPhotoAsIs ? { presenterPhotoAsIs: true } : {}) } : {}),
       creditsUsed: PHANTOM_REVISION_CREDITS + (wantsPresenter ? PHANTOM_PRESENTER_CHANGE_CREDITS : 0),
       createdAt: now,
       updatedAt: now,
@@ -319,7 +319,7 @@ async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob, upload
               return undefined;
             })
         : undefined;
-    const wanted = job.presenter && !photoFailed ? { presenter: job.presenterRequest, presenterPhoto } : {};
+    const wanted = job.presenter && !photoFailed ? { presenter: job.presenterRequest, presenterPhoto, presenterPhotoAsIs: job.presenterPhotoAsIs } : {};
     const revised = await reviseSmartVideo(
       { plan: saved.plan, media },
       job.note || '',

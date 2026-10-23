@@ -955,6 +955,8 @@ function ChangeBox({
   const [note, setNote] = useState(initialNote ?? '');
   const [added, setAdded] = useState<File[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
+  // With a photo on a video that has a presenter: the client takes the presenter's place unless they tick this.
+  const [photoAsIs, setPhotoAsIs] = useState(false);
   const has = { voiceOver: job.voiceOver !== false, music: job.music !== false };
   const [sound, setSound] = useState(has);
   const [soundOpen, setSoundOpen] = useState(false);
@@ -979,11 +981,12 @@ function ChangeBox({
   const presenterTotal = PHANTOM_REVISION_CREDITS + PHANTOM_PRESENTER_CHANGE_CREDITS;
 
   const send = async (withPresenter: boolean) => {
-    const presenter = withPresenter ? { who: note.trim() || undefined, photo: photo ?? undefined } : undefined;
+    const presenter = withPresenter ? { who: note.trim() || undefined, photo: photo ?? undefined, photoAsIs: Boolean(photo && hasPresenter && photoAsIs) } : undefined;
     if (await onRevise(note.trim(), added, soundChanged ? sound : undefined, presenter)) {
       setNote('');
       setAdded([]);
       setPhoto(null);
+      setPhotoAsIs(false);
       setPresenterOpen(false);
     }
   };
@@ -1065,9 +1068,17 @@ function ChangeBox({
                 <FileThumb file={photo} disabled={revising} onRemove={() => setPhoto(null)} />
               </div>
               <p className="text-[15px] leading-relaxed text-muted-foreground">
-                Your photo is filmed as it is: one person, facing the camera. Use a photo of yourself or of someone who agreed to it.
+                {hasPresenter && !photoAsIs
+                  ? 'You take the place of the person on camera now: the same place, clothes and pose, with your face. Use a photo of yourself or of someone who agreed to it.'
+                  : 'Your photo is filmed as it is: one person, facing the camera. Use a photo of yourself or of someone who agreed to it.'}
               </p>
             </div>
+          )}
+          {photo && hasPresenter && (
+            <label className="flex min-h-[44px] cursor-pointer items-center gap-3 text-[15px] leading-relaxed">
+              <input type="checkbox" className="h-5 w-5 flex-shrink-0 accent-[hsl(var(--primary))]" checked={photoAsIs} onChange={(e) => setPhotoAsIs(e.target.checked)} disabled={revising} />
+              Film my photo as it is, with its own background
+            </label>
           )}
           <BlueButton onClick={() => send(true)} disabled={revising || (!photo && note.trim().length < 3)}>
             {revising && <Loader2 className="h-5 w-5 animate-spin" />}

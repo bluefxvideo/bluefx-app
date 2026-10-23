@@ -54,6 +54,9 @@ export const SmartVideoReviseSchema = z
     // photo of the person (uploaded like the edit's files). Both absent = not ticked.
     presenter: z.string().trim().max(300).optional(),
     presenterPhoto: z.object({ name: z.string().max(200), path: z.string().max(500) }).optional(),
+    // With a photo on a video that has a presenter: true films the photo as it is; absent = the client takes the
+    // current presenter's place (same place, clothes and pose; owner 2026-10-23).
+    presenterPhotoAsIs: z.boolean().optional(),
   })
   // An edit is a note, a switch of the sound, a new presenter, or any of them together.
   .refine(
@@ -95,6 +98,8 @@ export interface SmartVideoJob {
   presenterRequest?: string;
   /** An edit with "Change the presenter": the client's own photo of the person, in their storage (a retry sends it again). */
   presenterPhoto?: { name: string; path: string };
+  /** With presenterPhoto: film the photo as it is instead of putting the person in the current presenter's place. */
+  presenterPhotoAsIs?: boolean;
   /** Set on ReelEstate's automatic listing videos. */
   listing?: ListingOptions;
   /** Listing video: the photos whose animation was charged (6 credits each), by asset id. */
