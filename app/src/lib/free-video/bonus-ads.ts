@@ -18,6 +18,7 @@
  */
 import { createHash } from 'node:crypto';
 import { alertOwner } from '@/lib/free-video/alerts';
+import { FREE_DIRECTOR } from '@/lib/free-video/config';
 import { getLead, leadsTable } from '@/lib/free-video/leads';
 import { websiteTextOf } from '@/lib/free-video/next-ads';
 import { inBackground } from '@/lib/free-video/unlock';
@@ -170,7 +171,10 @@ async function makeIt(lead: FreeVideoLead, ad: FreeVideoNextAd, job: SmartVideoJ
   });
   await runSmartVideoJob(job, [], {
     ...(material ? { readLink: async () => material } : {}),
-    options: (base) => ({ ...base, presenter: true, presenterCast: ad.imageUrl ? () => presenterFromCard(ad, ad.imageUrl as string) : undefined }),
+    // The same script writer as the free video ad (owner 2026-10-23: "if you were able to make an initial ad, why are
+    // you not able to exactly the same way make also the three other ads?"): Flash with the looser rules. The strict
+    // director rejected bonus plans over block counts until its tries ran out, or timed out.
+    options: (base) => ({ ...base, director: FREE_DIRECTOR, presenter: true, presenterCast: ad.imageUrl ? () => presenterFromCard(ad, ad.imageUrl as string) : undefined }),
   });
   const { data } = await jobsTable().select('status').eq('id', job.id).maybeSingle();
   if (data?.status === 'done') {

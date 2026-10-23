@@ -15,6 +15,8 @@ export interface DirectorOptions {
   model?: string;
   thinkingLevel?: 'minimal' | 'low' | 'medium' | 'high';
   looseRules?: boolean;
+  /** An AI presenter says scene 1 on camera: the director is told the length up front (pipeline.ts produce). */
+  presenterOpening?: boolean;
 }
 // Takes over when the director's model is overloaded: stable, sees images and video, writes JSON.
 const DIRECTOR_STAND_IN = 'gemini-2.5-pro';
@@ -152,7 +154,8 @@ export async function directVideo(
       ? 'The length is fixed by the listing rules at the end.'
       : `${LENGTH_RULES[length]} If the client's text itself asks for a length ("30 seconds", "one minute"), that wins.`
   ) + (format === 'horizontal' ? HORIZONTAL_NOTE : '') + (look && !listing ? `\n\nTHE CLIENT CHOSE THE LOOK: "style" must be "${look}". Everything else is still yours to decide.` : '')
-    + (listing && look ? listingRecipe(listing, listingPhotoCount(listing.seconds, photos), look) : '');
+    + (listing && look ? listingRecipe(listing, listingPhotoCount(listing.seconds, photos), look) : '')
+    + (writer?.presenterOpening ? `\n\nAN AI PRESENTER OPENS THIS VIDEO: a person filmed saying scene 1 on camera. Write scene 1's narration in at most ${PRESENTER_MAX_WORDS} words, even when the note asks for a story or a review in someone's own words: the story goes on in the next scenes.` : '');
   const today = `\n\nTODAY: ${new Date().toISOString().slice(0, 10)}. Leave out any deadline, sale or event date in the material that has already passed.`;
   const parts: unknown[] = [{ text: instructions }, { text: `${today}\n\nCLIENT TEXT:\n"""\n${brief}\n"""\n\nCLIENT FILES:` }];
   for (const asset of assets) {

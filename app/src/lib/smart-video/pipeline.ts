@@ -19,7 +19,7 @@ import { captionDigits, withDigits, type NumberSpan } from './numbers';
 import { alignScript, cueTime } from './timing';
 import { buildTheme, cropToFrame, cutOutLogo } from './brand';
 import { tracePng } from './drawing-path';
-import { castPersona, castPresenter, PRESENTER_ASSET, PRESENTER_MAX_WORDS, swapIntoPresenter, talkingPresenter } from './presenter';
+import { castPersona, castPresenter, PRESENTER_ASSET, PRESENTER_MAX_WORDS, shortenPresenterLine, swapIntoPresenter, talkingPresenter } from './presenter';
 import {
   LISTING_MAX_PAUSE,
   LISTING_MIN_PHOTOS,
@@ -240,17 +240,24 @@ async function produce(
             return null;
           })
       : null;
-  // A presenter says scene 1 on camera: it must be short enough for them (owner 2026-10-23, a bonus video ad lost its
-  // presenter to a 17-word first line). The director's last try skips the extra checks, and then the narrator says it.
-  const presenterCheck = presenterPhoto
-    ? (draft: DirectorPlan) => {
-        const opening = draft.scenes[0];
-        const count = opening && !opening.speaker ? opening.narration.split(/\s+/).filter(Boolean).length : 0;
-        if (count > PRESENTER_MAX_WORDS) return `scene 1 is said on camera by the AI presenter: at most ${PRESENTER_MAX_WORDS} words (it has ${count}). Shorten it and keep its meaning.`;
-        return checkScript ? checkScript(draft) : null;
+  // A presenter says scene 1 on camera: the director is told the length up front, and a longer line is shortened on
+  // its own afterwards (owner 2026-10-23: a bonus video ad lost its presenter to a 17-word line). A check that sent the
+  // whole plan back used up the director's tries and failed another bonus video ad.
+  const directed = await directVideo(brief, assets, length, format, look, listing, checkScript, presenterPhoto ? { ...director, presenterOpening: true } : director);
+  if (presenterPhoto && directed.scenes[0] && !directed.scenes[0].speaker) {
+    const opening = directed.scenes[0];
+    if (opening.narration.split(/\s+/).filter(Boolean).length > PRESENTER_MAX_WORDS) {
+      const short = await shortenPresenterLine(opening.narration, brief).catch((error) => {
+        console.warn('⚠️ The first line could not be shortened, the narrator says it:', String(error).slice(0, 160));
+        return null;
+      });
+      if (short) {
+        console.log(`✂️ Presenter line shortened: "${opening.narration}" → "${short}"`);
+        // The blocks' cues pointed at the old words: they show from the start of the scene instead.
+        directed.scenes[0] = { ...opening, narration: short, blocks: opening.blocks.map((block) => ('cue' in block ? { ...block, cue: null } : block)) as typeof opening.blocks };
       }
-    : checkScript;
-  const directed = await directVideo(brief, assets, length, format, look, listing, presenterCheck, director);
+    }
+  }
   // Listing videos keep their own recipe.
   const plan = adjustPlan && !listing ? adjustPlan(directed) : directed;
   // With the script ready, the presenter records scene 1 word for word, beside the production.

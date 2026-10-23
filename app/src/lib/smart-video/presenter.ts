@@ -126,6 +126,32 @@ export async function swapIntoPresenter(presenterPhoto: Buffer, person: Buffer):
   return Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer());
 }
 
+/** A first line too long for the presenter, said again in at most PRESENTER_MAX_WORDS words with the same meaning (about $0.001). Null when the answer is still too long. */
+export async function shortenPresenterLine(line: string, brief: string): Promise<string | null> {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${WRITER_MODEL}:generateContent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key('GOOGLE_GENERATIVE_AI_API_KEY') },
+    body: JSON.stringify({
+      contents: [
+        {
+          parts: [
+            {
+              text: `This is the first line of a video ad, said on camera by a person. Say it again in at most ${PRESENTER_MAX_WORDS - 2} words, in the same language, with the same meaning and the same facts. Keep it a hook a scrolling viewer stops for. Add nothing that is not in the line.\n\nLINE: ${line}\n\nThe business, for context only:\n${brief.slice(0, 1500)}\n\nAnswer JSON only: {"line": "the shorter line"}`,
+            },
+          ],
+        },
+      ],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0.3 },
+    }),
+    signal: AbortSignal.timeout(45_000),
+  });
+  if (!res.ok) throw new Error(`${WRITER_MODEL} failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  usage.presenterPersona();
+  const json = await res.json();
+  const short = String(JSON.parse(json.candidates?.[0]?.content?.parts?.[0]?.text || '{}').line || '').trim();
+  return short && short.split(/\s+/).length <= PRESENTER_MAX_WORDS ? short : null;
+}
+
 /** The longest scene 1 the presenter says; a longer one stays with the narrator. */
 export const PRESENTER_MAX_WORDS = 16;
 
