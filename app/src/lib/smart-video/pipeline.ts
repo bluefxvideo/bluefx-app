@@ -240,7 +240,17 @@ async function produce(
             return null;
           })
       : null;
-  const directed = await directVideo(brief, assets, length, format, look, listing, checkScript, director);
+  // A presenter says scene 1 on camera: it must be short enough for them (owner 2026-10-23, a bonus video ad lost its
+  // presenter to a 17-word first line). The director's last try skips the extra checks, and then the narrator says it.
+  const presenterCheck = presenterPhoto
+    ? (draft: DirectorPlan) => {
+        const opening = draft.scenes[0];
+        const count = opening && !opening.speaker ? opening.narration.split(/\s+/).filter(Boolean).length : 0;
+        if (count > PRESENTER_MAX_WORDS) return `scene 1 is said on camera by the AI presenter: at most ${PRESENTER_MAX_WORDS} words (it has ${count}). Shorten it and keep its meaning.`;
+        return checkScript ? checkScript(draft) : null;
+      }
+    : checkScript;
+  const directed = await directVideo(brief, assets, length, format, look, listing, presenterCheck, director);
   // Listing videos keep their own recipe.
   const plan = adjustPlan && !listing ? adjustPlan(directed) : directed;
   // With the script ready, the presenter records scene 1 word for word, beside the production.
