@@ -538,20 +538,39 @@ function Bold({ text, words }: { text: string; words: readonly string[] }) {
 function EditTutorial() {
   const { tutorial } = RESULT_SALES.top;
   const [playing, setPlaying] = useState(false);
-  if (playing) {
-    return (
-      <div className={s.tutorialPlayer}>
-        <iframe
-          src={`https://www.youtube-nocookie.com/embed/${tutorial.youtubeId}?autoplay=1&rel=0`}
-          title={tutorial.label}
-          allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!playing) return;
+    const close = (event: KeyboardEvent) => event.key === 'Escape' && setPlaying(false);
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [playing]);
   return (
-    <button type="button" className={s.tutorial} onClick={() => setPlaying(true)}>
+    <>
+      {/* A tap opens the tutorial big, over the page (owner 2026-10-23: "they will open that up so they can see fully"). */}
+      {playing && (
+        <div className={s.tutorialOverlay} role="dialog" aria-modal="true" aria-label={tutorial.label} onClick={() => setPlaying(false)}>
+          <button type="button" className={s.tutorialClose} onClick={() => setPlaying(false)} aria-label="Close">
+            &times;
+          </button>
+          <div className={s.tutorialPlayer} onClick={(event) => event.stopPropagation()}>
+            <iframe
+              src={`https://www.youtube-nocookie.com/embed/${tutorial.youtubeId}?autoplay=1&rel=0`}
+              title={tutorial.label}
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
+      <TutorialCard onOpen={() => setPlaying(true)} />
+    </>
+  );
+}
+
+function TutorialCard({ onOpen }: { onOpen: () => void }) {
+  const { tutorial } = RESULT_SALES.top;
+  return (
+    <button type="button" className={s.tutorial} onClick={onOpen}>
       <span className={s.tutorialThumb}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={`https://i.ytimg.com/vi/${tutorial.youtubeId}/maxresdefault.jpg`} alt="" loading="lazy" />
