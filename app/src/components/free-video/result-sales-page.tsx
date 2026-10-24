@@ -536,8 +536,9 @@ function Bold({ text, words }: { text: string; words: readonly string[] }) {
 /** A buy button: the name, "$297 once, for life", the card logos, and a line under it. */
 /**
  * The owner's tutorial on changing a video ad (owner 2026-10-23, Ogilvy: right under their own video ad, because the
- * first thing people ask is how to change it). The card, then jump links into it; it opens big over the page, with the
- * buy button under the player, and the buy button stays under the card once they close it (all 5 experts).
+ * first thing people ask is how to change it). The card, then jump links into it; it opens big over the page with only
+ * the player (owner 2026-10-24: no buy button in the open tutorial, it hid part of the video on phones), and the buy
+ * button shows under the card once they close it.
  */
 function EditTutorial({ token }: { token: string }) {
   const { tutorial } = RESULT_SALES.top;
@@ -570,7 +571,6 @@ function EditTutorial({ token }: { token: string }) {
                 allowFullScreen
               />
             </div>
-            <SalesBuy token={token} placement="fvrestut" split={false} />
           </div>
         </div>
       )}

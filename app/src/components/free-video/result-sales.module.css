@@ -1937,16 +1937,12 @@
   background: #000000;
 }
 
-/* The player and the buy button under it, as large as the screen allows. */
+/* The player alone, as large as the screen allows (room left for the close button). */
 .tutorialStage {
-  width: min(100%, 1200px, calc((100vh - 220px) * 16 / 9));
+  width: min(100%, 1200px, calc((100vh - 96px) * 16 / 9));
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.tutorialStage :global(p[class*='buyNote']) {
-  color: #d6dde8;
 }
 
 .tutorialBox {
