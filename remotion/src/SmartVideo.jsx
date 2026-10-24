@@ -1579,10 +1579,31 @@ function Scene({ scene, index, first }) {
     const safe = { top: type === 'imageTop' ? PANEL_TOP - 75 : 190, bottom: captions ? 610 : 300, ...scene.safe };
     // A person talking keeps their face clear: the name tag and line sit as low as the captions allow.
     if (scene.speaker) safe.bottom = captions ? 600 : 330;
+    // Over a full-frame photo the blocks sit low, on the dark end of the gradient (at the top when captions are on).
+    let align = type === 'mediaFull' ? (captions && !scene.speaker ? 'flex-start' : 'flex-end') : 'center';
+    let blocks = scene.blocks;
+    // Words never cover a face (owner 2026-10-24): they go to the first third of the photo without one, shrinking to
+    // fit it; with a face in every free third the captions carry the scene alone (faces.ts finds the thirds).
+    const faces = type === 'mediaFull' && !scene.speaker ? scene.background.faces : null;
+    if (faces?.length) {
+      const { H } = frameSize;
+      const thirds = {
+        top: { top: 190, bottom: H - Math.round(H * 0.33), align: 'flex-start' },
+        middle: { top: Math.round(H * 0.36), bottom: H - Math.round(H * 0.65), align: 'center' },
+        bottom: { top: Math.round(H * 0.68), bottom: 200, align: 'flex-end' },
+      };
+      const free = (captions ? ['top', 'middle'] : ['top', 'bottom', 'middle']).find((third) => !faces.includes(third));
+      if (free) {
+        safe.top = thirds[free].top;
+        safe.bottom = thirds[free].bottom;
+        align = thirds[free].align;
+      } else if (captions) {
+        blocks = [];
+      }
+    }
     layout = (
-      // Over a full-frame photo the blocks sit low, on the dark end of the gradient.
-      <Stack top={safe.top} bottom={safe.bottom} gap={gap} align={type === 'mediaFull' ? (captions && !scene.speaker ? 'flex-start' : 'flex-end') : 'center'} scrim={type === 'mediaFull' && !scene.speaker && hasText && (scene.shade || true)}>
-        {render(scene.blocks)}
+      <Stack top={safe.top} bottom={safe.bottom} gap={gap} align={align} scrim={type === 'mediaFull' && !scene.speaker && hasText && (scene.shade || true)}>
+        {render(blocks)}
       </Stack>
     );
   } else {

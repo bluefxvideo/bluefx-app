@@ -19,6 +19,7 @@ import { captionDigits, withDigits, type NumberSpan } from './numbers';
 import { alignScript, cueTime } from './timing';
 import { buildTheme, cropToFrame, cutOutLogo } from './brand';
 import { tracePng } from './drawing-path';
+import { faceKey, findFaces, type FaceThird } from './faces';
 import { castPersona, castPresenter, PRESENTER_ASSET, PRESENTER_MAX_WORDS, shortenPresenterLine, swapIntoPresenter, talkingPresenter } from './presenter';
 import {
   LISTING_MAX_PAUSE,
@@ -111,6 +112,8 @@ export interface SmartVideoMedia {
   digits?: Record<string, NumberSpan[]>;
   /** The video is an automatic listing video; a revision keeps its recipe and its plain cuts. */
   listing?: ListingOptions;
+  /** The thirds of each full-frame photo (by faceKey) that hold a face: the words go elsewhere (faces.ts). Absent on older videos. */
+  faces?: Record<string, FaceThird[]>;
   /**
    * What the renderer loads: uploads, cut-outs, lifestyle photos, animated clips.
    * `seconds`: an animated clip's length.
@@ -412,6 +415,7 @@ async function produce(
   };
   if (listing?.animate) await animateListingPhotos(plan, media, assets, store, clips);
   if (presenterJob) await addPresenter(plan, media, presenterJob);
+  if (!horizontal) media.faces = await findFaces(plan, media.assets, media.faces || {}, loadStored);
   const props = buildProps(plan, media);
   return { props, plan, media, durationSeconds: props.duration, warnings: [...clientWarnings(plan), ...softPhotoWarnings(plan, assets)] };
 }
@@ -654,6 +658,7 @@ export async function reviseSmartVideo(
       const outcome = !request ? '' : keepOld ? ', so the current presenter stays' : ', so the narrator says the first line';
       why = `${blocked ?? 'The new presenter could not be made'}${outcome}.`;
     }
+    if ((media.format ?? 'vertical') === 'vertical') media.faces = await findFaces(plan, media.assets, media.faces || {}, fetchStored);
     const props = buildProps(plan, media);
     return {
       props,
@@ -952,7 +957,7 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
       speaker: startFrom !== undefined || undefined,
       // A listing video goes from photo to photo on a plain cut, as footage does: no fade through black between rooms.
       ...(media.listing && i > 0 ? { cut: true } : {}),
-      background: startFrom !== undefined ? { ...background, startFrom, playbackRate: 1 } : motionBackground(background, motionClips, end - start),
+      background: withFaces(startFrom !== undefined ? { ...background, startFrom, playbackRate: 1 } : motionBackground(background, motionClips, end - start), scene.background, media.faces),
       blocks: (startFrom !== undefined ? speakerBlocks(scene.blocks) : scene.blocks).map((block, k, shown) => {
         // The first headline of a scene is on screen from its first frame: no empty openings.
         const opening = k === shown.findIndex((b) => b.type === 'title' || b.type === 'badge');
@@ -1096,6 +1101,19 @@ async function recordVoice(narration: string[], languageName: string, plan: Dire
 }
 
 // A background whose photo was animated plays the clip instead, slowed so it spans the scene.
+/** A full-frame photo carries the thirds that hold a face, so the renderer keeps its words out of them. */
+function withFaces<T extends object>(shown: T, planned: { type: string; asset?: string | null; focus?: string | null }, faces: SmartVideoMedia['faces']): T {
+  const found = planned.type === 'mediaFull' && planned.asset ? faces?.[faceKey(planned.asset, planned.focus)] : undefined;
+  return found?.length ? { ...shown, faces: found } : shown;
+}
+
+/** A saved file read back over the network (an edit has only the urls). */
+async function fetchStored(url: string): Promise<Buffer> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) throw new Error(`${url} ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 function motionBackground<T extends { asset?: string | null }>(background: T, motionClips: Map<string, number>, sceneSeconds: number) {
   const clipSeconds = background.asset ? motionClips.get(background.asset) : undefined;
   if (!background.asset || clipSeconds === undefined) return background;
