@@ -270,6 +270,50 @@
   color: #ffffff;
 }
 
+/* The big "Change Your Video Ad: Watch How" button right under their video ad (owner 2026-10-24). */
+.changeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--navy);
+  color: #ffffff;
+  font: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(20, 61, 112, 0.28);
+}
+
+.changeButton:hover {
+  filter: brightness(1.12);
+}
+
+.changeButton svg {
+  flex-shrink: 0;
+}
+
+/* "Need a change in your video ad? See how." after the sample line. */
+.sampleLink {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--navy);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
 .topSample {
   margin: 0;
   max-width: 460px;
@@ -2008,6 +2052,7 @@
   }
 }
 
+.tutorialPlayer video,
 .tutorialPlayer iframe {
   width: 100%;
   height: 100%;

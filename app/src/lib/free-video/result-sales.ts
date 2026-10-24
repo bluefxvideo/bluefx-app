@@ -225,6 +225,21 @@ export const RESULT_SALES = {
       ],
       jump: 'Jump to:',
     },
+    /**
+     * The big button right under their video ad (owner 2026-10-24: "If people want to change stuff, it should be much
+     * more prominent"; Clarity showed taps on the sample line and the next-ad pictures, and few tutorial plays). Opens
+     * the short cut when quick is set, else the tutorial at "A new person on camera".
+     */
+    change: {
+      label: 'Change Your Video Ad: Watch How',
+      at: 174,
+      /** The short cut of the tutorial (an mp4 we host), when there is one; its length goes on the button. */
+      quick: null as { src: string; poster: string; minutes: number } | null,
+    },
+    /** After the sample line, opens the tutorial at "A new person on camera". */
+    sampleLink: 'Need a change in your video ad? See how.',
+    /** A tap on a picture of the next 3 video ads opens the tutorial at "Your 3 extra video ads". */
+    nextAd: { at: 433, label: 'See how', aria: 'See how your next 3 video ads are made' },
   },
 
   /**

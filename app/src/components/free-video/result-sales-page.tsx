@@ -6,7 +6,8 @@ import { RESULT_PAGE } from '@/lib/free-video/result-page';
 import { RESULT_SALES, SALES_PAGE_HERO_VIMEO, TOOL_GROUPS, type SalesTool } from '@/lib/free-video/result-sales';
 import { goUrl, OFFER, type ResultPagePlacement } from '@/lib/free-video/offer';
 import { PLAYER } from '@/lib/free-video/copy';
-import type { FreeVideoView } from '@/types/free-video';
+import type { FreeVideoView, TutorialOpenSource } from '@/types/free-video';
+import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { cn } from '@/lib/utils';
 import { ChatLauncher } from './chat-launcher';
 import { OfferButton } from './offer-button';
@@ -68,6 +69,19 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
     };
   }, []);
   const [viewing, setViewing] = useState<(typeof RESULT_PAGE.examples.items)[number] | null>(null);
+  // The tutorial on changing a video ad, open over the page: a second in the tutorial, 'quick' for the short cut, or null.
+  const beacon = useFreeVideoBeacon(token);
+  const [tutorialAt, setTutorialAt] = useState<number | 'quick' | null>(null);
+  const [tutorialWatched, setTutorialWatched] = useState(false);
+  const openTutorial = (at: number | 'quick', from: TutorialOpenSource) => {
+    beacon('tutorial_open', { from });
+    setTutorialAt(at);
+  };
+  const closeTutorial = () => {
+    setTutorialAt(null);
+    setTutorialWatched(true);
+  };
+  const change = RESULT_SALES.top.change;
   const { banner, top, hero, salesVideo, price, button, how, tools, oldWay, customers, founder, lifetime, own, guarantee, still, faq, ps } = RESULT_SALES;
   const dov = RESULT_PAGE.stack.proof[0];
 
@@ -80,6 +94,10 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       <section className={cn(rp.wrap, s.top)} aria-labelledby="fv-sales-title">
         <div className={s.topVideo}>
           <VideoAdPlayer src={videoUrl} label={PLAYER.label(domain)} onPlayWithSound={onPlayWithSound} onComplete={onComplete} className={rp.heroPlayerFrame} tapToPlay />
+          <button type="button" className={s.changeButton} onClick={() => openTutorial(change.quick ? 'quick' : change.at, 'button')}>
+            <PencilIcon />
+            <span>{change.quick ? `${change.label} (${change.quick.minutes} min)` : change.label}</span>
+          </button>
         </div>
         {/* On a phone the title sits above the video (display: contents); on a computer the words fill the space beside it and lead down the page (owner 2026-10-22). */}
         <div className={s.topText}>
@@ -92,8 +110,13 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
               {top.title(firstName)}
             </h1>
           </div>
-          <p className={s.topSample}>{top.sample}</p>
-          <EditTutorial token={token} />
+          <p className={s.topSample}>
+            {top.sample}{' '}
+            <button type="button" className={s.sampleLink} onClick={() => openTutorial(change.at, 'sample')}>
+              {top.sampleLink}
+            </button>
+          </p>
+          <EditTutorial token={token} at={tutorialAt} watched={tutorialWatched} onOpen={openTutorial} onClose={closeTutorial} />
           <div className={s.topNext}>
             <p className={s.topKicker}>{hero.kicker}</p>
           </div>
@@ -201,7 +224,11 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           {written && (
             <ul className={rp.ads}>
               {(cards ?? ([2, 3, 4] as const).map((n) => ({ n, pending: true }) as const)).map((card) =>
-                'pending' in card ? <WritingCard key={card.n} n={card.n} /> : <WrittenAd key={card.n} ad={card} />
+                'pending' in card ? (
+                  <WritingCard key={card.n} n={card.n} />
+                ) : (
+                  <WrittenAd key={card.n} ad={card} onOpen={() => openTutorial(top.nextAd.at, 'next_ad')} openLabel={top.nextAd} />
+                )
               )}
             </ul>
           )}
@@ -540,41 +567,53 @@ function Bold({ text, words }: { text: string; words: readonly string[] }) {
  * the player (owner 2026-10-24: no buy button in the open tutorial, it hid part of the video on phones), and the buy
  * button shows under the card once they close it.
  */
-function EditTutorial({ token }: { token: string }) {
-  const { tutorial } = RESULT_SALES.top;
-  const [start, setStart] = useState<number | null>(null);
-  const [watched, setWatched] = useState(false);
-  const close = () => {
-    setStart(null);
-    setWatched(true);
-  };
+function EditTutorial({
+  token,
+  at,
+  watched,
+  onOpen,
+  onClose,
+}: {
+  token: string;
+  /** Where the open tutorial starts (seconds), 'quick' for the short cut, null when closed. */
+  at: number | 'quick' | null;
+  watched: boolean;
+  onOpen: (at: number, from: TutorialOpenSource) => void;
+  onClose: () => void;
+}) {
+  const { tutorial, change } = RESULT_SALES.top;
+  const close = onClose;
   useEffect(() => {
-    if (start === null) return;
+    if (at === null) return;
     const onKey = (event: KeyboardEvent) => event.key === 'Escape' && close();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [start]);
+  }, [at, close]);
   const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   return (
     <div className={s.tutorialBox}>
-      {start !== null && (
+      {at !== null && (
         <div className={s.tutorialOverlay} role="dialog" aria-modal="true" aria-label={tutorial.label} onClick={close}>
           <button type="button" className={s.tutorialClose} onClick={close} aria-label="Close">
             &times;
           </button>
           <div className={s.tutorialStage} onClick={(event) => event.stopPropagation()}>
             <div className={s.tutorialPlayer}>
-              <iframe
-                src={`https://www.youtube-nocookie.com/embed/${tutorial.youtubeId}?autoplay=1&rel=0&start=${start}`}
-                title={tutorial.label}
-                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                allowFullScreen
-              />
+              {at === 'quick' && change.quick ? (
+                <video src={change.quick.src} poster={change.quick.poster} controls autoPlay playsInline />
+              ) : (
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${tutorial.youtubeId}?autoplay=1&rel=0&start=${at === 'quick' ? change.at : at}`}
+                  title={tutorial.label}
+                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                  allowFullScreen
+                />
+              )}
             </div>
           </div>
         </div>
       )}
-      <button type="button" className={s.tutorial} onClick={() => setStart(0)}>
+      <button type="button" className={s.tutorial} onClick={() => onOpen(0, 'card')}>
         <span className={s.tutorialThumb}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`https://i.ytimg.com/vi/${tutorial.youtubeId}/maxresdefault.jpg?v=2`} alt="" loading="lazy" />
@@ -592,13 +631,22 @@ function EditTutorial({ token }: { token: string }) {
       <p className={s.tutorialJump}>
         <span>{tutorial.jump}</span>
         {tutorial.chapters.map((chapter) => (
-          <button key={chapter.at} type="button" onClick={() => setStart(chapter.at)}>
+          <button key={chapter.at} type="button" onClick={() => onOpen(chapter.at, 'chapter')}>
             {clock(chapter.at)} {chapter.label}
           </button>
         ))}
       </p>
       {watched && <SalesBuy token={token} placement="fvrestut" split={false} />}
     </div>
+  );
+}
+
+/** The pencil on the "Change Your Video Ad" button. */
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor" />
+    </svg>
   );
 }
 

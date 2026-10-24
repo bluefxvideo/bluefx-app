@@ -95,7 +95,7 @@ export async function POST(req: Request) {
         leadId: lead?.id ?? null,
         visitorId: v && /^[\w-]{1,40}$/.test(v) ? v : null,
         ref: ref && FREE_VIDEO_REF_PATTERN.test(ref) ? ref : (lead?.ref ?? null),
-        placement: e === 'offer_open' ? (from ?? null) : null,
+        placement: e === 'offer_open' || e === 'tutorial_open' ? (from ?? null) : null,
       });
       if (e === 'video_play' && lead && !lead.played_at) await markPlayed(lead.id);
     });

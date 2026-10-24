@@ -673,22 +673,41 @@ export function ResultScene({ domain }: { domain: string }) {
 // ---------------------------------------------------------------------------------------------------------------
 // The 3 written video ads
 
-export function WrittenAd({ ad }: { ad: FreeVideoNextAdCard }) {
+/**
+ * One of the next 3 video ads. With onOpen (the sales-page result page), the picture is a button that opens the
+ * tutorial at "Your 3 extra video ads" (owner 2026-10-24: people tapped the pictures and nothing happened).
+ */
+export function WrittenAd({ ad, onOpen, openLabel }: { ad: FreeVideoNextAdCard; onOpen?: () => void; openLabel?: { label: string; aria: string } }) {
   const { written } = RESULT_PAGE;
+  const inside = (
+    <>
+      {ad.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={ad.imageUrl} alt={written.alt(ad.n, ad.title)} loading="lazy" />
+      )}
+      <span className={styles.adNumber}>#{ad.n}</span>
+      <span className={styles.adLength}>{written.length}</span>
+      <span className={styles.adChip}>
+        <Sparkle />
+        {written.chip}
+      </span>
+      {onOpen && openLabel && (
+        <span className={styles.adHow} aria-hidden="true">
+          <PlayIcon size={12} fill="#ffffff" />
+          {openLabel.label}
+        </span>
+      )}
+    </>
+  );
   return (
     <li className={styles.ad}>
-      <div className={styles.adFrame}>
-        {ad.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={ad.imageUrl} alt={written.alt(ad.n, ad.title)} loading="lazy" />
-        )}
-        <span className={styles.adNumber}>#{ad.n}</span>
-        <span className={styles.adLength}>{written.length}</span>
-        <span className={styles.adChip}>
-          <Sparkle />
-          {written.chip}
-        </span>
-      </div>
+      {onOpen ? (
+        <button type="button" className={cn(styles.adFrame, styles.adFrameButton)} onClick={onOpen} aria-label={openLabel?.aria}>
+          {inside}
+        </button>
+      ) : (
+        <div className={styles.adFrame}>{inside}</div>
+      )}
       <div className={styles.adText}>
         <p className={styles.adTitle}>{ad.title}</p>
         <p className={styles.adTeaser}>{ad.teaser}</p>

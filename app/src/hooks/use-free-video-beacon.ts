@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { isInternalVisit } from '@/lib/free-video/internal-visit';
-import type { FreeVideoEvent, OfferOpenSource } from '@/types/free-video';
+import type { FreeVideoEvent, OfferOpenSource, TutorialOpenSource } from '@/types/free-video';
 
 const ENDPOINT = '/api/free-video/event';
 const VISITOR_KEY = 'fv_vid';
@@ -53,7 +53,7 @@ interface FreeVideoBeaconOptions {
 
 /** More about one event: offer_open says what opened the offer card. */
 export interface FreeVideoEventDetail {
-  from?: OfferOpenSource;
+  from?: OfferOpenSource | TutorialOpenSource;
 }
 
 /**
@@ -68,7 +68,7 @@ export function useFreeVideoBeacon(token?: string, { disabled = false }: FreeVid
       if (disabled || typeof window === 'undefined' || isInternalVisit()) return;
       try {
         const ref = refTagFromUrl();
-        const from = event === 'offer_open' ? detail?.from : undefined;
+        const from = event === 'offer_open' || event === 'tutorial_open' ? detail?.from : undefined;
         const body = JSON.stringify({ e: event, v: visitorId(), ...(token ? { t: token } : {}), ...(ref ? { ref } : {}), ...(from ? { from } : {}) });
         if (typeof navigator.sendBeacon === 'function' && navigator.sendBeacon(ENDPOINT, new Blob([body], { type: 'application/json' }))) return;
         void fetch(ENDPOINT, {
