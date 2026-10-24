@@ -26,6 +26,7 @@ import type { VideoLook } from '@/lib/smart-video/types';
 import { SMART_VIDEO_MAX_EDIT_FILES, SMART_VIDEO_MAX_FILE_MB, type SmartVideoJob } from '@/types/smart-video';
 import type { BonusVideoAd } from '@/types/free-video';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { useSmartVideo } from './hooks/use-smart-video';
 import { FileThumb, SoundSwitches, plainError } from './shared';
 
@@ -52,14 +53,35 @@ const VOICE_WORDS = /\b(voice|voices|voice-over|voiceover|narrator|narration)\b/
 /** ...unless it also names the person on camera ("a woman presenter with a soft voice"). */
 const ON_CAMERA_WORDS = /\b(presenter|presenters|actor|actress|spokesperson|spokesman|spokeswoman|avatar|face|on[- ]camera)\b/i;
 
-const STYLES: { value: VideoLook; label: string; hint: string }[] = [
-  { value: 'auto', label: 'AI picks', hint: 'The best fit for your business' },
-  { value: 'playful', label: 'Playful', hint: 'Kids, parties, casual food' },
-  { value: 'elegant', label: 'Elegant', hint: 'Luxury, real estate, spas' },
-  { value: 'bold', label: 'Bold', hint: 'Gyms, sales, events' },
-  { value: 'clean', label: 'Clean', hint: 'Clinics, services, offices' },
-  { value: 'whiteboard', label: 'Hand-drawn', hint: 'A hand draws your story on a whiteboard' },
+/**
+ * The styles in the "Change style" gallery, first = the default: Hand-drawn with a presenter, exactly the free video ad
+ * (owner 2026-10-24), since buyers come from their free video ad; Hand-drawn alone is its own card. The two Hand-drawn
+ * cards also set the presenter switch; the other styles keep it as it is (More options). `preview` is a 7-second silent
+ * cut of a real Phantom video ad in that style (public/smart-video/looks); a style without one shows a still frame
+ * until its test ads are made.
+ */
+interface StyleCard {
+  id: string;
+  value: VideoLook;
+  presenter?: boolean;
+  label: string;
+  hint: string;
+  preview?: string;
+  poster: string;
+  badge?: string;
+}
+const STYLES: StyleCard[] = [
+  { id: 'whiteboard-presenter', value: 'whiteboard', presenter: true, label: 'Hand-drawn + presenter', hint: 'A presenter opens, then a hand draws your story on a whiteboard', preview: '/smart-video/looks/whiteboard.mp4', poster: '/smart-video/looks/whiteboard-poster.jpg', badge: 'Your free ad' },
+  { id: 'whiteboard', value: 'whiteboard', presenter: false, label: 'Hand-drawn', hint: 'A hand draws your story on a whiteboard, no presenter', preview: '/smart-video/looks/whiteboard-only.mp4', poster: '/smart-video/looks/whiteboard-only-poster.jpg' },
+  { id: 'bold', value: 'bold', label: 'Bold', hint: 'Gyms, sales, events, food', preview: '/smart-video/looks/bold.mp4', poster: '/smart-video/looks/bold-poster.jpg' },
+  { id: 'clean', value: 'clean', label: 'Clean', hint: 'Clinics, services, offices', preview: '/smart-video/looks/clean.mp4', poster: '/smart-video/looks/clean-poster.jpg' },
+  { id: 'elegant', value: 'elegant', label: 'Elegant', hint: 'Luxury, real estate, spas', preview: '/smart-video/looks/elegant.mp4', poster: '/smart-video/looks/elegant-poster.jpg' },
+  { id: 'playful', value: 'playful', label: 'Playful', hint: 'Kids, parties, casual food', poster: '/smart-video/looks/playful.jpg' },
+  { id: 'auto', value: 'auto', label: 'AI picks', hint: 'The best fit for your business', preview: '/smart-video/looks/auto.mp4', poster: '/smart-video/looks/auto-poster.jpg' },
 ];
+const cardById = (id: string) => STYLES.find((s) => s.id === id) ?? STYLES[0];
+/** The card the page's choice matches: Hand-drawn splits on the presenter switch. */
+const cardIdOf = (look: VideoLook, presenter: boolean) => (look === 'whiteboard' ? (presenter ? 'whiteboard-presenter' : 'whiteboard') : look);
 
 const isRunning = (job: SmartVideoJob) => job.status !== 'done' && job.status !== 'failed';
 
@@ -542,6 +564,8 @@ function StartScreen({ smart, balance, moreOpen }: { smart: SmartVideo; balance?
             </p>
           )}
 
+          <StyleRow smart={smart} />
+
           <MoreOptions smart={smart} open={open} onToggle={() => setOpen((current) => !current)} />
 
           <GreenButton onClick={smart.start} disabled={smart.isBusy}>
@@ -574,12 +598,121 @@ function StartScreen({ smart, balance, moreOpen }: { smart: SmartVideo; balance?
   );
 }
 
+/** A style's moving preview (or its still frame when it has no preview yet). */
+function StylePreview({ card, className }: { card: StyleCard; className?: string }) {
+  const style = card;
+  return style.preview ? (
+    <video key={style.preview} src={style.preview} poster={style.poster} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" className={cn('bg-black object-cover', className)} />
+  ) : (
+    // eslint-disable-next-line @next/next/no-img-element -- a still frame from /public
+    <img src={style.poster} alt="" aria-hidden="true" className={cn('bg-black object-cover object-top', className)} />
+  );
+}
+
+/** The chosen style on the first screen, with the way into the gallery (owner 2026-10-24: styles back, without a harder page). */
+function StyleRow({ smart }: { smart: SmartVideo }) {
+  const [open, setOpen] = useState(false);
+  const withPresenter = smart.format === 'vertical' && smart.presenter;
+  const style = cardById(cardIdOf(smart.look, withPresenter));
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={smart.isBusy}
+        className="flex w-full items-center gap-4 rounded-xl border-2 border-field-border bg-field p-3 text-left transition-colors hover:border-muted-foreground/50 disabled:opacity-60 sm:p-4"
+      >
+        <StylePreview card={style} className="h-[86px] w-[48px] flex-shrink-0 rounded-lg sm:h-[100px] sm:w-[56px]" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] text-muted-foreground sm:text-base">Style</span>
+          <span className="block text-lg font-bold sm:text-[19px]">{style.label}</span>
+          {withPresenter && style.value !== 'whiteboard' && <span className="block text-[15px] leading-snug text-muted-foreground sm:text-base">With a presenter</span>}
+          <span className="mt-1 flex items-center gap-1 text-base font-bold text-brand sm:hidden">
+            Change style
+            <ChevronRight className="h-5 w-5" />
+          </span>
+        </span>
+        <span className="hidden flex-shrink-0 items-center gap-1 text-[17px] font-bold text-brand sm:flex">
+          Change
+          <ChevronRight className="h-5 w-5" />
+        </span>
+      </button>
+      <StyleGallery smart={smart} open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+/** Every style with its preview playing and its price; "Use" sets it (the Hand-drawn cards set the presenter too). */
+function StyleGallery({ smart, open, onClose }: { smart: SmartVideo; open: boolean; onClose: () => void }) {
+  const tall = smart.format === 'vertical';
+  const current = cardIdOf(smart.look, tall && smart.presenter);
+  const [picked, setPicked] = useState(current);
+  useEffect(() => {
+    if (open) setPicked(current);
+  }, [open, current]);
+  // The price each card would make: the presenter's credits ride on the card for Hand-drawn, on the switch for the rest.
+  const base = smart.credits - (tall && smart.presenter ? PHANTOM_PRESENTER_CREDITS : 0);
+  const priceOf = (card: StyleCard) => base + (tall && (card.presenter ?? smart.presenter) ? PHANTOM_PRESENTER_CREDITS : 0);
+  const chosen = cardById(picked);
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-h-[92vh] max-w-[calc(100%-2rem)] overflow-y-auto p-4 sm:p-6 lg:max-w-[1240px]">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-extrabold">Pick a style</DialogTitle>
+          <DialogDescription className="text-base">Each preview is a real video ad made with the Phantom Ad Maker.</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-7">
+          {STYLES.map((card) => {
+            const on = picked === card.id;
+            return (
+              <button
+                key={card.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setPicked(card.id)}
+                className={cn(
+                  'relative flex flex-col overflow-hidden rounded-xl border-2 bg-field text-left',
+                  on ? 'border-primary ring-2 ring-primary/30' : 'border-field-border hover:border-muted-foreground/50',
+                )}
+              >
+                <span className="relative block">
+                  <StylePreview card={card} className="block aspect-[9/16] w-full" />
+                  {card.badge && <span className="absolute bottom-2 left-2 rounded-md bg-white px-2 py-1 text-xs font-bold text-brand shadow">{card.badge}</span>}
+                  {on && (
+                    <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      <Check className="h-4 w-4" strokeWidth={3} />
+                    </span>
+                  )}
+                </span>
+                <span className="flex flex-1 flex-col px-3 py-2.5">
+                  <span className="block text-base font-bold leading-snug sm:text-[17px]">{card.label}</span>
+                  <span className="mt-0.5 block flex-1 text-sm leading-snug text-muted-foreground sm:text-[15px]">{card.hint}</span>
+                  <span className="mt-1.5 block text-sm font-bold text-brand sm:text-[15px]">{priceOf(card)} credits</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <GreenButton
+          className="sticky bottom-0 mt-2"
+          onClick={() => {
+            smart.setLook(chosen.value);
+            if (chosen.presenter !== undefined && tall) smart.setPresenter(chosen.presenter);
+            onClose();
+          }}
+        >
+          Use {chosen.label} · {priceOf(chosen)} credits
+        </GreenButton>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function optionsSummary(smart: SmartVideo): string {
   const tall = smart.format === 'vertical';
   const extras = [tall && smart.presenter && 'a presenter', smart.voiceOver && 'voice-over', smart.music && 'music'].filter(Boolean) as string[];
   const withWhat = extras.length ? `, with ${extras.length > 1 ? `${extras.slice(0, -1).join(', ')} and ${extras[extras.length - 1]}` : extras[0]}` : ', without sound';
-  const style = smart.look === 'auto' ? 'The AI picks the style.' : `Style: ${STYLES.find((s) => s.value === smart.look)?.label ?? smart.look}.`;
-  return `${tall ? 'Tall video ad for phones' : 'Wide video ad for YouTube and websites'}${withWhat}. ${style}${smart.exactWords ? ' Your exact words.' : ''}`;
+  return `${tall ? 'Tall video ad for phones' : 'Wide video ad for YouTube and websites'}${withWhat}.${smart.exactWords ? ' Your exact words.' : ''}`;
 }
 
 function MoreOptions({ smart, open, onToggle }: { smart: SmartVideo; open: boolean; onToggle: () => void }) {
@@ -620,43 +753,6 @@ function MoreOptions({ smart, open, onToggle }: { smart: SmartVideo; open: boole
                   <span>
                     <span className="block text-[17px] font-bold sm:text-[19px]">{label}</span>
                     <span className="mt-0.5 block text-sm leading-snug text-muted-foreground sm:text-base">{hint}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-3 text-lg font-bold sm:text-[19px]">Style</p>
-            <div className="grid grid-cols-3 gap-2 sm:gap-4">
-              {STYLES.map(({ value, label, hint }) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={smart.look === value}
-                  onClick={() => smart.setLook(value)}
-                  disabled={smart.isBusy}
-                  className={cn(
-                    'relative overflow-hidden rounded-xl border-2 bg-field text-left',
-                    smart.look === value ? 'border-primary ring-2 ring-primary/30' : 'border-field-border hover:border-muted-foreground/50',
-                  )}
-                >
-                  <div className="flex h-[104px] items-center justify-center overflow-hidden bg-accent sm:h-[170px]">
-                    {value === 'auto' ? (
-                      <RobotStill className="h-[88px] w-[88px] sm:h-[150px] sm:w-[150px]" />
-                    ) : (
-                      // eslint-disable-next-line @next/next/no-img-element -- a small example frame from /public
-                      <img src={`/smart-video/looks/${value}.jpg`} alt="" className="h-full w-full object-cover object-top" />
-                    )}
-                  </div>
-                  {smart.look === value && (
-                    <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                      <Check className="h-4 w-4" strokeWidth={3} />
-                    </span>
-                  )}
-                  <span className="block px-2 py-2 sm:px-3 sm:py-3">
-                    <span className="block text-sm font-bold sm:text-lg">{label}</span>
-                    <span className="mt-0.5 hidden text-[15px] leading-snug text-muted-foreground sm:block">{hint}</span>
                   </span>
                 </button>
               ))}

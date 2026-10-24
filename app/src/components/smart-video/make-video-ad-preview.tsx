@@ -88,7 +88,7 @@ const making: SmartVideoJob = {
   brief: 'ascentequipment.com\nFree demo of our channel letter machine this month. Call 555-0128.',
   link: 'https://ascentequipment.com/',
   format: 'vertical',
-  look: 'auto',
+  look: 'whiteboard',
   presenter: true,
   createdAt: ago(112),
   updatedAt: ago(5),
@@ -197,7 +197,7 @@ export function MakeVideoAdPreview({ state, theme, empty, bare }: { state: Previ
   const typed = state === 'website' || state === 'options';
   const [brief, setBrief] = useState(typed ? 'ascentequipment.com\nFree demo of our channel letter machine this month. Call 555-0128.' : '');
   const [format, setFormat] = useState<VideoFormat>('vertical');
-  const [look, setLook] = useState<VideoLook>('auto');
+  const [look, setLook] = useState<VideoLook>('whiteboard'); // the free video ad's style (owner 2026-10-24)
   const [presenter, setPresenter] = useState(true);
   const [voiceOver, setVoiceOver] = useState(true);
   const [music, setMusic] = useState(true);

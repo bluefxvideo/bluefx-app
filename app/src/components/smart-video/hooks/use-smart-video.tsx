@@ -44,7 +44,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   const [link, setLink] = useState('');
   const [exactWords, setExactWords] = useState(false);
   const [format, setFormat] = useState<VideoFormat>('vertical');
-  const [look, setLook] = useState<VideoLook>('auto');
+  const [look, setLook] = useState<VideoLook>('whiteboard'); // the free video ad's style (owner 2026-10-24)
   // The soundtrack: a narrator and music, each of which the client can switch off
   const [voiceOver, setVoiceOver] = useState(true);
   const [music, setMusic] = useState(true);
@@ -134,7 +134,8 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
         brief: website?.onlyLink ? '' : brief,
         length: exactWords ? 'script' : 'auto',
         format,
-        look,
+        // A listing video keeps its own look (LISTING_LOOK): the Phantom's default style is the free video ad's Hand-drawn.
+        look: isListing ? 'auto' : look,
         voiceOver,
         music,
         presenter: withPresenter,
