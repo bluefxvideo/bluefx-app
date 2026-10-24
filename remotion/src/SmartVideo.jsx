@@ -239,6 +239,9 @@ const STYLES = {
     transition: 'dip',
     sfx: { pop: 0, whoosh: 0.3, ding: 0.5, chaching: 0.5 },
     chrome: 'film',
+    // The owner's favourite sample frame: the photograph fills the top two thirds edge to edge, the headline sits on
+    // the paper below it with a hard edge between them.
+    panelTop: 1210,
   },
 };
 const MARKER = '"Marker", "Caveat", cursive';
@@ -1693,12 +1696,22 @@ function ImageTopBg({ background, duration }) {
   const { assets, theme, look } = usePlan();
   const asset = assets[background.asset];
   const panel = look.panel || theme.bg;
+  const panelTop = look.panelTop || PANEL_TOP;
   const art = asset && <MediaFill asset={asset} block={{ zoom: [1, 1.04], focus: background.focus || '50% 20%' }} duration={duration} />;
   if (landscape) {
     return (
       <AbsoluteFill style={{ background: panel, overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, width: SIDE_ART, height: H, overflow: 'hidden' }}>{art}</div>
         <div style={{ position: 'absolute', top: 0, left: SIDE_ART - 140, width: 150, height: H, background: `linear-gradient(to right, ${panel}00 0%, ${panel} 80%)` }} />
+      </AbsoluteFill>
+    );
+  }
+  if (look.panelTop) {
+    // The picture only in the top part (no crop under the paper), a thin black rule and the paper below.
+    return (
+      <AbsoluteFill style={{ background: panel, overflow: 'hidden' }}>
+        {asset && <div style={{ position: 'absolute', top: 0, left: 0, width: W, height: panelTop, overflow: 'hidden' }}>{art}</div>}
+        <div style={{ position: 'absolute', top: panelTop - 3, left: 0, width: W, height: 6, background: theme.ink }} />
       </AbsoluteFill>
     );
   }
@@ -1746,7 +1759,7 @@ function Scene({ scene, index, first }) {
     );
   } else if (!landscape) {
     // Captions own the lower third, so the blocks end above them.
-    const safe = { top: type === 'imageTop' ? PANEL_TOP - 75 : 190, bottom: captions ? 610 : 300, ...scene.safe };
+    const safe = { top: type === 'imageTop' ? (look.panelTop ? look.panelTop + 40 : PANEL_TOP - 75) : 190, bottom: captions ? 610 : (type === 'imageTop' && look.panelTop ? 250 : 300), ...scene.safe };
     // A person talking keeps their face clear: the name tag and line sit as low as the captions allow.
     if (scene.speaker) safe.bottom = captions ? 600 : 330;
     // The news ticker runs along the bottom: the blocks end above it.

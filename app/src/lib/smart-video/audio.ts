@@ -301,7 +301,7 @@ export const ILLUSTRATION_LOOKS: Record<IllustratedStyle, { look: string; ground
   // Vintage (owner 2026-10-24, the Ogilvy-era sample): the pictures are period photographs, not drawings.
   vintage: {
     look: 'Authentic 1950s black-and-white photograph, classic medium-format film with soft grain, gentle studio or daylight lighting, period clothing, hairstyles, cars, shop fronts and interiors of the 1950s, warm and optimistic like an old magazine or TV commercial.',
-    ground: 'Square photograph, the subject well framed and filling the picture',
+    ground: 'A photograph slightly taller than wide, the subject well framed and filling the picture, nothing important at the very edges',
     drawnPresenter: true,
   },
   comic: {
@@ -314,6 +314,8 @@ export const ILLUSTRATION_LOOKS: Record<IllustratedStyle, { look: string; ground
 /** A picture for a scene in an illustrated style: square, the whole scene inside the frame with a margin (about $0.013 at medium). */
 export async function generateCartoon(prompt: string, style: IllustratedStyle = 'cartoon'): Promise<{ png: Buffer; width: number; height: number }> {
   const { look, ground } = ILLUSTRATION_LOOKS[style];
+  // Vintage photographs fill the top of a tall frame (1080 x 1210): a little taller than square.
+  const height = style === 'vintage' ? 1136 : 1024;
   const res = await fetch('https://fal.run/openai/gpt-image-2.5/flare/text-to-image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Key ${falKey()}` },
@@ -322,14 +324,14 @@ export async function generateCartoon(prompt: string, style: IllustratedStyle = 
       quality: CARTOON_QUALITY,
       output_format: 'png',
       num_images: 1,
-      image_size: { width: 1024, height: 1024 },
+      image_size: { width: 1024, height },
     }),
     signal: AbortSignal.timeout(150_000),
   });
   if (!res.ok) throw new Error(`Picture failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
   const json = await res.json();
   usage.cartoon();
-  return { png: Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer()), width: 1024, height: 1024 };
+  return { png: Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer()), width: 1024, height };
 }
 const CARTOON_QUALITY: DrawingQuality = 'medium';
 

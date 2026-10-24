@@ -72,11 +72,11 @@ interface StyleCard {
 }
 const STYLES: StyleCard[] = [
   { id: 'whiteboard-presenter', value: 'whiteboard', presenter: true, label: 'Hand-drawn + presenter', hint: 'A presenter opens, then a hand draws your story on a whiteboard', preview: '/smart-video/looks/whiteboard.mp4', poster: '/smart-video/looks/whiteboard-poster.jpg', badge: 'Your free ad' },
-  { id: 'whiteboard', value: 'whiteboard', presenter: false, label: 'Hand-drawn', hint: 'A hand draws your story on a whiteboard, no presenter', preview: '/smart-video/looks/whiteboard-only.mp4', poster: '/smart-video/looks/whiteboard-only-poster.jpg' },
+  { id: 'vintage', value: 'vintage', label: 'Vintage', hint: 'A 1950s black-and-white TV ad. Barbers, bakeries, family businesses', preview: '/smart-video/looks/vintage.mp4', poster: '/smart-video/looks/vintage-poster.jpg', badge: 'New' },
+  { id: 'news', value: 'news', presenter: true, label: 'News studio', hint: 'A news anchor opens, your photos tell the story. Restaurants, openings, events', preview: '/smart-video/looks/news.mp4', poster: '/smart-video/looks/news-poster.jpg', badge: 'New' },
   { id: 'cartoon', value: 'cartoon', label: 'Cartoon', hint: 'Friendly cartoon pictures and speech bubbles. Insurance, finance, dental, apps', preview: '/smart-video/looks/cartoon.mp4', poster: '/smart-video/looks/cartoon-poster.jpg', badge: 'New' },
   { id: 'comic', value: 'comic', label: 'Comic book', hint: 'Comic panels, halftone dots and speech bubbles. Auto repair, gyms, food, local deals', preview: '/smart-video/looks/comic.mp4', poster: '/smart-video/looks/comic-poster.jpg', badge: 'New' },
-  { id: 'news', value: 'news', presenter: true, label: 'News studio', hint: 'A news anchor opens, your photos tell the story. Restaurants, openings, events', preview: '/smart-video/looks/news.mp4', poster: '/smart-video/looks/news-poster.jpg', badge: 'New' },
-  { id: 'vintage', value: 'vintage', label: 'Vintage', hint: 'A 1950s black-and-white TV ad. Barbers, bakeries, family businesses', preview: '/smart-video/looks/vintage.mp4', poster: '/smart-video/looks/vintage-poster.jpg', badge: 'New' },
+  { id: 'whiteboard', value: 'whiteboard', presenter: false, label: 'Hand-drawn', hint: 'A hand draws your story on a whiteboard, no presenter', preview: '/smart-video/looks/whiteboard-only.mp4', poster: '/smart-video/looks/whiteboard-only-poster.jpg' },
   { id: 'bold', value: 'bold', label: 'Bold', hint: 'Gyms, sales, events, food', preview: '/smart-video/looks/bold.mp4', poster: '/smart-video/looks/bold-poster.jpg' },
   { id: 'clean', value: 'clean', label: 'Clean', hint: 'Clinics, services, offices', preview: '/smart-video/looks/clean.mp4', poster: '/smart-video/looks/clean-poster.jpg' },
   { id: 'elegant', value: 'elegant', label: 'Elegant', hint: 'Luxury, real estate, spas', preview: '/smart-video/looks/elegant.mp4', poster: '/smart-video/looks/elegant-poster.jpg' },
