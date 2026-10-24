@@ -158,8 +158,8 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
       return createApiError(`Add at least ${LISTING_MIN_PHOTOS} photos of the home, or paste the listing link`);
     }
     const credits = listing ? LISTING_CREDITS : phantomCredits(parsed.brief, parsed.length === 'script');
-    // The AI presenter opens vertical Phantom videos only (presenter.ts films 9:16); it is charged on its own.
-    const presenter = parsed.presenter && !listing && parsed.format !== 'horizontal';
+    // The AI presenter opens tall and wide Phantom videos (presenter.ts films 9:16 or 16:9); it is charged on its own.
+    const presenter = parsed.presenter && !listing;
     if (presenter) {
       const needed = credits + PHANTOM_PRESENTER_CREDITS;
       const balance = await availableCredits(userId);
@@ -227,8 +227,8 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
     if (presenterPhoto && (!presenterPhoto.path.startsWith(`${jobDir(userId, '')}`) || presenterPhoto.path.includes('..') || !IMAGE_FILE.test(presenterPhoto.name))) {
       return createApiError('The presenter photo must be a picture you uploaded');
     }
-    // A presenter opens vertical videos only, and never a listing video (the same rule as startSmartVideo).
-    if (wantsPresenter && (parent.listing || parent.format === 'horizontal')) return createApiError('Only a vertical video can have a presenter');
+    // A presenter opens any video but a listing video (the same rule as startSmartVideo).
+    if (wantsPresenter && parent.listing) return createApiError('A listing video cannot have a presenter');
     // Nor a video that opens with the client's own talking clip: their real person is not replaced by a generated one.
     if (wantsPresenter) {
       const opener = (await readPlan(userId, parent.id)).plan.scenes[0]?.speaker;

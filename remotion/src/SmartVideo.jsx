@@ -157,6 +157,29 @@ const STYLES = {
     transition: 'erase',
     sfx: { pop: 0, whoosh: 0, ding: 0.35, chaching: 0.35, marker: 1, underline: 1, push: 1 },
   },
+  // Chalkboard (owner 2026-10-24): the Hand-drawn engine on a dark slate board, the drawings in white chalk, the
+  // words in chalk lettering, a coral chalk for prices. For cafés, bakeries, restaurants, bars and teachers.
+  chalkboard: {
+    theme: { bg: '#27322D', bgLight: '#323F38', bgDeep: '#1B2420', accent: '#E8705E', accentDark: '#C4513F', ink: '#F3F0E6' },
+    // Montserrat is only for the subtitles: handwriting at subtitle size is hard to read (owner 2026-10-06).
+    fonts: { title: ['CaveatBrush', 'CaveatBrush.ttf', '400'], body: ['Caveat', 'Caveat.ttf', '400 700'], extra: [['Marker', 'PermanentMarker.ttf', '400'], ['Montserrat', 'Montserrat.ttf', '100 900']] },
+    // Short lines (about 12 letters): a headline in two big lines fills the board better than one long line.
+    title: { kind: 'hand', weight: 400, scale: 1.12, chars: 0.8, upper: false },
+    grow: 1.7,
+    bodyWeight: 700,
+    surface: 'dark',
+    panel: '#27322D',
+    chalk: true,
+    card: { radius: 3, pad: 14, padColor: '#FFFFFF', shadow: '0 12px 28px rgba(0,0,0,0.18)', tape: true },
+    chip: { radius: 0, bg: 'transparent', shadow: 'none', icon: 'check', iconRadius: 0 },
+    pill: { radius: 20, border: 'none', shadow: 'none', marker: true },
+    tile: { radius: 22, border: 'none', drawn: true },
+    spring: { damping: 200, stiffness: 120, mass: 0.8 },
+    motion: 'write',
+    rotate: true,
+    transition: 'erase',
+    sfx: { pop: 0, whoosh: 0, ding: 0.35, chaching: 0.35, marker: 1, underline: 1, push: 1 },
+  },
   // A friendly 2D cartoon explainer (owner 2026-10-24, from the ad studio's Toon): cream paper, thick navy outlines,
   // coral and mustard, cartoon pictures on outlined cards, headlines in speech bubbles, everything bounces in.
   cartoon: {
@@ -197,6 +220,48 @@ const STYLES = {
     rotate: true,
     transition: 'bands',
     sfx: { pop: 1, whoosh: 1, ding: 1, chaching: 1 },
+  },
+  // Clay (owner 2026-10-24): plasticine stop-motion pictures over the top two thirds (the vintage layout), chunky
+  // rounded headlines on a warm cream panel, the pictures wobble a little like stop-motion frames.
+  clay: {
+    theme: { bg: '#F5E9D8', bgLight: '#FBF3E8', bgDeep: '#E8D6BE', accent: '#E2553D', accentDark: '#B23A26', ink: '#3A2A20', wipe: ['#E2553D', '#F2B630', '#3E8ED0'] },
+    fonts: { title: ['Baloo', 'Baloo2.ttf', '400 800'], body: ['Nunito', 'Nunito.ttf', '200 1000'] },
+    title: { kind: 'clay', weight: 800, scale: 1.25, chars: 0.9, upper: false },
+    grow: 1.4,
+    bodyWeight: 800,
+    surface: 'light',
+    panel: '#F5E9D8',
+    card: { radius: 36, pad: 0, padColor: '#FFFFFF', shadow: '0 18px 0 rgba(58,42,32,0.18)' },
+    chip: { radius: 999, bg: '#FFFFFF', shadow: '0 6px 0 rgba(58,42,32,0.18)', icon: 'cycle', iconRadius: 999 },
+    pill: { radius: 999, border: 'none', shadow: '0 6px 0 rgba(58,42,32,0.22)' },
+    tile: { radius: 30, border: 'none' },
+    spring: { damping: 12, stiffness: 170, mass: 0.8 },
+    motion: 'bouncy',
+    rotate: true,
+    transition: 'bands',
+    sfx: { pop: 1, whoosh: 0.8, ding: 1, chaching: 1 },
+    panelTop: 1210,
+    boil: true,
+  },
+  // Scrapbook (owner 2026-10-24): the business's own photos as Polaroids taped to a cork board, headlines handwritten
+  // on notebook-paper notes, a red marker for prices. Warm and personal: bakeries, family businesses, photographers.
+  scrapbook: {
+    theme: { bg: '#B98B5E', bgLight: '#CFA274', bgDeep: '#8E6640', accent: '#D7372F', accentDark: '#A3241E', ink: '#22252E', wipe: ['#F3E3B6', '#D7372F', '#8FB9A8'] },
+    fonts: { title: ['Caveat', 'Caveat.ttf', '400 700'], body: ['Caveat', 'Caveat.ttf', '400 700'], extra: [['Marker', 'PermanentMarker.ttf', '400']] },
+    title: { kind: 'note', weight: 700, scale: 1.3, chars: 0.85, upper: false },
+    grow: 1.45,
+    bodyWeight: 700,
+    surface: 'light',
+    panel: '#FFFDF6',
+    card: { radius: 3, pad: 20, padBottom: 86, padColor: '#FFFEFA', shadow: '0 16px 30px rgba(40,25,10,0.38)', tape: true },
+    chip: { radius: 4, bg: '#FFFDF6', shadow: '0 6px 14px rgba(40,25,10,0.25)', icon: 'check', iconRadius: 0 },
+    pill: { radius: 3, border: 'none', shadow: '0 6px 14px rgba(40,25,10,0.25)' },
+    tile: { radius: 4, border: 'none' },
+    spring: { damping: 14, stiffness: 160, mass: 0.8 },
+    motion: 'bouncy',
+    rotate: true,
+    transition: 'fade',
+    sfx: { pop: 0.6, whoosh: 0.6, ding: 0.8, chaching: 0.8 },
   },
   // A local TV news report (owner 2026-10-24: "news studio is amazing"): navy studio with moving light, headlines in
   // lower-third banners, the business's photos as footage or on the studio wall, a LOCAL SPOTLIGHT tag and a ticker.
@@ -448,6 +513,8 @@ function PopIn({ at, anim = 'pop', rotate = 0, children, style }) {
 // The two hands. Only the photographed arm is used (an arm lengthened by repeating its skin looks stretched),
 // so every hand is sized and angled to make the real arm reach an edge of the frame.
 const MARKER_HAND = { file: 'smart-video/whiteboard/hand.png', w: 500, h: 1410 };
+// The same hand holding a white chalk stick (the marker recoloured), for the chalkboard.
+const CHALK_HAND_FILE = 'smart-video/whiteboard/hand-chalk.png';
 const OPEN_HAND = { file: 'smart-video/whiteboard/hand-open.png', w: 371, h: 1466 };
 const HAND_W = 400; // the marker hand, on screen
 const NIB = { x: 3 / 500, y: 33 / 500 }; // the marker tip in hand.png, as a share of its width
@@ -559,6 +626,27 @@ function titlePaint(look, theme, tone, size, textColor) {
   if (kind === 'hand') {
     return { outer: { color: fill, lineHeight: 1.02, letterSpacing: '0.005em', textShadow: textColor === LIGHT_TEXT ? '0 4px 24px rgba(0,0,0,0.55)' : 'none' } };
   }
+  if (kind === 'clay') {
+    // Plasticine letters: a rounded fill with a soft stacked shadow, as if the words were pressed out of clay.
+    const fill = tone === 'accent' ? theme.accent : tone === 'brand' ? '#3E8ED0' : theme.ink;
+    const d = Math.max(3, Math.round(size * 0.05));
+    return { outer: { color: fill, lineHeight: 1.06, textShadow: `0 ${d}px 0 rgba(58,42,32,0.28), 0 ${2 * d}px 0 rgba(58,42,32,0.16), 0 ${3 * d}px ${2 * d}px rgba(58,42,32,0.18)` } };
+  }
+  if (kind === 'note') {
+    // A torn-off notebook note: cream paper with blue rules and a red margin line, a little crooked; the accent line in red marker.
+    const accent = tone === 'accent';
+    return {
+      outer: {
+        color: accent ? theme.accent : theme.ink,
+        background: `repeating-linear-gradient(to bottom, transparent 0px, transparent ${Math.round(size * 0.86)}px, rgba(90,130,200,0.28) ${Math.round(size * 0.86)}px, rgba(90,130,200,0.28) ${Math.round(size * 0.86) + 2}px), linear-gradient(to right, transparent ${Math.round(size * 0.42)}px, rgba(215,55,47,0.35) ${Math.round(size * 0.42)}px, rgba(215,55,47,0.35) ${Math.round(size * 0.42) + 3}px, transparent ${Math.round(size * 0.42) + 3}px), #FFFDF6`,
+        padding: `${Math.round(size * 0.16)}px ${Math.round(size * 0.5)}px ${Math.round(size * 0.2)}px ${Math.round(size * 0.66)}px`,
+        boxShadow: '0 12px 26px rgba(40,25,10,0.35)',
+        transform: `rotate(${accent ? 1.6 : -1.4}deg)`,
+        lineHeight: 0.98,
+      },
+      inset: Math.round(size * 1.2) + 20,
+    };
+  }
   if (kind === 'news') {
     // A TV lower third: white capitals on a navy band with a red edge (red band for the accent line), one band per line.
     const accent = tone === 'accent';
@@ -657,7 +745,7 @@ function Title({ block }) {
       {penOffset !== null && penOffset < 1100 && (
         // The arm points at the right edge of the frame (58°), which the real arm reaches from any headline.
         <Img
-          src={staticFile(MARKER_HAND.file)}
+          src={staticFile(look.chalk ? CHALK_HAND_FILE : MARKER_HAND.file)}
           style={{
             position: 'absolute',
             left: `calc(${-2 + underline * 104}% - ${(NIB.x * HAND_W) / stackScale}px)`,
@@ -1097,7 +1185,7 @@ function Gallery({ block, duration }) {
     width: boxes[i][0],
     height: boxes[i][1],
     borderRadius: look.card.radius,
-    padding: look.card.pad,
+    padding: look.card.padBottom ? `${look.card.pad}px ${look.card.pad}px ${Math.round(look.card.padBottom * 0.6)}px` : look.card.pad,
     background: look.card.padColor,
     boxSizing: 'border-box',
     boxShadow: look.card.shadow === 'none' ? '0 18px 40px rgba(0,0,0,0.4)' : look.card.shadow,
@@ -1199,7 +1287,7 @@ function Media({ block, duration }) {
           height: h,
           borderRadius: card.radius,
           background: card.padColor,
-          padding: card.pad,
+          padding: card.padBottom ? `${card.pad}px ${card.pad}px ${card.padBottom}px` : card.pad,
           boxSizing: 'border-box',
           boxShadow: card.shadow,
           border: card.border || 'none',
@@ -1316,7 +1404,18 @@ function Confetti({ colors }) {
 
 // A whiteboard: off-white, a paper grain, a soft vignette.
 function Board({ children }) {
-  const { theme } = usePlan();
+  const { theme, look } = usePlan();
+  if (look.chalk) {
+    // A slate chalkboard: dark green-black, soft wiped-chalk clouds, a thin wooden frame.
+    return (
+      <AbsoluteFill style={{ background: `radial-gradient(ellipse at 50% 42%, ${theme.bgLight} 0%, ${theme.bg} 60%, ${theme.bgDeep} 100%)`, overflow: 'hidden' }}>
+        <AbsoluteFill style={{ background: 'radial-gradient(ellipse at 22% 18%, rgba(255,255,255,0.07) 0%, transparent 32%), radial-gradient(ellipse at 78% 64%, rgba(255,255,255,0.06) 0%, transparent 36%), radial-gradient(ellipse at 40% 88%, rgba(255,255,255,0.05) 0%, transparent 30%)' }} />
+        {children}
+        <AbsoluteFill style={{ backgroundImage: `url(${staticFile('smart-video/whiteboard/paper.png')})`, opacity: 0.12, mixBlendMode: 'screen' }} />
+        <AbsoluteFill style={{ boxShadow: 'inset 0 0 0 16px #6B4A2B, inset 0 0 0 20px #4A321C, inset 0 0 60px rgba(0,0,0,0.5)' }} />
+      </AbsoluteFill>
+    );
+  }
   return (
     <AbsoluteFill style={{ background: theme.bg, overflow: 'hidden' }}>
       {children}
@@ -1454,6 +1553,9 @@ function useDrawing(background, duration, first) {
 
 function DrawingBg({ background, duration, first }) {
   const { asset, path, drawn, done, x, y, w, h, bandH, row, frac } = useDrawing(background, duration, first);
+  // On the chalkboard the dark marker lines turn into white chalk.
+  const { look } = usePlan();
+  const chalkInk = look.chalk ? 'invert(1) brightness(1.04) contrast(0.92)' : undefined;
   const { start } = useContext(SceneTime);
   if (asset && path) {
     // The ink appears under the marker: everything within a marker's reach of the path walked so far.
@@ -1473,7 +1575,7 @@ function DrawingBg({ background, duration, first }) {
             </defs>
           </svg>
         )}
-        <Img src={src(asset.url)} style={{ position: 'absolute', left: x, top: y, width: w, height: h, clipPath: done ? 'none' : `url(#${clipId})` }} />
+        <Img src={src(asset.url)} style={{ position: 'absolute', left: x, top: y, width: w, height: h, clipPath: done ? 'none' : `url(#${clipId})`, filter: chalkInk }} />
       </Board>
     );
   }
@@ -1486,7 +1588,7 @@ function DrawingBg({ background, duration, first }) {
           const fromLeft = i % 2 === 0;
           return (
             <div key={i} style={{ position: 'absolute', top: y + i * bandH, height: bandH + 1, left: x + (fromLeft ? 0 : w * (1 - shown)), width: w * shown, overflow: 'hidden' }}>
-              <Img src={src(asset.url)} style={{ position: 'absolute', top: -i * bandH, left: fromLeft ? 0 : -w * (1 - shown), width: w, height: h }} />
+              <Img src={src(asset.url)} style={{ position: 'absolute', top: -i * bandH, left: fromLeft ? 0 : -w * (1 - shown), width: w, height: h, filter: chalkInk }} />
             </div>
           );
         })}
@@ -1502,6 +1604,7 @@ function DrawingBg({ background, duration, first }) {
  */
 function DrawingHand({ background, duration, first }) {
   const { asset, tipX, tipY, frame, drawFrames, frameSize } = useDrawing(background, duration, first);
+  const { look } = usePlan();
   if (!asset) return null;
   const { W, H, landscape } = frameSize;
   // Wide frame: up from the bottom edge, which the arm reaches from the top of the drawing.
@@ -1516,7 +1619,7 @@ function DrawingHand({ background, duration, first }) {
   return (
     <AbsoluteFill style={{ zIndex: 20, pointerEvents: 'none', overflow: 'hidden' }}>
       <Img
-        src={staticFile(MARKER_HAND.file)}
+        src={staticFile(look.chalk ? CHALK_HAND_FILE : MARKER_HAND.file)}
         style={{
           position: 'absolute',
           left: tipX - NIB.x * handW + Math.sin(rad) * away,
@@ -1535,7 +1638,7 @@ function BrandBg() {
   const { theme, styleName } = usePlan();
   const frame = useCurrentFrame();
   const base = { overflow: 'hidden', background: `radial-gradient(circle at 50% 40%, ${theme.bgLight} 0%, ${theme.bg} 42%, ${theme.bgDeep} 100%)` };
-  if (styleName === 'whiteboard') return <Board />;
+  if (styleName === 'whiteboard' || styleName === 'chalkboard') return <Board />;
   if (styleName === 'cartoon') {
     // Cream paper with soft coral and mustard blobs floating up and down.
     const blobs = [[0.08, 0.16, 0.13, theme.accent], [0.86, 0.27, 0.09, '#F6C453'], [0.12, 0.8, 0.1, '#F6C453'], [0.83, 0.76, 0.15, theme.accent]];
@@ -1555,6 +1658,15 @@ function BrandBg() {
         <div style={{ position: 'absolute', left: W / 2 - H, top: H * 0.42 - H, width: H * 2, height: H * 2, transform: `rotate(${turn}deg)`, background: `repeating-conic-gradient(${theme.bgDeep} 0deg 9deg, transparent 9deg 18deg)`, opacity: 0.75 }} />
         <AbsoluteFill style={{ backgroundImage: `radial-gradient(circle, ${theme.accent} 3px, transparent 3.6px)`, backgroundSize: '26px 26px', opacity: 0.14 }} />
         <AbsoluteFill style={{ background: `radial-gradient(circle at 50% 42%, transparent 35%, ${theme.bg}cc 100%)` }} />
+      </AbsoluteFill>
+    );
+  }
+  if (styleName === 'scrapbook') {
+    // A cork board (a photographed cork texture made once, 2026-10-24) with a soft darker edge.
+    return (
+      <AbsoluteFill style={{ overflow: 'hidden', background: `radial-gradient(ellipse at 50% 42%, ${theme.bgLight} 0%, ${theme.bg} 58%, ${theme.bgDeep} 100%)` }}>
+        <Img src={staticFile('smart-video/scrapbook/cork.jpg')} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        <AbsoluteFill style={{ background: 'radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(40,20,5,0.35) 100%)' }} />
       </AbsoluteFill>
     );
   }
@@ -1693,6 +1805,7 @@ const SIDE_ART = 860; // horizontal: the artwork's share of the width
 
 function ImageTopBg({ background, duration }) {
   const { W, H, landscape } = useFrame();
+  const frame = useCurrentFrame();
   const { assets, theme, look } = usePlan();
   const asset = assets[background.asset];
   const panel = look.panel || theme.bg;
@@ -1707,11 +1820,14 @@ function ImageTopBg({ background, duration }) {
     );
   }
   if (look.panelTop) {
-    // The picture only in the top part (no crop under the paper), a thin black rule and the paper below.
+    // The picture only in the top part (no crop under the paper), a thin black rule and the paper below. Clay pictures
+    // "boil" like stop-motion frames: a tiny new offset every two frames.
+    const step = Math.floor(frame / 2);
+    const boil = look.boil ? `translate(${((step * 37) % 7) - 3}px, ${((step * 53) % 5) - 2}px) rotate(${(((step * 29) % 5) - 2) * 0.12}deg) scale(1.012)` : undefined;
     return (
       <AbsoluteFill style={{ background: panel, overflow: 'hidden' }}>
-        {asset && <div style={{ position: 'absolute', top: 0, left: 0, width: W, height: panelTop, overflow: 'hidden' }}>{art}</div>}
-        <div style={{ position: 'absolute', top: panelTop - 3, left: 0, width: W, height: 6, background: theme.ink }} />
+        {asset && <div style={{ position: 'absolute', top: 0, left: 0, width: W, height: panelTop, overflow: 'hidden' }}><div style={{ width: '100%', height: '100%', transform: boil }}>{art}</div></div>}
+        <div style={{ position: 'absolute', top: panelTop - 3, left: 0, width: W, height: 6, background: look.boil ? 'rgba(58,42,32,0.25)' : theme.ink }} />
       </AbsoluteFill>
     );
   }
@@ -1733,7 +1849,7 @@ function Scene({ scene, index, first }) {
   const duration = Math.round((scene.end - scene.start) * FPS);
   const type = scene.background?.type || 'brand';
   const surface =
-    type === 'mediaBlur' || type === 'mediaFull' ? 'dark' : type === 'imageTop' ? (look.panel ? 'light' : 'dark') : type === 'drawing' ? 'light' : look.surface;
+    type === 'mediaBlur' || type === 'mediaFull' ? 'dark' : type === 'imageTop' ? (look.panel ? 'light' : 'dark') : type === 'drawing' ? (look.chalk ? 'dark' : 'light') : look.surface;
   // Until then the hand is drawing. In a tall frame the words stand under the drawing and the arm passes over
   // them, so they wait for it (except on the opening frame); in a wide frame they stand beside the drawing and
   // are written while the hand draws: half an empty board for three seconds looks unfinished.
@@ -1927,7 +2043,7 @@ function Captions({ words, cuts = [] }) {
   const chunk = chunks[index];
   const pop = spring({ frame: frame - Math.round(chunk[0].start * FPS), fps: FPS, config: { damping: 14, stiffness: 240, mass: 0.5 } });
   const lit = styleName === 'playful' ? theme.bg : styleName === 'elegant' ? theme.accent : styleName === 'bold' ? theme.accent : '#FFD84D';
-  const size = { playful: 84, bold: 98, clean: 72, elegant: 62, whiteboard: 64, cartoon: 80, comic: 84, news: 70, vintage: 64 }[styleName];
+  const size = { playful: 84, bold: 98, clean: 72, elegant: 62, whiteboard: 64, chalkboard: 64, scrapbook: 66, clay: 76, cartoon: 80, comic: 84, news: 70, vintage: 64 }[styleName];
   const strip = styleName === 'whiteboard';
   // The whiteboard's handwriting is for the board; its subtitles are set in a plain bold sans (owner 2026-10-06:
   // "i hate this font, hard to read").

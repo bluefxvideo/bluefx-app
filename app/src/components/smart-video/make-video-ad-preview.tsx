@@ -226,7 +226,7 @@ export function MakeVideoAdPreview({ state, theme, empty, bare }: { state: Previ
     removeFile: noop,
     isBusy: false,
     start: noop,
-    credits: 50 + (format === 'vertical' && presenter ? 10 : 0),
+    credits: 50 + (presenter ? 10 : 0),
     format,
     setFormat,
     look,

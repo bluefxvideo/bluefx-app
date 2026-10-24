@@ -16,10 +16,14 @@ export type VideoLength = (typeof VIDEO_LENGTHS)[number];
 export const VIDEO_FORMATS = ['vertical', 'horizontal'] as const;
 export type VideoFormat = (typeof VIDEO_FORMATS)[number];
 
-export const STYLE_NAMES = ['playful', 'elegant', 'bold', 'clean', 'whiteboard', 'cartoon', 'comic', 'news', 'vintage'] as const;
+export const STYLE_NAMES = ['playful', 'elegant', 'bold', 'clean', 'whiteboard', 'cartoon', 'comic', 'news', 'vintage', 'chalkboard', 'scrapbook', 'clay'] as const;
 export type StyleName = (typeof STYLE_NAMES)[number];
+/** The hand-drawn styles: a hand draws each scene's picture (plan.drawings) on a board. */
+export const isBoard = (style: string | null | undefined) => style === 'whiteboard' || style === 'chalkboard';
 /** The illustrated styles: the director asks for pictures ("cartoons") that the image model paints in the style's look. */
-export const ILLUSTRATED_STYLES = ['cartoon', 'comic', 'vintage'] as const;
+export const ILLUSTRATED_STYLES = ['cartoon', 'comic', 'vintage', 'scrapbook', 'clay'] as const;
+/** Illustrated styles whose pictures fill the top two thirds of the frame over a paper panel (imageTop). */
+export const isBigPicture = (style: string | null | undefined) => style === 'vintage' || style === 'clay';
 export type IllustratedStyle = (typeof ILLUSTRATED_STYLES)[number];
 export const isIllustrated = (style: string | null | undefined): style is IllustratedStyle => (ILLUSTRATED_STYLES as readonly string[]).includes(style || '');
 /** What the client can pick on the page: 'auto' lets The Phantom choose. */
@@ -113,7 +117,7 @@ export const DirectorPlanSchema = z.object({
     .array(z.object({ id: z.string(), prompt: z.string() }))
     .max(MAX_CARTOONS)
     .nullish()
-    .describe('Illustrated styles only (cartoon, comic, vintage): the pictures painted in the style, shown as media cards'),
+    .describe('Illustrated styles only (cartoon, comic, vintage, scrapbook, clay): the pictures painted in the style, shown as media cards'),
   ticker: z.string().nullish().describe('News style only: the one line that scrolls along the bottom (name, offer, phone, address)'),
   signatureSound: z.object({ prompt: z.string(), afterScene: z.number().int().min(0) }).nullish(),
   assets: z.array(

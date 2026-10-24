@@ -96,7 +96,7 @@ export function buildTheme(style: string, proposed?: { bg?: string | null; accen
   // A cartoon lives on its cream paper with navy outlines; only the accent can be the brand's (whiteboard's rule below).
   // A whiteboard is always the white board; only the marker colour can be the brand's.
   // A comic keeps its own red, yellow and blue, the news its studio navy and red, vintage its black and white.
-  if (style === 'comic' || style === 'news' || style === 'vintage') return theme;
+  if (style === 'comic' || style === 'news' || style === 'vintage' || style === 'chalkboard' || style === 'scrapbook' || style === 'clay') return theme;
   if (style === 'whiteboard' || style === 'cartoon') {
     // The second marker must be a real colour: a black or grey "accent" leaves the whole video in one ink
     // and nothing stands out. Then the look's own blue marker is used.

@@ -226,7 +226,7 @@ async function produce(
   const horizontal = format === 'horizontal';
   // The presenter is cast and photographed while the director writes the script.
   const presenterPhoto =
-    presenter && !listing && !horizontal
+    presenter && !listing
       ? (presenterCast
           ? presenterCast().then(async (cast) => {
               console.log(`🎭 Presenter given | hook: ${cast.action}`);
@@ -235,7 +235,7 @@ async function produce(
             })
           : castPersona(brief).then(async (persona) => {
               console.log(`🎭 Presenter: ${persona.photo} | hook: ${persona.action}`);
-              const photo = await castPresenter(persona.photo, look);
+              const photo = await castPresenter(persona.photo, look, horizontal);
               await store(photo, 'presenter.jpg', 'image/jpeg');
               return { photo, action: look === 'news' ? ANCHOR_ACTION : persona.action };
             })
@@ -272,7 +272,7 @@ async function produce(
       ? presenterPhoto
           .then(async (cast) => {
             if (!cast) return null;
-            const clip = await talkingPresenter(cast.photo, firstLine, cast.action, look);
+            const clip = await talkingPresenter(cast.photo, firstLine, cast.action, look, horizontal);
             return { clip, url: await store(clip, 'presenter.mp4', 'video/mp4') };
           })
           .catch((error) => {
@@ -442,7 +442,7 @@ async function addPresenter(plan: DirectorPlan, media: SmartVideoMedia, job: Pro
   try {
     const words = await transcribeWords(await extractAudio(made.clip), plan.language);
     if (!words.length) throw new Error('nothing was heard in the clip');
-    media.assets[PRESENTER_ASSET] = { url: made.url, kind: 'video', portrait: true, lufs: await measureLufs(made.clip) };
+    media.assets[PRESENTER_ASSET] = { url: made.url, kind: 'video', portrait: media.format !== 'horizontal', lufs: await measureLufs(made.clip) };
     media.clipWords[PRESENTER_ASSET] = words;
     plan.scenes[0] = {
       ...plan.scenes[0],
@@ -516,12 +516,13 @@ export async function reviseSmartVideo(
   const { result, usage } = await trackUsage(async () => {
     const sound = soundNow ?? previous.media.sound ?? FULL_SOUND;
     onStage('directing');
-    // Only a vertical video that is not a listing video can have an AI presenter (as in produce), and never one that
+    // Any video that is not a listing video can have an AI presenter (as in produce; wide ones since 2026-10-24), never one that
     // opens with the client's own talking clip: their real person is not replaced by a generated one.
     const listing = previous.media.listing ?? null;
     const opener = previous.plan.scenes[0]?.speaker;
     const ownOpening = Boolean(opener && opener.asset !== PRESENTER_ASSET && previous.media.clipWords?.[opener.asset]);
-    const presenterAllowed = previous.media.format !== 'horizontal' && !listing && !ownOpening;
+    const presenterAllowed = !listing && !ownOpening;
+    const wide = previous.media.format === 'horizontal';
     const kept = opener?.asset === PRESENTER_ASSET && previous.media.assets[PRESENTER_ASSET] ? previous.plan.scenes[0] : null;
     const words = options.presenter?.trim() || null;
     const asked = Boolean(words || options.presenterPhoto);
@@ -534,7 +535,7 @@ export async function reviseSmartVideo(
     // and pose), unless they asked for their photo as it is. When that fails, their photo is filmed as it is.
     if (uploaded && oldPhoto && !options.presenterPhotoAsIs) {
       const own = uploaded;
-      uploaded = await swapIntoPresenter(oldPhoto, own).catch((error) => {
+      uploaded = await swapIntoPresenter(oldPhoto, own, wide).catch((error) => {
         console.warn('⚠️ Putting the client in the presenter\'s place failed, their photo is filmed as it is:', String(error).slice(0, 200));
         swapFailed = true;
         return own;
@@ -572,7 +573,7 @@ export async function reviseSmartVideo(
       }
     }
     // Why no presenter is filmed, when that is known before filming.
-    let blocked: string | undefined = asked && !presenterAllowed ? (ownOpening ? 'The video opens with your own talking clip, so no presenter was added' : 'Only a vertical video can have a presenter') : undefined;
+    let blocked: string | undefined = asked && !presenterAllowed ? (ownOpening ? 'The video opens with your own talking clip, so no presenter was added' : 'A listing video cannot have a presenter') : undefined;
     let presenterJob: Promise<{ clip: Buffer; url: string } | null> | null = null;
     if (request) {
       // The client's own photo needs no casting: the director only gives the action, and may not even do that.
@@ -585,17 +586,17 @@ export async function reviseSmartVideo(
         presenterJob = (async () => {
           // The photo service now and then refuses a plain description once and takes it the next time (2026-10-13).
           let photo: Buffer;
-          if (uploaded) photo = await framePresenterPhoto(uploaded, faceOf(cast.face));
+          if (uploaded) photo = await framePresenterPhoto(uploaded, faceOf(cast.face), wide);
           else if (cast.same && oldPhoto) photo = oldPhoto;
           else {
-            photo = await castPresenter(String(cast.photo), previous.plan.style).catch((error) => {
+            photo = await castPresenter(String(cast.photo), previous.plan.style, wide).catch((error) => {
               console.warn('⚠️ Presenter photo failed, one more try:', String(error).slice(0, 160));
-              return castPresenter(String(cast.photo), previous.plan.style);
+              return castPresenter(String(cast.photo), previous.plan.style, wide);
             });
           }
           // Beside the clip, so a later edit finds the person again.
           await store(photo, 'presenter.jpg', 'image/jpeg');
-          const clip = await talkingPresenter(photo, line, cast.action?.trim() || '', previous.plan.style);
+          const clip = await talkingPresenter(photo, line, cast.action?.trim() || '', previous.plan.style, wide);
           return { clip, url: await store(clip, 'presenter.mp4', 'video/mp4') };
         })().catch((error) => {
           console.warn('⚠️ New presenter not made:', String(error).slice(0, 160));

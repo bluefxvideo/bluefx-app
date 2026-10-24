@@ -48,9 +48,9 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   // The soundtrack: a narrator and music, each of which the client can switch off
   const [voiceOver, setVoiceOver] = useState(true);
   const [music, setMusic] = useState(true);
-  // An AI presenter opens the video and says the first line: on by default, vertical Phantom videos only.
+  // An AI presenter opens the video and says the first line: on by default, tall and wide Phantom videos (not listings).
   const [presenter, setPresenter] = useState(true);
-  const withPresenter = !isListing && format === 'vertical' && presenter;
+  const withPresenter = !isListing && presenter;
   // The one big text box: a website typed into it is read like a link ("ascentequipment.com"), the rest stays notes.
   const website = useMemo(() => (!isListing && !link.trim() ? findWebsite(brief) : null), [isListing, link, brief]);
   const [files, setFiles] = useState<File[]>([]);

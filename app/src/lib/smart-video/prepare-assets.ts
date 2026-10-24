@@ -52,9 +52,9 @@ export async function presenterPhotoFromUpload(file: ClientFile): Promise<Buffer
  * The presenter's vertical frame (1088x1920) cut from the client's photo with the face in the middle, a little above
  * the centre line. `face` is where the face is, as fractions of the photo's width and height.
  */
-export async function framePresenterPhoto(photo: Buffer, face: { x: number; y: number }): Promise<Buffer> {
-  const W = 1088;
-  const H = 1920;
+export async function framePresenterPhoto(photo: Buffer, face: { x: number; y: number }, horizontal = false): Promise<Buffer> {
+  const W = horizontal ? 1920 : 1088;
+  const H = horizontal ? 1088 : 1920;
   const meta = await sharp(photo).metadata();
   const scale = Math.max(W / (meta.width || W), H / (meta.height || H));
   const width = Math.max(W, Math.ceil((meta.width || W) * scale));

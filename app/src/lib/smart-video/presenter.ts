@@ -83,7 +83,9 @@ ${brief.slice(0, 4000)}`,
 export const ANCHOR_ACTION = 'The anchor looks up from the papers on the desk straight into the camera and starts the report with a warm, confident smile.';
 
 /** The presenter's vertical photo (about $0.04); in a cartoon, comic or vintage video, a person in the pictures' look; in a news video, an anchor at a studio desk. */
-export async function castPresenter(photo: string, style?: string | null): Promise<Buffer> {
+export async function castPresenter(photo: string, style?: string | null, horizontal = false): Promise<Buffer> {
+  // A wide video (owner 2026-10-24: "why don't the YouTube versions have a presenter?") gets a wide photo and clip.
+  const shape = horizontal ? 'horizontal 16:9' : 'vertical';
   const drawn = isIllustrated(style) && ILLUSTRATION_LOOKS[style].drawnPresenter ? ILLUSTRATION_LOOKS[style].look : null;
   const res = await fetch(`https://fal.run/${PHOTO_MODEL}`, {
     method: 'POST',
@@ -91,15 +93,15 @@ export async function castPresenter(photo: string, style?: string | null): Promi
     body: JSON.stringify({
       prompt: style === 'news'
         ? // The casting note (a selfie in a car with a slice) won over the studio twice, once as a split screen: only its gender is kept.
-          `Photorealistic vertical still from a local TV news broadcast, one single photograph filling the whole frame (no split screen, no collage, no inset): a friendly, professional ${/\b(woman|female|lady|girl|she|her)\b/i.test(photo) ? 'female' : 'male'} news anchor in their late 30s in a smart dark blazer, sitting at a sleek glossy news desk in a modern TV studio with blue and red lighting and a large glowing video wall of a city skyline behind, front-facing medium shot from the chest up, looking straight into the camera with the mouth closed, hands resting on a few papers. Nothing written anywhere, no text, no logos, no channel names, no watermark.`
+          `Photorealistic ${shape} still from a local TV news broadcast, one single photograph filling the whole frame (no split screen, no collage, no inset): a friendly, professional ${/\b(woman|female|lady|girl|she|her)\b/i.test(photo) ? 'female' : 'male'} news anchor in their late 30s in a smart dark blazer, sitting at a sleek glossy news desk in a modern TV studio with blue and red lighting and a large glowing video wall of a city skyline behind, front-facing medium shot from the chest up, looking straight into the camera with the mouth closed, hands resting on a few papers. Nothing written anywhere, no text, no logos, no channel names, no watermark.`
         : style === 'vintage'
         ? // The owner's favourite sample: a 1950s TV announcer in a suit, in the business, showing what it sells.
-          `${ILLUSTRATION_LOOKS.vintage.look} One single vertical photograph (no split screen, no collage): a smiling 1950s television commercial announcer, smartly dressed in a suit and tie (a 1950s dress for a woman), neatly styled 1950s hair, standing in the place from this casting note and showing its product or prop with one hand, front-facing medium shot, classic studio lighting, looking at the camera with the mouth closed. Keep the casting note's gender and age; ignore its clothes and camera style: ${photo} Nothing written anywhere, no text, no logos, no watermark.`
+          `${ILLUSTRATION_LOOKS.vintage.look} One single ${shape} photograph (no split screen, no collage): a smiling 1950s television commercial announcer, smartly dressed in a suit and tie (a 1950s dress for a woman), neatly styled 1950s hair, standing in the place from this casting note and showing its product or prop with one hand, front-facing medium shot, classic studio lighting, looking at the camera with the mouth closed. Keep the casting note's gender and age; ignore its clothes and camera style: ${photo} Nothing written anywhere, no text, no logos, no watermark.`
         : drawn
-        ? `${drawn} A vertical portrait, front-facing medium shot, the person looking at the camera with the mouth closed, a plain simple background: ${photo} Nothing written anywhere, no text, no logos, no watermark.`
-        : `Photorealistic vertical smartphone photo, UGC style, natural light, realistic skin texture, slightly imperfect framing: ${photo} Nothing written anywhere, no text, no logos, no watermark.`,
+        ? `${drawn} A ${shape} picture, front-facing medium shot, the person looking at the camera with the mouth closed, a plain simple background: ${photo} Nothing written anywhere, no text, no logos, no watermark.`
+        : `Photorealistic ${horizontal ? 'horizontal 16:9 phone video still, the phone held sideways, the person in the middle of the frame' : 'vertical smartphone photo'}, UGC style, natural light, realistic skin texture, slightly imperfect framing: ${photo} Nothing written anywhere, no text, no logos, no watermark.`,
       quality: 'high',
-      image_size: { width: 1088, height: 1920 },
+      image_size: horizontal ? { width: 1920, height: 1088 } : { width: 1088, height: 1920 },
       output_format: 'jpeg',
       num_images: 1,
     }),
@@ -118,7 +120,7 @@ const EDIT_MODEL = 'openai/gpt-image-2.5/flare/edit';
  * same place, clothes, pose, prop and framing as the presenter's photo, with the client's face, hair and build. Returns
  * a vertical photo ready to film (about $0.07).
  */
-export async function swapIntoPresenter(presenterPhoto: Buffer, person: Buffer): Promise<Buffer> {
+export async function swapIntoPresenter(presenterPhoto: Buffer, person: Buffer, horizontal = false): Promise<Buffer> {
   const dataUri = (data: Buffer) => `data:image/jpeg;base64,${data.toString('base64')}`;
   const res = await fetch(`https://fal.run/${EDIT_MODEL}`, {
     method: 'POST',
@@ -127,7 +129,7 @@ export async function swapIntoPresenter(presenterPhoto: Buffer, person: Buffer):
       prompt:
         'Image 1 is a scene. Image 2 is a real person. Make image 1 again with the person from image 2 in it: their exact face, head shape, hair, skin, age and build, so they are clearly the same person as in image 2. Keep everything else from image 1: the same clothes, pose, hands, framing, place, light and camera. Looking into the camera, mouth closed, a slight smile. Photorealistic, realistic skin texture. Nothing written anywhere: no text, no letters, no logos.',
       image_urls: [dataUri(presenterPhoto), dataUri(person)],
-      image_size: { width: 1088, height: 1920 },
+      image_size: horizontal ? { width: 1920, height: 1088 } : { width: 1088, height: 1920 },
       quality: 'high',
       output_format: 'jpeg',
       num_images: 1,
@@ -177,7 +179,7 @@ export function clipSecondsFor(line: string): number {
 }
 
 /** The presenter doing their action and saying the line, with their own voice (LTX 2.5 Fast with sound, 720p, $0.09 a second). */
-export async function talkingPresenter(photo: Buffer, line: string, action = '', style?: string | null): Promise<Buffer> {
+export async function talkingPresenter(photo: Buffer, line: string, action = '', style?: string | null, horizontal = false): Promise<Buffer> {
   // A drawn presenter (cartoon, comic) stays drawn: a soft watercolor face came back photoreal (2026-10-24), so keep the style explicit.
   const drawn = isIllustrated(style) && ILLUSTRATION_LOOKS[style].drawnPresenter ? `Keep the exact art style of the image in every frame (${ILLUSTRATION_LOOKS[style].look.split(',')[0].toLowerCase()}): it stays an illustration and never turns into a photo or live action.` : '';
   const seconds = clipSecondsFor(line);
@@ -199,7 +201,7 @@ export async function talkingPresenter(photo: Buffer, line: string, action = '',
   const submit = await fetch(`https://queue.fal.run/${CLIP_MODEL}`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ prompt, image_url: `data:image/jpeg;base64,${photo.toString('base64')}`, duration: seconds, resolution: '720p', aspect_ratio: '9:16', fps: 25, generate_audio: true, camera_motion: 'static' }),
+    body: JSON.stringify({ prompt, image_url: `data:image/jpeg;base64,${photo.toString('base64')}`, duration: seconds, resolution: '720p', aspect_ratio: horizontal ? '16:9' : '9:16', fps: 25, generate_audio: true, camera_motion: 'static' }),
     signal: AbortSignal.timeout(60_000),
   });
   if (!submit.ok) throw new Error(`Presenter clip submit failed (${submit.status}): ${(await submit.text()).slice(0, 200)}`);

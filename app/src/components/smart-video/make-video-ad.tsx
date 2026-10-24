@@ -63,7 +63,6 @@ const ON_CAMERA_WORDS = /\b(presenter|presenters|actor|actress|spokesperson|spok
 interface StyleCard {
   id: string;
   value: VideoLook;
-  presenter?: boolean;
   label: string;
   hint: string;
   preview?: string;
@@ -71,21 +70,23 @@ interface StyleCard {
   badge?: string;
 }
 const STYLES: StyleCard[] = [
-  { id: 'whiteboard-presenter', value: 'whiteboard', presenter: true, label: 'Hand-drawn + presenter', hint: 'A presenter opens, then a hand draws your story on a whiteboard', preview: '/smart-video/looks/whiteboard.mp4', poster: '/smart-video/looks/whiteboard-poster.jpg', badge: 'Your free ad' },
+  { id: 'whiteboard', value: 'whiteboard', label: 'Hand-drawn', hint: 'A hand draws your story on a whiteboard', preview: '/smart-video/looks/whiteboard.mp4', poster: '/smart-video/looks/whiteboard-poster.jpg', badge: 'Your free ad' },
   { id: 'vintage', value: 'vintage', label: 'Vintage', hint: 'A 1950s black-and-white TV ad. Barbers, bakeries, family businesses', preview: '/smart-video/looks/vintage.mp4', poster: '/smart-video/looks/vintage-poster.jpg', badge: 'New' },
-  { id: 'news', value: 'news', presenter: true, label: 'News studio', hint: 'A news anchor opens, your photos tell the story. Restaurants, openings, events', preview: '/smart-video/looks/news.mp4', poster: '/smart-video/looks/news-poster.jpg', badge: 'New' },
+  { id: 'news', value: 'news', label: 'News studio', hint: 'A news anchor opens, your photos tell the story. Restaurants, openings, events', preview: '/smart-video/looks/news.mp4', poster: '/smart-video/looks/news-poster.jpg', badge: 'New' },
   { id: 'cartoon', value: 'cartoon', label: 'Cartoon', hint: 'Friendly cartoon pictures and speech bubbles. Insurance, finance, dental, apps', preview: '/smart-video/looks/cartoon.mp4', poster: '/smart-video/looks/cartoon-poster.jpg', badge: 'New' },
   { id: 'comic', value: 'comic', label: 'Comic book', hint: 'Comic panels, halftone dots and speech bubbles. Auto repair, gyms, food, local deals', preview: '/smart-video/looks/comic.mp4', poster: '/smart-video/looks/comic-poster.jpg', badge: 'New' },
-  { id: 'whiteboard', value: 'whiteboard', presenter: false, label: 'Hand-drawn', hint: 'A hand draws your story on a whiteboard, no presenter', preview: '/smart-video/looks/whiteboard-only.mp4', poster: '/smart-video/looks/whiteboard-only-poster.jpg' },
+  { id: 'chalkboard', value: 'chalkboard', label: 'Chalkboard', hint: 'A hand draws your story in chalk. Cafés, bakeries, restaurants, teachers', preview: '/smart-video/looks/chalkboard.mp4', poster: '/smart-video/looks/chalkboard-poster.jpg', badge: 'New' },
+  { id: 'scrapbook', value: 'scrapbook', label: 'Scrapbook', hint: 'Your photos as Polaroids with handwritten notes. Bakeries, family businesses', preview: '/smart-video/looks/scrapbook.mp4', poster: '/smart-video/looks/scrapbook-poster.jpg', badge: 'New' },
   { id: 'bold', value: 'bold', label: 'Bold', hint: 'Gyms, sales, events, food', preview: '/smart-video/looks/bold.mp4', poster: '/smart-video/looks/bold-poster.jpg' },
   { id: 'clean', value: 'clean', label: 'Clean', hint: 'Clinics, services, offices', preview: '/smart-video/looks/clean.mp4', poster: '/smart-video/looks/clean-poster.jpg' },
   { id: 'elegant', value: 'elegant', label: 'Elegant', hint: 'Luxury, real estate, spas', preview: '/smart-video/looks/elegant.mp4', poster: '/smart-video/looks/elegant-poster.jpg' },
-  { id: 'playful', value: 'playful', label: 'Playful', hint: 'Kids, parties, casual food', poster: '/smart-video/looks/playful.jpg' },
+  { id: 'playful', value: 'playful', label: 'Playful', hint: 'Kids, parties, casual food', preview: '/smart-video/looks/playful.mp4', poster: '/smart-video/looks/playful-poster.jpg' },
   { id: 'auto', value: 'auto', label: 'AI picks', hint: 'The best fit for your business', preview: '/smart-video/looks/auto.mp4', poster: '/smart-video/looks/auto-poster.jpg' },
 ];
 const cardById = (id: string) => STYLES.find((s) => s.id === id) ?? STYLES[0];
-/** The card the page's choice matches: Hand-drawn splits on the presenter switch. */
-const cardIdOf = (look: VideoLook, presenter: boolean) => (look === 'whiteboard' ? (presenter ? 'whiteboard-presenter' : 'whiteboard') : look);
+/** The card the page's choice matches: one card per style (owner 2026-10-24: every style opens with a presenter that
+ * fits it, on by default, and the switch under the style turns it off). */
+const cardIdOf = (look: VideoLook) => look;
 
 const isRunning = (job: SmartVideoJob) => job.status !== 'done' && job.status !== 'failed';
 
@@ -616,8 +617,7 @@ function StylePreview({ card, className }: { card: StyleCard; className?: string
 /** The chosen style on the first screen, with the way into the gallery (owner 2026-10-24: styles back, without a harder page). */
 function StyleRow({ smart }: { smart: SmartVideo }) {
   const [open, setOpen] = useState(false);
-  const withPresenter = smart.format === 'vertical' && smart.presenter;
-  const style = cardById(cardIdOf(smart.look, withPresenter));
+  const style = cardById(cardIdOf(smart.look));
   return (
     <>
       <button
@@ -630,7 +630,6 @@ function StyleRow({ smart }: { smart: SmartVideo }) {
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] text-muted-foreground sm:text-base">Style</span>
           <span className="block text-lg font-bold sm:text-[19px]">{style.label}</span>
-          {withPresenter && style.value !== 'whiteboard' && <span className="block text-[15px] leading-snug text-muted-foreground sm:text-base">With a presenter</span>}
           <span className="mt-1 flex items-center gap-1 text-base font-bold text-brand sm:hidden">
             Change style
             <ChevronRight className="h-5 w-5" />
@@ -641,22 +640,29 @@ function StyleRow({ smart }: { smart: SmartVideo }) {
           <ChevronRight className="h-5 w-5" />
         </span>
       </button>
+      <SwitchRow
+        id="mva-presenter"
+        title="Presenter at the start"
+        checked={smart.presenter}
+        onChange={smart.setPresenter}
+        disabled={smart.isBusy}
+        text={`A person who fits the style opens your video ad and says the first line on camera. ${PHANTOM_PRESENTER_CREDITS} credits, given back if the presenter cannot be made.`}
+      />
       <StyleGallery smart={smart} open={open} onClose={() => setOpen(false)} />
     </>
   );
 }
 
-/** Every style with its preview playing and its price; "Use" sets it (the Hand-drawn cards set the presenter too). */
+/** Every style with its preview playing and its price; "Use" sets it and turns the presenter on. */
 function StyleGallery({ smart, open, onClose }: { smart: SmartVideo; open: boolean; onClose: () => void }) {
-  const tall = smart.format === 'vertical';
-  const current = cardIdOf(smart.look, tall && smart.presenter);
-  const [picked, setPicked] = useState(current);
+  const current = cardIdOf(smart.look);
+  const [picked, setPicked] = useState<string>(current);
   useEffect(() => {
     if (open) setPicked(current);
   }, [open, current]);
-  // The price each card would make: the presenter's credits ride on the card for Hand-drawn, on the switch for the rest.
-  const base = smart.credits - (tall && smart.presenter ? PHANTOM_PRESENTER_CREDITS : 0);
-  const priceOf = (card: StyleCard) => base + (tall && (card.presenter ?? smart.presenter) ? PHANTOM_PRESENTER_CREDITS : 0);
+  // Every card shows its style with the presenter: picking one turns the presenter on (the switch can turn it off).
+  const base = smart.credits - (smart.presenter ? PHANTOM_PRESENTER_CREDITS : 0);
+  const priceOf = () => base + PHANTOM_PRESENTER_CREDITS;
   const chosen = cardById(picked);
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -691,7 +697,7 @@ function StyleGallery({ smart, open, onClose }: { smart: SmartVideo; open: boole
                 <span className="flex flex-1 flex-col px-3 py-2.5">
                   <span className="block text-base font-bold leading-snug sm:text-[17px]">{card.label}</span>
                   <span className="mt-0.5 block flex-1 text-sm leading-snug text-muted-foreground sm:text-[15px]">{card.hint}</span>
-                  <span className="mt-1.5 block text-sm font-bold text-brand sm:text-[15px]">{priceOf(card)} credits</span>
+                  <span className="mt-1.5 block text-sm font-bold text-brand sm:text-[15px]">{priceOf()} credits</span>
                 </span>
               </button>
             );
@@ -701,11 +707,11 @@ function StyleGallery({ smart, open, onClose }: { smart: SmartVideo; open: boole
           className="sticky bottom-0 mt-2"
           onClick={() => {
             smart.setLook(chosen.value);
-            if (chosen.presenter !== undefined && tall) smart.setPresenter(chosen.presenter);
+            smart.setPresenter(true);
             onClose();
           }}
         >
-          Use {chosen.label} · {priceOf(chosen)} credits
+          Use {chosen.label} · {priceOf()} credits
         </GreenButton>
       </DialogContent>
     </Dialog>
@@ -714,13 +720,13 @@ function StyleGallery({ smart, open, onClose }: { smart: SmartVideo; open: boole
 
 function optionsSummary(smart: SmartVideo): string {
   const tall = smart.format === 'vertical';
-  const extras = [tall && smart.presenter && 'a presenter', smart.voiceOver && 'voice-over', smart.music && 'music'].filter(Boolean) as string[];
+  // The presenter has its own switch under the style.
+  const extras = [smart.voiceOver && 'voice-over', smart.music && 'music'].filter(Boolean) as string[];
   const withWhat = extras.length ? `, with ${extras.length > 1 ? `${extras.slice(0, -1).join(', ')} and ${extras[extras.length - 1]}` : extras[0]}` : ', without sound';
   return `${tall ? 'Tall video ad for phones' : 'Wide video ad for YouTube and websites'}${withWhat}.${smart.exactWords ? ' Your exact words.' : ''}`;
 }
 
 function MoreOptions({ smart, open, onToggle }: { smart: SmartVideo; open: boolean; onToggle: () => void }) {
-  const tall = smart.format === 'vertical';
   return (
     <div className="border-t border-sheet-line pt-5">
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-3 text-left">
@@ -764,18 +770,6 @@ function MoreOptions({ smart, open, onToggle }: { smart: SmartVideo; open: boole
           </div>
 
           <div className="space-y-3">
-            <SwitchRow
-              id="mva-presenter"
-              title="Presenter"
-              checked={tall && smart.presenter}
-              onChange={smart.setPresenter}
-              disabled={smart.isBusy || !tall}
-              text={
-                tall
-                  ? `A person opens your video ad and says the first line on camera. ${PHANTOM_PRESENTER_CREDITS} credits, given back if the presenter cannot be made.`
-                  : 'For tall video ads only.'
-              }
-            />
             <SwitchRow id="mva-voice" title="Voice-over" checked={smart.voiceOver} onChange={smart.setVoiceOver} disabled={smart.isBusy} text="A narrator reads the script." />
             <SwitchRow id="mva-music" title="Music" checked={smart.music} onChange={smart.setMusic} disabled={smart.isBusy} text="Music made for your video ad." />
             <SwitchRow
@@ -1066,10 +1060,10 @@ function ChangeBox({
   const addInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
 
-  // Only tall video ads that are not listing videos have a presenter, and never one that opens with the client's own clip.
+  // Any video ad but a listing video can have a presenter (wide ones too since 2026-10-24), never one that opens with the client's own clip.
   const opener = job.script?.[0];
   const ownOpening = Boolean(opener?.speaker && opener.presenter === false);
-  const canHavePresenter = job.format !== 'horizontal' && !job.listing && !ownOpening;
+  const canHavePresenter = !job.listing && !ownOpening;
   const hasPresenter = Boolean(opener?.presenter ?? opener?.speaker);
   // The presenter changes only when the client says yes to its own price (owner rules 2026-10-13 and 2026-10-19: a new
   // person on camera always costs more than a plain change), never from the words alone. The words only open the
@@ -1206,7 +1200,7 @@ function ChangeBox({
         <>
           {asksForPerson && (
             <p className="text-base leading-relaxed text-muted-foreground">
-              {ownOpening ? 'Your video ad opens with your own clip, so you stay on camera.' : 'A presenter is only possible in tall video ads.'}
+              {ownOpening ? 'Your video ad opens with your own clip, so you stay on camera.' : 'A listing video ad has no presenter.'}
             </p>
           )}
           <BlueButton onClick={() => send(false)} disabled={revising || !canChange}>
