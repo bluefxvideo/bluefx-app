@@ -93,8 +93,9 @@ const mix = (hex: string, target: number, amount: number) => toHex(parse(hex).ma
  */
 export function buildTheme(style: string, proposed?: { bg?: string | null; accent?: string | null } | null) {
   const theme: Record<string, string> = {};
+  // A cartoon lives on its cream paper with navy outlines; only the accent can be the brand's (whiteboard's rule below).
   // A whiteboard is always the white board; only the marker colour can be the brand's.
-  if (style === 'whiteboard') {
+  if (style === 'whiteboard' || style === 'cartoon') {
     // The second marker must be a real colour: a black or grey "accent" leaves the whole video in one ink
     // and nothing stands out. Then the look's own blue marker is used.
     if (isHex(proposed?.accent) && saturation(proposed.accent) > 0.35 && luminance(proposed.accent) < 0.55 && luminance(proposed.accent) > 0.06) {

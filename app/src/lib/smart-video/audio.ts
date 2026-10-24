@@ -110,6 +110,7 @@ const SAFE_MUSIC: Record<string, string> = {
   elegant: '84 BPM, elegant instrumental bed. Instruments: grand piano, soft strings, warm cello, light harp. Attitude: refined, calm, luxurious.',
   bold: '126 BPM, driving instrumental bed. Instruments: punchy drums, synth bass, electric guitar stabs, claps. Attitude: energetic, confident, motivating.',
   clean: '104 BPM, light instrumental bed. Instruments: muted guitar plucks, soft piano, finger snaps, warm bass. Attitude: optimistic, friendly, tidy.',
+  cartoon: '110 BPM, bouncy instrumental bed. Instruments: marimba, pizzicato strings, ukulele, hand claps, soft kick drum. Attitude: friendly, light, explainer-video.',
 };
 export const MUSIC_RULES = ' Steady energy, no build-ups, no drops. No vocals. Sits under a voice-over. About 60 seconds.';
 /** Said to the music model on every take of a video's music: it adds singing and vocal chops otherwise. */
@@ -284,6 +285,30 @@ const DRAWING_INK = [31, 36, 48]; // the whiteboard look's ink colour (#1F2430)
  * background and cropped to the drawing, so the renderer's hand draws exactly the lines and
  * never sweeps over empty board. Returns the PNG and its size.
  */
+/** The cartoon style's one look, added to every cartoon picture and to its presenter (from the ad studio's Toon). */
+export const CARTOON_LOOK = 'Flat vector cartoon illustration, thick clean dark-navy outlines, limited palette of navy, coral, mustard and cream, simple geometric shapes, friendly style like a modern explainer video.';
+
+/** A cartoon picture for a scene: square, the whole scene inside the frame with a margin (about $0.013 at medium). */
+export async function generateCartoon(prompt: string): Promise<{ png: Buffer; width: number; height: number }> {
+  const res = await fetch('https://fal.run/openai/gpt-image-2.5/flare/text-to-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Key ${falKey()}` },
+    body: JSON.stringify({
+      prompt: `${CARTOON_LOOK} Square composition with the whole scene fully inside the frame and some margin around it, plain cream background. No text, no words, no letters, no numbers, no logos: ${prompt}`,
+      quality: CARTOON_QUALITY,
+      output_format: 'png',
+      num_images: 1,
+      image_size: { width: 1024, height: 1024 },
+    }),
+    signal: AbortSignal.timeout(150_000),
+  });
+  if (!res.ok) throw new Error(`Cartoon failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  const json = await res.json();
+  usage.cartoon();
+  return { png: Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer()), width: 1024, height: 1024 };
+}
+const CARTOON_QUALITY: DrawingQuality = 'medium';
+
 /** The image model's quality for whiteboard drawings (fal GPT Image 2.5 at 1024x1024: low $0.006, medium $0.013, high $0.053). */
 export type DrawingQuality = 'low' | 'medium' | 'high';
 // Medium since 2026-10-06: side by side with high the line art looked the same, it came back faster (fewer timeouts) and costs a quarter.

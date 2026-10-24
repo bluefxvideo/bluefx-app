@@ -157,6 +157,27 @@ const STYLES = {
     transition: 'erase',
     sfx: { pop: 0, whoosh: 0, ding: 0.35, chaching: 0.35, marker: 1, underline: 1, push: 1 },
   },
+  // A friendly 2D cartoon explainer (owner 2026-10-24, from the ad studio's Toon): cream paper, thick navy outlines,
+  // coral and mustard, cartoon pictures on outlined cards, headlines in speech bubbles, everything bounces in.
+  cartoon: {
+    theme: { bg: '#FFF4E3', bgLight: '#FFFAF1', bgDeep: '#F6E6CC', accent: '#F26B5B', accentDark: '#C2493B', ink: '#1B2A4A', wipe: ['#F26B5B', '#F6C453', '#1B2A4A'] },
+    fonts: { title: ['Baloo', 'Baloo2.ttf', '400 800'], body: ['Nunito', 'Nunito.ttf', '200 1000'] },
+    title: { kind: 'bubble', weight: 800, scale: 1.05, chars: 0.95, upper: false },
+    // A card, a bubble and a label are a short stack: it grows to fill the tall frame instead of floating at the top.
+    grow: 1.55,
+    bodyWeight: 800,
+    surface: 'light',
+    panel: '#FFFFFF',
+    card: { radius: 44, pad: 0, padColor: '#FFFFFF', shadow: '16px 16px 0 #F26B5B', border: '8px solid #1B2A4A' },
+    chip: { radius: 999, bg: '#FFFFFF', shadow: '6px 6px 0 #1B2A4A', icon: 'cycle', iconRadius: 999 },
+    pill: { radius: 999, border: '5px solid #1B2A4A', shadow: '6px 6px 0 #1B2A4A' },
+    tile: { radius: 32, border: '6px solid #1B2A4A' },
+    spring: { damping: 11, stiffness: 180, mass: 0.8 },
+    motion: 'bouncy',
+    rotate: true,
+    transition: 'bands',
+    sfx: { pop: 1, whoosh: 0.8, ding: 1, chaching: 1 },
+  },
 };
 const MARKER = '"Marker", "Caveat", cursive';
 // Ticks and stars are drawn as shapes, not typed: the render server's fonts have no ✓, ✔ or ★, so on the live
@@ -435,6 +456,24 @@ function titlePaint(look, theme, tone, size, textColor) {
       },
     };
   }
+  if (kind === 'bubble') {
+    // A speech bubble: white (coral for an accent line) with a navy outline and a hard navy shadow; Title adds the tail.
+    const accent = tone === 'accent';
+    return {
+      outer: {
+        color: accent ? '#FFFFFF' : theme.ink,
+        background: accent ? theme.accent : '#FFFFFF',
+        border: `${Math.max(4, Math.round(size * 0.07))}px solid ${theme.ink}`,
+        borderRadius: Math.round(size * 0.5),
+        padding: `${Math.round(size * 0.22)}px ${Math.round(size * 0.42)}px`,
+        boxShadow: `${Math.round(size * 0.11)}px ${Math.round(size * 0.11)}px 0 ${theme.ink}`,
+        lineHeight: 1.05,
+        marginBottom: Math.round(size * 0.36),
+      },
+      inset: Math.round(size * 0.84) + 24,
+      tail: true,
+    };
+  }
   if (kind === 'block') {
     const tones = {
       light: ['#FFFFFF', theme.accent],
@@ -545,6 +584,13 @@ function Title({ block }) {
             transform: `translate(${(penOffset * 0.85) / stackScale}px, ${(penOffset * 0.53) / stackScale}px) rotate(-58deg)`,
           }}
         />
+      )}
+      {paint.tail && (
+        // The bubble's tail, outline first, then the fill over it.
+        <>
+          <div style={{ position: 'absolute', bottom: -Math.round(size * 0.36), left: Math.round(size * 0.55), width: 0, height: 0, borderLeft: `${Math.round(size * 0.22)}px solid transparent`, borderRight: `${Math.round(size * 0.22)}px solid transparent`, borderTop: `${Math.round(size * 0.36)}px solid ${theme.ink}` }} />
+          <div style={{ position: 'absolute', bottom: -Math.round(size * 0.23), left: Math.round(size * 0.61), width: 0, height: 0, borderLeft: `${Math.round(size * 0.16)}px solid transparent`, borderRight: `${Math.round(size * 0.16)}px solid transparent`, borderTop: `${Math.round(size * 0.27)}px solid ${paint.outer.background}` }} />
+        </>
       )}
       <div ref={ref} style={{ gridArea: '1 / 1', visibility: block.display === undefined ? 'visible' : 'hidden' }}>{line(text)}</div>
       {block.display !== undefined && <div style={{ gridArea: '1 / 1' }}>{line(block.display)}</div>}
@@ -1070,6 +1116,7 @@ function Media({ block, duration }) {
           padding: card.pad,
           boxSizing: 'border-box',
           boxShadow: card.shadow,
+          border: card.border || 'none',
           outline: card.outline ? `1.5px solid ${theme.accent}` : 'none',
           outlineOffset: 14,
         }}
@@ -1403,6 +1450,17 @@ function BrandBg() {
   const frame = useCurrentFrame();
   const base = { overflow: 'hidden', background: `radial-gradient(circle at 50% 40%, ${theme.bgLight} 0%, ${theme.bg} 42%, ${theme.bgDeep} 100%)` };
   if (styleName === 'whiteboard') return <Board />;
+  if (styleName === 'cartoon') {
+    // Cream paper with soft coral and mustard blobs floating up and down.
+    const blobs = [[0.08, 0.16, 0.13, theme.accent], [0.86, 0.27, 0.09, '#F6C453'], [0.12, 0.8, 0.1, '#F6C453'], [0.83, 0.76, 0.15, theme.accent]];
+    return (
+      <AbsoluteFill style={{ overflow: 'hidden', background: `radial-gradient(circle at 50% 40%, ${theme.bgLight} 0%, ${theme.bg} 60%, ${theme.bgDeep} 100%)` }}>
+        {blobs.map(([x, y, r, c], i) => (
+          <div key={i} style={{ position: 'absolute', left: W * x - (W * r) / 2, top: H * y - (W * r) / 2 + Math.sin(frame / 22 + i) * 14, width: W * r, height: W * r, borderRadius: '50%', background: c, opacity: 0.2 }} />
+        ))}
+      </AbsoluteFill>
+    );
+  }
   if (styleName === 'playful') {
     return (
       <AbsoluteFill style={base}>
@@ -1742,7 +1800,7 @@ function Captions({ words, cuts = [] }) {
   const chunk = chunks[index];
   const pop = spring({ frame: frame - Math.round(chunk[0].start * FPS), fps: FPS, config: { damping: 14, stiffness: 240, mass: 0.5 } });
   const lit = styleName === 'playful' ? theme.bg : styleName === 'elegant' ? theme.accent : styleName === 'bold' ? theme.accent : '#FFD84D';
-  const size = { playful: 84, bold: 98, clean: 72, elegant: 62, whiteboard: 64 }[styleName];
+  const size = { playful: 84, bold: 98, clean: 72, elegant: 62, whiteboard: 64, cartoon: 80 }[styleName];
   const strip = styleName === 'whiteboard';
   // The whiteboard's handwriting is for the board; its subtitles are set in a plain bold sans (owner 2026-10-06:
   // "i hate this font, hard to read").

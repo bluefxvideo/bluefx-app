@@ -5,6 +5,7 @@ import {
   animatePhoto,
   changeTempo,
   cutOutProduct,
+  generateCartoon,
   generateDrawing,
   generateLifestyleShot,
   generateMusic,
@@ -233,7 +234,7 @@ async function produce(
             })
           : castPersona(brief).then(async (persona) => {
               console.log(`🎭 Presenter: ${persona.photo} | hook: ${persona.action}`);
-              const photo = await castPresenter(persona.photo);
+              const photo = await castPresenter(persona.photo, look === 'cartoon');
               await store(photo, 'presenter.jpg', 'image/jpeg');
               return { photo, action: persona.action };
             })
@@ -353,8 +354,9 @@ async function produce(
   ).then((pairs) => Object.fromEntries(pairs));
 
   const drawings = makeDrawings(plan.drawings || [], store);
+  const cartoons = makeCartoons(plan.style === 'cartoon' ? plan.cartoons || [] : [], store);
 
-  const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips, drawingAssets, digits] = await Promise.all([
+  const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips, drawingAssets, digits, cartoonAssets] = await Promise.all([
     narration.length ? recordVoice(narration, languageName, plan, store, listing ? listingFit(listing, narration.length) : undefined) : null,
     sound.music
       ? (pickMusic ? pickMusic(plan.musicPrompt, plan.style, plan.scenes.map((scene) => scene.narration).join(' ')).catch(() => null) : Promise.resolve(null))
@@ -377,6 +379,7 @@ async function produce(
     clipWords,
     drawings,
     showsCaptions(plan, sound) ? captionDigits(plan.scenes.map((scene) => scene.narration), languageName) : {},
+    cartoons,
   ]);
 
   // How loud the narrator and the song are: the mix puts the music under the voice whatever the song's mastering.
@@ -395,6 +398,7 @@ async function produce(
       ...[...motionUrls].map(([id, url]) => [`${id}-motion`, { url, kind: 'video' as const, portrait: !horizontal }] as const),
       ...lifestyleAssets,
       ...drawingAssets,
+      ...cartoonAssets,
       ...assets.map(
         (a) =>
           [
@@ -583,9 +587,9 @@ export async function reviseSmartVideo(
           if (uploaded) photo = await framePresenterPhoto(uploaded, faceOf(cast.face));
           else if (cast.same && oldPhoto) photo = oldPhoto;
           else {
-            photo = await castPresenter(String(cast.photo)).catch((error) => {
+            photo = await castPresenter(String(cast.photo), previous.plan.style === 'cartoon').catch((error) => {
               console.warn('⚠️ Presenter photo failed, one more try:', String(error).slice(0, 160));
-              return castPresenter(String(cast.photo));
+              return castPresenter(String(cast.photo), previous.plan.style === 'cartoon');
             });
           }
           // Beside the clip, so a later edit finds the person again.
@@ -607,6 +611,10 @@ export async function reviseSmartVideo(
     const before = new Map((previous.plan.drawings || []).map((d) => [d.id, d.prompt]));
     const redraw = (plan.drawings || []).filter((d) => !media.assets[d.id] || before.get(d.id) !== d.prompt);
     for (const [id, asset] of await makeDrawings(redraw, store)) media.assets[id] = asset;
+    // Cartoon: the same for its pictures.
+    const drawn = new Map((previous.plan.cartoons || []).map((c) => [c.id, c.prompt]));
+    const recartoon = plan.style === 'cartoon' ? (plan.cartoons || []).filter((c) => !media.assets[c.id] || drawn.get(c.id) !== c.prompt) : [];
+    for (const [id, asset] of await makeCartoons(recartoon, store)) media.assets[id] = asset;
     // The narrator says every scene that nobody in a clip says (a speaker scene needs the clip's saved word timings).
     // The recording is kept when it already holds those lines in the same voice; otherwise they are recorded again.
     const clipWords = media.clipWords || {};
@@ -809,6 +817,25 @@ async function makeDrawings(list: { id: string; prompt: string }[], store: Store
           return [d.id, { url, kind: 'image' as const, width, height, path }] as const;
         } catch (error) {
           console.warn(`⚠️ Drawing ${d.id} failed (try ${attempt} of ${DRAWING_TRIES}):`, String(error).slice(0, 160));
+        }
+      }
+      return null;
+    })
+  );
+  return made.filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+}
+
+/** Cartoon pictures, in parallel, each tried twice. One that still fails leaves its card out rather than failing the video. */
+async function makeCartoons(list: { id: string; prompt: string }[], store: StoreFile) {
+  const made = await Promise.all(
+    list.map(async (c) => {
+      for (let attempt = 1; attempt <= DRAWING_TRIES; attempt++) {
+        try {
+          const { png, width, height } = await generateCartoon(c.prompt);
+          const url = await store(png, `${c.id}-${Date.now().toString(36)}.png`, 'image/png');
+          return [c.id, { url, kind: 'image' as const, width, height }] as const;
+        } catch (error) {
+          console.warn(`⚠️ Cartoon ${c.id} failed (try ${attempt} of ${DRAWING_TRIES}):`, String(error).slice(0, 160));
         }
       }
       return null;

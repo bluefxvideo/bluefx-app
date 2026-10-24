@@ -1,3 +1,4 @@
+import { CARTOON_LOOK } from './audio';
 import { usage } from './usage';
 
 /**
@@ -77,13 +78,15 @@ ${brief.slice(0, 4000)}`,
   return { photo, action };
 }
 
-/** The presenter's vertical photo (about $0.04). */
-export async function castPresenter(photo: string): Promise<Buffer> {
+/** The presenter's vertical photo (about $0.04); in a cartoon video, a cartoon person in the cartoon pictures' look. */
+export async function castPresenter(photo: string, cartoon = false): Promise<Buffer> {
   const res = await fetch(`https://fal.run/${PHOTO_MODEL}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` },
     body: JSON.stringify({
-      prompt: `Photorealistic vertical smartphone photo, UGC style, natural light, realistic skin texture, slightly imperfect framing: ${photo} Nothing written anywhere, no text, no logos, no watermark.`,
+      prompt: cartoon
+        ? `${CARTOON_LOOK} A vertical portrait, front-facing medium shot, the person looking at the camera with the mouth closed, a plain simple background: ${photo} Nothing written anywhere, no text, no logos, no watermark.`
+        : `Photorealistic vertical smartphone photo, UGC style, natural light, realistic skin texture, slightly imperfect framing: ${photo} Nothing written anywhere, no text, no logos, no watermark.`,
       quality: 'high',
       image_size: { width: 1088, height: 1920 },
       output_format: 'jpeg',

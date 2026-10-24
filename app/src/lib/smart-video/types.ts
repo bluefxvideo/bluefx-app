@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MAX_ANIMATED_PHOTOS, MAX_DRAWINGS, MAX_LIFESTYLE_PHOTOS } from './pricing';
+import { MAX_ANIMATED_PHOTOS, MAX_CARTOONS, MAX_DRAWINGS, MAX_LIFESTYLE_PHOTOS } from './pricing';
 
 /**
  * Smart Video — the director's plan.
@@ -16,7 +16,7 @@ export type VideoLength = (typeof VIDEO_LENGTHS)[number];
 export const VIDEO_FORMATS = ['vertical', 'horizontal'] as const;
 export type VideoFormat = (typeof VIDEO_FORMATS)[number];
 
-export const STYLE_NAMES = ['playful', 'elegant', 'bold', 'clean', 'whiteboard'] as const;
+export const STYLE_NAMES = ['playful', 'elegant', 'bold', 'clean', 'whiteboard', 'cartoon'] as const;
 export type StyleName = (typeof STYLE_NAMES)[number];
 /** What the client can pick on the page: 'auto' lets The Phantom choose. */
 export const VIDEO_LOOKS = ['auto', ...STYLE_NAMES] as const;
@@ -105,6 +105,11 @@ export const DirectorPlanSchema = z.object({
     .max(MAX_DRAWINGS)
     .nullish()
     .describe('Whiteboard style only: the line drawings a hand draws, one per drawing scene'),
+  cartoons: z
+    .array(z.object({ id: z.string(), prompt: z.string() }))
+    .max(MAX_CARTOONS)
+    .nullish()
+    .describe('Cartoon style only: the flat cartoon pictures, shown as media cards'),
   signatureSound: z.object({ prompt: z.string(), afterScene: z.number().int().min(0) }).nullish(),
   assets: z.array(
     z.object({

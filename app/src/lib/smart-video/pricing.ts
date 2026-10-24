@@ -30,6 +30,8 @@ export const MAX_LIFESTYLE_PHOTOS = 3;
 export const MAX_ANIMATED_PHOTOS = 2;
 /** Whiteboard videos: one line drawing per scene, about $0.04 each. */
 export const MAX_DRAWINGS = 8;
+/** Cartoon videos: flat cartoon pictures, one per scene that shows one (about $0.013 each). */
+export const MAX_CARTOONS = 6;
 
 const WORDS_PER_MINUTE = 140;
 

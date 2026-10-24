@@ -5,6 +5,7 @@
  *                  With a link, the brief file is the client's own note (offer, contact) added to the scraped facts.
  *                  The last arguments make ReelEstate's automatic listing video: the length, "animated" (the product) or
  *                  "still" (a cheap check of text and length), and a file with the client's instructions.
+ *                  PRESENTER=1 in front: an AI presenter says the first line, as on the page.
  * Output:         remotion/out/smart-<job-name>.mp4 (+ the plan in remotion/test-plans/)
  */
 import { config } from 'dotenv';
@@ -69,7 +70,7 @@ async function main() {
     assets,
     storeLocal,
     async (url) => fs.readFileSync(path.join(PUBLIC_DIR, path.basename(url))),
-    { length: length as VideoLength, format: format as VideoFormat, look: look === 'auto' ? null : (look as StyleName), sound, listing }
+    { length: length as VideoLength, format: format as VideoFormat, look: look === 'auto' ? null : (look as StyleName), sound, listing, presenter: process.env.PRESENTER === '1' }
   );
   for (const warning of warnings) console.log(`⚠️ For the client: ${warning}`);
 
