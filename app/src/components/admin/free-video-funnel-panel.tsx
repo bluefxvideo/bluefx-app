@@ -493,23 +493,23 @@ function TurnedAwayList({ turnedAway, dimmed }: TurnedAwayListProps) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="py-2 pr-3 font-medium">When</th>
-                  <th className="py-2 pr-3 font-medium">Why</th>
-                  <th className="py-2 pr-3 font-medium">Name</th>
-                  <th className="py-2 pr-3 font-medium">Email</th>
-                  <th className="py-2 pr-3 font-medium">Website typed</th>
+                  <th className="py-2 pr-2 font-medium">When</th>
+                  <th className="py-2 pr-2 font-medium">Why</th>
+                  <th className="py-2 pr-2 font-medium">Name</th>
+                  <th className="py-2 pr-2 font-medium">Email</th>
+                  <th className="py-2 pr-2 font-medium">Website typed</th>
                   <th className="py-2 font-medium">Tag</th>
                 </tr>
               </thead>
               <tbody>
                 {recent.map((row, index) => (
                   <tr key={`${row.at}-${index}`} className="border-b align-top last:border-0">
-                    <td className="whitespace-nowrap py-2 pr-3">
+                    <td className="whitespace-nowrap py-2 pr-2">
                       {new Date(row.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </td>
-                    <td className="min-w-[11rem] py-2 pr-3">{reasonLabel(row.code, row.check)}</td>
-                    <td className="py-2 pr-3">{row.firstName ?? ''}</td>
-                    <td className="py-2 pr-3">
+                    <td className="min-w-[9rem] max-w-[13rem] py-2 pr-2">{reasonLabel(row.code, row.check)}</td>
+                    <td className="py-2 pr-2">{row.firstName ?? ''}</td>
+                    <td className="max-w-[12rem] py-2 pr-2 [overflow-wrap:anywhere]">
                       {row.email ? (
                         <a className="underline" href={`mailto:${row.email}`}>
                           {row.email}
@@ -518,8 +518,8 @@ function TurnedAwayList({ turnedAway, dimmed }: TurnedAwayListProps) {
                         ''
                       )}
                     </td>
-                    <td className="min-w-[9rem] max-w-[16rem] py-2 pr-3 [overflow-wrap:anywhere]">{row.website ?? ''}</td>
-                    <td className="whitespace-nowrap py-2 text-xs text-muted-foreground">{row.ref ?? ''}</td>
+                    <td className="min-w-[8rem] max-w-[12rem] py-2 pr-2 [overflow-wrap:anywhere]">{row.website ?? ''}</td>
+                    <td className="max-w-[9rem] py-2 text-xs text-muted-foreground [overflow-wrap:anywhere]">{row.ref ?? ''}</td>
                   </tr>
                 ))}
               </tbody>

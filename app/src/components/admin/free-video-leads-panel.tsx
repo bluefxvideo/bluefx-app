@@ -151,13 +151,13 @@ export function FreeVideoLeadsPanel() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
-                    <th className="py-2 pr-4 font-medium">When</th>
-                    <th className="py-2 pr-4 font-medium">Who</th>
-                    <th className="py-2 pr-4 font-medium">Website</th>
-                    <th className="py-2 pr-4 font-medium">Status</th>
-                    <th className="py-2 pr-4 font-medium">What they did</th>
-                    <th className="py-2 pr-4 font-medium">From</th>
-                    <th className="py-2 pr-4 font-medium text-right">Cost</th>
+                    <th className="py-2 pr-2 font-medium">When</th>
+                    <th className="py-2 pr-2 font-medium">Who</th>
+                    <th className="py-2 pr-2 font-medium">Website</th>
+                    <th className="py-2 pr-2 font-medium">Status</th>
+                    <th className="py-2 pr-2 font-medium">What they did</th>
+                    <th className="py-2 pr-2 font-medium">From</th>
+                    <th className="py-2 pr-2 font-medium text-right">Cost</th>
                     <th className="py-2 font-medium" />
                   </tr>
                 </thead>
@@ -168,13 +168,13 @@ export function FreeVideoLeadsPanel() {
                     const did = [lead.first_viewed_at && 'opened the page', lead.played_at && 'played', lead.clicked_at && 'clicked an offer'].filter(Boolean);
                     return (
                       <tr key={lead.id} className="border-b align-top last:border-0">
-                        <td className="py-3 pr-4 whitespace-nowrap">
+                        <td className="py-2 pr-2 whitespace-nowrap">
                           {when(lead.created_at)}
                           {took !== null && <div className="text-xs text-muted-foreground">made in {took} min</div>}
                         </td>
-                        <td className="py-3 pr-4">
+                        <td className="py-2 pr-2">
                           <div className="font-medium">{lead.first_name}</div>
-                          <a href={`mailto:${lead.email}`} className="text-xs text-muted-foreground hover:underline">
+                          <a href={`mailto:${lead.email}`} className="block max-w-[170px] break-all text-xs text-muted-foreground hover:underline">
                             {lead.email}
                           </a>
                           <div className="mt-1 flex flex-wrap gap-1">
@@ -182,18 +182,18 @@ export function FreeVideoLeadsPanel() {
                             {lead.is_customer && <Badge variant="outline">Customer</Badge>}
                           </div>
                         </td>
-                        <td className="py-3 pr-4">
-                          <a href={lead.website_url} target="_blank" rel="noreferrer" className="hover:underline">
+                        <td className="py-2 pr-2">
+                          <a href={lead.website_url} target="_blank" rel="noreferrer" className="block max-w-[150px] break-all hover:underline">
                             {lead.website_domain}
                           </a>
                         </td>
-                        <td className="py-3 pr-4">
+                        <td className="py-2 pr-2">
                           <Badge variant="outline" className={cn('whitespace-nowrap', look.className)}>
                             {look.label}
                           </Badge>
-                          {lead.reason && lead.status !== 'done' && <div className="mt-1 max-w-[220px] text-xs text-muted-foreground">{lead.reason}</div>}
+                          {lead.reason && lead.status !== 'done' && <div className="mt-1 max-w-[180px] text-xs text-muted-foreground">{lead.reason}</div>}
                         </td>
-                        <td className="py-3 pr-4 text-xs">
+                        <td className="py-2 pr-2 text-xs">
                           <div className="text-muted-foreground">{did.length ? did.join(', ') : '-'}</div>
                           <div className="mt-1 flex flex-wrap gap-1">
                             {lead.bought_at && <Badge className="bg-green-600 hover:bg-green-600">Bought lifetime</Badge>}
@@ -201,10 +201,10 @@ export function FreeVideoLeadsPanel() {
                             {lead.inAccount && <Badge variant="outline">In their account</Badge>}
                           </div>
                         </td>
-                        <td className="py-3 pr-4 text-xs text-muted-foreground">
+                        <td className="py-2 pr-2 max-w-[130px] break-all text-xs text-muted-foreground">
                           {lead.affiliate ? <Badge variant="outline">Affiliate {lead.affiliate}</Badge> : lead.ref || lead.source}
                         </td>
-                        <td className="py-3 pr-4 text-right whitespace-nowrap">${(Number(lead.est_cost_usd) || 0).toFixed(2)}</td>
+                        <td className="py-2 pr-2 text-right whitespace-nowrap">${(Number(lead.est_cost_usd) || 0).toFixed(2)}</td>
                         <td className="py-3">
                           <a
                             href={`/v/${lead.view_token}`}
