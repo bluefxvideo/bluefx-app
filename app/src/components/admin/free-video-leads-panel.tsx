@@ -214,6 +214,18 @@ export function FreeVideoLeadsPanel() {
                           >
                             Video ad page <ExternalLink className="w-3 h-3" />
                           </a>
+                          {/* /go/claim copies the free video ad into the signed-in admin's own Phantom videos (claim.ts)
+                              and opens it there to edit; the client's original stays as it is (owner 2026-10-24). */}
+                          {lead.status === 'done' && (
+                            <a
+                              href={`/go/claim?t=${lead.view_token}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-1 flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-primary hover:underline"
+                            >
+                              Edit <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
                         </td>
                       </tr>
                     );
