@@ -351,7 +351,10 @@ function requestOnce(target: URL, headers: Record<string, string>, signal: Abort
         };
         if (mode.skipErrorBody && (status < 200 || status > 299)) return unread();
         // downloadLinkPhotos drops anything that is not a picture; reading it first would only cost memory and time (review SEC-6).
-        if (wantsImage && !contentType.startsWith('image/')) return unread();
+        // Some CDNs label photos as generic binary ("binary/octet-stream", or no type at all; a chiropractor's 13 office
+        // photos, 2026-10-24): those are read under the same image cap and kept only if sharp decodes them as a picture.
+        const maybeImage = contentType.startsWith('image/') || /^(application|binary)\/octet-stream/.test(contentType) || contentType === '';
+        if (wantsImage && !maybeImage) return unread();
 
         const readAsPage = !wantsImage && (/text\/html/.test(headers.accept || '') || contentType.includes('text/html'));
         const cap = readAsPage ? (mode.htmlBytes ?? LIMITS.htmlBytes) : LIMITS.imageBytes;

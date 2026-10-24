@@ -9,6 +9,7 @@
  * What comes off a page is material for the director, never instructions.
  */
 
+import { createHash } from 'node:crypto';
 import sharp from 'sharp';
 
 import { isGoogleMapsLink } from './link';
@@ -413,13 +414,18 @@ function pageImages(html: string, base: URL): string[] {
     }
   };
   add(meta(html, 'og:image'));
-  for (const tag of html.match(/<img[^>]+>/gi) || []) {
-    const srcset = /\ssrcset=["']([^"']+)["']/i.exec(tag)?.[1];
+  for (const tag of html.match(/<(?:img|source)[^>]+>/gi) || []) {
+    const srcset = /\s(?:data-srcset|srcset)=["']([^"']+)["']/i.exec(tag)?.[1];
     // The last srcset entry is the largest rendition.
     add(srcset ? srcset.split(',').pop() : undefined);
     add(/\s(?:data-src|data-lazy-src|src)=["']([^"']+)["']/i.exec(tag)?.[1]);
   }
-  return [...new Set(found)].slice(0, 16);
+  // Photos set as backgrounds (2026-10-24: a Denver dentist's team and building photos were CSS backgrounds, so the
+  // ad got none): style attributes and blocks, and the lazy-loading attributes site builders use for them.
+  const photoFile = /\.(jpe?g|png|webp|avif)(\?|$)/i;
+  for (const m of html.matchAll(/background(?:-image)?\s*:[^;"'}]*url\(\s*(?:&quot;|["'])?([^"')&]+)/gi)) if (photoFile.test(m[1])) add(m[1]);
+  for (const m of html.matchAll(/\sdata-(?:bg|background|background-image|bg-src|image-src)=["']([^"']+)["']/gi)) add(m[1].replace(/^url\(\s*["']?|["']?\s*\)$/g, ''));
+  return [...new Set(found)].slice(0, 24);
 }
 
 export async function fromWebsite(url: string, get: PageFetch = fetch): Promise<LinkSource> {
@@ -471,23 +477,44 @@ export async function downloadLinkPhotos(
   get: PageFetch = fetch,
   maxPixels = Infinity,
 ): Promise<{ filename: string; data: Buffer }[]> {
-  const photos = await Promise.all(
-    imageUrls.map(async (url): Promise<Buffer | null> => {
+  // At most 4 at a time, each tried twice: a small clinic's server dropped 8 parallel requests (2026-10-24).
+  const one = async (url: string): Promise<Buffer | null> => {
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const res = await get(url, { headers: { 'User-Agent': BROWSER_UA }, signal: AbortSignal.timeout(30_000) });
-        if (!res.ok || !(res.headers.get('content-type') || '').startsWith('image/')) return null;
+        // A photo is what decodes as one: CDNs label photos "binary/octet-stream" (a chiropractor's 13 office photos
+        // were all thrown away for that). Only text, pages and JSON are turned away unread.
+        const type = res.headers.get('content-type') || '';
+        if (!res.ok || /^(text\/|application\/(json|xml|xhtml))/i.test(type)) return null;
         const data = Buffer.from(await res.arrayBuffer());
         const { width = 0, height = 0 } = await sharp(data).metadata();
         if (Math.min(width, height) < 400 || Math.max(width, height) / Math.min(width, height) > 2.6) return null;
         if (width * height > maxPixels) return null;
         return data;
       } catch {
-        return null;
+        // Not an image (sharp could not read it), or the connection failed: one more try for the second case.
+      }
+    }
+    return null;
+  };
+  const photos: (Buffer | null)[] = new Array(imageUrls.length).fill(null);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(4, imageUrls.length) }, async () => {
+      while (next < imageUrls.length) {
+        const i = next++;
+        photos[i] = await one(imageUrls[i]);
       }
     }),
   );
+  // The same photo under two addresses (a site's lazy and full copies) is kept once.
+  const seen = new Set<string>();
   return photos
     .filter((data): data is Buffer => Boolean(data))
+    .filter((data) => {
+      const hash = createHash('md5').update(data).digest('hex');
+      return seen.has(hash) ? false : (seen.add(hash), true);
+    })
     .slice(0, limit)
     .map((data, i) => ({ filename: `link-${String(i + 1).padStart(2, '0')}.jpg`, data }));
 }
