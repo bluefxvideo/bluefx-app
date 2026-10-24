@@ -198,6 +198,48 @@ const STYLES = {
     transition: 'bands',
     sfx: { pop: 1, whoosh: 1, ding: 1, chaching: 1 },
   },
+  // A local TV news report (owner 2026-10-24: "news studio is amazing"): navy studio with moving light, headlines in
+  // lower-third banners, the business's photos as footage or on the studio wall, a LOCAL SPOTLIGHT tag and a ticker.
+  news: {
+    theme: { bg: '#0B1D3F', bgLight: '#173469', bgDeep: '#050E22', accent: '#D7263D', accentDark: '#9E1528', ink: '#0B1D3F', wipe: ['#D7263D', '#FFFFFF', '#0B1D3F'] },
+    fonts: { title: ['Montserrat', 'Montserrat.ttf', '100 900'], body: ['Montserrat', 'Montserrat.ttf', '100 900'] },
+    title: { kind: 'news', weight: 900, scale: 0.78, chars: 1.25, upper: true },
+    grow: 1.35,
+    bodyWeight: 800,
+    surface: 'dark',
+    panel: null,
+    card: { radius: 10, pad: 10, padColor: '#14284F', shadow: '0 0 0 3px rgba(120,170,255,0.35), 0 0 60px rgba(70,130,255,0.45)' },
+    chip: { radius: 6, bg: '#FFFFFF', shadow: '0 10px 24px rgba(0,0,0,0.35)', icon: 'accent', iconRadius: 4 },
+    pill: { radius: 4, border: 'none', shadow: '0 8px 20px rgba(0,0,0,0.35)' },
+    tile: { radius: 8, border: 'none' },
+    spring: { damping: 200, stiffness: 220, mass: 0.6 },
+    motion: 'snap',
+    rotate: false,
+    transition: 'bands',
+    sfx: { pop: 0.5, whoosh: 1, ding: 0.8, chaching: 0.8 },
+    chrome: 'news',
+  },
+  // A 1950s black-and-white TV commercial in the Ogilvy tradition (owner 2026-10-24: "these are the best ones"):
+  // period photographs as prints on off-white paper, serif headlines under the picture, film grain and flicker.
+  vintage: {
+    theme: { bg: '#ECE8DE', bgLight: '#F6F3EC', bgDeep: '#D9D3C5', accent: '#1A1A1A', accentDark: '#000000', ink: '#141414' },
+    fonts: { title: ['Baskerville', 'LibreBaskerville.ttf', '400 700'], body: ['Baskerville', 'LibreBaskerville.ttf', '400 700'] },
+    title: { kind: 'ogilvy', weight: 700, scale: 0.86, chars: 1.15, upper: false },
+    grow: 1.45,
+    bodyWeight: 700,
+    surface: 'light',
+    panel: '#ECE8DE',
+    card: { radius: 2, pad: 16, padColor: '#FBFAF6', shadow: '0 14px 30px rgba(0,0,0,0.28)' },
+    chip: { radius: 0, bg: 'transparent', shadow: 'none', icon: 'outline', iconRadius: 999, underline: true },
+    pill: { radius: 0, border: 'none', shadow: 'none', spaced: true },
+    tile: { radius: 2, border: '3px solid #141414' },
+    spring: { damping: 200, stiffness: 70, mass: 1 },
+    motion: 'rise',
+    rotate: false,
+    transition: 'dip',
+    sfx: { pop: 0, whoosh: 0.3, ding: 0.5, chaching: 0.5 },
+    chrome: 'film',
+  },
 };
 const MARKER = '"Marker", "Caveat", cursive';
 // Ticks and stars are drawn as shapes, not typed: the render server's fonts have no ✓, ✔ or ★, so on the live
@@ -513,6 +555,26 @@ function titlePaint(look, theme, tone, size, textColor) {
   const fill = tone === 'accent' || tone === 'brand' ? accent : textColor;
   if (kind === 'hand') {
     return { outer: { color: fill, lineHeight: 1.02, letterSpacing: '0.005em', textShadow: textColor === LIGHT_TEXT ? '0 4px 24px rgba(0,0,0,0.55)' : 'none' } };
+  }
+  if (kind === 'news') {
+    // A TV lower third: white capitals on a navy band with a red edge (red band for the accent line), one band per line.
+    const accent = tone === 'accent';
+    return {
+      outer: { color: '#FFFFFF', lineHeight: 1.36, letterSpacing: '0.01em' },
+      inner: {
+        background: accent ? theme.accent : '#0F2A5C',
+        borderLeft: `${Math.round(size * 0.14)}px solid ${accent ? '#FFFFFF' : theme.accent}`,
+        padding: `${Math.round(size * 0.08)}px ${Math.round(size * 0.24)}px`,
+        boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
+        WebkitBoxDecorationBreak: 'clone',
+        boxDecorationBreak: 'clone',
+      },
+      inset: Math.round(size * 0.62),
+    };
+  }
+  if (kind === 'ogilvy') {
+    // An Ogilvy headline: plain black serif under the picture; over a photo, light with a soft shadow.
+    return { outer: { color: textColor === LIGHT_TEXT ? LIGHT_TEXT : theme.ink, lineHeight: 1.14, letterSpacing: '-0.005em', fontStyle: tone === 'accent' ? 'italic' : 'normal', textShadow: textColor === LIGHT_TEXT ? '0 4px 24px rgba(0,0,0,0.6)' : 'none' } };
   }
   if (kind === 'serif') {
     return { outer: { color: fill, lineHeight: 1.16, letterSpacing: '0.005em', fontStyle: tone === 'accent' ? 'italic' : 'normal', textShadow: '0 6px 30px rgba(0,0,0,0.35)' } };
@@ -988,7 +1050,8 @@ function Stars({ block }) {
               <div key={i} style={{ position: 'relative', width: 78, height: 78, transform: `scale(${s})` }}>
                 <Star size={78} color="rgba(140,140,150,0.45)" />
                 <div style={{ position: 'absolute', inset: 0, width: `${fill * 100}%`, overflow: 'hidden' }}>
-                  <Star size={78} color="#FFB800" />
+                  {/* Gold turns pale grey in black and white: there the stars are printed in ink. */}
+                  <Star size={78} color={look.chrome === 'film' ? (textColor === LIGHT_TEXT ? '#FFFFFF' : '#141414') : '#FFB800'} />
                 </div>
               </div>
             );
@@ -1492,6 +1555,24 @@ function BrandBg() {
       </AbsoluteFill>
     );
   }
+  if (styleName === 'news') {
+    // A TV studio: deep navy, a faint LED grid, two slow light beams and the glowing desk stripes low in the frame.
+    const sweep = (frame % 240) / 240;
+    return (
+      <AbsoluteFill style={{ overflow: 'hidden', background: `radial-gradient(circle at 50% 35%, ${theme.bgLight} 0%, ${theme.bg} 55%, ${theme.bgDeep} 100%)` }}>
+        <AbsoluteFill style={{ backgroundImage: 'radial-gradient(circle, rgba(140,180,255,0.16) 2px, transparent 2.6px)', backgroundSize: '22px 22px', opacity: 0.6 }} />
+        {[0, 0.5].map((offset, i) => (
+          <div key={i} style={{ position: 'absolute', top: -H * 0.2, left: -W * 0.6 + ((sweep + offset) % 1) * W * 2.2, width: W * 0.35, height: H * 1.4, transform: 'rotate(18deg)', background: 'linear-gradient(90deg, transparent, rgba(150,190,255,0.10), transparent)' }} />
+        ))}
+        <div style={{ position: 'absolute', left: 0, right: 0, top: H * 0.86, height: 6, background: theme.accent, boxShadow: `0 0 30px ${theme.accent}` }} />
+        <div style={{ position: 'absolute', left: 0, right: 0, top: H * 0.86 + 16, height: 3, background: '#4F8BFF', boxShadow: '0 0 24px #4F8BFF' }} />
+      </AbsoluteFill>
+    );
+  }
+  if (styleName === 'vintage') {
+    // Off-white paper, a little darker toward the edges.
+    return <AbsoluteFill style={{ background: `radial-gradient(circle at 50% 42%, ${theme.bgLight} 0%, ${theme.bg} 60%, ${theme.bgDeep} 100%)` }} />;
+  }
   if (styleName === 'playful') {
     return (
       <AbsoluteFill style={base}>
@@ -1668,6 +1749,8 @@ function Scene({ scene, index, first }) {
     const safe = { top: type === 'imageTop' ? PANEL_TOP - 75 : 190, bottom: captions ? 610 : 300, ...scene.safe };
     // A person talking keeps their face clear: the name tag and line sit as low as the captions allow.
     if (scene.speaker) safe.bottom = captions ? 600 : 330;
+    // The news ticker runs along the bottom: the blocks end above it.
+    if (look.chrome === 'news') safe.bottom = Math.max(safe.bottom, captions ? 640 : 420);
     // Over a full-frame photo the blocks sit low, on the dark end of the gradient (at the top when captions are on).
     let align = type === 'mediaFull' ? (captions && !scene.speaker ? 'flex-start' : 'flex-end') : 'center';
     let blocks = scene.blocks;
@@ -1698,7 +1781,7 @@ function Scene({ scene, index, first }) {
   } else {
     // Horizontal: no social buttons to avoid, only the caption strip at the bottom.
     const top = 70;
-    const bottom = captions ? 215 : 70;
+    const bottom = (captions ? 215 : 70) + (look.chrome === 'news' ? 110 : 0);
     const pictures = scene.blocks.filter((b) => b.type === 'media' || b.type === 'gallery');
     const words = scene.blocks.filter((b) => b.type !== 'media' && b.type !== 'gallery');
     if (type === 'mediaFull') {
@@ -1831,7 +1914,7 @@ function Captions({ words, cuts = [] }) {
   const chunk = chunks[index];
   const pop = spring({ frame: frame - Math.round(chunk[0].start * FPS), fps: FPS, config: { damping: 14, stiffness: 240, mass: 0.5 } });
   const lit = styleName === 'playful' ? theme.bg : styleName === 'elegant' ? theme.accent : styleName === 'bold' ? theme.accent : '#FFD84D';
-  const size = { playful: 84, bold: 98, clean: 72, elegant: 62, whiteboard: 64, cartoon: 80, comic: 84 }[styleName];
+  const size = { playful: 84, bold: 98, clean: 72, elegant: 62, whiteboard: 64, cartoon: 80, comic: 84, news: 70, vintage: 64 }[styleName];
   const strip = styleName === 'whiteboard';
   // The whiteboard's handwriting is for the board; its subtitles are set in a plain bold sans (owner 2026-10-06:
   // "i hate this font, hard to read").
@@ -2167,7 +2250,70 @@ export function SampleEndClip({ voice = 'male' }) {
 // read in order (2026-10-09, the first Arabic free video ad, yaserfolio).
 const RTL_LANGUAGES = new Set(['ar', 'he', 'fa', 'ur']);
 
-export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful', theme, assets = {}, audio, captions, duration, watermark, language }) => {
+// ---------- chrome: what a look lays over the whole video ----------
+const NEWS_TAG = 'LOCAL SPOTLIGHT';
+
+/** The news look's TV graphics: a LOCAL SPOTLIGHT tag with a blinking LIVE dot at the top, the ticker at the bottom. */
+function NewsChrome({ until }) {
+  const { W, H, landscape } = useFrame();
+  const { theme, ticker } = usePlan();
+  const frame = useCurrentFrame();
+  if (frame >= until) return null;
+  const enter = interpolate(frame, [4, 16], [0, 1], { ...clamp, easing: Easing.out(Easing.cubic) });
+  const live = Math.floor(frame / 18) % 2 === 0;
+  const top = landscape ? 40 : 150;
+  const tickerH = landscape ? 62 : 74;
+  const tickerY = landscape ? H - tickerH - 26 : H - 300;
+  const text = ticker ? `${ticker}   \u2022   ` : '';
+  const speed = 4.2;
+  const font = { fontFamily: 'Montserrat', fontWeight: 900, letterSpacing: '0.04em' };
+  return (
+    <AbsoluteFill style={{ pointerEvents: 'none', zIndex: 90 }}>
+      <div style={{ position: 'absolute', top, left: landscape ? 40 : SIDE, display: 'flex', alignItems: 'stretch', transform: `translateX(${(1 - enter) * -420}px)`, boxShadow: '0 10px 26px rgba(0,0,0,0.35)' }}>
+        <div style={{ ...font, background: theme.accent, color: '#FFFFFF', fontSize: 34, padding: '10px 18px' }}>{NEWS_TAG}</div>
+        <div style={{ ...font, background: '#FFFFFF', color: '#0B1D3F', fontSize: 30, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 16, height: 16, borderRadius: 999, background: theme.accent, opacity: live ? 1 : 0.25 }} />
+          LIVE
+        </div>
+      </div>
+      {text && (
+        <div style={{ position: 'absolute', left: 0, right: 0, top: tickerY, height: tickerH, display: 'flex', opacity: enter, boxShadow: '0 -6px 24px rgba(0,0,0,0.3)' }}>
+          <div style={{ ...font, flexShrink: 0, background: theme.accent, color: '#FFFFFF', fontSize: landscape ? 28 : 32, padding: '0 20px', display: 'flex', alignItems: 'center', zIndex: 1 }}>NOW</div>
+          <div style={{ position: 'relative', flex: 1, overflow: 'hidden', background: '#FFFFFF' }}>
+            <div style={{ ...font, position: 'absolute', top: 0, bottom: 0, display: 'flex', alignItems: 'center', whiteSpace: 'pre', color: '#0B1D3F', fontSize: landscape ? 30 : 34, transform: `translateX(${W * 0.15 - frame * speed}px)` }}>
+              {text.repeat(Math.max(4, Math.ceil(((until * speed) / Math.max(1, text.length * 20)) + 3)))}
+            </div>
+          </div>
+        </div>
+      )}
+    </AbsoluteFill>
+  );
+}
+
+/** Old film over the vintage look: grain that changes every frame, a soft vignette, a light flicker and rounded TV corners. */
+function FilmLook() {
+  const { W, H } = useFrame();
+  const frame = useCurrentFrame();
+  const seed = frame % 9;
+  const flicker = 0.05 + 0.04 * Math.abs(Math.sin(frame * 1.7) * Math.sin(frame * 0.37));
+  return (
+    <AbsoluteFill style={{ pointerEvents: 'none', zIndex: 95 }}>
+      <svg width={W} height={H} style={{ position: 'absolute', inset: 0, opacity: 0.16, mixBlendMode: 'overlay' }}>
+        <filter id={`grain${seed}`}>
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed={seed} stitchTiles="stitch" />
+          <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <rect width="100%" height="100%" filter={`url(#grain${seed})`} />
+      </svg>
+      <AbsoluteFill style={{ background: '#000000', opacity: flicker }} />
+      <AbsoluteFill style={{ background: 'radial-gradient(ellipse at 50% 48%, transparent 58%, rgba(0,0,0,0.45) 100%)' }} />
+      <AbsoluteFill style={{ boxShadow: 'inset 0 0 0 14px #0A0A0A', borderRadius: 0 }} />
+      <AbsoluteFill style={{ margin: 14, borderRadius: 46, boxShadow: '0 0 0 40px #0A0A0A' }} />
+    </AbsoluteFill>
+  );
+}
+
+export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful', theme, assets = {}, audio, captions, duration, watermark, language, ticker }) => {
   const frameSize = FRAMES[format] || FRAMES.vertical;
   const styleName = STYLES[style] ? style : 'playful';
   const look = STYLES[styleName];
@@ -2184,12 +2330,15 @@ export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful'
     look,
     assets,
     captions: Boolean(captions?.words?.length),
+    ticker: look.chrome === 'news' ? String(ticker || '').trim() : '',
     theme: { ...merged, wipe: merged.wipe || [merged.accent, NAMED.orange, '#FFD21F', NAMED.green, NAMED.blue, NAMED.purple] },
   };
   return (
     <Frame.Provider value={frameSize}>
     <Plan.Provider value={plan}>
       <AbsoluteFill style={{ background: plan.theme.bg, direction: RTL_LANGUAGES.has(String(language || '').slice(0, 2)) ? 'rtl' : 'ltr' }}>
+        {/* The vintage look turns the whole picture black and white (the presenter's clip and the client's photos too). */}
+        <AbsoluteFill style={look.chrome === 'film' ? { filter: 'grayscale(1) contrast(1.12) brightness(1.02)' } : undefined}>
         {ready &&
           scenes.map((scene, i) => (
             <Sequence key={i} from={Math.round(scene.start * FPS)} durationInFrames={Math.max(1, Math.round((scene.end - scene.start) * FPS))}>
@@ -2205,6 +2354,9 @@ export const SmartVideo = ({ scenes = [], format = 'vertical', style = 'playful'
         {ready && captions?.words?.length > 0 && (
           <Captions words={captions.words} cuts={scenes.filter((scene) => scene.cut || !subtitled(captions.words, scene)).map((scene) => scene.start)} />
         )}
+        {ready && look.chrome === 'news' && <NewsChrome until={endAt} />}
+        {look.chrome === 'film' && <FilmLook />}
+        </AbsoluteFill>
         {ready && watermark?.stamp && <SampleStamp scenes={scenes} label={watermark.label || 'SAMPLE'} site={watermark.site} />}
         {ready && watermark && !watermark.stamp && (
           <CenterWatermark until={endSeconds > 0 ? endAt : Infinity} liftFrom={scenes.length > 1 ? Math.round(scenes[scenes.length - 1].start * FPS) : Infinity} label={watermark.label || 'BlueFX'} />

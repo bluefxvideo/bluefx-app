@@ -21,7 +21,7 @@ import { alignScript, cueTime } from './timing';
 import { buildTheme, cropToFrame, cutOutLogo } from './brand';
 import { tracePng } from './drawing-path';
 import { faceKey, findFaces, type FaceThird } from './faces';
-import { castPersona, castPresenter, PRESENTER_ASSET, PRESENTER_MAX_WORDS, shortenPresenterLine, swapIntoPresenter, talkingPresenter } from './presenter';
+import { ANCHOR_ACTION, castPersona, castPresenter, PRESENTER_ASSET, PRESENTER_MAX_WORDS, shortenPresenterLine, swapIntoPresenter, talkingPresenter } from './presenter';
 import {
   LISTING_MAX_PAUSE,
   LISTING_MIN_PHOTOS,
@@ -237,7 +237,7 @@ async function produce(
               console.log(`🎭 Presenter: ${persona.photo} | hook: ${persona.action}`);
               const photo = await castPresenter(persona.photo, look);
               await store(photo, 'presenter.jpg', 'image/jpeg');
-              return { photo, action: persona.action };
+              return { photo, action: look === 'news' ? ANCHOR_ACTION : persona.action };
             })
         )
           .catch((error) => {
@@ -1036,6 +1036,8 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
           }),
         }
       : undefined,
+    // The news look's ticker line along the bottom.
+    ...(plan.style === 'news' && plan.ticker ? { ticker: plan.ticker } : {}),
     scenes,
   };
   return props;

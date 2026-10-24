@@ -44,6 +44,8 @@ TALKING CLIPS: when a clip shows a person speaking to the camera (listen to it),
 WHITEBOARD VIDEOS (style "whiteboard" only): most scenes use background {"type":"drawing","asset":"d1"} and every drawing is listed in "drawings": [{"id":"d1","prompt":"..."}] (ids d1, d2...; at most 8; one drawing per scene, never the same drawing twice). prompt = one sentence describing a simple, clear line drawing that SHOWS the idea of the scene with concrete objects, people and visual metaphors: "a two-storey house with solar panels on the roof and a big sun with rays", "an electricity bill with a big downward arrow and a few coins", "a smiling family of four standing next to a large piggy bank". Never ask for words, letters, numbers, prices or logos inside a drawing: the words are written under it by the renderer. A drawing scene carries the drawing plus 1 to 3 blocks written under it: a title (the handwritten headline, at most 2 short lines) and optionally a pill, a number, or chips (at most 3 short items). The client's photos and logo still appear, "taped to the board": a media block on a brand background scene, and the logo in the last scene. No mediaFull, mediaBlur or imageTop backgrounds (except a speaker scene), no lifestyleShots, no animate, no cutout. theme.accent is the ONE coloured marker used for ticks, underlines, the price and the circle round the contact: a strong marker colour (blue, red, green, orange) or the brand's own colour, never black, grey or white. captions false unless the client asks for them. Everything is handwritten, so write titles, pills and chips in normal sentence case ("High energy bills?"), never in capitals. An open hand can also slide an element up into place: "push": true on a media, title, pill or badge block (the hand pushes the photo or the line in from the bottom edge and lets go). Use it once or twice in a video, for the photo of the person or the one fact that matters most, never on every block, and not on the first title of a drawing scene. The last scene: brand background, logo if there is one, title, caption, highlight.
 CARTOON VIDEOS (style "cartoon" only): a friendly 2D cartoon explainer. Most scenes are brand-background scenes built around a cartoon picture shown as a card: a media block {"type":"media","asset":"c1","shape":"square"} plus a title (shown in a speech bubble: one short sentence-case line or two, "Storm season is coming"), and optionally a pill, a badge or chips (at most 3 short items). Every cartoon is listed in "cartoons": [{"id":"c1","prompt":"..."}] (ids c1, c2...; at most 6; each used in exactly one scene). prompt = one sentence describing a simple, clear cartoon scene that SHOWS the idea of the scene with concrete people, objects and visual metaphors: "a small house and a car under a big rain cloud, a worried family of three at the door with an umbrella", "a big shield protecting a house, a car and a small shop, a smiling sun above", "a relaxed man on a sofa with his phone, a piggy bank full of coins on the table". The style (flat vector, thick navy outlines, coral, mustard and cream) is added by the renderer: never describe colours or a drawing style, and never ask for words, letters, numbers, prices or logos inside a picture. The client's own photos and logo still appear as media cards (a photo card on a brand background), and the logo in the last scene. No mediaFull, mediaBlur or imageTop backgrounds (except a speaker scene), no lifestyleShots, no animate, no drawings, no cutout. Titles in sentence case, never in capitals. captions false. The last scene: brand background, a cartoon card of the action (someone smiling and waving, a phone and a calendar), logo if there is one, title (the action), caption, highlight. The look keeps its own colours unless the client's logo gives a strong accent.
 COMIC VIDEOS (style "comic"): built exactly like a cartoon video, with the same "cartoons" list, scene recipe and rules (the pictures are drawn in the comic look by the renderer, so never describe colours or a drawing style in a prompt). The difference: a comic is loud and fun: titles are short punchy comic lines in CAPITALS shown in speech bubbles ("YOUR CAR DESERVES BETTER!", "$39 OIL CHANGE!"), prompts show dynamic, heroic action (a mechanic pointing at the viewer, a car bursting through a paper wall), and the price or the offer gets its own accent title.
+VINTAGE VIDEOS (style "vintage"): a 1950s black-and-white TV commercial in the David Ogilvy tradition. The renderer turns everything black and white, with film grain and an old TV frame. Its pictures are 1950s photographs listed in "cartoons" exactly like a cartoon video's pictures (ids c1, c2...; at most 6; prompt = one sentence describing a 1950s scene that SHOWS the idea with concrete people and objects: "a smiling 1950s baker in a white apron pulling a tray of fresh bread loaves from the oven", "a 1950s mechanic in overalls wiping his hands next to a gleaming sedan"; never colours, a style, words or logos). Show them as a media card (a photo print) on a brand background with the headline under it, the classic Ogilvy layout, or as a mediaFull background; the client's own photos appear the same way (turned black and white). Titles are Ogilvy headlines: a specific promise with real facts, in sentence case, never capitals ("Bread baked fresh every morning at 5 a.m.", "Your oil changed in 20 minutes, for $39"), at most 2 lines; a caption or pill under it can carry the detail. The narration is a warm, confident 1950s television announcer: plain words, specific facts, a little period charm ("Folks, ..." at most once); voice.direction says so. captions false. No drawings, no lifestyleShots, no animate, no cutout. The last scene: brand background, a picture card of the action (one of the 1950s photographs: a smiling man on a telephone, a family at the shop door) or the logo, title (the action), caption, highlight.
+NEWS VIDEOS (style "news"): a local TV news report about the business. The renderer adds the studio, a LOCAL SPOTLIGHT tag and a scrolling ticker. Write the narration as a friendly local news anchor reporting a real story about this business and its real offer ("Good evening. Tonight in Rogers, a gym where you never wait for a machine..."): never claim to be a real channel or reporter, never say "breaking news", never invent events, people or numbers that are not in the material. The client's photos are the news footage: mediaFull backgrounds with a headline title (CAPITALS, at most 6 words, like a TV lower third: "LOCAL GYM DROPS CONTRACTS") and at most one pill (a place, a date or a price). Studio scenes (brand background) show a photo as a media card (the studio's video wall) with a headline and a pill, chips or a number. "ticker" = ONE line that scrolls along the bottom: the business name, the offer, the phone number and the address or website, joined with " \u2022 " (at most 140 characters, only real facts). captions false. No cartoons, drawings, lifestyleShots or cutout. The last scene: brand background, logo if there is one, title (the action), caption, highlight.
 captions: true adds word-by-word captions in the lower third, in step with the voice (the TikTok/Reels look, and most people watch muted). Use true for product and for playful or bold videos; false for elegant, and for clean unless the audience is young.
 
 STEP 3 — Decide the look. Pick the style that fits the BUSINESS and its audience, not your taste:
@@ -53,6 +55,8 @@ STEP 3 — Decide the look. Pick the style that fits the BUSINESS and its audien
 - clean: clinics, dentists, professional services, B2B, tech, education, faith and community organisations. Light, modern, trustworthy.
 - cartoon: a friendly 2D cartoon explainer with flat cartoon pictures, speech-bubble headlines, a cream background and thick navy outlines. For anything a bit dry that is easier to like with a smile: insurance, finance, law, accounting, health and dental explanations, software and apps, kids' services and schools. Only when the client asks for a cartoon, animated, illustrated or explainer look, or picks it; otherwise prefer the styles below.
 - comic: a comic book ad with inked comic pictures, halftone dots, speech bubbles in comic lettering, red, yellow and blue. For loud, fun, local offers: auto repair, gyms, pizza and burgers, roofers, pest control, game shops, events. Only when the client asks for a comic or comic-book look, or picks it.
+- vintage: a 1950s black-and-white TV commercial, Ogilvy-style: period photographs, serif headlines under the picture, film grain. For trusted, long-standing local businesses and anything with heritage or craft: bakeries, barbers, diners, hardware stores, family firms, insurance and finance with a classic feel. Only when the client asks for a vintage, retro 1950s, black-and-white, classic or Ogilvy look, or picks it.
+- news: a local TV news report: studio, headline banners, a LOCAL SPOTLIGHT tag and a ticker, the business's photos as the footage. For openings, events, new services, local offers, restaurants and anything that feels like local news. Only when the client asks for a news, TV report or news-studio look, or picks it.
 - whiteboard: the hand-drawn explainer. A hand draws each scene's picture in marker on a white board while the narrator explains, and the words are written by hand. For anything whose value must be EXPLAINED rather than shown: solar, insurance, finance, mortgages, legal, accounting, coaching and courses, software and apps, health explanations, step-by-step services and processes. Also whenever the client asks for a whiteboard, drawn, sketch, doodle or explainer video. Not for places, food or products sold by looking at them.
 theme.bg and theme.accent are hex colours. Use the client's OWN brand colours, taken ONLY from a logo or designed artwork (files that list measured colours), never from photos: a logo's flat background colour is usually the brand background and its dominant colour the accent. With no logo or artwork, omit theme and the style's own colours are used. playful needs a BRIGHT, SATURATED bg (yellow, orange, sky blue... never white, cream or grey); clean needs a very light bg; elegant and bold need a very DARK bg. accent must contrast strongly with bg and must carry white text. Omit a colour only when the material gives no usable one.
 
@@ -105,7 +109,7 @@ EXAMPLE of the expected quality and density (a different client; do not copy its
 {"narration":"We are open Monday to Saturday, nine to six. Call the number on screen and book your spot. Your dog will thank you!","background":{"type":"brand","asset":null,"focus":null},"blocks":[{"type":"logo","asset":"a1","cue":null},{"type":"title","text":"BOOK TODAY","tone":"light","cue":null},{"type":"rows","items":[{"icon":"🗓️","text":"Monday to Saturday","cue":"Monday to Saturday"},{"icon":"🕘","text":"9:00 to 18:00","cue":"nine to six"}]},{"type":"caption","text":"call:","cue":"Call the number"},{"type":"highlight","text":"555-0134","cue":"Call the number"},{"type":"title","text":"SEE YOU SOON!","tone":"accent","cue":"Your dog will"}]}]}
 
 Return ONLY JSON:
-{"language":"xx","format":"announcement","captions":false,"style":"...","styleReason":"...","theme":{"bg":"#...","accent":"#..."},"voice":{"gender":"female","direction":"..."},"musicPrompt":"...","lifestyleShots":null,"animate":[{"asset":"a1","prompt":"..."}],"drawings":null,"cartoons":null,"warnings":[],"signatureSound":{"prompt":"...","afterScene":0},
+{"language":"xx","format":"announcement","captions":false,"style":"...","styleReason":"...","theme":{"bg":"#...","accent":"#..."},"voice":{"gender":"female","direction":"..."},"musicPrompt":"...","lifestyleShots":null,"animate":[{"asset":"a1","prompt":"..."}],"drawings":null,"cartoons":null,"ticker":null,"warnings":[],"signatureSound":{"prompt":"...","afterScene":0},
 "assets":[{"id":"a1","role":"...","description":"...","factsFound":["..."],"logoOnSolidBackground":false}],
 "scenes":[{"narration":"...","speaker":null,"background":{"type":"brand","asset":null,"focus":null},"blocks":[{"type":"title","text":"...","tone":"light","cue":null}]}]}`;
 
@@ -159,7 +163,7 @@ export async function directVideo(
       : `${LENGTH_RULES[length]} If the client's text itself asks for a length ("30 seconds", "one minute"), that wins.`
   ) + (format === 'horizontal' ? HORIZONTAL_NOTE : '') + (look && !listing ? `\n\nTHE CLIENT CHOSE THE LOOK: "style" must be "${look}". Everything else is still yours to decide.` : '')
     + (listing && look ? listingRecipe(listing, listingPhotoCount(listing.seconds, photos), look) : '')
-    + (writer?.presenterOpening ? `\n\nAN AI PRESENTER OPENS THIS VIDEO: a person filmed saying scene 1 on camera. Write scene 1's narration in at most ${PRESENTER_MAX_WORDS} words, even when the note asks for a story or a review in someone's own words: the story goes on in the next scenes.` : '');
+    + (writer?.presenterOpening ? `\n\nAN AI PRESENTER OPENS THIS VIDEO: a person filmed saying scene 1 on camera. Write scene 1's narration in at most ${PRESENTER_MAX_WORDS} words, even when the note asks for a story or a review in someone's own words: the story goes on in the next scenes. Write scene 1 as a normal narrated scene (speaker null, a brand background); the presenter is added afterwards, so never name a presenter asset.` : '');
   const today = `\n\nTODAY: ${new Date().toISOString().slice(0, 10)}. Leave out any deadline, sale or event date in the material that has already passed.`;
   const parts: unknown[] = [{ text: instructions }, { text: `${today}\n\nCLIENT TEXT:\n"""\n${brief}\n"""\n\nCLIENT FILES:` }];
   for (const asset of assets) {
@@ -170,7 +174,7 @@ export async function directVideo(
   const plan = await askDirector(
     parts,
     (candidate, lastChance) =>
-      checkPlan(candidate, assets, brief, length, false, lastChance, look, listing, writer?.looseRules) ?? (lastChance ? null : (extraCheck?.(candidate) ?? null)),
+      checkPlan(candidate, assets, brief, length, false, lastChance, look, listing, writer?.looseRules, false, writer?.presenterOpening) ?? (lastChance ? null : (extraCheck?.(candidate) ?? null)),
     length === 'script' ? 480_000 : 280_000,
     writer
   );
@@ -322,7 +326,7 @@ export async function reviseVideo(
     '- Keep every narration sentence word for word unless the note requires different spoken words: unchanged narration keeps the recorded voice.',
     '- Keep musicPrompt and signatureSound exactly as they are unless the note is about music or sound.',
     '- Keep "voice" exactly as it is unless the note is about the voice-over, the narrator, the pace or the tone.',
-    `- You can only use these files: ${[...ids, ...added.map((a) => a.id)].join(', ')}. Do not add lifestyleShots or animate entries that are not already in the plan. In a whiteboard video you may add or change drawings: a drawing whose prompt changed is drawn again. In a cartoon or comic video you may add or change cartoons the same way. cutout:true is only possible for: ${[...cutouts, ...added.filter((a) => a.kind === 'image').map((a) => a.id)].join(', ') || 'none'}.`,
+    `- You can only use these files: ${[...ids, ...added.map((a) => a.id)].join(', ')}. Do not add lifestyleShots or animate entries that are not already in the plan. In a whiteboard video you may add or change drawings: a drawing whose prompt changed is drawn again. In a cartoon, comic or vintage video you may add or change cartoons the same way. cutout:true is only possible for: ${[...cutouts, ...added.filter((a) => a.kind === 'image').map((a) => a.id)].join(', ') || 'none'}.`,
     ...(added.length
       ? [
           `- NEW FILES came with the note (shown after this text): ${added.map((a) => a.id).join(', ')}. Look at each one, add it to "assets" with its role, and use it the way the note asks. When the note does not say where, put it where it helps most: a new logo replaces the old logo everywhere, a new photo replaces the weakest or most repeated picture, a new talking clip becomes a speaker scene. A new file the note clearly does not want shown gets role "skip".`,
@@ -425,13 +429,15 @@ function checkPlan(
   /** The free video funnel's looser taste rules (DirectorOptions.looseRules). */
   loose = false,
   /** An edit that films a new AI presenter: scene 1 must be a narrated scene the presenter takes over. */
-  refilm = false
+  refilm = false,
+  /** A new video that an AI presenter opens: scene 1's blocks are dropped (addPresenter), so it needs none. */
+  opening = false
 ): string | null {
   // The look the client picked is a promise, like their exact words.
   if (look && plan.style !== look) return `the client chose the look "${look}": "style" must be "${look}".`;
   const drawingIds = new Set((plan.drawings || []).map((d) => d.id));
   const cartoonIds = new Set((plan.cartoons || []).map((c) => c.id));
-  if (cartoonIds.size && !isIllustrated(plan.style)) return '"cartoons" exist only in the cartoon and comic styles: set "cartoons" to null.';
+  if (cartoonIds.size && !isIllustrated(plan.style)) return '"cartoons" exist only in the cartoon, comic and vintage styles: set "cartoons" to null.';
   const ids = new Set([...assets.map((a) => a.id), ...(plan.lifestyleShots || []).map((shot) => shot.id), ...drawingIds, ...cartoonIds]);
   const badShot = (plan.lifestyleShots || []).find((shot) => !assets.some((a) => a.id === shot.fromAsset && a.kind === 'image'));
   const badMotion = (plan.animate || []).find((m) => !ids.has(m.asset));
@@ -468,7 +474,8 @@ function checkPlan(
     // A listing's room photos carry no text at all.
     // Looser rules (free video ads): a title alone carries a scene; each extra required block cost a 30-70 s rewrite.
     // The AI presenter's scene carries no text (pipeline.ts addPresenter): the person and the prop stay clear.
-    const presenterScene = scene.speaker?.asset === PRESENTER_ASSET;
+    // A presenter-opened video's scene 1 too (the director kept failing it on a vintage ad, 2026-10-24).
+    const presenterScene = scene.speaker?.asset === PRESENTER_ASSET || (opening && i === 0);
     const minimum = presenterScene || (listing && scene.background.type === 'mediaFull') ? 0 : loose ? 1 : scene.background.type === 'drawing' ? 1 : scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : isIllustrated(plan.style) && scene.blocks.some((b) => b.type === 'media' && cartoonIds.has(b.asset)) ? 2 : 3;
     if (scene.blocks.length < minimum) return `scene ${i + 1} has only ${scene.blocks.length} blocks; it needs at least ${minimum} (see the scene recipes).`;
   }
@@ -503,14 +510,24 @@ function checkPlan(
     return `${overused.join(', ')} appear in more than two scenes while ${unseen.join(', ')} are never shown. Spread the client's files across the scenes (or mark a file "skip" with the reason in its description).`;
   }
   if (isIllustrated(plan.style)) {
-    const shows = (scene: DirectorPlan['scenes'][number]) => scene.blocks.some((b) => b.type === 'media' && cartoonIds.has(b.asset));
+    // Vintage shows its period photographs full frame too.
+    const shows = (scene: DirectorPlan['scenes'][number]) => scene.blocks.some((b) => b.type === 'media' && cartoonIds.has(b.asset)) || (plan.style === 'vintage' && scene.background.type === 'mediaFull' && cartoonIds.has(scene.background.asset || ''));
     const pictured = plan.scenes.filter((scene) => shows(scene) || scene.speaker || scene.blocks.some((b) => ['media', 'gallery', 'logo'].includes(b.type)));
     if (plan.scenes.filter(shows).length < 2 || pictured.length < Math.ceil(plan.scenes.length / 2))
       return 'a cartoon video shows a cartoon card in most scenes: give at least half of the scenes a media block with one of the "cartoons" (at least 2 cartoons in all).';
-    if (plan.scenes.some((scene) => !scene.speaker && ['mediaFull', 'mediaBlur', 'imageTop'].includes(scene.background.type)))
+    if (plan.style !== 'vintage' && plan.scenes.some((scene) => !scene.speaker && ['mediaFull', 'mediaBlur', 'imageTop'].includes(scene.background.type)))
       return 'a cartoon video uses brand backgrounds only (except a speaker scene): show pictures as media blocks.';
     if (!plan.scenes[plan.scenes.length - 1].blocks.some((b) => b.type === 'title'))
       return 'the last scene of a cartoon video needs a title: the action in a speech bubble ("Book your free review"), above the caption and the highlight.';
+    // A last scene of words alone looks empty (cartoon and vintage tests, 2026-10-24).
+    if (!plan.scenes[plan.scenes.length - 1].blocks.some((b) => b.type === 'media' || b.type === 'logo'))
+      return 'the last scene needs a picture: a media card with one of the "cartoons" showing the action (a smiling person on the phone, an open shop door), or the logo, above the title, caption and highlight.';
+  }
+  if (plan.style === 'news') {
+    if (!plan.ticker?.trim()) return 'a news video needs "ticker": one line with the business name, the offer, the phone number and the address or website.';
+    if (plan.ticker.length > 160) return '"ticker" is too long: at most 140 characters.';
+    if (/breaking/i.test(plan.scenes.map((scene) => `${scene.narration} ${scene.blocks.map((b) => ('text' in b ? b.text : '')).join(' ')}`).join(' ')))
+      return 'a news video never says "breaking news": it is a friendly local report, not an emergency.';
   }
   if (plan.style === 'whiteboard') {
     const drawn = plan.scenes.filter((scene) => scene.background.type === 'drawing');

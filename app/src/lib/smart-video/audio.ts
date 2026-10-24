@@ -112,6 +112,8 @@ const SAFE_MUSIC: Record<string, string> = {
   bold: '126 BPM, driving instrumental bed. Instruments: punchy drums, synth bass, electric guitar stabs, claps. Attitude: energetic, confident, motivating.',
   clean: '104 BPM, light instrumental bed. Instruments: muted guitar plucks, soft piano, finger snaps, warm bass. Attitude: optimistic, friendly, tidy.',
   cartoon: '110 BPM, bouncy instrumental bed. Instruments: marimba, pizzicato strings, ukulele, hand claps, soft kick drum. Attitude: friendly, light, explainer-video.',
+  news: '100 BPM, news theme instrumental bed. Instruments: pulsing synth arpeggio, light timpani hits, orchestral strings, ticking hi-hat. Attitude: confident, informative, broadcast.',
+  vintage: '128 BPM, 1950s TV commercial instrumental bed. Instruments: big band brass, muted trumpet, upright bass, brushed drums, vibraphone. Attitude: cheerful, nostalgic, swinging.',
   comic: '124 BPM, punchy instrumental bed. Instruments: brass stabs, funky electric guitar, slap bass, snappy drums, hand claps. Attitude: bold, fun, heroic.',
 };
 export const MUSIC_RULES = ' Steady energy, no build-ups, no drops. No vocals. Sits under a voice-over. About 60 seconds.';
@@ -295,10 +297,16 @@ export const CARTOON_LOOK = 'Flat vector cartoon illustration, thick clean dark-
  * (owner 2026-10-24 liked the comic sample frame and test ads).
  */
 export const ILLUSTRATION_LOOKS: Record<IllustratedStyle, { look: string; ground: string; drawnPresenter: boolean }> = {
-  cartoon: { look: CARTOON_LOOK, ground: 'plain cream background', drawnPresenter: true },
+  cartoon: { look: CARTOON_LOOK, ground: 'Square composition with the whole scene fully inside the frame and some margin around it, plain cream background', drawnPresenter: true },
+  // Vintage (owner 2026-10-24, the Ogilvy-era sample): the pictures are period photographs, not drawings.
+  vintage: {
+    look: 'Authentic 1950s black-and-white photograph, classic medium-format film with soft grain, gentle studio or daylight lighting, period clothing, hairstyles, cars, shop fronts and interiors of the 1950s, warm and optimistic like an old magazine or TV commercial.',
+    ground: 'Square photograph, the subject well framed and filling the picture',
+    drawnPresenter: true,
+  },
   comic: {
     look: 'Bold comic book illustration, thick black ink outlines, Ben-Day halftone dot shading, punchy flat primary colours (red, yellow, cyan blue) on cream paper, dynamic energetic poses, classic American comic book art.',
-    ground: 'a simple comic panel background with halftone dots or action lines',
+    ground: 'Square composition with the whole scene fully inside the frame and some margin around it, a simple comic panel background with halftone dots or action lines',
     drawnPresenter: true,
   },
 };
@@ -310,7 +318,7 @@ export async function generateCartoon(prompt: string, style: IllustratedStyle = 
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Key ${falKey()}` },
     body: JSON.stringify({
-      prompt: `${look} Square composition with the whole scene fully inside the frame and some margin around it, ${ground}. No text, no words, no letters, no numbers, no logos, no speech bubbles: ${prompt}`,
+      prompt: `${look} ${ground}. No text, no words, no letters, no numbers, no logos, no speech bubbles: ${prompt}`,
       quality: CARTOON_QUALITY,
       output_format: 'png',
       num_images: 1,

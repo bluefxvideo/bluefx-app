@@ -79,14 +79,20 @@ ${brief.slice(0, 4000)}`,
   return { photo, action };
 }
 
-/** The presenter's vertical photo (about $0.04); in a cartoon or comic video, a person drawn in the pictures' look. */
+/** What the news anchor does in the first second, instead of the casting's prop action (owner 2026-10-24: the news studio look). */
+export const ANCHOR_ACTION = 'The anchor looks up from the papers on the desk straight into the camera and starts the report with a warm, confident smile.';
+
+/** The presenter's vertical photo (about $0.04); in a cartoon, comic or vintage video, a person in the pictures' look; in a news video, an anchor at a studio desk. */
 export async function castPresenter(photo: string, style?: string | null): Promise<Buffer> {
   const drawn = isIllustrated(style) && ILLUSTRATION_LOOKS[style].drawnPresenter ? ILLUSTRATION_LOOKS[style].look : null;
   const res = await fetch(`https://fal.run/${PHOTO_MODEL}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` },
     body: JSON.stringify({
-      prompt: drawn
+      prompt: style === 'news'
+        ? // The casting note (a selfie in a car with a slice) won over the studio twice, once as a split screen: only its gender is kept.
+          `Photorealistic vertical still from a local TV news broadcast, one single photograph filling the whole frame (no split screen, no collage, no inset): a friendly, professional ${/\b(woman|female|lady|girl|she|her)\b/i.test(photo) ? 'female' : 'male'} news anchor in their late 30s in a smart dark blazer, sitting at a sleek glossy news desk in a modern TV studio with blue and red lighting and a large glowing video wall of a city skyline behind, front-facing medium shot from the chest up, looking straight into the camera with the mouth closed, hands resting on a few papers. Nothing written anywhere, no text, no logos, no channel names, no watermark.`
+        : drawn
         ? `${drawn} A vertical portrait, front-facing medium shot, the person looking at the camera with the mouth closed, a plain simple background: ${photo} Nothing written anywhere, no text, no logos, no watermark.`
         : `Photorealistic vertical smartphone photo, UGC style, natural light, realistic skin texture, slightly imperfect framing: ${photo} Nothing written anywhere, no text, no logos, no watermark.`,
       quality: 'high',
