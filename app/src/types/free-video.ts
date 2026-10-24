@@ -407,7 +407,7 @@ export const FREE_VIDEO_STEP_OF: Record<SmartVideoJobStatus, 1 | 2 | 3 | 4 | 5> 
 // ---------------------------------------------------------------------------------------------
 
 /** tour_play: the founder's walkthrough of the AI Media Machine on the result page was started (SALES_PAGE.tour). */
-export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open', 'tour_play', 'chat_open', 'tutorial_open'] as const;
+export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open', 'tour_play', 'chat_open', 'tutorial_open', 'tutorial_end'] as const;
 /** A page event the browser may send. */
 export type FreeVideoEvent = (typeof FREE_VIDEO_EVENTS)[number];
 /**
@@ -418,8 +418,9 @@ export const OFFER_OPEN_SOURCES = ['download', 'bar'] as const;
 export type OfferOpenSource = (typeof OFFER_OPEN_SOURCES)[number];
 /**
  * What opened the tutorial on changing a video ad (tutorial_open, owner 2026-10-24: make the tutorial much more
- * prominent): 'button' the big button under their video ad, 'sample' the line under it, 'card' the tutorial card,
- * 'chapter' one of its jump links, 'next_ad' a picture of the next 3 video ads. Saved in the placement column.
+ * prominent): 'button' the big button under their video ad, 'chapter' a chapter in the tutorial window, 'next_ad' a
+ * picture of the next 3 video ads ('sample' and 'card' were the line and card above, removed the same day). Saved in the
+ * placement column. tutorial_end: the short cut played to its end.
  */
 export const TUTORIAL_OPEN_SOURCES = ['button', 'sample', 'card', 'chapter', 'next_ad'] as const;
 export type TutorialOpenSource = (typeof TUTORIAL_OPEN_SOURCES)[number];

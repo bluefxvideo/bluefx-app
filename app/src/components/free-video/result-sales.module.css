@@ -300,20 +300,6 @@
   flex-shrink: 0;
 }
 
-/* "Need a change in your video ad? See how." after the sample line. */
-.sampleLink {
-  display: inline;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-weight: 700;
-  color: var(--navy);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
 .topSample {
   margin: 0;
   max-width: 460px;
@@ -1950,6 +1936,7 @@
 .tutorialOverlay {
   position: fixed;
   inset: 0;
+  overflow-y: auto;
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -2050,6 +2037,56 @@
     flex-wrap: wrap;
     overflow-x: visible;
   }
+}
+
+/* After the short cut ends: the buy button (guarantee under it) and "Watch again". */
+.tutorialEnd {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.tutorialEnd :global(p[class*='buyNote']) {
+  color: #d6dde8;
+}
+
+.tutorialEnd :global(a) {
+  color: #d6dde8;
+}
+
+.tutorialAgain {
+  padding: 6px 12px;
+  border: 0;
+  background: none;
+  color: #ffffff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* The full tutorial's chapters, under its player in the window. */
+.tutorialChapters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.tutorialChapters button {
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .tutorialPlayer video,

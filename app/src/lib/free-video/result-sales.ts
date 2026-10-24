@@ -233,11 +233,20 @@ export const RESULT_SALES = {
     change: {
       label: 'Change Your Video Ad: Watch How',
       at: 174,
-      /** The short cut of the tutorial (an mp4 we host), when there is one; its length goes on the button. */
-      quick: null as { src: string; poster: string; minutes: number } | null,
+      /**
+       * The short cut of the tutorial we host (2026-10-24: the owner's 11-minute tutorial cut to the 4 changes, step
+       * titles, captions and a 4.5 s end card "You make these changes inside the AI Media Machine. Tap the button below
+       * to get the AI Media Machine. 30-day money-back guarantee."); its length goes on the button. null: the button
+       * opens the full tutorial at `at`.
+       */
+      quick: {
+        src: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/free-video/tutorial/edit-2min-v1.mp4',
+        poster: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/free-video/tutorial/edit-2min-v1-poster.jpg',
+        minutes: 2,
+      } as { src: string; poster: string; minutes: number } | null,
+      /** Under the buy button once the short cut has ended. */
+      again: 'Watch again',
     },
-    /** After the sample line, opens the tutorial at "A new person on camera". */
-    sampleLink: 'Need a change in your video ad? See how.',
     /** A tap on a picture of the next 3 video ads opens the tutorial at "Your 3 extra video ads". */
     nextAd: { at: 433, label: 'See how', aria: 'See how your next 3 video ads are made' },
   },

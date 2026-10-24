@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { RESULT_PAGE } from '@/lib/free-video/result-page';
 import { RESULT_SALES, SALES_PAGE_HERO_VIMEO, TOOL_GROUPS, type SalesTool } from '@/lib/free-video/result-sales';
 import { goUrl, OFFER, type ResultPagePlacement } from '@/lib/free-video/offer';
@@ -72,15 +72,11 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
   // The tutorial on changing a video ad, open over the page: a second in the tutorial, 'quick' for the short cut, or null.
   const beacon = useFreeVideoBeacon(token);
   const [tutorialAt, setTutorialAt] = useState<number | 'quick' | null>(null);
-  const [tutorialWatched, setTutorialWatched] = useState(false);
   const openTutorial = (at: number | 'quick', from: TutorialOpenSource) => {
     beacon('tutorial_open', { from });
     setTutorialAt(at);
   };
-  const closeTutorial = () => {
-    setTutorialAt(null);
-    setTutorialWatched(true);
-  };
+  const closeTutorial = useCallback(() => setTutorialAt(null), []);
   const change = RESULT_SALES.top.change;
   const { banner, top, hero, salesVideo, price, button, how, tools, oldWay, customers, founder, lifetime, own, guarantee, still, faq, ps } = RESULT_SALES;
   const dov = RESULT_PAGE.stack.proof[0];
@@ -110,13 +106,8 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
               {top.title(firstName)}
             </h1>
           </div>
-          <p className={s.topSample}>
-            {top.sample}{' '}
-            <button type="button" className={s.sampleLink} onClick={() => openTutorial(change.at, 'sample')}>
-              {top.sampleLink}
-            </button>
-          </p>
-          <EditTutorial token={token} at={tutorialAt} watched={tutorialWatched} onOpen={openTutorial} onClose={closeTutorial} />
+          <p className={s.topSample}>{top.sample}</p>
+          <TutorialWindow token={token} at={tutorialAt} onOpen={openTutorial} onClose={closeTutorial} />
           <div className={s.topNext}>
             <p className={s.topKicker}>{hero.kicker}</p>
           </div>
@@ -562,81 +553,94 @@ function Bold({ text, words }: { text: string; words: readonly string[] }) {
 
 /** A buy button: the name, "$297 once, for life", the card logos, and a line under it. */
 /**
- * The owner's tutorial on changing a video ad (owner 2026-10-23, Ogilvy: right under their own video ad, because the
- * first thing people ask is how to change it). The card, then jump links into it; it opens big over the page with only
- * the player (owner 2026-10-24: no buy button in the open tutorial, it hid part of the video on phones), and the buy
- * button shows under the card once they close it.
+ * The tutorial window over the page (owner 2026-10-24, with Ogilvy, Hormozi, Abraham and Krug): the "Change Your Video
+ * Ad" button plays the short cut, and only when the short cut ENDS does the buy button show, with the guarantee under it
+ * and "Watch again" (never during playback: on a phone it hid part of the video). A picture of the next 3 video ads, or a
+ * page without the short cut, opens the full tutorial on YouTube, its chapters under the player.
  */
-function EditTutorial({
+function TutorialWindow({
   token,
   at,
-  watched,
   onOpen,
   onClose,
 }: {
   token: string;
-  /** Where the open tutorial starts (seconds), 'quick' for the short cut, null when closed. */
+  /** Where the full tutorial starts (seconds), 'quick' for the short cut, null when closed. */
   at: number | 'quick' | null;
-  watched: boolean;
-  onOpen: (at: number, from: TutorialOpenSource) => void;
+  onOpen: (at: number | 'quick', from: TutorialOpenSource) => void;
   onClose: () => void;
 }) {
   const { tutorial, change } = RESULT_SALES.top;
-  const close = onClose;
+  const beacon = useFreeVideoBeacon(token);
+  const [ended, setEnded] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => setEnded(false), [at]);
   useEffect(() => {
     if (at === null) return;
-    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && close();
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [at, close]);
+  }, [at, onClose]);
+  if (at === null) return null;
+  const quick = at === 'quick' && change.quick ? change.quick : null;
+  const from = at === 'quick' ? change.at : at;
   const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  const again = () => {
+    setEnded(false);
+    const video = videoRef.current;
+    if (video) {
+      video.currentTime = 0;
+      void video.play().catch(() => undefined);
+    }
+  };
   return (
-    <div className={s.tutorialBox}>
-      {at !== null && (
-        <div className={s.tutorialOverlay} role="dialog" aria-modal="true" aria-label={tutorial.label} onClick={close}>
-          <button type="button" className={s.tutorialClose} onClick={close} aria-label="Close">
-            &times;
-          </button>
-          <div className={s.tutorialStage} onClick={(event) => event.stopPropagation()}>
-            <div className={s.tutorialPlayer}>
-              {at === 'quick' && change.quick ? (
-                <video src={change.quick.src} poster={change.quick.poster} controls autoPlay playsInline />
-              ) : (
-                <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${tutorial.youtubeId}?autoplay=1&rel=0&start=${at === 'quick' ? change.at : at}`}
-                  title={tutorial.label}
-                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                  allowFullScreen
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      <button type="button" className={s.tutorial} onClick={() => onOpen(0, 'card')}>
-        <span className={s.tutorialThumb}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`https://i.ytimg.com/vi/${tutorial.youtubeId}/maxresdefault.jpg?v=2`} alt="" loading="lazy" />
-          <span className={s.tutorialPlay} aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="16" height="16">
-              <path d="M8 5v14l11-7z" fill="currentColor" />
-            </svg>
-          </span>
-        </span>
-        <span className={s.tutorialWords}>
-          <strong>{tutorial.label}</strong>
-          <span>{tutorial.text}</span>
-        </span>
+    <div className={s.tutorialOverlay} role="dialog" aria-modal="true" aria-label={tutorial.label} onClick={onClose}>
+      <button type="button" className={s.tutorialClose} onClick={onClose} aria-label="Close">
+        &times;
       </button>
-      <p className={s.tutorialJump}>
-        <span>{tutorial.jump}</span>
-        {tutorial.chapters.map((chapter) => (
-          <button key={chapter.at} type="button" onClick={() => onOpen(chapter.at, 'chapter')}>
-            {clock(chapter.at)} {chapter.label}
-          </button>
-        ))}
-      </p>
-      {watched && <SalesBuy token={token} placement="fvrestut" split={false} />}
+      <div className={s.tutorialStage} onClick={(event) => event.stopPropagation()}>
+        <div className={s.tutorialPlayer}>
+          {quick ? (
+            <video
+              ref={videoRef}
+              src={quick.src}
+              poster={quick.poster}
+              controls
+              autoPlay
+              playsInline
+              onEnded={() => {
+                setEnded(true);
+                beacon('tutorial_end');
+              }}
+            />
+          ) : (
+            <iframe
+              key={from}
+              src={`https://www.youtube-nocookie.com/embed/${tutorial.youtubeId}?autoplay=1&rel=0&start=${from}`}
+              title={tutorial.label}
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
+            />
+          )}
+        </div>
+        {quick && ended && (
+          <div className={s.tutorialEnd}>
+            <SalesBuy token={token} placement="fvrestut" split="short" />
+            <button type="button" className={s.tutorialAgain} onClick={again}>
+              {change.again}
+            </button>
+          </div>
+        )}
+        {!quick && (
+          <p className={s.tutorialChapters}>
+            {tutorial.chapters.map((chapter) => (
+              <button key={chapter.at} type="button" onClick={() => onOpen(chapter.at, 'chapter')}>
+                {clock(chapter.at)} {chapter.label}
+              </button>
+            ))}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
