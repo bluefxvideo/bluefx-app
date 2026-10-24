@@ -375,6 +375,8 @@ export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {
               offer card opens and clicks
               {stats.excluded.linkChecks > 0 &&
                 `; ${plural(stats.excluded.linkChecks, 'browser')} that were link checks, not people (${stats.excluded.linkCheckNotes.join('; ')})`}
+              {stats.excluded.reviewVisits > 0 &&
+                `; ${plural(stats.excluded.reviewVisits, 'page load')} by Meta's ad review (a burst of empty visits each time an ad is published or edited, many tagged Right_Column), not people`}
               {stats.excluded.ownerOpens + stats.excluded.ownerClicks > 0 &&
                 `; ${plural(stats.excluded.ownerOpens, 'page open')} and ${plural(stats.excluded.ownerClicks, 'offer click')} that came right after activity from your browsers (older opens and clicks do not record the browser, so they are judged by timing)`}
               .

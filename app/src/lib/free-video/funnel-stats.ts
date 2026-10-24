@@ -2,6 +2,7 @@ import { createAdminClient } from '@/app/supabase/server';
 import { STATS_EXCLUDED_EMAILS, STATS_EXCLUDED_VISITS } from '@/lib/free-video/config';
 import { isCardPlacement, OFFER_BUTTON_PLACEMENTS } from '@/lib/free-video/offer';
 import { REFUSAL_EVENT } from '@/lib/free-video/refusals';
+import { reviewVisitBrowsers } from '@/lib/free-video/review-visits';
 import { emailKeyOf } from '@/lib/free-video/website';
 
 /**
@@ -42,7 +43,8 @@ import { emailKeyOf } from '@/lib/free-video/website';
  * Left out everywhere: leads whose email is in STATS_EXCLUDED_EMAILS (compared by emailKeyOf), leads with source
  * 'test' or ref 'owner-test' (an opt-in from a browser marked internal); the owner's browsers, which are the browsers
  * that sent an event about one of those leads (none of their landing views, form starts, plays or clicks count); page
- * events tagged ref=owner-test; the browsers of STATS_EXCLUDED_VISITS (link checks). Visits marked internal
+ * events tagged ref=owner-test; the browsers of STATS_EXCLUDED_VISITS (link checks); Meta's ad review loading the page
+ * (review-visits.ts: bursts of idle browsers with one Facebook tag, and the Right_Column tag it fills in). Visits marked internal
  * (fv_internal) are never stored by the event route, so they need nothing here.
  * Leads made another way (email replies, by hand, a Facebook lead form) never saw the page: they are counted apart
  * (notFromPage, and their own rows in the source tables), never in the page's totals and rates.
@@ -144,6 +146,8 @@ export interface FunnelStats {
     /** Link-check browsers (STATS_EXCLUDED_VISITS) with a page event in the range, and what those checks were. */
     linkChecks: number;
     linkCheckNotes: string[];
+    /** Browsers in the range that were Meta's ad review loading the page (review-visits.ts), not people. */
+    reviewVisits: number;
     /** Opens and offer clicks of the range's leads taken as the owner's own (see viewed and offerClicks above). */
     ownerOpens: number;
     ownerClicks: number;
@@ -508,9 +512,16 @@ export async function computeFunnelStats({ from, to, tz: tzInput }: FunnelStatsI
     return DIRECT;
   };
 
-  // 5. The page's own events of the range: landing views and form starts, without the owner's browsers, test tags and link checks.
+  // 5. The page's own events of the range: landing views and form starts, without the owner's browsers, test tags,
+  //    link checks and Meta's ad review.
+  const leadBrowsers = new Set(leadEventChunks.flat().map((row) => row.visitor_id).filter((id): id is string => Boolean(id)));
+  const reviewBrowsers = reviewVisitBrowsers(pageEvents, leadBrowsers);
   const events = pageEvents.filter(
-    (row) => !isOwner(row.visitor_id) && !(row.visitor_id && linkCheckBrowsers.has(row.visitor_id)) && row.ref?.trim() !== OWNER_TEST_REF
+    (row) =>
+      !isOwner(row.visitor_id) &&
+      !(row.visitor_id && linkCheckBrowsers.has(row.visitor_id)) &&
+      !(row.visitor_id && reviewBrowsers.has(row.visitor_id)) &&
+      row.ref?.trim() !== OWNER_TEST_REF
   );
   const checkedInRange = new Set(
     pageEvents.filter((row) => row.visitor_id && linkCheckBrowsers.has(row.visitor_id) && !isOwner(row.visitor_id)).map((row) => row.visitor_id as string)
@@ -627,6 +638,7 @@ export async function computeFunnelStats({ from, to, tz: tzInput }: FunnelStatsI
       browsers: ownerBrowsers.size,
       linkChecks: checkedInRange.size,
       linkCheckNotes: [...new Set([...checkedInRange].map((browser) => checkOf.get(browser) ?? ''))].filter(Boolean),
+      reviewVisits: [...reviewBrowsers].filter((browser) => !isOwner(browser)).length,
       ownerOpens,
       ownerClicks,
     },
