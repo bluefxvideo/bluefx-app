@@ -44,20 +44,23 @@ export interface Persona {
  * A person drawn at random, so videos do not all open with the same face (owner 2026-10-24: the casting kept picking
  * "a friendly woman in her late 20s" and the photo model drew the same brunette for five styles). The casting judges
  * first who fits this ad (owner: "it can figure out what the best avatar would be for that specific ad") and uses
- * this person only where several kinds of person fit equally.
+ * this person only where several kinds of person fit equally. The first pool (all ages, 8 looks, half men) gave three
+ * Asian men in a row and plainer faces; the owner wants mostly women in his buyers' looks.
  */
 const pick = <T,>(list: readonly T[]): T => list[Math.floor(Math.random() * list.length)];
 export function castingSeed(): string {
-  const man = Math.random() < 0.5;
-  const age = pick(['in their late 20s', 'in their mid 30s', 'in their early 40s', 'around 50', 'in their late 50s', 'in their early 60s']);
-  const look = pick(['white', 'white', 'Black', 'Latino', 'East Asian', 'South Asian', 'Middle Eastern', 'mixed-race']);
+  // Owner 2026-10-24 ("why is now every single video a male Asian guy? The woman was much better"): mostly women, the
+  // looks of his buyers (small-town US, UK and Australia), mostly 25 to 45. Other looks come from the casting itself
+  // when the business calls for them (an Asian restaurant, a senior service).
+  const man = Math.random() < 0.3;
+  const age = pick(['in their late 20s', 'in their late 20s', 'in their early 30s', 'in their early 30s', 'in their mid 30s', 'in their early 40s', 'in their late 40s']);
+  const look = pick(['white', 'white', 'white', 'white', 'white', 'white', 'Black', 'Black', 'Latina or Latino', 'Latina or Latino', 'mixed-race']);
   const detail = pick(
     man
-      ? ['short grey hair', 'a full beard', 'glasses', 'a shaved head', 'curly hair', 'a moustache', 'a stubbly jaw and a cap', 'receding hair', 'freckles and red hair']
-      : ['short grey hair', 'glasses', 'curly hair', 'a short bob', 'freckles and red hair', 'long straight blonde hair', 'braids', 'a pixie cut', 'silver hair in a bun']
+      ? ['short dark hair', 'a neat beard', 'light stubble', 'short brown hair', 'wavy hair', 'short blond hair']
+      : ['long brown hair', 'shoulder-length blonde hair', 'dark hair in a ponytail', 'wavy auburn hair', 'long dark hair', 'a sleek bob', 'curly hair']
   );
-  const build = pick(['slim', 'an average build', 'a sturdy build', 'a little heavier']);
-  return `a ${man ? 'man' : 'woman'} ${age}, ${look}, with ${detail} and ${build}`;
+  return `a ${man ? 'man' : 'woman'} ${age}, ${look}, with ${detail}`;
 }
 
 /** The person who opens the video, cast from the website text: their photo and their first-second action (about $0.002). */
@@ -73,7 +76,7 @@ export async function castPersona(brief: string): Promise<Persona> {
             {
               text: `A short video ad for this business opens with a person talking to the camera, like a creator on social media. Cast them and give them a visual hook for the first second, so a scrolling viewer stops.
 
-- The person: someone this business's customers would trust: a customer enjoying what the business offers, or someone at work in the trade. Never the business owner, never a celebrity. Modest everyday clothes. Judge first who THIS ad's customers would trust most and who looks like them: gender, age and look that fit the business and its offer (a gym-goer for a gym, a retiree for a senior service, a mum for a kids' business, a tradesperson for a trade). When the client's note says who should present, cast exactly that. Where several kinds of person fit equally well, use this person, so videos do not all open with the same face: ${seed}. An ordinary, real-looking person with natural features, not a model.
+- The person: someone this business's customers would trust: a customer enjoying what the business offers, or someone at work in the trade. Never the business owner, never a celebrity. Modest everyday clothes. Judge first who THIS ad's customers would trust most and who looks like them: gender, age and look that fit the business and its offer (a gym-goer for a gym, a retiree for a senior service, a mum for a kids' business, a tradesperson for a trade). When the client's note says who should present, cast exactly that. Cast an Asian person only when the business itself is Asian (an Asian restaurant or shop, or a business that says it serves an Asian community), never for a general business such as a massage studio, a cleaner or an advisor. Where several kinds of person fit equally well, use this person, so videos do not all open with the same face: ${seed}. A friendly, attractive, camera-confident person, like a well-liked social media creator.
 - The place: where it happens, so the business is clear at a glance (in their car with the food, at the counter, in the shop, at the job, on the street outside).
 - The prop: one thing in their hand or right beside them that shows the business (house keys and a SOLD sign, a taco, hair clippers, a coffee mug at a spotless counter). No words or logos on it, except a short real-world sign like SOLD.
 - The action: one small movement they make while they say their first words, from the very first second, never a silent pause before talking: they hold the prop up to the lens, click it on, point at it, take a sip. They keep facing the camera and talk.
@@ -120,7 +123,7 @@ export async function castPresenter(photo: string, style?: string | null, horizo
           `${ILLUSTRATION_LOOKS.vintage.look} One single ${shape} photograph (no split screen, no collage): a smiling 1950s television commercial announcer, smartly dressed in a suit and tie (a 1950s dress for a woman), neatly styled 1950s hair, standing in the place from this casting note and showing its product or prop with one hand, front-facing medium shot, classic studio lighting, looking at the camera with the mouth closed. Keep the casting note's gender and age; ignore its clothes and camera style: ${photo} Nothing written anywhere, no text, no logos, no watermark.`
         : drawn
         ? `${drawn} A ${shape} picture, front-facing medium shot, the person looking at the camera with the mouth closed, a plain simple background: ${photo} Nothing written anywhere, no text, no logos, no watermark.`
-        : `Photorealistic ${horizontal ? 'horizontal 16:9 phone video still, the phone held sideways, the person in the middle of the frame' : 'vertical smartphone photo'}, UGC style, natural light, realistic skin texture, slightly imperfect framing. An ordinary real person with natural features and imperfections, not a model: ${photo} Nothing written anywhere, no text, no logos, no watermark.`,
+        : `Photorealistic ${horizontal ? 'horizontal 16:9 phone video still, the phone held sideways, the person in the middle of the frame' : 'vertical smartphone photo'}, UGC style, natural light, realistic skin texture, slightly imperfect framing: ${photo} Nothing written anywhere, no text, no logos, no watermark.`,
       quality: 'high',
       image_size: horizontal ? { width: 1920, height: 1088 } : { width: 1088, height: 1920 },
       output_format: 'jpeg',
