@@ -178,6 +178,26 @@ const STYLES = {
     transition: 'bands',
     sfx: { pop: 1, whoosh: 0.8, ding: 1, chaching: 1 },
   },
+  // A comic book (owner 2026-10-24): inked comic pictures on black-bordered panels, halftone dots and sun rays, headlines
+  // in comic lettering inside speech bubbles, red, yellow and blue.
+  comic: {
+    theme: { bg: '#FFF1CC', bgLight: '#FFF8E4', bgDeep: '#FFE08A', accent: '#E63946', accentDark: '#A4161A', ink: '#111111', wipe: ['#E63946', '#FFD60A', '#1D9BF0'] },
+    fonts: { title: ['Bangers', 'Bangers.ttf', '400'], body: ['Nunito', 'Nunito.ttf', '200 1000'] },
+    title: { kind: 'bubble', weight: 400, scale: 1.2, chars: 0.95, upper: true },
+    grow: 1.55,
+    bodyWeight: 900,
+    surface: 'light',
+    panel: '#FFFFFF',
+    card: { radius: 0, pad: 0, padColor: '#FFFFFF', shadow: '14px 14px 0 #111111', border: '9px solid #111111' },
+    chip: { radius: 0, bg: '#FFFFFF', shadow: '6px 6px 0 #111111', icon: 'cycle', iconRadius: 0 },
+    pill: { radius: 0, border: '5px solid #111111', shadow: '6px 6px 0 #111111' },
+    tile: { radius: 0, border: '6px solid #111111' },
+    spring: { damping: 10, stiffness: 220, mass: 0.7 },
+    motion: 'bouncy',
+    rotate: true,
+    transition: 'bands',
+    sfx: { pop: 1, whoosh: 1, ding: 1, chaching: 1 },
+  },
 };
 const MARKER = '"Marker", "Caveat", cursive';
 // Ticks and stars are drawn as shapes, not typed: the render server's fonts have no ✓, ✔ or ★, so on the live
@@ -1461,6 +1481,17 @@ function BrandBg() {
       </AbsoluteFill>
     );
   }
+  if (styleName === 'comic') {
+    // Cream comic paper: slowly turning yellow sun rays behind everything, red halftone dots on top.
+    const turn = frame * 0.06;
+    return (
+      <AbsoluteFill style={{ overflow: 'hidden', background: theme.bg }}>
+        <div style={{ position: 'absolute', left: W / 2 - H, top: H * 0.42 - H, width: H * 2, height: H * 2, transform: `rotate(${turn}deg)`, background: `repeating-conic-gradient(${theme.bgDeep} 0deg 9deg, transparent 9deg 18deg)`, opacity: 0.75 }} />
+        <AbsoluteFill style={{ backgroundImage: `radial-gradient(circle, ${theme.accent} 3px, transparent 3.6px)`, backgroundSize: '26px 26px', opacity: 0.14 }} />
+        <AbsoluteFill style={{ background: `radial-gradient(circle at 50% 42%, transparent 35%, ${theme.bg}cc 100%)` }} />
+      </AbsoluteFill>
+    );
+  }
   if (styleName === 'playful') {
     return (
       <AbsoluteFill style={base}>
@@ -1800,7 +1831,7 @@ function Captions({ words, cuts = [] }) {
   const chunk = chunks[index];
   const pop = spring({ frame: frame - Math.round(chunk[0].start * FPS), fps: FPS, config: { damping: 14, stiffness: 240, mass: 0.5 } });
   const lit = styleName === 'playful' ? theme.bg : styleName === 'elegant' ? theme.accent : styleName === 'bold' ? theme.accent : '#FFD84D';
-  const size = { playful: 84, bold: 98, clean: 72, elegant: 62, whiteboard: 64, cartoon: 80 }[styleName];
+  const size = { playful: 84, bold: 98, clean: 72, elegant: 62, whiteboard: 64, cartoon: 80, comic: 84 }[styleName];
   const strip = styleName === 'whiteboard';
   // The whiteboard's handwriting is for the board; its subtitles are set in a plain bold sans (owner 2026-10-06:
   // "i hate this font, hard to read").

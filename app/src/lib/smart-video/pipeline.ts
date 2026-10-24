@@ -35,6 +35,7 @@ import {
 } from './listing';
 import { extractAudio, framePresenterPhoto, measureLufs } from './prepare-assets';
 import type { DirectorBlock, DirectorPlan, SmartAsset, StoreFile, StyleName, VideoFormat, VideoLength } from './types';
+import { isIllustrated } from './types';
 import { trackUsage, type UsageEntry } from './usage';
 
 /**
@@ -234,7 +235,7 @@ async function produce(
             })
           : castPersona(brief).then(async (persona) => {
               console.log(`🎭 Presenter: ${persona.photo} | hook: ${persona.action}`);
-              const photo = await castPresenter(persona.photo, look === 'cartoon');
+              const photo = await castPresenter(persona.photo, look);
               await store(photo, 'presenter.jpg', 'image/jpeg');
               return { photo, action: persona.action };
             })
@@ -271,7 +272,7 @@ async function produce(
       ? presenterPhoto
           .then(async (cast) => {
             if (!cast) return null;
-            const clip = await talkingPresenter(cast.photo, firstLine, cast.action);
+            const clip = await talkingPresenter(cast.photo, firstLine, cast.action, look);
             return { clip, url: await store(clip, 'presenter.mp4', 'video/mp4') };
           })
           .catch((error) => {
@@ -354,7 +355,7 @@ async function produce(
   ).then((pairs) => Object.fromEntries(pairs));
 
   const drawings = makeDrawings(plan.drawings || [], store);
-  const cartoons = makeCartoons(plan.style === 'cartoon' ? plan.cartoons || [] : [], store);
+  const cartoons = makeCartoons(isIllustrated(plan.style) ? plan.cartoons || [] : [], plan.style, store);
 
   const [voice, musicUrl, soundUrl, logoUrl, cutoutUrls, lifestyleAssets, motionUrls, heardInClips, drawingAssets, digits, cartoonAssets] = await Promise.all([
     narration.length ? recordVoice(narration, languageName, plan, store, listing ? listingFit(listing, narration.length) : undefined) : null,
@@ -587,14 +588,14 @@ export async function reviseSmartVideo(
           if (uploaded) photo = await framePresenterPhoto(uploaded, faceOf(cast.face));
           else if (cast.same && oldPhoto) photo = oldPhoto;
           else {
-            photo = await castPresenter(String(cast.photo), previous.plan.style === 'cartoon').catch((error) => {
+            photo = await castPresenter(String(cast.photo), previous.plan.style).catch((error) => {
               console.warn('⚠️ Presenter photo failed, one more try:', String(error).slice(0, 160));
-              return castPresenter(String(cast.photo), previous.plan.style === 'cartoon');
+              return castPresenter(String(cast.photo), previous.plan.style);
             });
           }
           // Beside the clip, so a later edit finds the person again.
           await store(photo, 'presenter.jpg', 'image/jpeg');
-          const clip = await talkingPresenter(photo, line, cast.action?.trim() || '');
+          const clip = await talkingPresenter(photo, line, cast.action?.trim() || '', previous.plan.style);
           return { clip, url: await store(clip, 'presenter.mp4', 'video/mp4') };
         })().catch((error) => {
           console.warn('⚠️ New presenter not made:', String(error).slice(0, 160));
@@ -611,10 +612,10 @@ export async function reviseSmartVideo(
     const before = new Map((previous.plan.drawings || []).map((d) => [d.id, d.prompt]));
     const redraw = (plan.drawings || []).filter((d) => !media.assets[d.id] || before.get(d.id) !== d.prompt);
     for (const [id, asset] of await makeDrawings(redraw, store)) media.assets[id] = asset;
-    // Cartoon: the same for its pictures.
+    // Illustrated styles (cartoon, comic): the same for their pictures.
     const drawn = new Map((previous.plan.cartoons || []).map((c) => [c.id, c.prompt]));
-    const recartoon = plan.style === 'cartoon' ? (plan.cartoons || []).filter((c) => !media.assets[c.id] || drawn.get(c.id) !== c.prompt) : [];
-    for (const [id, asset] of await makeCartoons(recartoon, store)) media.assets[id] = asset;
+    const recartoon = isIllustrated(plan.style) ? (plan.cartoons || []).filter((c) => !media.assets[c.id] || drawn.get(c.id) !== c.prompt) : [];
+    for (const [id, asset] of await makeCartoons(recartoon, plan.style, store)) media.assets[id] = asset;
     // The narrator says every scene that nobody in a clip says (a speaker scene needs the clip's saved word timings).
     // The recording is kept when it already holds those lines in the same voice; otherwise they are recorded again.
     const clipWords = media.clipWords || {};
@@ -825,13 +826,14 @@ async function makeDrawings(list: { id: string; prompt: string }[], store: Store
   return made.filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 }
 
-/** Cartoon pictures, in parallel, each tried twice. One that still fails leaves its card out rather than failing the video. */
-async function makeCartoons(list: { id: string; prompt: string }[], store: StoreFile) {
+/** An illustrated style's pictures, in parallel, each tried twice. One that still fails leaves its card out rather than failing the video. */
+async function makeCartoons(list: { id: string; prompt: string }[], style: string, store: StoreFile) {
+  const look = isIllustrated(style) ? style : 'cartoon';
   const made = await Promise.all(
     list.map(async (c) => {
       for (let attempt = 1; attempt <= DRAWING_TRIES; attempt++) {
         try {
-          const { png, width, height } = await generateCartoon(c.prompt);
+          const { png, width, height } = await generateCartoon(c.prompt, look);
           const url = await store(png, `${c.id}-${Date.now().toString(36)}.png`, 'image/png');
           return [c.id, { url, kind: 'image' as const, width, height }] as const;
         } catch (error) {

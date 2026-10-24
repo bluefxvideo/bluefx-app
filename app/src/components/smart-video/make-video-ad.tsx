@@ -74,6 +74,7 @@ const STYLES: StyleCard[] = [
   { id: 'whiteboard-presenter', value: 'whiteboard', presenter: true, label: 'Hand-drawn + presenter', hint: 'A presenter opens, then a hand draws your story on a whiteboard', preview: '/smart-video/looks/whiteboard.mp4', poster: '/smart-video/looks/whiteboard-poster.jpg', badge: 'Your free ad' },
   { id: 'whiteboard', value: 'whiteboard', presenter: false, label: 'Hand-drawn', hint: 'A hand draws your story on a whiteboard, no presenter', preview: '/smart-video/looks/whiteboard-only.mp4', poster: '/smart-video/looks/whiteboard-only-poster.jpg' },
   { id: 'cartoon', value: 'cartoon', label: 'Cartoon', hint: 'Friendly cartoon pictures and speech bubbles. Insurance, finance, dental, apps', preview: '/smart-video/looks/cartoon.mp4', poster: '/smart-video/looks/cartoon-poster.jpg', badge: 'New' },
+  { id: 'comic', value: 'comic', label: 'Comic book', hint: 'Comic panels, halftone dots and speech bubbles. Auto repair, gyms, food, local deals', preview: '/smart-video/looks/comic.mp4', poster: '/smart-video/looks/comic-poster.jpg', badge: 'New' },
   { id: 'bold', value: 'bold', label: 'Bold', hint: 'Gyms, sales, events, food', preview: '/smart-video/looks/bold.mp4', poster: '/smart-video/looks/bold-poster.jpg' },
   { id: 'clean', value: 'clean', label: 'Clean', hint: 'Clinics, services, offices', preview: '/smart-video/looks/clean.mp4', poster: '/smart-video/looks/clean-poster.jpg' },
   { id: 'elegant', value: 'elegant', label: 'Elegant', hint: 'Luxury, real estate, spas', preview: '/smart-video/looks/elegant.mp4', poster: '/smart-video/looks/elegant-poster.jpg' },
@@ -657,12 +658,12 @@ function StyleGallery({ smart, open, onClose }: { smart: SmartVideo; open: boole
   const chosen = cardById(picked);
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-h-[92vh] max-w-[calc(100%-2rem)] overflow-y-auto p-4 sm:p-6 lg:max-w-[1360px]">
+      <DialogContent className="max-h-[92vh] max-w-[calc(100%-2rem)] overflow-y-auto p-4 sm:p-6 lg:max-w-[1120px]">
         <DialogHeader>
           <DialogTitle className="text-2xl font-extrabold">Pick a style</DialogTitle>
           <DialogDescription className="text-base">Each preview is a real video ad made with the Phantom Ad Maker.</DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-8">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 lg:grid-cols-5">
           {STYLES.map((card) => {
             const on = picked === card.id;
             return (

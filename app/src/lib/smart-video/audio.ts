@@ -3,6 +3,7 @@ import sharp from 'sharp';
 import { tracePath } from './drawing-path';
 import { libraryUrl, pickLibraryTrack } from './music-library';
 import { usage } from './usage';
+import type { IllustratedStyle } from './types';
 
 /**
  * Smart Video — voice, word timings, music and the optional signature sound.
@@ -111,6 +112,7 @@ const SAFE_MUSIC: Record<string, string> = {
   bold: '126 BPM, driving instrumental bed. Instruments: punchy drums, synth bass, electric guitar stabs, claps. Attitude: energetic, confident, motivating.',
   clean: '104 BPM, light instrumental bed. Instruments: muted guitar plucks, soft piano, finger snaps, warm bass. Attitude: optimistic, friendly, tidy.',
   cartoon: '110 BPM, bouncy instrumental bed. Instruments: marimba, pizzicato strings, ukulele, hand claps, soft kick drum. Attitude: friendly, light, explainer-video.',
+  comic: '124 BPM, punchy instrumental bed. Instruments: brass stabs, funky electric guitar, slap bass, snappy drums, hand claps. Attitude: bold, fun, heroic.',
 };
 export const MUSIC_RULES = ' Steady energy, no build-ups, no drops. No vocals. Sits under a voice-over. About 60 seconds.';
 /** Said to the music model on every take of a video's music: it adds singing and vocal chops otherwise. */
@@ -288,13 +290,27 @@ const DRAWING_INK = [31, 36, 48]; // the whiteboard look's ink colour (#1F2430)
 /** The cartoon style's one look, added to every cartoon picture and to its presenter (from the ad studio's Toon). */
 export const CARTOON_LOOK = 'Flat vector cartoon illustration, thick clean dark-navy outlines, limited palette of navy, coral, mustard and cream, simple geometric shapes, friendly style like a modern explainer video.';
 
-/** A cartoon picture for a scene: square, the whole scene inside the frame with a margin (about $0.013 at medium). */
-export async function generateCartoon(prompt: string): Promise<{ png: Buffer; width: number; height: number }> {
+/**
+ * Each illustrated style's look, added to every picture and to its presenter, and the background the picture sits on
+ * (owner 2026-10-24 liked the comic sample frame and test ads).
+ */
+export const ILLUSTRATION_LOOKS: Record<IllustratedStyle, { look: string; ground: string; drawnPresenter: boolean }> = {
+  cartoon: { look: CARTOON_LOOK, ground: 'plain cream background', drawnPresenter: true },
+  comic: {
+    look: 'Bold comic book illustration, thick black ink outlines, Ben-Day halftone dot shading, punchy flat primary colours (red, yellow, cyan blue) on cream paper, dynamic energetic poses, classic American comic book art.',
+    ground: 'a simple comic panel background with halftone dots or action lines',
+    drawnPresenter: true,
+  },
+};
+
+/** A picture for a scene in an illustrated style: square, the whole scene inside the frame with a margin (about $0.013 at medium). */
+export async function generateCartoon(prompt: string, style: IllustratedStyle = 'cartoon'): Promise<{ png: Buffer; width: number; height: number }> {
+  const { look, ground } = ILLUSTRATION_LOOKS[style];
   const res = await fetch('https://fal.run/openai/gpt-image-2.5/flare/text-to-image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Key ${falKey()}` },
     body: JSON.stringify({
-      prompt: `${CARTOON_LOOK} Square composition with the whole scene fully inside the frame and some margin around it, plain cream background. No text, no words, no letters, no numbers, no logos: ${prompt}`,
+      prompt: `${look} Square composition with the whole scene fully inside the frame and some margin around it, ${ground}. No text, no words, no letters, no numbers, no logos, no speech bubbles: ${prompt}`,
       quality: CARTOON_QUALITY,
       output_format: 'png',
       num_images: 1,
@@ -302,7 +318,7 @@ export async function generateCartoon(prompt: string): Promise<{ png: Buffer; wi
     }),
     signal: AbortSignal.timeout(150_000),
   });
-  if (!res.ok) throw new Error(`Cartoon failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) throw new Error(`Picture failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
   const json = await res.json();
   usage.cartoon();
   return { png: Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer()), width: 1024, height: 1024 };

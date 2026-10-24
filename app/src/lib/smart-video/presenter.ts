@@ -1,4 +1,5 @@
-import { CARTOON_LOOK } from './audio';
+import { ILLUSTRATION_LOOKS } from './audio';
+import { isIllustrated } from './types';
 import { usage } from './usage';
 
 /**
@@ -78,14 +79,15 @@ ${brief.slice(0, 4000)}`,
   return { photo, action };
 }
 
-/** The presenter's vertical photo (about $0.04); in a cartoon video, a cartoon person in the cartoon pictures' look. */
-export async function castPresenter(photo: string, cartoon = false): Promise<Buffer> {
+/** The presenter's vertical photo (about $0.04); in a cartoon or comic video, a person drawn in the pictures' look. */
+export async function castPresenter(photo: string, style?: string | null): Promise<Buffer> {
+  const drawn = isIllustrated(style) && ILLUSTRATION_LOOKS[style].drawnPresenter ? ILLUSTRATION_LOOKS[style].look : null;
   const res = await fetch(`https://fal.run/${PHOTO_MODEL}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` },
     body: JSON.stringify({
-      prompt: cartoon
-        ? `${CARTOON_LOOK} A vertical portrait, front-facing medium shot, the person looking at the camera with the mouth closed, a plain simple background: ${photo} Nothing written anywhere, no text, no logos, no watermark.`
+      prompt: drawn
+        ? `${drawn} A vertical portrait, front-facing medium shot, the person looking at the camera with the mouth closed, a plain simple background: ${photo} Nothing written anywhere, no text, no logos, no watermark.`
         : `Photorealistic vertical smartphone photo, UGC style, natural light, realistic skin texture, slightly imperfect framing: ${photo} Nothing written anywhere, no text, no logos, no watermark.`,
       quality: 'high',
       image_size: { width: 1088, height: 1920 },
@@ -166,7 +168,9 @@ export function clipSecondsFor(line: string): number {
 }
 
 /** The presenter doing their action and saying the line, with their own voice (LTX 2.5 Fast with sound, 720p, $0.09 a second). */
-export async function talkingPresenter(photo: Buffer, line: string, action = ''): Promise<Buffer> {
+export async function talkingPresenter(photo: Buffer, line: string, action = '', style?: string | null): Promise<Buffer> {
+  // A drawn presenter (cartoon, comic) stays drawn: a soft watercolor face came back photoreal (2026-10-24), so keep the style explicit.
+  const drawn = isIllustrated(style) && ILLUSTRATION_LOOKS[style].drawnPresenter ? `Keep the exact art style of the image in every frame (${ILLUSTRATION_LOOKS[style].look.split(',')[0].toLowerCase()}): it stays an illustration and never turns into a photo or live action.` : '';
   const seconds = clipSecondsFor(line);
   const headers = { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` };
   // Talking from the first frame while doing the action (owner 2026-10-08 on a 3-clip test: "pretty damn good, all of
@@ -177,6 +181,7 @@ export async function talkingPresenter(photo: Buffer, line: string, action = '')
     action ? `While they say the first words: ${action}` : '',
     'They speak clearly to the viewer at a natural conversational pace, looking into the camera, steady framing, subtle natural head movement. They stay in frame and keep facing the camera until the end of the clip.',
     `They say: "${line.replace(/"/g, "'")}"`,
+    drawn,
     "Audio: only the person's voice with natural room ambience, no background music, no soundtrack, no melody.",
     'No captions, no subtitles, no on-screen text, no logos.',
   ]

@@ -16,8 +16,12 @@ export type VideoLength = (typeof VIDEO_LENGTHS)[number];
 export const VIDEO_FORMATS = ['vertical', 'horizontal'] as const;
 export type VideoFormat = (typeof VIDEO_FORMATS)[number];
 
-export const STYLE_NAMES = ['playful', 'elegant', 'bold', 'clean', 'whiteboard', 'cartoon'] as const;
+export const STYLE_NAMES = ['playful', 'elegant', 'bold', 'clean', 'whiteboard', 'cartoon', 'comic'] as const;
 export type StyleName = (typeof STYLE_NAMES)[number];
+/** The illustrated styles: the director asks for pictures ("cartoons") that the image model paints in the style's look. */
+export const ILLUSTRATED_STYLES = ['cartoon', 'comic'] as const;
+export type IllustratedStyle = (typeof ILLUSTRATED_STYLES)[number];
+export const isIllustrated = (style: string | null | undefined): style is IllustratedStyle => (ILLUSTRATED_STYLES as readonly string[]).includes(style || '');
 /** What the client can pick on the page: 'auto' lets The Phantom choose. */
 export const VIDEO_LOOKS = ['auto', ...STYLE_NAMES] as const;
 export type VideoLook = (typeof VIDEO_LOOKS)[number];
@@ -109,7 +113,7 @@ export const DirectorPlanSchema = z.object({
     .array(z.object({ id: z.string(), prompt: z.string() }))
     .max(MAX_CARTOONS)
     .nullish()
-    .describe('Cartoon style only: the flat cartoon pictures, shown as media cards'),
+    .describe('Illustrated styles only (cartoon, comic): the pictures painted in the style, shown as media cards'),
   signatureSound: z.object({ prompt: z.string(), afterScene: z.number().int().min(0) }).nullish(),
   assets: z.array(
     z.object({
