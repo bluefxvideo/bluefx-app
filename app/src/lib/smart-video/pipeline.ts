@@ -425,8 +425,13 @@ async function produce(
   return { props, plan, media, durationSeconds: props.duration, warnings: [...clientWarnings(plan), ...softPhotoWarnings(plan, assets)] };
 }
 
-/** How long the finished video waits for a presenter clip that is still being made, before the narrator says scene 1 (Kling O3 Pro took 94 s and 147 s for 5 s on 2026-10-06). */
-const PRESENTER_GRACE_MS = 150_000;
+/**
+ * How long the finished video waits for a presenter clip that is still being made, before the narrator says scene 1
+ * (Kling O3 Pro took 94 s and 147 s for 5 s on 2026-10-06). 240 s since 2026-10-25: an LTX clip came back after 169 s
+ * at a busy hour, 19 s too late, and a free video ad went out without its presenter (the clip was paid all the same).
+ * The clip itself gives up at 240 s (presenter.ts CLIP_TIMEOUT_MS).
+ */
+const PRESENTER_GRACE_MS = 240_000;
 
 /**
  * The presenter says scene 1: their clip becomes a person talking in the video's own terms (a speaker scene, as a

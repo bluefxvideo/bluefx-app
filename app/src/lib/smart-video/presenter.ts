@@ -1,3 +1,4 @@
+import { isFalSafetyRefusal } from '@/actions/models/fal-error';
 import { ILLUSTRATION_LOOKS } from './audio';
 import { isIllustrated } from './types';
 import { usage } from './usage';
@@ -111,11 +112,8 @@ export async function castPresenter(photo: string, style?: string | null, horizo
   // A wide video (owner 2026-10-24: "why don't the YouTube versions have a presenter?") gets a wide photo and clip.
   const shape = horizontal ? 'horizontal 16:9' : 'vertical';
   const drawn = isIllustrated(style) && ILLUSTRATION_LOOKS[style].drawnPresenter ? ILLUSTRATION_LOOKS[style].look : null;
-  const res = await fetch(`https://fal.run/${PHOTO_MODEL}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` },
-    body: JSON.stringify({
-      prompt: style === 'news'
+  const prompt =
+    style === 'news'
         ? // The casting note (a selfie in a car with a slice) won over the studio twice, once as a split screen: the anchor is drawn from the casting pool instead.
           `Photorealistic ${shape} still from a local TV news broadcast, one single photograph filling the whole frame (no split screen, no collage, no inset): a friendly, professional news anchor in a smart dark blazer (the anchor is ${castingSeed()}), sitting at a sleek glossy news desk in a modern TV studio with blue and red lighting and a large glowing video wall of a city skyline behind, front-facing medium shot from the chest up, looking straight into the camera with the mouth closed, hands resting on a few papers. Nothing written anywhere, no text, no logos, no channel names, no watermark.`
         : style === 'vintage'
@@ -123,7 +121,12 @@ export async function castPresenter(photo: string, style?: string | null, horizo
           `${ILLUSTRATION_LOOKS.vintage.look} One single ${shape} photograph (no split screen, no collage): a smiling 1950s television commercial announcer, smartly dressed in a suit and tie (a 1950s dress for a woman), neatly styled 1950s hair, standing in the place from this casting note and showing its product or prop with one hand, front-facing medium shot, classic studio lighting, looking at the camera with the mouth closed. Keep the casting note's gender and age; ignore its clothes and camera style: ${photo} Nothing written anywhere, no text, no logos, no watermark.`
         : drawn
         ? `${drawn} A ${shape} picture, front-facing medium shot, the person looking at the camera with the mouth closed, a plain simple background: ${photo} Nothing written anywhere, no text, no logos, no watermark.`
-        : `Photorealistic ${horizontal ? 'horizontal 16:9 phone video still, the phone held sideways, the person in the middle of the frame' : 'vertical smartphone photo'}, UGC style, natural light, realistic skin texture, slightly imperfect framing: ${photo} Nothing written anywhere, no text, no logos, no watermark.`,
+        : `Photorealistic ${horizontal ? 'horizontal 16:9 phone video still, the phone held sideways, the person in the middle of the frame' : 'vertical smartphone photo'}, UGC style, natural light, realistic skin texture, slightly imperfect framing: ${photo} Nothing written anywhere, no text, no logos, no watermark.`;
+  const res = await fetch(`https://fal.run/${PHOTO_MODEL}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` },
+    body: JSON.stringify({
+      prompt,
       quality: 'high',
       image_size: horizontal ? { width: 1920, height: 1088 } : { width: 1088, height: 1920 },
       output_format: 'jpeg',
@@ -131,8 +134,32 @@ export async function castPresenter(photo: string, style?: string | null, horizo
     }),
     signal: AbortSignal.timeout(150_000),
   });
-  if (!res.ok) throw new Error(`Presenter photo failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) {
+    const text = await res.text();
+    // GPT Image turns some businesses down (2026-10-25: a CBD shop's presenter, 422 content_policy_violation, and the
+    // free video ad went out without its presenter). Nano Banana 2 takes them: the same photo is made there instead.
+    if (isFalSafetyRefusal(text)) {
+      console.warn('🛟 Presenter photo refused by GPT Image; making it on Nano Banana 2');
+      return presenterOnNanoBanana(prompt, horizontal);
+    }
+    throw new Error(`Presenter photo failed (${res.status}): ${text.slice(0, 200)}`);
+  }
   const json = await res.json();
+  usage.presenterPhoto();
+  return Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer());
+}
+
+/** The presenter's photo on Nano Banana 2 (fal), for the photos GPT Image turns down (about $0.08). */
+async function presenterOnNanoBanana(prompt: string, horizontal: boolean): Promise<Buffer> {
+  const res = await fetch('https://fal.run/fal-ai/nano-banana-2', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` },
+    body: JSON.stringify({ prompt, aspect_ratio: horizontal ? '16:9' : '9:16', resolution: '1K', output_format: 'jpeg', num_images: 1 }),
+    signal: AbortSignal.timeout(150_000),
+  });
+  if (!res.ok) throw new Error(`Presenter photo failed on Nano Banana 2 too (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  const json = await res.json();
+  if (!json.images?.[0]?.url) throw new Error('Nano Banana 2 made no presenter photo');
   usage.presenterPhoto();
   return Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer());
 }
