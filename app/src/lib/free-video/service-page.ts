@@ -93,6 +93,12 @@ function nextFigures(cards: FreeVideoNextAdCard[], fallbackImage: string | null)
     .join('');
 }
 
+/** Fills every [data-enddate-short] with the price's end day in the visitor's own time zone, like "Fri, Oct 30". */
+function shortDateScript(endsAt: number | null): string {
+  if (!endsAt) return '';
+  return `<script>(function(){try{var t=new Date(${Math.round(endsAt)}).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});document.querySelectorAll('[data-enddate-short]').forEach(function(e){e.textContent=t})}catch(e){}})();</script>`;
+}
+
 /** The tag that starts the clock: the page's first open in a browser, sent like the funnel's other page events. */
 function viewBeacon(token: string): string {
   const body = JSON.stringify({ e: 'service_view', t: token });
@@ -112,9 +118,13 @@ function phaseSlots({ phase, nextPrice, endsAt }: ServicePhaseNow): Array<[strin
     const date = '<span data-enddate></span>';
     return [
       ['{{S_TOPBAR}}', `<div class="deadline" role="note">\n  <div class="wrap">\n    <span>Your ${p} price is held for</span>\n    <span class="clock" data-clock></span>\n  </div>\n</div>`],
-      // "(Normally $299)" at the top and the struck-out next price in the price boxes (owner 2026-10-25: keep them).
-      ['{{S_WAS}}', `<span class="was">(Normally <s>${nx}</s>)</span>`],
-      ['{{S_STRIKE}}', `<s>${nx}</s>`],
+      // Under the first price, kept simple (owner 2026-10-25): "(Regular price $299, offer ends Wed, Oct 28)".
+      ['{{S_WAS}}', `<span class="was">(Regular price <s>${nx}</s>, offer ends <span data-enddate-short></span>)</span>`],
+      // The struck-out regular price in the price boxes, labelled "regular price" (owner 2026-10-25).
+      [
+        '{{S_STRIKE}}',
+        `<span style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.05"><s>${nx}</s><small style="font:700 12px/1.2 Lato,Arial,sans-serif;color:#5e5e5e;letter-spacing:0;text-transform:none;margin-top:4px">regular price</small></span>`,
+      ],
       ['{{S_BOXDEADLINE}}', `<p class="boxdeadline" id="buy">${p} a month is the price only for business owners who made a free video ad with us. Your ${p} price is held for you until ${date}. After that, new members pay ${nx} a month.</p>`],
       ['{{S_LOCK1}}', `<b>Price lock:</b> join before then, and your price stays ${p} a month for as long as you stay a member, even when the price goes up for new members.`],
       ['{{S_Q3}}', `<p><b>Answer:</b> You just tried our free video ad maker and saw your first video ad. This price is my thank-you for trying our free video ad maker, and it's held for you for ${days} days.</p>\n`],
@@ -180,6 +190,7 @@ export function renderServicePage(input: ServicePageInput): string {
     ['{{P}}', `$${input.now.phase.price}`],
   ];
   for (const [slot, value] of slots) html = put(html, slot, value);
+  html = put(html, '</body>', `${shortDateScript(input.now.endsAt)}\n</body>`);
   if (!input.internal) html = put(html, '</body>', `${viewBeacon(input.token)}\n</body>`);
   return html;
 }
