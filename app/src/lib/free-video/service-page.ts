@@ -1,6 +1,7 @@
 import { SERVICE, serviceGoUrl, type ServicePhase } from '@/lib/free-video/offer';
 import { isLive } from '@/lib/free-video/config';
 import { SERVICE_PAGE_HTML } from '@/lib/free-video/service-page-html';
+import { WELCOME_PATH } from '@/lib/free-video/welcome-page';
 import { eventsTable } from '@/lib/free-video/leads';
 import { displayDomain } from '@/lib/free-video/website';
 import type { FreeVideoLead, FreeVideoNextAdCard } from '@/types/free-video';
@@ -108,14 +109,27 @@ function viewBeacon(token: string): string {
   return `<script>(function(){try{var b=${JSON.stringify(body)};var v=null;try{v=localStorage.getItem('fv_vid')}catch(e){}if(v&&/^[\\w-]{1,40}$/.test(v)){var o=JSON.parse(b);o.v=v;b=JSON.stringify(o)}if(!(navigator.sendBeacon&&navigator.sendBeacon('/api/free-video/event',new Blob([b],{type:'application/json'}))))fetch('/api/free-video/event',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){})}catch(e){}})();</script>`;
 }
 
-/** FastSpring's Store Builder script for its popup cart, the same tag as the AI Media Machine's sales page (owner 2026-10-25). */
-function fastSpringScript(): string {
+/**
+ * FastSpring's Store Builder script for its popup cart, the same tag as the AI Media Machine's sales page (owner
+ * 2026-10-25), with FastSpring's popup-closed callback like that page: a paid order goes on to the thank-you page
+ * (welcome-page.ts), a closed cart without an order stays here.
+ */
+function fastSpringScript(welcomeUrl: string): string {
   const storefront = isLive() ? SERVICE.popupStorefront : SERVICE.popupTestStorefront;
-  return `<script
+  return `<script>
+    function onFSPopupClosed(orderReference) {
+      if (orderReference) {
+        if (window.fastspring && window.fastspring.builder) window.fastspring.builder.reset();
+        window.location.href = ${JSON.stringify(welcomeUrl).replace(/</g, '\\u003c')};
+      }
+    }
+  </script>
+  <script
     id="fsc-api"
     src="https://sbl.onfastspring.com/sbl/1.0.5/fastspring-builder.min.js"
     type="text/javascript"
-    data-storefront="${storefront}">
+    data-storefront="${storefront}"
+    data-popup-closed="onFSPopupClosed">
   </script>`;
 }
 
@@ -214,7 +228,8 @@ export function renderServicePage(input: ServicePageInput): string {
   const popupProduct = input.checkoutUrl === undefined ? input.now.phase.product : input.popupProduct ?? null;
   if (popupProduct) {
     html = put(html, CHECKOUT_LINK, fastSpringButton(popupProduct));
-    html = put(html, '</head>', `${fastSpringScript()}\n</head>`);
+    const welcome = input.token ? `${WELCOME_PATH}?t=${encodeURIComponent(input.token)}` : WELCOME_PATH;
+    html = put(html, '</head>', `${fastSpringScript(welcome)}\n</head>`);
   }
   for (const [slot, value] of slots) html = put(html, slot, value);
   html = put(html, '</body>', `${shortDateScript(input.now.endsAt)}\n</body>`);
