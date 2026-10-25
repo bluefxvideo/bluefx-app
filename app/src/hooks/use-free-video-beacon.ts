@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { funnelRef } from '@/lib/free-video/funnel';
 import { isInternalVisit } from '@/lib/free-video/internal-visit';
 import type { FreeVideoEvent, OfferOpenSource, TutorialOpenSource } from '@/types/free-video';
 
@@ -35,12 +36,15 @@ export function visitorId(): string {
   }
 }
 
-/** The newsletter or campaign tag of the current address (?ref= or ?utm_campaign=), when it is a clean one. */
+/**
+ * The newsletter or campaign tag of the current address (?ref= or ?utm_campaign=), when it is a clean one. On the
+ * service funnel's landing page it always starts with 'svc-', on the first landing page never (funnel.ts).
+ */
 export function refTagFromUrl(): string | undefined {
   try {
     const params = new URLSearchParams(window.location.search);
     const value = (params.get('ref') || params.get('utm_campaign') || '').trim();
-    return REF_PATTERN.test(value) ? value : undefined;
+    return funnelRef(REF_PATTERN.test(value) ? value : undefined, window.location.pathname);
   } catch {
     return undefined;
   }

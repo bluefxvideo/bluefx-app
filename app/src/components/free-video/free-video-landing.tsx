@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   createContext,
   useCallback,
@@ -19,6 +19,7 @@ import { refTagFromUrl, useFreeVideoBeacon } from '@/hooks/use-free-video-beacon
 import { trackFormStart, trackLead } from '@/lib/free-video/analytics';
 import { hopFromBrowser } from '@/lib/free-video/clickbank';
 import { ERRORS, EXAMPLES, FORM, type ExampleVideoAd } from '@/lib/free-video/copy';
+import { isServiceLandingPath } from '@/lib/free-video/funnel';
 import { clickIdFromUrl, PIXEL_DATA, trackPixel } from '@/lib/free-video/pixel';
 import { cn } from '@/lib/utils';
 import type { FreeVideoLeadBody, FreeVideoSubmitData } from '@/types/free-video';
@@ -121,6 +122,8 @@ interface FreeVideoLandingProps {
  */
 export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
   const router = useRouter();
+  // The service funnel's copy of this page (funnel.ts) never shows the AI Media Machine offer.
+  const servicePage = isServiceLandingPath(usePathname() ?? '');
   const beacon = useFreeVideoBeacon();
   const mountedAt = useRef(0);
   const sentView = useRef(false);
@@ -421,7 +424,10 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
     [websites, setWebsite, websiteProblem, registerWebsiteInput, startStep2, noteFormStart, openExample, overlayOpen]
   );
 
-  const upgrade = problems.form?.upgrade ? problems.form : null;
+  const refusal = problems.form?.upgrade ? problems.form : null;
+  // The service page has no AI Media Machine offer under the refusal, so its pointer to one goes too.
+  const upgrade =
+    refusal && servicePage ? { ...refusal, message: refusal.message.replace(/\s*To make more video ads, get the AI Media Machine below\./, '') } : refusal;
   const firstNameError = problems.firstName ? 'fv-first-name-error' : undefined;
   const emailError = problems.email ? 'fv-email-error' : undefined;
 
@@ -456,7 +462,7 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
           ) : upgrade ? (
             <>
               <FormMessage problem={upgrade} website={website} variant="note" />
-              <LifetimeOffer placement="fvland" token="" isCustomer={false} variant="upgrade" />
+              {!servicePage && <LifetimeOffer placement="fvland" token="" isCustomer={false} variant="upgrade" />}
             </>
           ) : (
             <>

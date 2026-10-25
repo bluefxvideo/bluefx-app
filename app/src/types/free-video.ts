@@ -311,6 +311,8 @@ export interface FreeVideoView {
   cleanUntil?: string;
   /** An active AI Media Machine customer, or a buyer since: Offer 2 swaps to "Open this video ad in the AI Media Machine" and the $99 offer goes. */
   isCustomer: boolean;
+  /** A lead of the service funnel (funnel.ts): once ready, the page is the Unlimited Video Ads page (/v/<token>/unlimited). */
+  service?: boolean;
   /** Offer 1, the $99 unlock. */
   unlock: FreeVideoUnlockView;
   /** P1 */
@@ -406,8 +408,12 @@ export const FREE_VIDEO_STEP_OF: Record<SmartVideoJobStatus, 1 | 2 | 3 | 4 | 5> 
 // P1 measurement (POST /api/free-video/event, the sendBeacon target)
 // ---------------------------------------------------------------------------------------------
 
-/** tour_play: the founder's walkthrough of the AI Media Machine on the result page was started (SALES_PAGE.tour). */
-export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open', 'tour_play', 'chat_open', 'tutorial_open', 'tutorial_end'] as const;
+/**
+ * tour_play: the founder's walkthrough of the AI Media Machine on the result page was started (SALES_PAGE.tour).
+ * service_view: the Unlimited Video Ads page (/v/<token>/unlimited) was opened in a browser that runs its script; the
+ * lead's first one starts its 3-day $99 hold (service-page.ts). Sent by the page, so email link scanners never start it.
+ */
+export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open', 'tour_play', 'chat_open', 'tutorial_open', 'tutorial_end', 'service_view'] as const;
 /** A page event the browser may send. */
 export type FreeVideoEvent = (typeof FREE_VIDEO_EVENTS)[number];
 /**
@@ -428,7 +434,8 @@ export type TutorialOpenSource = (typeof TUTORIAL_OPEN_SOURCES)[number];
  * Events only the server writes: the /go route logs each offer click; meta.ts saves a lead's Facebook ids ('meta_ids',
  * meta {fbc, fbp}) and the outcome of every Conversions API send ('capi', meta {name, id, ok, error}).
  */
-export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused';
+/** service_paid: a paid Unlimited Video Ads order of this lead (service-order.ts). */
+export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused' | 'service_paid';
 
 export const FreeVideoEventSchema = z.object({
   e: z.enum(FREE_VIDEO_EVENTS),

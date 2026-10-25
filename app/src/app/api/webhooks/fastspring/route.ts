@@ -4,6 +4,7 @@ import { cancelFastSpringSubscription } from '@/lib/credits/subscription-entitle
 import type { Json } from '@/types/database'
 import crypto from 'crypto'
 import { findAuthUser, findAuthUserByEmail } from '@/lib/auth-user-lookup'
+import { handleServiceOrder } from '@/lib/free-video/service-order'
 import { freeVideoUnlockIn, handleFreeVideoUnlockEvent } from '@/lib/free-video/unlock'
 
 export const maxDuration = 30 // Allow up to 30s for webhook processing (multiple API calls)
@@ -97,6 +98,13 @@ const WEBSITE_PRODUCTS = new Set([
 const WEBSITE_PRODUCT_MARKER = 'portfolio-website'
 const WEBSITE_EVENT_TYPE = 'VIDEO_AD_WEBSITE'
 
+// Unlimited Video Ads (owner 2026-10-25, SERVICE in lib/free-video/offer.ts): the $99/month done-for-you video ad
+// service, made by the owner's team. Same danger, same branch: before this, its 2025 order made a starter plan
+// with 600 credits, and a lifetime owner who joined and later cancelled would have been suspended. Its events are
+// logged with the website ones (event_type VIDEO_AD_WEBSITE, products names which), so the charge lookups find
+// them too. Every path containing 'editing-service' counts (the old service's variants).
+const SERVICE_PRODUCT_MARKER = 'editing-service'
+
 /** A FastSpring product field as a path: a string, or an object with .product (expanded webhooks). */
 function productPathOf(product: unknown): string {
   if (typeof product === 'string') return product.trim()
@@ -109,7 +117,7 @@ function productPathOf(product: unknown): string {
 
 function isWebsiteProductPath(path: string): boolean {
   const p = path.trim().toLowerCase()
-  return p !== '' && (WEBSITE_PRODUCTS.has(p) || p.includes(WEBSITE_PRODUCT_MARKER))
+  return p !== '' && (WEBSITE_PRODUCTS.has(p) || p.includes(WEBSITE_PRODUCT_MARKER) || p.includes(SERVICE_PRODUCT_MARKER))
 }
 
 /** A subscription field as an id: a string, or an object with .id / .subscription (expanded webhooks). */
@@ -266,7 +274,7 @@ const websiteLookups: WebsiteLookups = {
  * rows apart from the plan handlers' `${id}_${eventType}` duplicate keys, which a mixed order's other
  * products still need. A database error is logged, not thrown: the row is history only.
  */
-async function logWebsiteProductEvent(data: FastSpringEventData, eventType: string, match: WebsiteMatch) {
+async function logWebsiteProductEvent(data: FastSpringEventData, eventType: string, match: WebsiteMatch): Promise<boolean> {
   const supabase = createAdminClient()
   const orderRef = fieldOf(data, 'order')
   const ref =
@@ -290,7 +298,7 @@ async function logWebsiteProductEvent(data: FastSpringEventData, eventType: stri
     .limit(1)
   if (existing && existing.length > 0) {
     console.log(`🔄 Video ad website ${eventType} for ${who} already logged (${eventId}): no app change`)
-    return
+    return false
   }
 
   const { error } = await supabase
@@ -311,10 +319,12 @@ async function logWebsiteProductEvent(data: FastSpringEventData, eventType: stri
         note: 'Video ad website product - logged only, no app user, plan, credit or suspension change',
       } as unknown as Json
     })
-  if (error && error.code !== '23505') {
+  if (error && error.code === '23505') return false
+  if (error) {
     console.error(`❌ Video ad website ${eventType} for ${who} not logged in webhook_events:`, error.message)
   }
   console.log(`✅ Video ad website ${match.products.join(', ') || 'product'} ${eventType} for ${who} (${match.scope}, matched by ${match.matchedBy}): logged only, no app account, plan or credit change`)
+  return true
 }
 
 // FastSpring webhook payload interfaces
@@ -470,7 +480,9 @@ async function processFastSpringEvent(eventType: string, eventData: FastSpringEv
   // first, so no handler below ever sees one. A mixed order goes on without its website items.
   const website = await websiteEventIn(eventData, websiteLookups)
   if (website) {
-    await logWebsiteProductEvent(eventData, eventType, website)
+    const firstTime = await logWebsiteProductEvent(eventData, eventType, website)
+    // Unlimited Video Ads (the service funnel): Facebook's Purchase and the end of its sales emails, once per order.
+    if (firstTime && website.products.some(p => p.includes(SERVICE_PRODUCT_MARKER))) await handleServiceOrder(eventType, eventData)
     if (website.scope === 'only') return
     await processFastSpringEvent(eventType, website.rest)
     return

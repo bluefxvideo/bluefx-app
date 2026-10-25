@@ -22,6 +22,7 @@ import { createAdminClient } from '@/app/supabase/server';
 import { INTAKE, IP_ROWS_PER_DAY, JOB_MINUTES, OWNER_TEST_EMAILS, SETTINGS_CACHE_MS, UNREADABLE } from '@/lib/free-video/config';
 import { unlockOpen } from '@/lib/free-video/cleanup';
 import { ERRORS } from '@/lib/free-video/copy';
+import { isServiceRef } from '@/lib/free-video/funnel';
 import { cleanCopyUntil, isPlacement, unlockGoUrl } from '@/lib/free-video/offer';
 import { displayDomain, emailKeyOf, normalizeWebsite, precheckSite } from '@/lib/free-video/website';
 import { whyItWorksOf } from '@/lib/free-video/why-it-works';
@@ -632,7 +633,14 @@ export function unlockViewOf(lead: FreeVideoLead): FreeVideoUnlockView {
  */
 export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | null): Promise<FreeVideoView> {
   // A lead whose email bought the AI Media Machine since (bought_at) counts as a customer: its video ad goes into the account.
-  const base = { firstName: lead.first_name, domain: displayDomain(lead.website_domain), isCustomer: lead.is_customer || Boolean(lead.bought_at), unlock: unlockViewOf(lead) };
+  const base = {
+    firstName: lead.first_name,
+    domain: displayDomain(lead.website_domain),
+    isCustomer: lead.is_customer || Boolean(lead.bought_at),
+    unlock: unlockViewOf(lead),
+    // The service funnel (funnel.ts): its finished video ad lives on the Unlimited Video Ads page.
+    ...(isServiceRef(lead.ref) ? { service: true } : {}),
+  };
   switch (lead.status) {
     case 'queued': {
       const position = await queuePosition(lead);

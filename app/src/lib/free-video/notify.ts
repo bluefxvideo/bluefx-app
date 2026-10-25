@@ -22,11 +22,14 @@ import {
   ML_GROUP_BOUGHT,
   ML_GROUP_LEADS,
   ML_GROUP_READY,
+  ML_GROUP_SERVICE_READY,
   ML_GROUP_UNLOCKED,
   SITE_URL,
   testInbox,
 } from '@/lib/free-video/config';
-import { getLead, leadsTable } from '@/lib/free-video/leads';
+import { alertOwner } from '@/lib/free-video/alerts';
+import { isServiceRef } from '@/lib/free-video/funnel';
+import { eventsTable, getLead, leadsTable } from '@/lib/free-video/leads';
 import { displayDomain, emailKeyOf } from '@/lib/free-video/website';
 import { subscribeToMailerLite } from '@/lib/mailerlite/subscribe';
 import type { FreeVideoEmailStatus, FreeVideoLead } from '@/types/free-video';
@@ -124,10 +127,13 @@ export async function deliverLead(leadId: string): Promise<DeliverResult> {
     if (!claimable) return 'none';
 
     const allowed = mailAllowed(lead.email);
+    // The service funnel's leads (funnel.ts) join its own Ready group, never the AI Media Machine one.
+    const service = isServiceRef(lead.ref);
+    const readyGroup = service ? ML_GROUP_SERVICE_READY : ML_GROUP_READY;
     // The Ready group is what sends the email: without its id there is nothing to deliver yet.
     // Not claiming keeps the attempts for when the id is in config.ts (the sweep raises an alert).
-    if (allowed && !ML_GROUP_READY) {
-      console.error(`❌ [free-video] ML_GROUP_READY is not set: lead ${lead.id} waits for its email`);
+    if (allowed && !readyGroup) {
+      console.error(`❌ [free-video] ${service ? 'ML_GROUP_SERVICE_READY' : 'ML_GROUP_READY'} is not set: lead ${lead.id} waits for its email`);
       return 'none';
     }
 
@@ -171,7 +177,7 @@ export async function deliverLead(leadId: string): Promise<DeliverResult> {
     const result = await subscribeToMailerLite({
       email: lead.email,
       fullName: await nameFor(lead),
-      groups: lead.is_customer && ML_GROUP_BOUGHT ? [ML_GROUP_READY, ML_GROUP_BOUGHT] : [ML_GROUP_READY],
+      groups: service ? [readyGroup] : lead.is_customer && ML_GROUP_BOUGHT ? [ML_GROUP_READY, ML_GROUP_BOUGHT] : [ML_GROUP_READY],
       fields: {
         [ML_FIELDS.url]: viewUrl(lead.view_token),
         [ML_FIELDS.site]: displayDomain(lead.website_domain),
@@ -202,6 +208,37 @@ export async function deliverLead(leadId: string): Promise<DeliverResult> {
   }
 }
 
+/** A lead of the service funnel, or any lead whose Unlimited Video Ads order was paid (service-order.ts). */
+async function isServiceMember(lead: FreeVideoLead): Promise<boolean> {
+  if (isServiceRef(lead.ref)) return true;
+  const { data } = await eventsTable().select('id').eq('lead_id', lead.id).eq('event', 'service_paid').limit(1);
+  return Boolean(data?.length);
+}
+
+/**
+ * A new Unlimited Video Ads member's free video ad without the SAMPLE stamp is ready: the owner is alerted with the
+ * clean file, the member's email and page, so the team checks it and sends it. unlock_emailed_at then marks it as
+ * handed over, so the sweep does not alert twice (the alert row is keyed per lead, so a repeat call never emails twice).
+ */
+export async function handOverMemberClean(lead: FreeVideoLead): Promise<DeliverResult> {
+  await alertOwner(
+    [
+      {
+        key: `service-clean:${lead.id}`,
+        line: `New Unlimited Video Ads member ${lead.first_name} (${lead.email}, ${displayDomain(lead.website_domain)}): the free video ad without the SAMPLE stamp is ready. Check it, then send it to the member: ${lead.clean_video_url} . Their page: ${SITE_URL}/v/${lead.view_token}/unlimited?internal=1`,
+      },
+    ],
+    'a new member’s video ad is ready to send'
+  );
+  const { error } = await leadsTable()
+    .update({ unlock_emailed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', lead.id)
+    .is('unlock_emailed_at', null);
+  if (error) console.error(`❌ [free-video] Member clean video of lead ${lead.id} not marked as handed over:`, error.message);
+  console.log(`✅ [free-video] Member clean video of lead ${lead.id} handed to the team (owner alert)`);
+  return 'sent';
+}
+
 /**
  * Emails the $99 clean version once it is ready: ONE upsert that sets free_video_clean_url (the clean file)
  * plus the page link, site and token, and joins 'Free Video - Unlocked', whose 1-email automation sends it.
@@ -213,6 +250,9 @@ export async function deliverUnlock(leadId: string): Promise<DeliverResult> {
   try {
     const lead = await getLead(leadId);
     if (!lead || lead.unlock_status !== 'ready' || !lead.clean_video_url || lead.unlock_emailed_at) return 'none';
+    // An Unlimited Video Ads member (service funnel, funnel.ts): no automatic email (it speaks of the AI Media
+    // Machine); the owner's team gets the clean file, checks it and sends it to the member (owner 2026-10-25).
+    if (await isServiceMember(lead)) return await handOverMemberClean(lead);
     if (!mailAllowed(lead.email)) {
       console.log(`⚠️ [free-video] Lead ${lead.id}: clean video email skipped (not the live server, not the test inbox)`);
       return 'skipped';

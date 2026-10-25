@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, LAYOUT, LIVE, PLAYER, STATUS, SUPPORT_EMAIL, UNLOCK_COPY } from '@/lib/free-video/copy';
-import { unlockGoUrl, type PagePlacement } from '@/lib/free-video/offer';
+import { servicePagePath, unlockGoUrl, type PagePlacement } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
 import type { FreeVideoUnlockState, FreeVideoUnlockView, FreeVideoView } from '@/types/free-video';
 import type { SmartVideoJobStatus } from '@/types/smart-video';
@@ -193,6 +193,12 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
     chime();
   }, [isDemo, view.state]);
 
+  // The service funnel (funnel.ts): the finished video ad opens on the Unlimited Video Ads page, never the AI Media Machine offer.
+  const toServicePage = !isDemo && Boolean(view.service) && view.state === 'ready' && Boolean(view.videoUrl);
+  useEffect(() => {
+    if (toServicePage) window.location.replace(servicePagePath(token));
+  }, [toServicePage, token]);
+
   const onCheckout = useCallback(() => {
     setUnlockClickedAt(Date.now());
     setSessionStart(Date.now());
@@ -212,7 +218,7 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
   const staleNotice = stale ? <StaleNotice onCheck={restart} /> : null;
   const domain = view.domain;
 
-  if (view.state === 'ready' && view.videoUrl) {
+  if (view.state === 'ready' && view.videoUrl && !toServicePage) {
     const cleanReady = unlock.state === 'ready' && Boolean(unlock.cleanVideoUrl);
     const videoUrl = cleanReady && unlock.cleanVideoUrl ? unlock.cleanVideoUrl : view.videoUrl;
     const freeDownload = view.downloadUrl ?? view.videoUrl;

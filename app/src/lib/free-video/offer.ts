@@ -238,3 +238,47 @@ export const unlockCheckoutUrl = (token: string) =>
 
 /** The same-origin link the unlock button uses: /go/fvunlock logs the click, then 302s to unlockCheckoutUrl(token). */
 export const unlockGoUrl = (token: string) => `/go/${UNLOCK.placement}?t=${encodeURIComponent(token)}`;
+
+/**
+ * Unlimited Video Ads (owner 2026-10-25): the done-for-you video ad service, sold on its own page per lead
+ * (/v/<token>/unlimited, service-page.ts) with the lead's free video ad on top. FastSpring subscriptions fulfilled by
+ * the owner's team: the webhook only logs their events (the done-for-you branch of the FastSpring webhook: every path
+ * containing 'editing-service'), never an app plan. The checkout carries the lead's view token as the tag
+ * freeVideoLead so the owner sees whose free video ad the order belongs to.
+ *
+ * The price climbs on each lead's own clock (owner 2026-10-25): $99 a month for 3 days from the video ad's email,
+ * then $299 a month for 7 days, then $599 a month for good. Whatever price a member joins at stays theirs.
+ */
+export interface ServicePhase {
+  n: 1 | 2 | 3;
+  /** The monthly price in dollars. */
+  price: number;
+  /** FastSpring product path; null while the owner has not made it yet (the buttons then ask to email support). */
+  product: string | null;
+  /** How long this price is held; null = for good. */
+  hours: number | null;
+}
+
+export const SERVICE = {
+  storefront: 'https://bluefx.onfastspring.com',
+  tagKey: 'freeVideoLead',
+  /** Not a ClickBank tid: /go/fvservice is special-cased to the FastSpring checkout of the lead's phase. */
+  placement: 'fvservice',
+  /** Any FastSpring path containing this is a service product (the webhook's done-for-you branch). */
+  productMarker: 'editing-service',
+  phases: [
+    { n: 1, price: 99, product: 'starter-editing-service', hours: 72 },
+    { n: 2, price: 299, product: 'growth-editing-service', hours: 168 },
+    { n: 3, price: 599, product: 'VIP-Concierge-Editing-Service', hours: null },
+  ] as const satisfies readonly ServicePhase[],
+} as const;
+
+/** The FastSpring checkout of one service product for one lead. */
+export const serviceCheckoutUrl = (token: string, product: string) =>
+  `${SERVICE.storefront}/${product}?tags=${SERVICE.tagKey}:${encodeURIComponent(token)}`;
+
+/** The service page's buttons: /go/fvservice logs the click, then 302s to serviceCheckoutUrl(token). */
+export const serviceGoUrl = (token: string) => `/go/${SERVICE.placement}?t=${encodeURIComponent(token)}`;
+
+/** The service page of one lead. */
+export const servicePagePath = (token: string) => `/v/${token}/unlimited`;

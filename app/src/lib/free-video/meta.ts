@@ -344,13 +344,32 @@ export async function trackCheckout(input: { token: string | null; placement: st
   }
 }
 
+/** What a Purchase was for: the $99 unlock (default) or the Unlimited Video Ads service (service-order.ts). */
+export interface PurchaseProduct {
+  product: string;
+  placement: string;
+  /** The value when the order carries no amount. */
+  value: number;
+  /** The landing page the lead came from. */
+  sourcePath: string;
+}
+
+const UNLOCK_PURCHASE: PurchaseProduct = {
+  product: UNLOCK.product,
+  placement: UNLOCK.placement,
+  value: Number(UNLOCK.price.replace(/[^\d.]/g, '')),
+  sourcePath: '/free-video-ad',
+};
+
 /**
- * A paid $99 unlock (the FastSpring webhook): Purchase with the order's amount, the buyer's checkout IP and the click id
- * saved on the lead. FastSpring test orders never come here on the live server (unlock.ts refuses them).
+ * A paid order of a lead (the FastSpring webhook): Purchase with the order's amount, the buyer's checkout IP and the
+ * click id saved on the lead. The $99 unlock by default; the service funnel's subscription passes its own product.
+ * FastSpring test orders never come here on the live server (unlock.ts and service-order.ts refuse them).
  */
 export async function trackPurchase(
   lead: FreeVideoLead,
-  order: { id: string; amount: number | null; currency: string | null; email: string | null; ip: string | null }
+  order: { id: string; amount: number | null; currency: string | null; email: string | null; ip: string | null },
+  bought: PurchaseProduct = UNLOCK_PURCHASE
 ): Promise<void> {
   try {
     if (!sendableLead(lead) || !trackable(lead.ip) || !trackable(order.ip)) return;
@@ -358,15 +377,15 @@ export async function trackPurchase(
     await sendMetaEvent({
       name: 'Purchase',
       id: purchaseEventId(order.id),
-      sourceUrl: `${SITE_URL}/free-video-ad`,
+      sourceUrl: `${SITE_URL}${bought.sourcePath}`,
       leadId: lead.id,
-      placement: 'fvunlock',
+      placement: bought.placement,
       user: { emails: [lead.email, order.email], firstName: lead.first_name, externalId: lead.id, ip: order.ip ?? lead.ip, userAgent: lead.user_agent, ids },
       custom: {
         ...PIXEL_DATA.purchase,
-        value: order.amount ?? Number(UNLOCK.price.replace(/[^\d.]/g, '')),
+        value: order.amount ?? bought.value,
         currency: (order.currency || 'USD').toUpperCase(),
-        content_ids: [UNLOCK.product],
+        content_ids: [bought.product],
         order_id: order.id,
       },
     });

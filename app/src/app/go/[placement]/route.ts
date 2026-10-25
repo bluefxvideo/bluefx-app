@@ -7,7 +7,8 @@ import { SITE_URL } from '@/lib/free-video/config';
 import { unlockOpen } from '@/lib/free-video/cleanup';
 import { clientIp, getLeadByToken, isActiveCustomerId, markClicked } from '@/lib/free-video/leads';
 import { rememberCheckoutIds, requestFacts, trackCheckout } from '@/lib/free-video/meta';
-import { checkoutUrl, isEmailPlacement, isPlacement, isResultPagePlacement, isSalesPagePlacement, resultCheckoutUrl, salesPageUrl, UNLOCK, unlockCheckoutUrl } from '@/lib/free-video/offer';
+import { serviceClockStart, servicePhaseAt } from '@/lib/free-video/service-page';
+import { checkoutUrl, isEmailPlacement, isPlacement, isResultPagePlacement, isSalesPagePlacement, resultCheckoutUrl, salesPageUrl, SERVICE, serviceCheckoutUrl, UNLOCK, unlockCheckoutUrl } from '@/lib/free-video/offer';
 import { CLICK_VISITOR_PARAM, VISITOR_ID_PATTERN } from '@/lib/free-video/internal-visit';
 import { CHECKOUT_EVENT_PARAM } from '@/lib/free-video/pixel';
 import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
@@ -75,6 +76,38 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
     // 30 days after the video ad: the working files the clean version is made from are about to go (cleanup.ts).
     if (lead.status === 'done' && !unlockOpen(lead)) return redirect(page);
     return redirect(unlockCheckoutUrl(token));
+  }
+
+  // Unlimited Video Ads (done-for-you service): the click is logged on the lead, then FastSpring's checkout of the lead's
+  // CURRENT phase ($99, $299 or $599, service-page.ts), so an old email or tab never opens an expired price.
+  if (placement === SERVICE.placement) {
+    if (!validToken) return notFound();
+    let lead;
+    let start: Date | null;
+    try {
+      lead = await getLeadByToken(token);
+      if (!lead) return notFound();
+      start = await serviceClockStart(lead);
+    } catch (error) {
+      console.error('❌ /go/fvservice lead read failed:', error);
+      return new NextResponse('Please try again in a minute.', { status: 503, headers: NO_STORE });
+    }
+    const facts = requestFacts(req, clientIp(req));
+    const clicked = lead;
+    // The browser's Facebook ids go on the lead, for the Purchase the payment sends later (service-order.ts).
+    after(async () => {
+      await markClicked(token, SERVICE.placement);
+      await rememberCheckoutIds(clicked, facts, SERVICE.placement);
+    });
+    const { phase } = servicePhaseAt(start);
+    if (!phase.product) {
+      console.error(`❌ /go/fvservice: no FastSpring product for the $${phase.price} phase yet (SERVICE.phases in offer.ts)`);
+      return new NextResponse('To join Unlimited Video Ads, please email support@bluefx.net and we will set you up.', {
+        status: 200,
+        headers: { ...NO_STORE, 'Content-Type': 'text/plain; charset=utf-8' },
+      });
+    }
+    return redirect(serviceCheckoutUrl(token, phase.product));
   }
 
   if (placement === 'claim') {

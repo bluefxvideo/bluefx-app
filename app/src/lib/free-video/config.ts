@@ -128,6 +128,14 @@ export const ML_GROUP_BOUGHT: string = '200567992985061045';
 /** Joining this group triggers the 'Free Video - Unlocked' automation (1 email with the clean download link). */
 export const ML_GROUP_UNLOCKED: string = '200567993198970571';
 
+/**
+ * The service funnel's own groups (funnel.ts, created 2026-10-25): its finished leads join 'Unlimited Video Ads - Ready'
+ * INSTEAD of 'Free Video - Ready', so they get only the service's emails (its automation hangs on this group) and never
+ * the AI Media Machine ones. A service buyer joins 'Unlimited Video Ads - Joined', the follow-up's exit.
+ */
+export const ML_GROUP_SERVICE_READY: string = '202278614287254624';
+export const ML_GROUP_SERVICE_JOINED: string = '202278615316956617';
+
 /** True once all four group ids are filled in. */
 export function mailerLiteGroupsReady(): boolean {
   return Boolean(ML_GROUP_LEADS && ML_GROUP_READY && ML_GROUP_BOUGHT && ML_GROUP_UNLOCKED);
