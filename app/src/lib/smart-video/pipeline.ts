@@ -438,7 +438,7 @@ const PRESENTER_GRACE_MS = 240_000;
  * client's clip of a person talking): the clip fills the frame with its own sound, and the narrator, who recorded
  * every line, comes in from scene 2. A clip that failed, came late or says nothing leaves scene 1 to the narrator.
  */
-async function addPresenter(plan: DirectorPlan, media: SmartVideoMedia, job: Promise<{ clip: Buffer; url: string } | null>): Promise<void> {
+export async function addPresenter(plan: DirectorPlan, media: SmartVideoMedia, job: Promise<{ clip: Buffer; url: string } | null>): Promise<void> {
   const made = await Promise.race([job, new Promise<null>((resolve) => setTimeout(() => resolve(null), PRESENTER_GRACE_MS))]);
   if (!made) {
     console.warn('⚠️ No presenter clip in time, the narrator says the first line');
