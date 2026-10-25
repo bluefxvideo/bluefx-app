@@ -133,6 +133,7 @@ export function renderPublicServicePage(): string {
     internal: true,
     template: publicTemplate(),
     checkoutUrl: checkout,
+    popupProduct: phase.product,
     title: 'Unlimited Video Ads by BlueFX',
   });
 }

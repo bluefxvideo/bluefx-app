@@ -489,6 +489,25 @@ export async function getLeadByToken(token: string): Promise<FreeVideoLead | nul
   return data ? asLead(data) : null;
 }
 
+/**
+ * The finished free video ad of a buyer's email address, for an Unlimited Video Ads order from FastSpring's popup cart
+ * (its plain code puts no lead tag on the order): the newest one of the service funnel, else the newest one.
+ * Throws on a database error.
+ */
+export async function getDoneLeadByEmail(email: string): Promise<FreeVideoLead | null> {
+  const address = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  if (!address.includes('@')) return null;
+  const { data, error } = await leadsTable()
+    .select('*')
+    .eq('email', address)
+    .eq('status', 'done')
+    .order('created_at', { ascending: false })
+    .limit(10);
+  if (error) throw new Error(`Could not read the lead: ${error.message}`);
+  const leads: FreeVideoLead[] = (data ?? []).map(asLead);
+  return leads.find((lead) => isServiceRef(lead.ref)) ?? leads[0] ?? null;
+}
+
 /** The lead with this id. Throws on a database error. */
 export async function getLead(id: string): Promise<FreeVideoLead | null> {
   if (typeof id !== 'string' || !UUID.test(id)) return null;

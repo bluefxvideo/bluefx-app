@@ -1,6 +1,6 @@
 import net from 'node:net';
 import { isLive, ML_GROUP_SERVICE_JOINED } from '@/lib/free-video/config';
-import { getLeadByToken, recordEvent, transitionUnlock } from '@/lib/free-video/leads';
+import { getDoneLeadByEmail, getLeadByToken, recordEvent, transitionUnlock } from '@/lib/free-video/leads';
 import { trackPurchase } from '@/lib/free-video/meta';
 import { handOverMemberClean, mailAllowed } from '@/lib/free-video/notify';
 import { SERVICE, servicePagePath } from '@/lib/free-video/offer';
@@ -11,8 +11,8 @@ import { subscribeToMailerLite } from '@/lib/mailerlite/subscribe';
 /**
  * A paid Unlimited Video Ads order (any FastSpring path containing SERVICE.productMarker: the $99, $299 or $599 phase of
  * the service funnel's offer, funnel.ts), after the
- * FastSpring webhook has logged it (its done-for-you branch: no app user, plan or credit change). With the lead's view
- * token in the order's tag freeVideoLead:
+ * FastSpring webhook has logged it (its done-for-you branch: no app user, plan or credit change). With the lead found by
+ * the order's tag freeVideoLead (the hosted checkout link), else by the buyer's email (the popup cart):
  * - Facebook gets a Purchase with the lead's saved click ids, so the service funnel's campaign can optimize on it;
  * - the buyer joins 'Unlimited Video Ads - Joined', the exit of the service's follow-up emails;
  * - a 'service_paid' event on the lead (the owner's record of whose free video ad the order belongs to);
@@ -32,7 +32,9 @@ export async function handleServiceOrder(eventType: string, data: unknown): Prom
       console.log(`⚠️ [free-video] Service order ${order.id} is a FastSpring test order: no Purchase, no group`);
       return;
     }
-    const lead = order.token ? await getLeadByToken(order.token) : null;
+    // FastSpring's popup cart on the service pages (plain FastSpring code, owner 2026-10-25) sends no lead tag:
+    // the buyer's email then finds their free video ad. The hosted checkout link still carries the tag.
+    const lead = (order.token ? await getLeadByToken(order.token) : null) ?? (order.email ? await getDoneLeadByEmail(order.email) : null);
     const email = order.email ?? lead?.email ?? null;
 
     if (email && ML_GROUP_SERVICE_JOINED && mailAllowed(email)) {
@@ -40,7 +42,7 @@ export async function handleServiceOrder(eventType: string, data: unknown): Prom
       if (!joined.ok) console.error(`❌ [free-video] Service buyer of order ${order.id} not added to 'Unlimited Video Ads - Joined'`);
     }
     if (!lead || !order.id) {
-      console.log(`⚠️ [free-video] Service order ${order.id ?? '?'} has no free video ad tag: no Purchase sent to Facebook`);
+      console.log(`⚠️ [free-video] Service order ${order.id ?? '?'} matches no free video ad (no tag, no lead with the buyer's email): no Purchase sent to Facebook`);
       return;
     }
 

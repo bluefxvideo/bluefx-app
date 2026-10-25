@@ -1,4 +1,5 @@
 import { SERVICE, serviceGoUrl, type ServicePhase } from '@/lib/free-video/offer';
+import { isLive } from '@/lib/free-video/config';
 import { SERVICE_PAGE_HTML } from '@/lib/free-video/service-page-html';
 import { eventsTable } from '@/lib/free-video/leads';
 import { displayDomain } from '@/lib/free-video/website';
@@ -76,6 +77,8 @@ export interface ServicePageInput {
   template?: string;
   /** Where the buttons go instead of /go/fvservice (the public page: the public price's checkout). */
   checkoutUrl?: string;
+  /** With checkoutUrl: the FastSpring product the popup cart opens with; null = the buttons stay plain links. Without checkoutUrl the page's price's product. */
+  popupProduct?: string | null;
   /** The page title instead of "Unlimited Video Ads for <domain>". */
   title?: string;
 }
@@ -104,6 +107,23 @@ function viewBeacon(token: string): string {
   const body = JSON.stringify({ e: 'service_view', t: token });
   return `<script>(function(){try{var b=${JSON.stringify(body)};var v=null;try{v=localStorage.getItem('fv_vid')}catch(e){}if(v&&/^[\\w-]{1,40}$/.test(v)){var o=JSON.parse(b);o.v=v;b=JSON.stringify(o)}if(!(navigator.sendBeacon&&navigator.sendBeacon('/api/free-video/event',new Blob([b],{type:'application/json'}))))fetch('/api/free-video/event',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){})}catch(e){}})();</script>`;
 }
+
+/** FastSpring's Store Builder script for its popup cart, the same tag as the AI Media Machine's sales page (owner 2026-10-25). */
+function fastSpringScript(): string {
+  const storefront = isLive() ? SERVICE.popupStorefront : SERVICE.popupTestStorefront;
+  return `<script
+    id="fsc-api"
+    src="https://sbl.onfastspring.com/sbl/1.0.5/fastspring-builder.min.js"
+    type="text/javascript"
+    data-storefront="${storefront}">
+  </script>`;
+}
+
+/** FastSpring's own popup cart button attributes (developer.fastspring.com, Actions): empty the cart, add the product, open checkout. */
+const fastSpringButton = (product: string) => `data-fsc-item-path-value="${esc(product)}" data-fsc-action="Reset, Add, Checkout"`;
+
+/** Every buy button of the template as written: a link to {{CHECKOUT}} in a new tab. */
+const CHECKOUT_LINK = 'href="{{CHECKOUT}}" target="_blank" rel="noopener"';
 
 /**
  * The price and deadline sentences of the page for one phase. While a price is held (phases 1 and 2) they keep the
@@ -189,8 +209,16 @@ export function renderServicePage(input: ServicePageInput): string {
     ['{{MEDIA}}', SERVICE_MEDIA_BASE],
     ['{{P}}', `$${input.now.phase.price}`],
   ];
+  // The buy buttons open FastSpring's popup cart with the product of the page's price, in FastSpring's plain markup.
+  // The webhook finds the buyer's free video ad by their email (service-order.ts).
+  const popupProduct = input.checkoutUrl === undefined ? input.now.phase.product : input.popupProduct ?? null;
+  if (popupProduct) {
+    html = put(html, CHECKOUT_LINK, fastSpringButton(popupProduct));
+    html = put(html, '</head>', `${fastSpringScript()}\n</head>`);
+  }
   for (const [slot, value] of slots) html = put(html, slot, value);
   html = put(html, '</body>', `${shortDateScript(input.now.endsAt)}\n</body>`);
+
   if (!input.internal) html = put(html, '</body>', `${viewBeacon(input.token)}\n</body>`);
   return html;
 }

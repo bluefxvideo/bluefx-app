@@ -261,6 +261,12 @@ export interface ServicePhase {
 
 export const SERVICE = {
   storefront: 'https://bluefx.onfastspring.com',
+  /**
+   * The popup cart the page's buttons open (FastSpring's plain popup code), the same one as the AI Media Machine's sales
+   * page at ai.bluefx.net (owner 2026-10-25). A server that is not live opens the test copy, so a check never takes a live order.
+   */
+  popupStorefront: 'bluefx.onfastspring.com/popup-bluefx',
+  popupTestStorefront: 'bluefx.test.onfastspring.com/popup-bluefx',
   tagKey: 'freeVideoLead',
   /** Not a ClickBank tid: /go/fvservice is special-cased to the FastSpring checkout of the lead's phase. */
   placement: 'fvservice',
@@ -277,7 +283,7 @@ export const SERVICE = {
 export const serviceCheckoutUrl = (token: string, product: string) =>
   `${SERVICE.storefront}/${product}?tags=${SERVICE.tagKey}:${encodeURIComponent(token)}`;
 
-/** The service page's buttons: /go/fvservice logs the click, then 302s to serviceCheckoutUrl(token). */
+/** The service emails' and old pages' checkout link: /go/fvservice logs the click, then 302s to serviceCheckoutUrl(token). */
 export const serviceGoUrl = (token: string) => `/go/${SERVICE.placement}?t=${encodeURIComponent(token)}`;
 
 /** The service page of one lead. */
