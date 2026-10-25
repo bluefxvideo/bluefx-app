@@ -1,7 +1,7 @@
-import { isOwnerTestRef } from '@/lib/free-video/funnel';
+import { isOwnerTestRef, isServiceRef, SERVICE_REF_PREFIX } from '@/lib/free-video/funnel';
 import { createAdminClient } from '@/app/supabase/server';
 import { STATS_EXCLUDED_EMAILS, STATS_EXCLUDED_VISITS } from '@/lib/free-video/config';
-import { isCardPlacement, OFFER_BUTTON_PLACEMENTS } from '@/lib/free-video/offer';
+import { isCardPlacement, OFFER_BUTTON_PLACEMENTS, SERVICE } from '@/lib/free-video/offer';
 import { REFUSAL_EVENT } from '@/lib/free-video/refusals';
 import { reviewVisitBrowsers } from '@/lib/free-video/review-visits';
 import { emailKeyOf } from '@/lib/free-video/website';
@@ -65,7 +65,8 @@ const CLICK_BEFORE_MS = 10 * 60_000;
 /** The page event of an offer card opening (the first-party beacon, since 2026-10-12); its placement column says what opened the card. */
 const OFFER_OPEN_EVENT = 'offer_open';
 /** A lifetime offer button on the funnel's pages: the pages' own buttons and the offer card's. */
-const isOfferButton = (placement: string | null) => (OFFER_BUTTON_PLACEMENTS as readonly string[]).includes(placement ?? '');
+const isOfferButton = (placement: string | null) =>
+  (OFFER_BUTTON_PLACEMENTS as readonly string[]).includes(placement ?? '') || placement === SERVICE.placement;
 
 export interface FunnelCounts {
   visitors: number;
@@ -186,7 +187,12 @@ export interface FunnelStatsInput {
   to: string;
   /** IANA time zone for the day rows. */
   tz: string;
+  /** Which funnel (funnel.ts): 'app' = the AI Media Machine offer (/free-video-ad), 'service' = Unlimited Video Ads (/free-ad); default both. */
+  funnel?: FunnelChoice;
 }
+
+export type FunnelChoice = 'all' | 'app' | 'service';
+export const FUNNEL_CHOICES: readonly FunnelChoice[] = ['all', 'app', 'service'];
 
 interface LeadRow {
   id: string;
@@ -317,11 +323,13 @@ function addCounts(into: FunnelCounts, add: FunnelCounts): void {
 /** A clean tag from a ref, or null (empty, or the owner's test tag). */
 function tagOf(ref: string | null | undefined): string | null {
   const tag = ref?.trim();
-  return tag && !isOwnerTestRef(tag) ? tag : null;
+  return tag && !isOwnerTestRef(tag) && tag !== `${SERVICE_REF_PREFIX}direct` ? tag : null;
 }
 
 /** The channel a ref tag belongs to (the funnel's link conventions: yt-/ytc- YouTube, fb- Facebook ads, bfx bluefx.net). */
-function channelOfTag(tag: string): FunnelChannel {
+function channelOfTag(fullTag: string): FunnelChannel {
+  // The service funnel's tags are the same links with 'svc-' in front (funnel.ts).
+  const tag = fullTag.startsWith(SERVICE_REF_PREFIX) ? fullTag.slice(SERVICE_REF_PREFIX.length) : fullTag;
   if (/^ytc?-/i.test(tag)) return 'youtube';
   if (/^fb[-_]/i.test(tag)) return 'facebook';
   if (/^bfx/i.test(tag)) return 'website';
@@ -369,7 +377,9 @@ interface Person {
 }
 
 /** The funnel for one range. Reads free_video_leads and free_video_events with the service key; writes nothing. */
-export async function computeFunnelStats({ from, to, tz: tzInput }: FunnelStatsInput, db: Db = createAdminClient()): Promise<FunnelStats> {
+export async function computeFunnelStats({ from, to, tz: tzInput, funnel = 'all' }: FunnelStatsInput, db: Db = createAdminClient()): Promise<FunnelStats> {
+  /** The chosen funnel: a lead's or a page event's ref says which (the service page tags everything 'svc-'). */
+  const inFunnel = (ref: string | null) => (funnel === 'service' ? isServiceRef(ref) : funnel === 'app' ? !isServiceRef(ref) : true);
   const tz = validTimeZone(tzInput) ?? DEFAULT_STATS_TZ;
   const dayOf = dayFormatter(tz);
   const table = (name: string) => (db as any).from(name);
@@ -385,7 +395,7 @@ export async function computeFunnelStats({ from, to, tz: tzInput }: FunnelStatsI
   const allLeads = await readAll<LeadRow>((afterId) => keyset(table('free_video_leads').select(LEAD_COLUMNS), afterId));
   const excludedLeadIds = allLeads.filter(isExcludedLead).map((lead) => lead.id);
   const rangeLeads = allLeads.filter((lead) => inRange(lead.created_at));
-  const leads = rangeLeads.filter((lead) => !isExcludedLead(lead)).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id.localeCompare(b.id));
+  const leads = rangeLeads.filter((lead) => !isExcludedLead(lead) && inFunnel(lead.ref)).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id.localeCompare(b.id));
 
   // 2. In parallel: the owner's browsers, every event about the range's leads, the page events of the range, and the
   //    page events of each link check window (all of them, so a browser half inside the range still goes).
@@ -480,7 +490,8 @@ export async function computeFunnelStats({ from, to, tz: tzInput }: FunnelStatsI
       counts.cardClicks = 1;
       if (opens.length) counts.cardOpenClicks = 1;
     }
-    if (lead.bought_at) counts.purchases = 1;
+    // A sale: the AI Media Machine (bought_at) or an Unlimited Video Ads order (service-order.ts).
+    if (lead.bought_at || events.some((row) => row.event === 'service_paid')) counts.purchases = 1;
     leadCounts.set(lead.id, counts);
     for (const row of events) {
       if (row.event === 'meta_ids' && row.fbc) facebookLeads.add(lead.id);
@@ -521,7 +532,8 @@ export async function computeFunnelStats({ from, to, tz: tzInput }: FunnelStatsI
       !isOwner(row.visitor_id) &&
       !(row.visitor_id && linkCheckBrowsers.has(row.visitor_id)) &&
       !(row.visitor_id && reviewBrowsers.has(row.visitor_id)) &&
-      !isOwnerTestRef(row.ref)
+      !isOwnerTestRef(row.ref) &&
+      inFunnel(row.ref)
   );
   const checkedInRange = new Set(
     pageEvents.filter((row) => row.visitor_id && linkCheckBrowsers.has(row.visitor_id) && !isOwner(row.visitor_id)).map((row) => row.visitor_id as string)

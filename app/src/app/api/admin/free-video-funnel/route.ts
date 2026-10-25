@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/app/supabase/server';
-import { computeFunnelStats, DEFAULT_STATS_TZ, validTimeZone } from '@/lib/free-video/funnel-stats';
+import { computeFunnelStats, DEFAULT_STATS_TZ, FUNNEL_CHOICES, type FunnelChoice, validTimeZone } from '@/lib/free-video/funnel-stats';
 
 /**
  * GET /api/admin/free-video-funnel?from=<ISO>&to=<ISO>&tz=<IANA zone>: the free video ad funnel's conversion numbers
@@ -36,7 +36,10 @@ export async function GET(request: NextRequest) {
     if (from !== null && from >= to) return NextResponse.json({ success: false, error: 'from must be before to' }, { status: 400 });
     const tz = validTimeZone(params.get('tz')) ?? DEFAULT_STATS_TZ;
 
-    const stats = await computeFunnelStats({ from: from === null ? null : new Date(from).toISOString(), to: new Date(to).toISOString(), tz });
+    // funnel: all (default), app (the AI Media Machine offer) or service (Unlimited Video Ads, /free-ad).
+    const asked = params.get('funnel');
+    const funnel: FunnelChoice = (FUNNEL_CHOICES as readonly string[]).includes(asked ?? '') ? (asked as FunnelChoice) : 'all';
+    const stats = await computeFunnelStats({ from: from === null ? null : new Date(from).toISOString(), to: new Date(to).toISOString(), tz, funnel });
     return NextResponse.json({ success: true, stats }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('❌ [admin] Free video funnel failed:', error);

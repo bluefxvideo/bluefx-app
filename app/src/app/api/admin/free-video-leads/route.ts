@@ -3,6 +3,7 @@ import { createAdminClient, createClient } from '@/app/supabase/server';
 import { hopLabel } from '@/lib/free-video/clickbank';
 import { savedHops } from '@/lib/free-video/clickbank-hops';
 import { OWNER_TEST_EMAILS } from '@/lib/free-video/config';
+import { isServiceRef } from '@/lib/free-video/funnel';
 
 /**
  * The free video ads people asked for, newest first, for the admin panel (owner 2026-10-07: "where can I see these
@@ -85,22 +86,35 @@ export async function GET(request: NextRequest) {
     // Which affiliate sent each lead (ClickBank Direct Offer Tracking, clickbank-hops.ts).
     const hops = await savedHops(leads.map((lead) => lead.id));
 
+    // Unlimited Video Ads members: every paid service order (service-order.ts 'service_paid', a small table), with its amount.
+    const servicePaid = new Map<string, number | null>();
+    {
+      const { data: paid, error: paidError } = await admin.from('free_video_events').select('lead_id, meta').eq('event', 'service_paid').limit(5000);
+      if (paidError) console.warn('⚠️ [admin] Service orders not read:', paidError.message);
+      for (const row of (paid ?? []) as { lead_id: string | null; meta: { amount?: number | null } | null }[]) {
+        if (row.lead_id && !servicePaid.has(row.lead_id)) servicePaid.set(row.lead_id, typeof row.meta?.amount === 'number' ? row.meta.amount : null);
+      }
+    }
+
     // The summary covers every lead of the last 7 days, whatever the filter shows.
     const weekAgo = new Date(Date.now() - 7 * DAY_MS).toISOString();
     const { data: week, error: weekError } = await admin
       .from('free_video_leads')
-      .select('created_at, status, source, email, est_cost_usd, bought_at, unlock_status')
+      .select('id, created_at, status, source, ref, email, est_cost_usd, bought_at, unlock_status')
       .gt('created_at', weekAgo)
       .limit(5000);
     if (weekError) throw new Error(weekError.message);
-    const summarize = (rows: Pick<LeadRow, 'status' | 'est_cost_usd' | 'bought_at' | 'unlock_status'>[]) => ({
+    const summarize = (rows: Pick<LeadRow, 'id' | 'status' | 'ref' | 'est_cost_usd' | 'bought_at' | 'unlock_status'>[]) => ({
       requests: rows.length,
       done: rows.filter((row) => row.status === 'done').length,
       waiting: rows.filter((row) => row.status === 'queued' || row.status === 'running').length,
       problems: rows.filter((row) => row.status === 'held' || row.status === 'failed').length,
       refused: rows.filter((row) => row.status === 'rejected').length,
       bought: rows.filter((row) => row.bought_at).length,
-      unlocked: rows.filter((row) => row.unlock_status !== 'none').length,
+      // A service member's clean video ad also sets unlock_status; only a $99 unlock purchase counts here.
+      unlocked: rows.filter((row) => row.unlock_status !== 'none' && !servicePaid.has(row.id)).length,
+      joined: rows.filter((row) => servicePaid.has(row.id)).length,
+      serviceRequests: rows.filter((row) => isServiceRef(row.ref)).length,
       costUsd: Math.round(rows.reduce((sum, row) => sum + (Number(row.est_cost_usd) || 0), 0) * 100) / 100,
     });
     const real = ((week ?? []) as (LeadRow & { email: string })[]).filter((row) => row.source !== 'test' && !OWNER_TEST_EMAILS.includes(row.email));
@@ -117,6 +131,8 @@ export async function GET(request: NextRequest) {
         test: lead.source === 'test' || OWNER_TEST_EMAILS.includes(lead.email),
         inAccount: copied.has(lead.id),
         affiliate: hopLabel(hops.get(lead.id)),
+        funnel: isServiceRef(lead.ref) ? 'service' : 'app',
+        servicePaid: servicePaid.has(lead.id) ? { amount: servicePaid.get(lead.id) ?? null } : null,
       })),
     });
   } catch (error) {

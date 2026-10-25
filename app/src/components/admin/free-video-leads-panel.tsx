@@ -32,6 +32,10 @@ interface FreeVideoLeadRow {
   inAccount: boolean;
   /** The ClickBank affiliate who sent the lead (nickname, or "shield" for an encrypted link); null without one. */
   affiliate: string | null;
+  /** Which funnel: 'service' (the /free-ad page, Unlimited Video Ads offer) or 'app' (the AI Media Machine offer). */
+  funnel: 'service' | 'app';
+  /** A paid Unlimited Video Ads order of this lead (amount in dollars when known); null without one. */
+  servicePaid: { amount: number | null } | null;
 }
 
 interface Summary {
@@ -42,6 +46,10 @@ interface Summary {
   refused: number;
   bought: number;
   unlocked: number;
+  /** Leads of the service funnel (/free-ad). */
+  serviceRequests: number;
+  /** Leads who joined Unlimited Video Ads. */
+  joined: number;
   costUsd: number;
 }
 
@@ -197,12 +205,20 @@ export function FreeVideoLeadsPanel() {
                           <div className="text-muted-foreground">{did.length ? did.join(', ') : '-'}</div>
                           <div className="mt-1 flex flex-wrap gap-1">
                             {lead.bought_at && <Badge className="bg-green-600 hover:bg-green-600">Bought lifetime</Badge>}
-                            {lead.unlock_status !== 'none' && <Badge className="bg-green-600 hover:bg-green-600">$99 version</Badge>}
+                            {lead.servicePaid && (
+                              <Badge className="bg-indigo-600 hover:bg-indigo-600">
+                                Joined service{lead.servicePaid.amount ? ` $${lead.servicePaid.amount}/mo` : ''}
+                              </Badge>
+                            )}
+                            {lead.unlock_status !== 'none' && !lead.servicePaid && <Badge className="bg-green-600 hover:bg-green-600">$99 version</Badge>}
                             {lead.inAccount && <Badge variant="outline">In their account</Badge>}
                           </div>
                         </td>
                         <td className="py-2 pr-2 max-w-[130px] break-all text-xs text-muted-foreground">
-                          {lead.affiliate ? <Badge variant="outline">Affiliate {lead.affiliate}</Badge> : lead.ref || lead.source}
+                          <Badge variant="outline" className={cn('mb-1', lead.funnel === 'service' ? 'border-indigo-500 text-indigo-600' : 'text-muted-foreground')}>
+                            {lead.funnel === 'service' ? 'Service funnel' : 'App funnel'}
+                          </Badge>
+                          <div>{lead.affiliate ? <Badge variant="outline">Affiliate {lead.affiliate}</Badge> : lead.ref || lead.source}</div>
                         </td>
                         <td className="py-2 pr-2 text-right whitespace-nowrap">${(Number(lead.est_cost_usd) || 0).toFixed(2)}</td>
                         <td className="py-3">
@@ -249,6 +265,8 @@ function SummaryCard({ title, summary }: { title: string; summary: Summary }) {
     { label: 'Refused', value: summary.refused },
     { label: 'Bought lifetime', value: summary.bought },
     { label: '$99 version', value: summary.unlocked },
+    { label: 'Service funnel', value: summary.serviceRequests },
+    { label: 'Joined service', value: summary.joined },
     { label: 'AI cost', value: `$${summary.costUsd.toFixed(2)}` },
   ];
   return (

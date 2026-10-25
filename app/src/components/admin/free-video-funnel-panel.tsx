@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import type { FunnelCounts, FunnelRates, FunnelSourceRow, FunnelStats } from '@/lib/free-video/funnel-stats';
+import type { FunnelChoice, FunnelCounts, FunnelRates, FunnelSourceRow, FunnelStats } from '@/lib/free-video/funnel-stats';
 
 type Preset = 'today' | '7d' | '30d' | 'all' | 'custom';
 
@@ -135,11 +135,19 @@ interface FreeVideoFunnelPanelProps {
  * accounts"): the funnel from visitor to sale for a date range, the six rates, each traffic source and each day.
  * Days are the admin's own (the browser's time zone). lib/free-video/funnel-stats.ts defines every number.
  */
+const FUNNELS: { value: FunnelChoice; label: string; hint: string }[] = [
+  { value: 'all', label: 'Both funnels', hint: 'Everyone' },
+  { value: 'app', label: 'App offer', hint: 'The AI Media Machine offer: app.bluefx.net/free-video-ad' },
+  { value: 'service', label: 'Service $99', hint: 'Unlimited Video Ads: app.bluefx.net/free-ad' },
+];
+
 export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {
   const [preset, setPreset] = useState<Preset>(preview?.preset ?? '7d');
   const [fromDate, setFromDate] = useState(() => dateValue(daysAgoMidnight(PRESETS.find((option) => option.value === preview?.preset)?.daysBack ?? 6)));
   const [toDate, setToDate] = useState(() => dateValue(new Date()));
   const [view, setView] = useState<'channels' | 'tags'>('channels');
+  // Which funnel: both, the AI Media Machine offer (/free-video-ad) or Unlimited Video Ads (/free-ad).
+  const [funnel, setFunnel] = useState<FunnelChoice>('all');
   const [stats, setStats] = useState<FunnelStats | null>(preview?.stats ?? null);
   const [isLoading, setIsLoading] = useState(!preview);
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +157,7 @@ export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {
     setIsLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ tz: browserTimeZone() });
+      const params = new URLSearchParams({ tz: browserTimeZone(), funnel });
       const chosen = PRESETS.find((option) => option.value === preset);
       if (chosen) {
         if (chosen.daysBack !== null) params.set('from', daysAgoMidnight(chosen.daysBack).toISOString());
@@ -173,7 +181,7 @@ export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [preset, fromDate, toDate, preview]);
+  }, [preset, fromDate, toDate, preview, funnel]);
 
   useEffect(() => {
     loadData();
@@ -195,6 +203,18 @@ export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle className="text-lg">Opt-in page conversion</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
+            {FUNNELS.map((option) => (
+              <Button
+                key={option.value}
+                size="sm"
+                variant={funnel === option.value ? 'default' : 'outline'}
+                onClick={() => setFunnel(option.value)}
+                title={option.hint}
+              >
+                {option.label}
+              </Button>
+            ))}
+            <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
             {PRESETS.map((option) => (
               <Button
                 key={option.value}
