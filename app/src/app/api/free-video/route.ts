@@ -8,6 +8,7 @@ import { attemptLimitOf, clientIp, createLead, verifyHuman } from '@/lib/free-vi
 import { requestFacts, trackLead } from '@/lib/free-video/meta';
 import { joinLeadsGroup } from '@/lib/free-video/notify';
 import { leadEventId } from '@/lib/free-video/pixel';
+import { ownerTestRef } from '@/lib/free-video/funnel';
 import { noteRefusal, refusalFieldsOf, type Refusal, type RefusalFields } from '@/lib/free-video/refusals';
 import { kickQueue } from '@/lib/free-video/runner';
 import { sweepWatchdog } from '@/lib/free-video/sweep';
@@ -131,8 +132,9 @@ export async function POST(req: Request) {
     }
 
     // 5. An opt-in from a browser marked internal (the owner testing with any address, internal-visit.ts) is stored with
-    // ref 'owner-test', which the admin numbers leave out (funnel-stats.ts) and the Conversions API skips (meta.ts).
-    const input = internal ? { ...parsed.data, ref: 'owner-test' } : parsed.data;
+    // ref 'owner-test', which the admin numbers leave out (funnel-stats.ts) and the Conversions API skips (meta.ts). From the
+    // service funnel's page it is 'svc-owner-test', so the owner's test still ends on the Unlimited Video Ads page (funnel.ts).
+    const input = internal ? { ...parsed.data, ref: ownerTestRef(parsed.data.ref) } : parsed.data;
     const result = await createLead(input, {
       source: isLive() ? 'landing' : 'test',
       ip,

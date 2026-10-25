@@ -1,3 +1,4 @@
+import { isOwnerTestRef } from '@/lib/free-video/funnel';
 import { createAdminClient } from '@/app/supabase/server';
 import { STATS_EXCLUDED_EMAILS, STATS_EXCLUDED_VISITS } from '@/lib/free-video/config';
 import { isCardPlacement, OFFER_BUTTON_PLACEMENTS } from '@/lib/free-video/offer';
@@ -52,7 +53,6 @@ import { emailKeyOf } from '@/lib/free-video/website';
 
 export const DEFAULT_STATS_TZ = 'Europe/Bucharest';
 /** The ref of the owner's own leads (leads.ts createLead) and of an opt-in from a browser marked internal. */
-const OWNER_TEST_REF = 'owner-test';
 /** PostgREST's row cap on this project (max rows 1,000): a shorter page is the last one. */
 const PAGE_ROWS = 1000;
 const ID_CHUNK = 100;
@@ -246,7 +246,7 @@ export function isStatsExcludedEmail(email: string | null | undefined): boolean 
 }
 
 const isExcludedLead = (lead: Pick<LeadRow, 'email' | 'source' | 'ref'>) =>
-  lead.source === 'test' || lead.ref?.trim() === OWNER_TEST_REF || isStatsExcludedEmail(lead.email);
+  lead.source === 'test' || isOwnerTestRef(lead.ref) || isStatsExcludedEmail(lead.email);
 
 /** The time zone when the runtime knows it, else null. */
 export function validTimeZone(tz: string | null | undefined): string | null {
@@ -317,7 +317,7 @@ function addCounts(into: FunnelCounts, add: FunnelCounts): void {
 /** A clean tag from a ref, or null (empty, or the owner's test tag). */
 function tagOf(ref: string | null | undefined): string | null {
   const tag = ref?.trim();
-  return tag && tag !== OWNER_TEST_REF ? tag : null;
+  return tag && !isOwnerTestRef(tag) ? tag : null;
 }
 
 /** The channel a ref tag belongs to (the funnel's link conventions: yt-/ytc- YouTube, fb- Facebook ads, bfx bluefx.net). */
@@ -521,7 +521,7 @@ export async function computeFunnelStats({ from, to, tz: tzInput }: FunnelStatsI
       !isOwner(row.visitor_id) &&
       !(row.visitor_id && linkCheckBrowsers.has(row.visitor_id)) &&
       !(row.visitor_id && reviewBrowsers.has(row.visitor_id)) &&
-      row.ref?.trim() !== OWNER_TEST_REF
+      !isOwnerTestRef(row.ref)
   );
   const checkedInRange = new Set(
     pageEvents.filter((row) => row.visitor_id && linkCheckBrowsers.has(row.visitor_id) && !isOwner(row.visitor_id)).map((row) => row.visitor_id as string)
@@ -668,7 +668,7 @@ async function turnedAwayOf(
     return keyset(query, afterId);
   });
   const kept: TurnedAwayRow[] = rows
-    .filter((row) => row.ref !== 'owner-test' && row.meta?.test !== true && !isStatsExcludedEmail(textOf(row.meta?.email)))
+    .filter((row) => !isOwnerTestRef(row.ref) && row.meta?.test !== true && !isStatsExcludedEmail(textOf(row.meta?.email)))
     .map((row) => ({
       at: row.at,
       code: row.placement ?? 'unknown',

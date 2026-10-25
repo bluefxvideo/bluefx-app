@@ -28,6 +28,7 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import net from 'node:net';
+import { isOwnerTestRef } from '@/lib/free-video/funnel';
 import { isLive, OWNER_TEST_EMAILS, PROD_SITE_URL, SITE_URL } from '@/lib/free-video/config';
 import { countryOfIp } from '@/lib/free-video/geo';
 import { hasInternalCookie } from '@/lib/free-video/internal-visit';
@@ -79,7 +80,7 @@ export function trackable(ip: string | null, timeZone?: string | null): boolean 
 const testEventCode = () => process.env.META_TEST_EVENT_CODE?.trim() || '';
 
 /** The owner's own test leads (OWNER_TEST_EMAILS, stored with ref 'owner-test'). */
-const isOwnerTest = (lead: Pick<FreeVideoLead, 'email' | 'ref'>) => OWNER_TEST_EMAILS.includes(lead.email) || lead.ref === 'owner-test';
+const isOwnerTest = (lead: Pick<FreeVideoLead, 'email' | 'ref'>) => OWNER_TEST_EMAILS.includes(lead.email) || isOwnerTestRef(lead.ref);
 
 /** A lead whose events may go to Facebook: a visitor's, or with a test code any lead (they land in Test events only). */
 const sendableLead = (lead: Pick<FreeVideoLead, 'email' | 'ref' | 'source'>) =>

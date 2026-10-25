@@ -112,10 +112,9 @@ function phaseSlots({ phase, nextPrice, endsAt }: ServicePhaseNow): Array<[strin
     const date = '<span data-enddate></span>';
     return [
       ['{{S_TOPBAR}}', `<div class="deadline" role="note">\n  <div class="wrap">\n    <span>Your ${p} price is held for</span>\n    <span class="clock" data-clock></span>\n  </div>\n</div>`],
-      // No "Normally" price (owner + 4 experts 2026-10-25: a former price nobody paid reads as a scam and is a fictitious
-      // reference price); the next price appears only with its real date (the price box and the reason lines below).
-      ['{{S_WAS}}', ''],
-      ['{{S_STRIKE}}', ''],
+      // "(Normally $299)" at the top and the struck-out next price in the price boxes (owner 2026-10-25: keep them).
+      ['{{S_WAS}}', `<span class="was">(Normally <s>${nx}</s>)</span>`],
+      ['{{S_STRIKE}}', `<s>${nx}</s>`],
       ['{{S_BOXDEADLINE}}', `<p class="boxdeadline" id="buy">${p} a month is the price only for business owners who made a free video ad with us. Your ${p} price is held for you until ${date}. After that, new members pay ${nx} a month.</p>`],
       ['{{S_LOCK1}}', `<b>Price lock:</b> join before then, and your price stays ${p} a month for as long as you stay a member, even when the price goes up for new members.`],
       ['{{S_Q3}}', `<p><b>Answer:</b> You just tried our free video ad maker and saw your first video ad. This price is my thank-you for trying our free video ad maker, and it's held for you for ${days} days.</p>\n`],

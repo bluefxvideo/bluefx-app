@@ -17,6 +17,15 @@ export const SERVICE_REF_PREFIX = 'svc-';
 /** True for a lead (or an event) of the service funnel. */
 export const isServiceRef = (ref: string | null | undefined): boolean => typeof ref === 'string' && ref.startsWith(SERVICE_REF_PREFIX);
 
+/** The owner's own test signups (a browser marked internal): 'owner-test', or 'svc-owner-test' from the service page. */
+export const ownerTestRef = (ref: string | null | undefined): string => (isServiceRef(ref) ? `${SERVICE_REF_PREFIX}owner-test` : 'owner-test');
+
+/** True for either owner test tag (the admin numbers and the Conversions API leave both out). */
+export const isOwnerTestRef = (ref: string | null | undefined): boolean => {
+  const tag = ref?.trim();
+  return tag === 'owner-test' || tag === `${SERVICE_REF_PREFIX}owner-test`;
+};
+
 /** True on the service funnel's landing page. */
 export const isServiceLandingPath = (pathname: string): boolean =>
   pathname === SERVICE_LANDING_PATH || pathname.startsWith(`${SERVICE_LANDING_PATH}/`);

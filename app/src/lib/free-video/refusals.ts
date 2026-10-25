@@ -1,3 +1,4 @@
+import { ownerTestRef } from '@/lib/free-video/funnel';
 import { isLive } from '@/lib/free-video/config';
 import { recordEvent } from '@/lib/free-video/leads';
 import { FREE_VIDEO_REF_PATTERN, type FreeVideoErrorCode } from '@/types/free-video';
@@ -108,7 +109,7 @@ export async function noteRefusal(ip: string | null, refusal: Refusal, internal 
         test: isLive() ? undefined : true,
       }).filter(([, v]) => v !== undefined)
     );
-    await recordEvent({ event: REFUSAL_EVENT, placement: code, ref: internal ? 'owner-test' : (ref ?? null), meta });
+    await recordEvent({ event: REFUSAL_EVENT, placement: code, ref: internal ? ownerTestRef(ref) : (ref ?? null), meta });
   } catch (error) {
     console.warn('⚠️ [free-video] Refused send not saved:', String(error).slice(0, 160));
   }
