@@ -234,6 +234,12 @@ export function renderServicePage(input: ServicePageInput): string {
     const welcome = input.token ? `${WELCOME_PATH}?t=${encodeURIComponent(input.token)}` : WELCOME_PATH;
     html = put(html, '</head>', `${fastSpringScript(welcome)}\n</head>`);
   }
+  // A video ad the owner gave away without the watermark (gift-clean-free-video.ts puts a clean-*.mp4 in video_url):
+  // the page drops its own SAMPLE label over the player and on the thumbnail too. Owner 2026-10-26, for Paul only.
+  if (/\/clean-[^/]+\.mp4$/.test(input.videoUrl)) {
+    html = put(html, '<span class="stamp" aria-hidden="true">SAMPLE<small>bluefx.net</small></span>', '');
+    html = put(html, '{{THUMB}}<span>SAMPLE</span>', '{{THUMB}}');
+  }
   // The lead's own video ad, so the page's beacons can tell its play from the samples'.
   html = put(html, '<video src="{{VIDEO}}"', '<video data-fv-own src="{{VIDEO}}"');
   for (const [slot, value] of slots) html = put(html, slot, value);
