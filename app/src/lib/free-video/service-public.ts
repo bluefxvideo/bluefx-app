@@ -3,7 +3,7 @@ import { SERVICE_PAGE_HTML } from '@/lib/free-video/service-page-html';
 import { renderServicePage, SERVICE_MEDIA_BASE } from '@/lib/free-video/service-page';
 
 /**
- * The official, public Unlimited Video Ads page (owner 2026-10-25): /unlimited-video-ads. The same approved page as
+ * The official, public Weekly Video Plan page (was Unlimited Video Ads until 2026-10-26) (owner 2026-10-25): /unlimited-video-ads. The same approved page as
  * the per-lead one, at the public price (the last phase of SERVICE.phases, $599 a month, no countdown), made for
  * anyone instead of one lead: a sample video ad on top instead of their own, and the 13 example video ads numbered as styles (#styles) so members can ask for "Style 3".
  * Members' emails link here so they can always see the samples and the public price next to their own locked price.
@@ -35,7 +35,7 @@ function publicSwaps(): Array<[string, string]> {
     ['<meta name="robots" content="noindex, nofollow">', ''],
     ['<p class="congrats">Congratulations, {{NAME}}!<br>Your video ad is ready.</p>', '<p class="congrats">A video ad my team made for a local hauling company.</p>'],
     ['<span class="stamp" aria-hidden="true">SAMPLE<small>bluefx.net</small></span>', ''],
-    ['<p>Want your video ad without the SAMPLE stamp, and a new video ad any business day you ask?</p>', '<p>Want video ads like this for your business, a new video ad any business day you ask?</p>'],
+    ['<p>Want your video ad without the SAMPLE stamp, plus a new video for your business every week?</p>', '<p>Want a video like this for your business, plus a new video every week?</p>'],
     ['<button type="button" class="replay">Watch your video ad again</button>', '<button type="button" class="replay">Watch the video ad again</button>'],
     [
       '<p class="samplenote">Join today, and my team removes the SAMPLE stamp and makes every change you want, back the same day.</p>',
@@ -43,26 +43,26 @@ function publicSwaps(): Array<[string, string]> {
       '',
     ],
     [
-      '<p class="big">New video ads like yours, made by my team, so more customers can find your business on social media</p>',
-      '<p class="big">New video ads for your business, made by my team, so more customers can find your business on social media</p>',
+      '<p class="big">A new video like yours every week, made by my team, so more customers can find your business on social media</p>',
+      '<p class="big">A new video for your business every week, made by my team, so more customers can find your business on social media</p>',
     ],
     [
       '<p class="firsthead">Your first video ad: the video ad above, without the SAMPLE stamp and with every change you want.</p>',
-      '<p class="firsthead">Send your first request today, and your first video ad arrives within 1 business day.</p>',
+      '<p class="firsthead">Send your first idea today, and your first video arrives within 1 business day.</p>',
     ],
     [
       '<p>You just watched your own video ad. Before you see 12 more example video ads, let me answer 3 questions you might have about this offer:</p>',
       '<p>You just watched a video ad my team made. Before you see 12 more example video ads, let me answer 3 questions you might have about this offer:</p>',
     ],
     [
-      '<p><b>PROOF:</b> You already have your first video ad, made from {{DOMAIN}}. Join, and my team makes you a new video ad any business day you ask.</p>',
-      '<p><b>PROOF:</b> Every example video ad on this page was made by my team. Join, and my team makes you a new video ad any business day you ask.</p>',
+      '<p><b>PROOF:</b> You already have your first video ad, made from {{DOMAIN}}. Join, and my team sends you a new video every week.</p>',
+      '<p><b>PROOF:</b> Every example video ad on this page was made by my team. Join, and my team sends you a new video every week.</p>',
     ],
     ["      <p>We're offering this service first to the people who tried our free video ad maker.</p>\n", ''],
     // Question 3 ("Why are you doing this?") without the free video ad the reader never made
     [
       '{{S_Q3}}',
-      "<p><b>Answer:</b> Because video ads bring in customers, and most business owners don't have the time to make them. My team makes your video ads for you, one video ad at a time.</p>\n",
+      "<p><b>Answer:</b> Because video ads bring in customers, and most business owners don't have the time to make them. My team makes you a new video every week.</p>\n",
     ],
     [
       '<details><summary>What about the free video ad you made for me?</summary><p>That video ad becomes your first video ad: we remove the SAMPLE stamp and make any changes you want.</p></details>',
@@ -71,11 +71,11 @@ function publicSwaps(): Array<[string, string]> {
     ],
     [
       '<div class="ff-thumb">{{THUMB}}<span>SAMPLE</span></div><p><b>Your first video ad:</b> the free video ad we made for {{DOMAIN}}, without the SAMPLE stamp and with every change you want.</p>',
-      '<div class="ff-thumb">{{THUMB}}</div><p><b>Your first video ad:</b> within 1 business day of your first request, with every change you want.</p>',
+      '<div class="ff-thumb">{{THUMB}}</div><p><b>Your first video:</b> within 1 business day of your first idea, with every change you want.</p>',
     ],
     [
       '<p class="ps"><b>P.S.</b> Your first video ad is already made. Join today, and my team removes the SAMPLE stamp and makes every change you want, back the same day.',
-      '<p class="ps"><b>P.S.</b> Send your first request today, and your first video ad arrives within 1 business day. Any change comes back the same day.',
+      '<p class="ps"><b>P.S.</b> Send your first idea today, and your first video arrives within 1 business day. Then a new video every Tuesday, and any change comes back the same day.',
     ],
     // the examples become numbered styles, so members can ask for "Style 3"
     ["<section class=\"alt\">\n  <div class=\"wrap\">\n    <h2>Here's what you can request</h2>", "<section class=\"alt\" id=\"styles\">\n  <div class=\"wrap\">\n    <h2>Pick your style</h2>"],
@@ -134,6 +134,6 @@ export function renderPublicServicePage(): string {
     template: publicTemplate(),
     checkoutUrl: checkout,
     popupProduct: phase.product,
-    title: 'Unlimited Video Ads by BlueFX',
+    title: 'The Weekly Video Plan by BlueFX',
   });
 }

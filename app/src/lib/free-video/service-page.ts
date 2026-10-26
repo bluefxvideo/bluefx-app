@@ -84,7 +84,7 @@ export interface ServicePageInput {
   checkoutUrl?: string;
   /** With checkoutUrl: the FastSpring product the popup cart opens with; null = the buttons stay plain links. Without checkoutUrl the page's price's product. */
   popupProduct?: string | null;
-  /** The page title instead of "Unlimited Video Ads for <domain>". */
+  /** The page title instead of "The Weekly Video Plan for <domain>". */
   title?: string;
 }
 
@@ -177,7 +177,7 @@ function phaseSlots({ phase, nextPrice, endsAt }: ServicePhaseNow): Array<[strin
       ],
       ['{{S_LOCK2}}', `<b>Price lock:</b> join before your ${days} days end, and your price stays ${p} a month for as long as you stay a member, even when the price goes up for new members.`],
       ['{{S_FAQPRICE}}', `<p>Your price stays ${p} a month for as long as you stay a member. Join while your ${days} days run, and ${p} a month is locked in. When the price goes up for new members, your price stays ${p}.</p>`],
-      ['{{S_SIGNOFF}}', `<p>If you want a new video ad any business day you ask, join before your ${p} price ends on ${date}.</p>`],
+      ['{{S_SIGNOFF}}', `<p>If you want a new video for your business every week, join before your ${p} price ends on ${date}.</p>`],
     ];
   }
   const lock = `<b>Price lock:</b> your price stays ${p} a month for as long as you stay a member, even when the price goes up for new members.`;
@@ -187,13 +187,13 @@ function phaseSlots({ phase, nextPrice, endsAt }: ServicePhaseNow): Array<[strin
     ['{{S_STRIKE}}', ''],
     ['{{S_BOXDEADLINE}}', '<p class="boxdeadline" id="buy" hidden></p>'],
     ['{{S_LOCK1}}', lock],
-    ['{{S_Q3}}', `<p><b>Answer:</b> You just tried our free video ad maker and saw your first video ad. My team can make every video ad after that one for you.</p>\n`],
+    ['{{S_Q3}}', `<p><b>Answer:</b> You just tried our free video ad maker and saw your first video ad. My team can make you a new video like that one every week.</p>\n`],
     ['{{S_Q3B}}', `<p>Join, and you're locked in at ${p} a month for as long as you stay.</p>`],
     ['{{S_REASON3}}', `<p>Your price stays ${p} a month for as long as you stay a member, even when the price goes up for new members.</p>`],
     ['{{S_COUNTER}}', ''],
     ['{{S_LOCK2}}', lock],
     ['{{S_FAQPRICE}}', `<p>Your price stays ${p} a month for as long as you stay a member. When the price goes up for new members, your price stays ${p}.</p>`],
-    ['{{S_SIGNOFF}}', '<p>If you want a new video ad any business day you ask, join today.</p>'],
+    ['{{S_SIGNOFF}}', '<p>If you want a new video for your business every week, join today.</p>'],
   ];
 }
 
@@ -220,7 +220,7 @@ export function renderServicePage(input: ServicePageInput): string {
   }
   for (const [slot, value] of phaseSlots(input.now)) html = put(html, slot, value);
   const slots: Array<[string, string]> = [
-    ['{{TITLE}}', input.title ? esc(input.title) : `Unlimited Video Ads for ${domain}`],
+    ['{{TITLE}}', input.title ? esc(input.title) : `The Weekly Video Plan for ${domain}`],
     ['{{VIDEO}}', video],
     ['{{POSTER_ATTR}}', poster ? ` poster="${esc(poster)}"` : ''],
     ['{{THUMB}}', thumb],
@@ -228,6 +228,8 @@ export function renderServicePage(input: ServicePageInput): string {
     ['{{DOMAIN}}', domain],
     ['{{CHECKOUT}}', esc(input.checkoutUrl ?? serviceGoUrl(input.token))],
     ['{{MEDIA}}', SERVICE_MEDIA_BASE],
+    // The cost table's yearly line (52 weekly videos): 12 months at the page's price.
+    ['{{P_YEAR}}', `$${(input.now.phase.price * 12).toLocaleString('en-US')}`],
     ['{{P}}', `$${input.now.phase.price}`],
   ];
   // The buy buttons open FastSpring's popup cart with the product of the page's price, in FastSpring's plain markup.

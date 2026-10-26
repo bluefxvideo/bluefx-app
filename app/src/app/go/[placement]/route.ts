@@ -102,7 +102,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
     const { phase } = servicePhaseAt(start);
     if (!phase.product) {
       console.error(`❌ /go/fvservice: no FastSpring product for the $${phase.price} phase yet (SERVICE.phases in offer.ts)`);
-      return new NextResponse('To join Unlimited Video Ads, please email support@bluefx.net and we will set you up.', {
+      return new NextResponse('To join the Weekly Video Plan, please email support@bluefx.net and we will set you up.', {
         status: 200,
         headers: { ...NO_STORE, 'Content-Type': 'text/plain; charset=utf-8' },
       });
