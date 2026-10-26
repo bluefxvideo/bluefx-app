@@ -836,12 +836,16 @@ export function LoopVideo({ src, poster }: { src: string; poster: string }) {
       else video.pause();
     });
     observer.observe(video);
-    // A script on the page can reload a same-site video after it started (it adds '?' to the address), which stops it:
-    // start again once it can play, while it is on screen (owner 2026-10-27: the styles showed as still pictures).
-    video.addEventListener('canplay', start);
+    // On the live site a script reloads same-site videos right after they start (it adds '?' to the address), which
+    // leaves them stopped and unloaded: while on screen, start again whenever the video reloads or sits stopped
+    // (owner 2026-10-27: the styles showed as still pictures).
+    const events = ['loadstart', 'emptied', 'canplay'] as const;
+    events.forEach((name) => video.addEventListener(name, start));
+    const retry = window.setInterval(start, 1500);
     return () => {
       observer.disconnect();
-      video.removeEventListener('canplay', start);
+      events.forEach((name) => video.removeEventListener(name, start));
+      window.clearInterval(retry);
     };
   }, []);
   return <video ref={ref} src={src} poster={poster} muted loop playsInline preload="none" aria-hidden="true" />;
