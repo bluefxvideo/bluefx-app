@@ -12,6 +12,7 @@
  * mostly don't run ads; they want customers from social media).
  */
 import { OFFER, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
+import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
 
 const MONTH = VIDEO_ADS_LIKE_FREE_PER_MONTH;
 const YEAR = MONTH * 12;
@@ -208,7 +209,7 @@ export const RESULT_SALES = {
   top: {
     title: (name: string) => `Congratulations, ${name}! Your video ad is ready.`,
     /** Who the AI Media Machine is for, in a lead's own words (owner 2026-10-26: "business owners who have to run everything themselves"). Above the video ad. */
-    forWho: 'Built for business owners who run everything themselves.',
+    forWho: 'The AI Media Machine is built for business owners who run everything themselves.',
     /** The second reason to buy, from a lead's reply ("use it on other peoples websites and I sell the video to them"). Under the video ad. */
     resell: 'Make video ads for your own business, or for other businesses and sell the video ads to them.',
     sample: 'Your free sample has a SAMPLE stamp. With the AI Media Machine, your video ads come without the stamp.',
@@ -316,7 +317,7 @@ export const RESULT_SALES = {
     birthday: 'Your sale price:',
     /** The monthly-fee objection, answered at the price (owner 2026-10-26: leads wrote "$99 is not in my business budget monthly"). */
     payOnce: 'No monthly fee. Pay once, use the AI Media Machine for life.',
-    line: `All 12 tools are yours, and your account refills with ${MONTH} complete video ads every month.`,
+    line: `All 12 tools are yours, and your account refills with ${MONTH} complete video ads every month. Need more? Add a credit pack any time, with nothing recurring.`,
   },
 
   button: {
@@ -345,6 +346,8 @@ export const RESULT_SALES = {
     title: "Use the AI Media Machine on other people's websites and sell the video ads to them.",
     text: `Type any business's website, and the AI Media Machine makes a video ad for that business. Your account makes ${MONTH} complete video ads every month, for your business or for theirs.`,
     proof: 'One of our buyers, a marketing agency owner in California, already makes video ads for 7 client websites with his account.',
+    /** Owner 2026-10-26: "10 videos, but what if I get 20 videos?" The 1,000-credit pack (buy-credits-dialog.tsx) at 60 credits per video ad like the free one. */
+    more: `Need more than ${MONTH} a month for your clients? Add a credit pack any time: 1,000 credits ($69.99) make about ${Math.floor(1000 / (PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS))} more video ads, with nothing recurring.`,
   },
 
   bonus: {

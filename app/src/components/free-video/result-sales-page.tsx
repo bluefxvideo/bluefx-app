@@ -216,6 +216,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           </div>
           <p>{RESULT_SALES.resell.text}</p>
           <p>{RESULT_SALES.resell.proof}</p>
+          <p>{RESULT_SALES.resell.more}</p>
         </div>
       </section>
 
