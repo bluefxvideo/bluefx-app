@@ -1,6 +1,5 @@
 'use client';
 
-import { HandCoins } from 'lucide-react';
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RESULT_PAGE } from '@/lib/free-video/result-page';
@@ -211,7 +210,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <div className={s.resellBox}>
           <div className={s.resellHead}>
             <span className={s.resellIcon} aria-hidden="true">
-              <HandCoins size={34} strokeWidth={2} />
+              $
             </span>
             <h3 className={s.resellTitle}>{RESULT_SALES.resell.title}</h3>
           </div>
