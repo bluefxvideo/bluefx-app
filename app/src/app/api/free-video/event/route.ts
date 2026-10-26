@@ -1,13 +1,15 @@
 import { after } from 'next/server';
 import { isLive, PROD_SITE_URL, SITE_URL } from '@/lib/free-video/config';
 import { hasInternalCookie } from '@/lib/free-video/internal-visit';
-import { clientIp, getLeadByToken, markPlayed, recordEvent } from '@/lib/free-video/leads';
+import { clientIp, getLeadByToken, markPlayed, markServiceClicked, recordEvent } from '@/lib/free-video/leads';
+import { rememberCheckoutIds, requestFacts } from '@/lib/free-video/meta';
+import { SERVICE } from '@/lib/free-video/offer';
 import { FREE_VIDEO_REF_PATTERN, FREE_VIDEO_TOKEN_PATTERN, FreeVideoEventSchema, type FreeVideoEvent } from '@/types/free-video';
 
 /**
  * POST /api/free-video/event: the funnel pages' sendBeacon target (P1 measurement).
  * Body (at most 1 KB, JSON): { e: 'landing_view' | 'form_start' | 'video_play' | 'video_complete' | 'download' |
- * 'offer_open' | 'tour_play', t?: view token, v?: visitor id, ref?: newsletter tag, from?: 'download' | 'bar' }. offer_open is the
+ * 'offer_open' | 'tour_play' | 'service_view' | 'service_click' | ... (FREE_VIDEO_EVENTS), t?: view token, v?: visitor id, ref?: newsletter tag, from?: 'download' | 'bar' }. offer_open is the
  * offer card opening on a result page; its from (what opened the card) is saved in the row's placement column.
  * Always answers 204 with no body, whatever happens: a beacon never shows an error. Allow-listed events only;
  * bots, foreign origins and more than EVENTS_PER_MINUTE events a minute from one IP are dropped. An event about
@@ -87,9 +89,16 @@ export async function POST(req: Request) {
     const token = t && FREE_VIDEO_TOKEN_PATTERN.test(t) ? t : null;
     if (!token && !WITHOUT_TOKEN.includes(e)) return noContent();
 
+    const facts = e === 'service_click' ? requestFacts(req, clientIp(req)) : null;
     after(async () => {
       const lead = token ? await getLeadByToken(token).catch(() => null) : null;
       if (token && !lead) return;
+      // A buy button of the Unlimited Video Ads page (FastSpring's popup, no /go link): the click like /go/fvservice logs it.
+      if (e === 'service_click' && lead && facts) {
+        await markServiceClicked(lead, v && /^[\w-]{1,40}$/.test(v) ? v : null);
+        await rememberCheckoutIds(lead, facts, SERVICE.placement);
+        return;
+      }
       await recordEvent({
         event: e,
         leadId: lead?.id ?? null,

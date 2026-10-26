@@ -103,10 +103,13 @@ function shortDateScript(endsAt: number | null): string {
   return `<script>(function(){try{var t=new Date(${Math.round(endsAt)}).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});document.querySelectorAll('[data-enddate-short]').forEach(function(e){e.textContent=t})}catch(e){}})();</script>`;
 }
 
-/** The tag that starts the clock: the page's first open in a browser, sent like the funnel's other page events. */
-function viewBeacon(token: string): string {
-  const body = JSON.stringify({ e: 'service_view', t: token });
-  return `<script>(function(){try{var b=${JSON.stringify(body)};var v=null;try{v=localStorage.getItem('fv_vid')}catch(e){}if(v&&/^[\\w-]{1,40}$/.test(v)){var o=JSON.parse(b);o.v=v;b=JSON.stringify(o)}if(!(navigator.sendBeacon&&navigator.sendBeacon('/api/free-video/event',new Blob([b],{type:'application/json'}))))fetch('/api/free-video/event',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){})}catch(e){}})();</script>`;
+/**
+ * The page's events, sent like the funnel's other page events: service_view on the first open in a browser (it starts
+ * the clock), video_play and video_complete for the lead's own video ad (once each per page view), and service_click
+ * when a buy button opens FastSpring's popup cart (the buttons skip /go/fvservice, so this is the only click record).
+ */
+function pageBeacons(token: string): string {
+  return `<script>(function(){try{var T=${JSON.stringify(token)};function send(e){try{var o={e:e,t:T};var v=null;try{v=localStorage.getItem('fv_vid')}catch(x){}if(v&&/^[\\w-]{1,40}$/.test(v))o.v=v;var b=JSON.stringify(o);if(!(navigator.sendBeacon&&navigator.sendBeacon('/api/free-video/event',new Blob([b],{type:'application/json'}))))fetch('/api/free-video/event',{method:'POST',body:b,headers:{'Content-Type':'application/json'},keepalive:true}).catch(function(){})}catch(x){}}send('service_view');var own=document.querySelector('video[data-fv-own]');if(own){var played=false,done=false;own.addEventListener('play',function(){if(!played){played=true;send('video_play')}});own.addEventListener('ended',function(){if(!done){done=true;send('video_complete')}})}var clicked=false;document.addEventListener('click',function(ev){var a=ev.target&&ev.target.closest?ev.target.closest('[data-fsc-action]'):null;if(a&&!clicked){clicked=true;send('service_click')}},true)}catch(e){}})();</script>`;
 }
 
 /**
@@ -231,9 +234,11 @@ export function renderServicePage(input: ServicePageInput): string {
     const welcome = input.token ? `${WELCOME_PATH}?t=${encodeURIComponent(input.token)}` : WELCOME_PATH;
     html = put(html, '</head>', `${fastSpringScript(welcome)}\n</head>`);
   }
+  // The lead's own video ad, so the page's beacons can tell its play from the samples'.
+  html = put(html, '<video src="{{VIDEO}}"', '<video data-fv-own src="{{VIDEO}}"');
   for (const [slot, value] of slots) html = put(html, slot, value);
   html = put(html, '</body>', `${shortDateScript(input.now.endsAt)}\n</body>`);
 
-  if (!input.internal) html = put(html, '</body>', `${viewBeacon(input.token)}\n</body>`);
+  if (!input.internal) html = put(html, '</body>', `${pageBeacons(input.token)}\n</body>`);
   return html;
 }
