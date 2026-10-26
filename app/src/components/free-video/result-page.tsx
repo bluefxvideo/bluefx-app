@@ -825,12 +825,24 @@ export function LoopVideo({ src, poster }: { src: string; poster: string }) {
     const video = ref.current;
     if (!video || typeof IntersectionObserver === 'undefined') return;
     video.muted = true;
+    let onScreen = false;
+    const start = () => {
+      video.muted = true;
+      if (onScreen && video.paused) void video.play().catch(() => undefined);
+    };
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) void video.play().catch(() => undefined);
+      onScreen = entry.isIntersecting;
+      if (onScreen) start();
       else video.pause();
     });
     observer.observe(video);
-    return () => observer.disconnect();
+    // A script on the page can reload a same-site video after it started (it adds '?' to the address), which stops it:
+    // start again once it can play, while it is on screen (owner 2026-10-27: the styles showed as still pictures).
+    video.addEventListener('canplay', start);
+    return () => {
+      observer.disconnect();
+      video.removeEventListener('canplay', start);
+    };
   }, []);
   return <video ref={ref} src={src} poster={poster} muted loop playsInline preload="none" aria-hidden="true" />;
 }
