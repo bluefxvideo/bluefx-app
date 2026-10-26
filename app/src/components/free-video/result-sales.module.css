@@ -2286,3 +2286,43 @@
   color: #334155;
   text-align: center;
 }
+
+/* Phone: the strip sits in the video column. Computer: one wide copy across both columns, 8 in a row. */
+.styleStripWide {
+  display: none;
+}
+
+@media (min-width: 760px) {
+  .styleStripPhone {
+    display: none;
+  }
+  .styleStripWide {
+    display: flex;
+    grid-column: 1 / -1;
+    margin-top: 28px;
+    padding-top: 22px;
+  }
+  .styleStripWide .styleTitle {
+    font-size: 22px;
+  }
+  .styleStripWide .styleRow {
+    justify-content: center;
+    gap: 14px;
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .styleStripWide .styleItem,
+  .styleStripWide .styleTile {
+    width: 96px;
+  }
+  .styleStripWide .styleName {
+    font-size: 14px;
+  }
+  .styleStripWide .styleYours {
+    font-size: 12px;
+  }
+  .styleStripWide .styleMore {
+    font-size: 15px;
+  }
+}

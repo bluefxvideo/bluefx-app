@@ -94,8 +94,8 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             <PencilIcon />
             <span>{change.quick ? `${change.label} (${change.quick.minutes} min)` : change.label}</span>
           </button>
-          {/* The looks a buyer can pick, right under their own video ad (owner 2026-10-27: version A, small). */}
-          <StyleStrip />
+          {/* The looks a buyer can pick, right under their own video ad (owner 2026-10-27: version A, small). On a computer the wide copy below takes over. */}
+          <StyleStrip className={s.styleStripPhone} />
         </div>
         {/* On a phone the title sits above the video (display: contents); on a computer the words fill the space beside it and lead down the page (owner 2026-10-22). */}
         <div className={s.topText}>
@@ -116,6 +116,8 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             <p className={s.topKicker}>{hero.kicker}</p>
           </div>
         </div>
+        {/* Computer: the styles across the full width under the video ad and the words (owner 2026-10-27). */}
+        <StyleStrip className={s.styleStripWide} />
       </section>
 
       <section className={s.hero} aria-labelledby="fv-sales-hero">
@@ -965,10 +967,10 @@ function SalesBar({ token, watch, onShown }: { token: string; watch: React.RefOb
 }
 
 /** The looks a buyer can pick in the Phantom's "Change style" gallery (make-video-ad.tsx STYLES), as small looping tiles. */
-function StyleStrip() {
+function StyleStrip({ className }: { className: string }) {
   const { styles } = RESULT_SALES;
   return (
-    <div className={s.styleStrip}>
+    <div className={cn(s.styleStrip, className)}>
       <p className={s.styleTitle}>{styles.title}</p>
       <ul className={s.styleRow}>
         {styles.items.map((style, i) => (
