@@ -331,13 +331,13 @@ function SwitchOffer({ lead, onSwitched }: { lead: FreeVideoLeadRow; onSwitched:
   return (
     <div className="mt-2 max-w-[190px] text-xs">
       <div className="text-muted-foreground">
-        Shows: <span className="font-medium text-foreground">{OFFER_NAME[lead.offer]}</span>
+        Offer on their page: <span className="font-medium text-foreground">{OFFER_NAME[lead.offer]}</span>
         {lead.switchedAt && <div>switched {when(lead.switchedAt)}</div>}
       </div>
       {!open ? (
-        <button type="button" onClick={() => setOpen(true)} className="mt-1 block text-left font-semibold text-primary hover:underline">
+        <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)} className="mt-1 h-auto whitespace-normal px-2 py-1 text-left text-xs">
           Switch to {OFFER_NAME[to]}
-        </button>
+        </Button>
       ) : (
         <div className="mt-1 space-y-1 rounded border p-2">
           <div>
