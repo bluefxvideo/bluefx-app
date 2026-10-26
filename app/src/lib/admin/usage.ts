@@ -12,6 +12,9 @@ export const TOOL_NAMES: Record<string, string> = {
   // The Phantom, and ReelEstate's automatic listing video (the same engine)
   'smart-video': 'Phantom Ad Maker',
   'phantom-presenter': 'Phantom Ad Maker: AI presenter',
+  // No credits, our cost only (lib/admin/costs.ts)
+  'free-video-ads': 'Free video ads (no credits)',
+  'free-video-bonus': 'Free video ads: bonus ads (no credits)',
   'listing-video': 'ReelEstate Automatic: video',
   'listing-video-clip': 'ReelEstate Automatic: animated photo',
 
