@@ -54,6 +54,8 @@ export interface ServicePhaseNow {
   nextPrice: number | null;
   /** When this phase's price ends (ms); null in the last phase. */
   endsAt: number | null;
+  /** A price with no deadline shown under a higher regular price (the evergreen $99 page, service-public.ts). */
+  regularPrice?: number | null;
 }
 
 /** The lead's phase at `now`. A clock that has not started counts from now (the first visit starts it). */
@@ -151,8 +153,11 @@ const CHECKOUT_LINK = 'href="{{CHECKOUT}}" target="_blank" rel="noopener"';
  * approved wording with that phase's price, the next price and the days held; in the last phase every deadline
  * sentence goes and the price lock stays. The date spans are filled by the page's script from END_MS.
  */
-function phaseSlots({ phase, nextPrice, endsAt }: ServicePhaseNow): Array<[string, string]> {
+function phaseSlots({ phase, nextPrice, endsAt, regularPrice }: ServicePhaseNow): Array<[string, string]> {
   const p = `$${phase.price}`;
+  // The struck-out regular price in the price boxes, labelled "regular price" (owner 2026-10-25).
+  const strike = (price: string) =>
+    `<span style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.05"><s>${price}</s><small style="font:700 12px/1.2 Lato,Arial,sans-serif;color:#5e5e5e;letter-spacing:0;text-transform:none;margin-top:4px">regular price</small></span>`;
   if (endsAt !== null && nextPrice !== null && phase.hours !== null) {
     const nx = `$${nextPrice}`;
     const days = Math.round(phase.hours / 24);
@@ -161,11 +166,7 @@ function phaseSlots({ phase, nextPrice, endsAt }: ServicePhaseNow): Array<[strin
       ['{{S_TOPBAR}}', `<div class="deadline" role="note">\n  <div class="wrap">\n    <span>Your ${p} price is held for</span>\n    <span class="clock" data-clock></span>\n  </div>\n</div>`],
       // Under the first price, kept simple (owner 2026-10-25): "(Regular price $299, offer ends Wed, Oct 28)".
       ['{{S_WAS}}', `<span class="was">(Regular price <s>${nx}</s>, offer ends <span data-enddate-short></span>)</span>`],
-      // The struck-out regular price in the price boxes, labelled "regular price" (owner 2026-10-25).
-      [
-        '{{S_STRIKE}}',
-        `<span style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.05"><s>${nx}</s><small style="font:700 12px/1.2 Lato,Arial,sans-serif;color:#5e5e5e;letter-spacing:0;text-transform:none;margin-top:4px">regular price</small></span>`,
-      ],
+      ['{{S_STRIKE}}', strike(nx)],
       ['{{S_BOXDEADLINE}}', `<p class="boxdeadline" id="buy">${p} a month is the price only for business owners who made a free video ad with us. Your ${p} price is held for you until ${date}. After that, new members pay ${nx} a month.</p>`],
       ['{{S_LOCK1}}', `<b>Price lock:</b> join before then, and your price stays ${p} a month for as long as you stay a member, even when the price goes up for new members.`],
       ['{{S_Q3}}', `<p><b>Answer:</b> You just tried our free video ad maker and saw your first video ad. This price is my thank-you for trying our free video ad maker, and it's held for you for ${days} days.</p>\n`],
@@ -181,10 +182,13 @@ function phaseSlots({ phase, nextPrice, endsAt }: ServicePhaseNow): Array<[strin
     ];
   }
   const lock = `<b>Price lock:</b> your price stays ${p} a month for as long as you stay a member, even when the price goes up for new members.`;
+  // No deadline. With a regular price (the evergreen $99 page): "(Regular price $599)" under the headline and struck out
+  // in the price boxes, the same look as the timed offer without its end date.
+  const regular = regularPrice && regularPrice > phase.price ? `$${regularPrice}` : null;
   return [
     ['{{S_TOPBAR}}', ''],
-    ['{{S_WAS}}', ''],
-    ['{{S_STRIKE}}', ''],
+    ['{{S_WAS}}', regular ? `<span class="was">(Regular price <s>${regular}</s>)</span>` : ''],
+    ['{{S_STRIKE}}', regular ? strike(regular) : ''],
     ['{{S_BOXDEADLINE}}', '<p class="boxdeadline" id="buy" hidden></p>'],
     ['{{S_LOCK1}}', lock],
     ['{{S_Q3}}', `<p><b>Answer:</b> You just tried our free video ad maker and saw your first video ad. My team can make you a new video like that one every week.</p>\n`],
