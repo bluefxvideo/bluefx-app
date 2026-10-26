@@ -2170,3 +2170,29 @@
   line-height: 1.3;
   font-weight: 800;
 }
+
+.resellHead {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+@media (min-width: 760px) {
+  .resellHead {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+  }
+}
+
+.resellIcon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #15803d;
+}
