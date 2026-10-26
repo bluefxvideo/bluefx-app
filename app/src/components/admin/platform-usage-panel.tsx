@@ -30,6 +30,7 @@ import {
   Calendar,
   Clock,
   ChevronRight,
+  DollarSign,
 } from 'lucide-react';
 import {
   LineChart,
@@ -43,6 +44,9 @@ import {
   Pie,
   Cell,
 } from 'recharts';
+/** Dollars for the admin screens: $1,234.56. */
+const usd = (value: number) => `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 // Types for platform usage stats
 interface PlatformSummaryStats {
   totalCreditsUsed: number;
@@ -50,6 +54,11 @@ interface PlatformSummaryStats {
   activeUsers: number;
   newUsers: number;
   totalUsers: number;
+  /** Our provider cost in dollars (lib/admin/costs.ts): exact from the Phantom jobs, estimated for the other tools. */
+  costUsd: number;
+  exactCostUsd: number;
+  estimatedCostUsd: number;
+  unpricedOperations: string[];
 }
 
 interface ToolUsageStat {
@@ -58,6 +67,10 @@ interface ToolUsageStat {
   totalCredits: number;
   totalUses: number;
   uniqueUsers: number;
+  costUsd: number;
+  costKind: 'exact' | 'estimate' | 'unknown';
+  /** The tool whose dollars already hold this one's (the presenter inside the Phantom ad). */
+  costIncludedIn: string | null;
 }
 
 interface DailyUsageTrend {
@@ -65,6 +78,7 @@ interface DailyUsageTrend {
   creditsUsed: number;
   generations: number;
   activeUsers: number;
+  costUsd: number;
 }
 
 interface TopUser {
@@ -75,6 +89,7 @@ interface TopUser {
   creditsUsed: number;
   generations: number;
   lastActive: string | null;
+  costUsd: number;
 }
 
 interface UserDetails {
@@ -191,9 +206,11 @@ export function PlatformUsagePanel() {
 
   const handleExport = () => {
     const csvData = [
-      ['Tool', 'Total Credits', 'Total Uses', 'Unique Users'],
+      ['Tool', 'Our cost (USD)', 'Cost source', 'Total Credits', 'Total Uses', 'Unique Users'],
       ...toolUsage.map(tool => [
-        tool.toolName,
+        `"${tool.toolName}"`,
+        tool.costUsd.toFixed(2),
+        tool.costKind,
         tool.totalCredits.toString(),
         tool.totalUses.toString(),
         tool.uniqueUsers.toString(),
@@ -216,7 +233,8 @@ export function PlatformUsagePanel() {
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   };
 
-  const pieChartData = toolUsage.slice(0, 6).map((tool, index) => ({
+  // The credits pie: tools that used credits, by credits (the table is sorted by cost, and the free video ads use none).
+  const pieChartData = [...toolUsage].filter((tool) => tool.totalCredits > 0).sort((a, b) => b.totalCredits - a.totalCredits).slice(0, 6).map((tool, index) => ({
     name: tool.toolName,
     value: tool.totalCredits,
     color: CHART_COLORS[index % CHART_COLORS.length],
@@ -285,7 +303,23 @@ export function PlatformUsagePanel() {
       ) : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <Card className="border-amber-300/60">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <DollarSign className="w-4 h-4" />
+                  <span className="text-xs">Our cost</span>
+                </div>
+                <div className="text-2xl font-bold">{usd(summary?.costUsd ?? 0)}</div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {usd(summary?.exactCostUsd ?? 0)} exact · {usd(summary?.estimatedCostUsd ?? 0)} est.
+                </div>
+                {summary?.unpricedOperations?.length ? (
+                  <div className="mt-1 text-xs text-amber-600">No price yet: {summary.unpricedOperations.join(', ')}</div>
+                ) : null}
+              </CardContent>
+            </Card>
+
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -435,7 +469,10 @@ export function PlatformUsagePanel() {
                 <Activity className="w-5 h-5" />
                 Tool Usage Breakdown
               </CardTitle>
-              <CardDescription>Detailed statistics for each tool</CardDescription>
+              <CardDescription>
+                Each tool, most expensive first. &quot;Our cost&quot; is what we pay the AI providers: exact for the Phantom Ad Maker, ReelEstate
+                Automatic and the free video ads (every step is recorded), estimated from the credits and the model&apos;s price for the other tools.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {toolUsage.length > 0 ? (
@@ -444,6 +481,7 @@ export function PlatformUsagePanel() {
                     <thead className="bg-muted/50">
                       <tr>
                         <th className="text-left p-3 text-sm font-medium">Tool</th>
+                        <th className="text-right p-3 text-sm font-medium">Our cost</th>
                         <th className="text-right p-3 text-sm font-medium">Total Credits</th>
                         <th className="text-right p-3 text-sm font-medium">Total Uses</th>
                         <th className="text-right p-3 text-sm font-medium">Unique Users</th>
@@ -453,6 +491,16 @@ export function PlatformUsagePanel() {
                       {toolUsage.map((tool) => (
                         <tr key={tool.toolId} className="hover:bg-muted/30">
                           <td className="p-3 font-medium">{tool.toolName}</td>
+                          <td className="p-3 text-right whitespace-nowrap">
+                            {tool.costIncludedIn ? (
+                              <span className="text-xs text-muted-foreground">in {tool.costIncludedIn}</span>
+                            ) : (
+                              <>
+                                <span className="font-semibold tabular-nums">{tool.costKind === 'unknown' ? '?' : usd(tool.costUsd)}</span>
+                                <span className="ml-1 text-xs text-muted-foreground">{tool.costKind === 'exact' ? 'exact' : tool.costKind === 'estimate' ? 'est.' : 'no price'}</span>
+                              </>
+                            )}
+                          </td>
                           <td className="p-3 text-right">
                             <Badge variant="secondary">{tool.totalCredits.toLocaleString()}</Badge>
                           </td>
@@ -480,9 +528,9 @@ export function PlatformUsagePanel() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5" />
-                Top Users by Credit Usage
+                Users who cost us the most
               </CardTitle>
-              <CardDescription>Users with the highest credit consumption</CardDescription>
+              <CardDescription>Our cost for each user&apos;s usage, with the credits they used</CardDescription>
             </CardHeader>
             <CardContent>
               {topUsers.length > 0 ? (
@@ -491,6 +539,7 @@ export function PlatformUsagePanel() {
                     <thead className="bg-muted/50">
                       <tr>
                         <th className="text-left p-3 text-sm font-medium">User</th>
+                        <th className="text-right p-3 text-sm font-medium">Our cost</th>
                         <th className="text-right p-3 text-sm font-medium">Credits Used</th>
                         <th className="text-right p-3 text-sm font-medium">Generations</th>
                         <th className="text-right p-3 text-sm font-medium">Last Active</th>
@@ -514,6 +563,7 @@ export function PlatformUsagePanel() {
                               </div>
                             </div>
                           </td>
+                          <td className="p-3 text-right font-semibold tabular-nums">{usd(user.costUsd)}</td>
                           <td className="p-3 text-right">
                             <Badge variant="secondary">{user.creditsUsed.toLocaleString()}</Badge>
                           </td>
