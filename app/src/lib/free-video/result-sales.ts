@@ -207,6 +207,10 @@ export const RESULT_SALES = {
 
   top: {
     title: (name: string) => `Congratulations, ${name}! Your video ad is ready.`,
+    /** Who the AI Media Machine is for, in a lead's own words (owner 2026-10-26: "business owners who have to run everything themselves"). Above the video ad. */
+    forWho: 'Built for business owners who run everything themselves.',
+    /** The second reason to buy, from a lead's reply ("use it on other peoples websites and I sell the video to them"). Under the video ad. */
+    resell: 'Make video ads for your own business, or for other businesses and sell the video ads to them.',
     sample: 'Your free sample has a SAMPLE stamp. With the AI Media Machine, your video ads come without the stamp.',
     /** The button scrolls to the example video ads right below (owner 2026-10-22), so it names those. */
     seeAll: 'See more examples',
@@ -310,7 +314,9 @@ export const RESULT_SALES = {
     timerBonus: 'Your sale price and both bonuses end in',
     regular: 'Regular price:',
     birthday: 'Your sale price:',
-    line: `One payment, no monthly fee. All 12 tools are yours for life, and your account refills with ${MONTH} complete video ads every month.`,
+    /** The monthly-fee objection, answered at the price (owner 2026-10-26: leads wrote "$99 is not in my business budget monthly"). */
+    payOnce: 'No monthly fee. Pay once, use the AI Media Machine for life.',
+    line: `All 12 tools are yours, and your account refills with ${MONTH} complete video ads every month.`,
   },
 
   button: {
@@ -318,6 +324,8 @@ export const RESULT_SALES = {
     price: `${OFFER.now} once, for life`,
     tools: 'Yes! I Want All 12 Tools',
     bar: `Get the AI Media Machine · ${OFFER.now}`,
+    /** Under every Yes button (owner 2026-10-26): the website, or the buyer's own script, photos and videos. */
+    typeLine: "Type your website, or bring your own script, photos and videos. That's it.",
     guarantee: '30-day money-back guarantee. Your login arrives by email.',
     written: 'Your next 3 video ads are already made and waiting inside.',
     cards: 'Pay with Visa, Mastercard, American Express, Discover or PayPal',
@@ -330,6 +338,13 @@ export const RESULT_SALES = {
     splitLink: 'Or split it into 3 payments of $100',
     splitSchedule: '$100 today, $100 in 30 days, $100 in 60 days. $300 total. All 12 tools from day 1.',
     splitShort: 'Or pay in 3 parts: $100 today, in 30 days and in 60 days',
+  },
+
+  /** Right after the price box (owner 2026-10-26: "VERY important"): video ads for other businesses, sold by the buyer. */
+  resell: {
+    title: "Use the AI Media Machine on other people's websites and sell the video ads to them.",
+    text: `Type any business's website, and the AI Media Machine makes a video ad for that business. Your account makes ${MONTH} complete video ads every month, for your business or for theirs.`,
+    proof: 'One of our buyers, a marketing agency owner in California, already makes video ads for 7 client websites with his account.',
   },
 
   bonus: {

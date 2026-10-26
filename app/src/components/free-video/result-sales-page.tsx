@@ -105,7 +105,9 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             <h1 id="fv-sales-title" className={s.topTitle}>
               {top.title(firstName)}
             </h1>
+            <p className={s.topFor}>{top.forWho}</p>
           </div>
+          <p className={s.topResell}>{top.resell}</p>
           <p className={s.topSample}>{top.sample}</p>
           <TutorialWindow token={token} at={tutorialAt} onOpen={openTutorial} onClose={closeTutorial} />
           <div className={s.topNext}>
@@ -182,6 +184,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
               {price.birthday} <span>{OFFER.now}</span>
             </p>
           </div>
+          <p className={s.payOnce}>{price.payOnce}</p>
           <p className={s.priceLine}>{price.line}</p>
           <SalesBuy token={token} placement="fvres1" note={button.guarantee} split="full" />
         </div>
@@ -204,6 +207,11 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             </div>
           </li>
         </ul>
+        <div className={s.resellBox}>
+          <h3 className={s.resellTitle}>{RESULT_SALES.resell.title}</h3>
+          <p>{RESULT_SALES.resell.text}</p>
+          <p>{RESULT_SALES.resell.proof}</p>
+        </div>
       </section>
 
       {bonus && (
@@ -677,6 +685,7 @@ function SalesBuy({
         {label}
         {withPrice && <span className={rp.buyPrice}>{button.price}</span>}
       </OfferButton>
+      <p className={s.typeLine}>{button.typeLine}</p>
       <PayCards />
       {note && <p className={rp.buyNote}>{note}</p>}
       {split === 'full' && (

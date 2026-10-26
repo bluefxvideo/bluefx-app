@@ -1516,6 +1516,19 @@
     font-size: 17px;
   }
 
+  .topText .topFor {
+    align-self: flex-start;
+    max-width: none;
+    font-size: 22px;
+    text-align: left;
+  }
+
+  .topText .topResell {
+    max-width: none;
+    font-size: 19px;
+    text-align: left;
+  }
+
   .topNext {
     display: flex;
     flex-direction: column;
@@ -2095,4 +2108,65 @@
   height: 100%;
   border: 0;
   display: block;
+}
+
+/* Owner 2026-10-26: who the AI Media Machine is for (above the video ad) and the resell line (under it). */
+.topFor {
+  margin: 4px 0 0;
+  max-width: 460px;
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 800;
+  color: var(--ink);
+  text-align: center;
+}
+
+.topResell {
+  margin: 0;
+  max-width: 460px;
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: center;
+}
+
+.payOnce {
+  margin: 4px 0 0;
+  font-size: 19px;
+  line-height: 1.35;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.typeLine {
+  margin: 8px 0 0;
+  text-wrap: balance;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+  text-align: center;
+}
+
+.resellBox {
+  margin: 24px 0 0;
+  padding: 20px;
+  border: 2px solid var(--blue);
+  border-radius: 14px;
+  background: #eef4ff;
+  color: var(--ink);
+  text-align: left;
+}
+
+.resellBox p {
+  margin: 8px 0 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.resellTitle {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.3;
+  font-weight: 800;
 }
