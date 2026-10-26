@@ -2197,3 +2197,92 @@
   color: #15803d;
   font: 900 46px/1 Arial, Helvetica, sans-serif;
 }
+
+/* The styles a buyer can pick (owner 2026-10-27): a small swipe row of looping tiles under their video ad. */
+.styleStrip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.styleTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.3;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--ink);
+}
+
+/* The edge fades, so the reader sees there is more to swipe. */
+.styleRow {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 2px 0 4px;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent 100%);
+}
+
+.styleRow::-webkit-scrollbar {
+  display: none;
+}
+
+.styleItem {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 88px;
+}
+
+.styleTile {
+  display: block;
+  width: 88px;
+  aspect-ratio: 9 / 16;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #111111;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.16);
+}
+
+.styleTile video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.styleName {
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.styleYours {
+  margin-top: -2px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  color: #64748b;
+}
+
+.styleMore {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+  text-align: center;
+}

@@ -94,6 +94,8 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             <PencilIcon />
             <span>{change.quick ? `${change.label} (${change.quick.minutes} min)` : change.label}</span>
           </button>
+          {/* The looks a buyer can pick, right under their own video ad (owner 2026-10-27: version A, small). */}
+          <StyleStrip />
         </div>
         {/* On a phone the title sits above the video (display: contents); on a computer the words fill the space beside it and lead down the page (owner 2026-10-22). */}
         <div className={s.topText}>
@@ -959,5 +961,27 @@ function SalesBar({ token, watch, onShown }: { token: string; watch: React.RefOb
         {RESULT_SALES.button.bar}
       </OfferButton>
     </aside>
+  );
+}
+
+/** The looks a buyer can pick in the Phantom's "Change style" gallery (make-video-ad.tsx STYLES), as small looping tiles. */
+function StyleStrip() {
+  const { styles } = RESULT_SALES;
+  return (
+    <div className={s.styleStrip}>
+      <p className={s.styleTitle}>{styles.title}</p>
+      <ul className={s.styleRow}>
+        {styles.items.map((style, i) => (
+          <li key={style.id} className={s.styleItem}>
+            <span className={s.styleTile}>
+              <LoopVideo src={`/smart-video/looks/${style.id}.mp4`} poster={`/smart-video/looks/${style.id}-poster.jpg`} />
+            </span>
+            <span className={s.styleName}>{style.label}</span>
+            {i === 0 ? <span className={s.styleYours}>{styles.yours}</span> : null}
+          </li>
+        ))}
+      </ul>
+      <p className={s.styleMore}>{styles.more}</p>
+    </div>
   );
 }

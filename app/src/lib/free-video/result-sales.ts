@@ -206,6 +206,27 @@ export const TOOL_GROUPS: { title: string; lead: string | null; tools: SalesTool
 export const RESULT_SALES = {
   banner: { strong: 'BREAKING NEWS:', text: 'BlueFX Releases Groundbreaking', off: '94.62% Off', end: 'Limited-Time Offer.' },
 
+  /**
+   * The looks a buyer can pick in the Phantom's "Change style" gallery (make-video-ad.tsx STYLES), right under their own
+   * video ad (owner 2026-10-27 picked this spot, small). Same 7-second loops as the gallery (public/smart-video/looks),
+   * so the page shows exactly what the app offers.
+   */
+  styles: {
+    title: 'In the full version, choose from 8 video styles.',
+    more: 'New styles added every month.',
+    yours: 'Your free video ad',
+    items: [
+      { id: 'whiteboard', label: 'Hand-drawn' },
+      { id: 'vintage', label: 'Vintage TV' },
+      { id: 'news', label: 'News studio' },
+      { id: 'cartoon', label: 'Cartoon' },
+      { id: 'comic', label: 'Comic book' },
+      { id: 'chalkboard', label: 'Chalkboard' },
+      { id: 'scrapbook', label: 'Scrapbook' },
+      { id: 'clay', label: 'Clay' },
+    ],
+  },
+
   top: {
     title: (name: string) => `Congratulations, ${name}! Your video ad is ready.`,
     /** Who the AI Media Machine is for, in a lead's own words (owner 2026-10-26: "business owners who have to run everything themselves"). Above the video ad. */
@@ -555,7 +576,7 @@ export const RESULT_SALES = {
       {
         q: 'Can I make other kinds of video ads?',
         a: [
-          'Yes. Pick a look for each video ad: playful, elegant, bold, clean or whiteboard. Or let the AI Media Machine pick the best match for your business, with or without an AI presenter. And Video Clip Maker makes any kind of short video ad from 1 photo or 1 idea.',
+          'Yes. Pick a style for each video ad: hand-drawn, vintage TV, news studio, cartoon, comic book, chalkboard, scrapbook, clay and more, with new styles added every month. Or let the AI Media Machine pick the best match for your business, with or without an AI presenter. And Video Clip Maker makes any kind of short video ad from 1 photo or 1 idea.',
         ],
       },
       {
