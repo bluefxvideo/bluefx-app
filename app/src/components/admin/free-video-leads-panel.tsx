@@ -335,7 +335,7 @@ function SwitchOffer({ lead, onSwitched }: { lead: FreeVideoLeadRow; onSwitched:
         {lead.switchedAt && <div>switched {when(lead.switchedAt)}</div>}
       </div>
       {!open ? (
-        <button type="button" onClick={() => setOpen(true)} className="mt-1 font-semibold text-primary hover:underline">
+        <button type="button" onClick={() => setOpen(true)} className="mt-1 block text-left font-semibold text-primary hover:underline">
           Switch to {OFFER_NAME[to]}
         </button>
       ) : (
