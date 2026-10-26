@@ -1,5 +1,6 @@
 import { SERVICE, serviceGoUrl, type ServicePhase } from '@/lib/free-video/offer';
 import { isLive } from '@/lib/free-video/config';
+import { offerSwitchOf } from '@/lib/free-video/offer-switch';
 import { SERVICE_PAGE_HTML } from '@/lib/free-video/service-page-html';
 import { WELCOME_PATH } from '@/lib/free-video/welcome-page';
 import { eventsTable } from '@/lib/free-video/leads';
@@ -38,6 +39,9 @@ export async function firstServiceView(leadId: string): Promise<Date | null> {
 
 /** When the lead's price clock started: the video ad's email or the first open of the page, whichever came first; null = not yet. Throws on a database error. */
 export async function serviceClockStart(lead: Pick<FreeVideoLead, 'id' | 'emailed_at'>): Promise<Date | null> {
+  // Switched to the service by the owner (offer-switch.ts): the held $99 price counts from the switch.
+  const sw = await offerSwitchOf(lead.id);
+  if (sw?.offer === 'service') return sw.at;
   const starts = [lead.emailed_at ? new Date(lead.emailed_at) : null, await firstServiceView(lead.id)].filter(
     (d): d is Date => d !== null && !Number.isNaN(d.getTime())
   );

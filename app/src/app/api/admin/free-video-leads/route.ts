@@ -4,6 +4,9 @@ import { hopLabel } from '@/lib/free-video/clickbank';
 import { savedHops } from '@/lib/free-video/clickbank-hops';
 import { OWNER_TEST_EMAILS } from '@/lib/free-video/config';
 import { isServiceRef } from '@/lib/free-video/funnel';
+import { isLive } from '@/lib/free-video/config';
+import { getLead } from '@/lib/free-video/leads';
+import { OFFERS, offerOf, offerSwitchesOf, switchOffer, type FreeVideoOffer } from '@/lib/free-video/offer-switch';
 
 /**
  * The free video ads people asked for, newest first, for the admin panel (owner 2026-10-07: "where can I see these
@@ -39,18 +42,25 @@ type LeadRow = {
   unlocked_at: string | null;
 };
 
+/** The signed-in admin, or the error response to send. */
+async function requireAdmin(): Promise<{ user: { id: string; email?: string } } | { response: NextResponse }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) return { response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  if (profile?.role !== 'admin' && user.email !== 'contact@bluefx.net') {
+    return { response: NextResponse.json({ error: 'Admin access required' }, { status: 403 }) };
+  }
+  return { user };
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    if (profile?.role !== 'admin' && user.email !== 'contact@bluefx.net') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if ('response' in auth) return auth.response;
 
     const params = request.nextUrl.searchParams;
     const status = params.get('status');
@@ -82,6 +92,9 @@ export async function GET(request: NextRequest) {
       if (copiesError) console.warn('⚠️ [admin] Free video copies not read:', copiesError.message);
       for (const copy of (copies ?? []) as { freeLeadId: string | null }[]) if (copy.freeLeadId) copied.add(copy.freeLeadId);
     }
+
+    // The owner's offer switches (offer-switch.ts): which offer each lead's page shows now.
+    const switches = await offerSwitchesOf(leads.map((lead) => lead.id));
 
     // Which affiliate sent each lead (ClickBank Direct Offer Tracking, clickbank-hops.ts).
     const hops = await savedHops(leads.map((lead) => lead.id));
@@ -132,11 +145,42 @@ export async function GET(request: NextRequest) {
         inAccount: copied.has(lead.id),
         affiliate: hopLabel(hops.get(lead.id)),
         funnel: isServiceRef(lead.ref) ? 'service' : 'app',
+        offer: offerOf(lead, switches.get(lead.id)),
+        switchedAt: switches.get(lead.id)?.at.toISOString() ?? null,
         servicePaid: servicePaid.has(lead.id) ? { amount: servicePaid.get(lead.id) ?? null } : null,
       })),
     });
   } catch (error) {
     console.error('❌ [admin] Free video leads failed:', error);
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Failed' }, { status: 500 });
+  }
+}
+
+/**
+ * Switch offer (offer-switch.ts): POST { leadId, to: 'machine' | 'service', followUp: boolean }. Moves one finished
+ * lead's page to the other offer, starts that offer's clock now, stops the old offer's emails and, with followUp,
+ * starts the new offer's follow-up emails. Admins only. Off the live server MailerLite is left alone.
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const auth = await requireAdmin();
+    if ('response' in auth) return auth.response;
+    const body = (await request.json().catch(() => null)) as { leadId?: unknown; to?: unknown; followUp?: unknown } | null;
+    const leadId = typeof body?.leadId === 'string' ? body.leadId : '';
+    const to = body?.to as FreeVideoOffer;
+    if (!leadId || !(OFFERS as readonly string[]).includes(String(to))) {
+      return NextResponse.json({ success: false, error: 'leadId and to (machine or service) are required' }, { status: 400 });
+    }
+    const lead = await getLead(leadId);
+    if (!lead) return NextResponse.json({ success: false, error: 'Lead not found' }, { status: 404 });
+    if (lead.status !== 'done' || !lead.video_url) {
+      return NextResponse.json({ success: false, error: 'Only a finished video ad can switch offer' }, { status: 409 });
+    }
+    const result = await switchOffer(lead, to, { followUp: body?.followUp === true, mail: isLive(), by: auth.user.email ?? auth.user.id });
+    console.log(`🔀 [admin] Lead ${lead.id} switched to ${to} by ${auth.user.email ?? auth.user.id}: ${result.emails}${result.error ? ` (${result.error})` : ''}`);
+    return NextResponse.json({ success: !result.error, ...result }, { status: result.error ? 500 : 200 });
+  } catch (error) {
+    console.error('❌ [admin] Offer switch failed:', error);
     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Failed' }, { status: 500 });
   }
 }

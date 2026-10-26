@@ -36,6 +36,10 @@ interface FreeVideoLeadRow {
   funnel: 'service' | 'app';
   /** A paid Unlimited Video Ads order of this lead (amount in dollars when known); null without one. */
   servicePaid: { amount: number | null } | null;
+  /** The offer the lead's page shows now: the funnel it came from, or the owner's switch (offer-switch.ts). */
+  offer: 'machine' | 'service';
+  /** When the owner last switched the offer; null when never. */
+  switchedAt: string | null;
 }
 
 interface Summary {
@@ -230,6 +234,7 @@ export function FreeVideoLeadsPanel() {
                           >
                             Video ad page <ExternalLink className="w-3 h-3" />
                           </a>
+                          {lead.status === 'done' && <SwitchOffer lead={lead} onSwitched={loadData} />}
                           {/* /go/claim copies the free video ad into the signed-in admin's own Phantom videos (claim.ts)
                               and opens it there to edit; the client's original stays as it is (owner 2026-10-24). */}
                           {lead.status === 'done' && (
@@ -283,5 +288,76 @@ function SummaryCard({ title, summary }: { title: string; summary: Summary }) {
         ))}
       </CardContent>
     </Card>
+  );
+}
+
+const OFFER_NAME = { machine: 'AI Media Machine', service: 'Unlimited Video Ads' } as const;
+
+/**
+ * Switch offer (owner 2026-10-26): moves one lead's page to the other offer. Their link stays the same, the new
+ * offer's timer starts at the click, the old offer's emails stop, and the tick box starts the new offer's follow-up.
+ */
+function SwitchOffer({ lead, onSwitched }: { lead: FreeVideoLeadRow; onSwitched: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [followUp, setFollowUp] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const to = lead.offer === 'service' ? 'machine' : 'service';
+
+  const run = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const response = await fetch('/api/admin/free-video-leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadId: lead.id, to, followUp }),
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        setMessage(`Now shows ${OFFER_NAME[to]}. Emails: ${result.emails}.`);
+        setOpen(false);
+        onSwitched();
+      } else {
+        setMessage(result.error || result.emails || 'The switch failed');
+      }
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'The switch failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 max-w-[190px] text-xs">
+      <div className="text-muted-foreground">
+        Shows: <span className="font-medium text-foreground">{OFFER_NAME[lead.offer]}</span>
+        {lead.switchedAt && <div>switched {when(lead.switchedAt)}</div>}
+      </div>
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)} className="mt-1 font-semibold text-primary hover:underline">
+          Switch to {OFFER_NAME[to]}
+        </button>
+      ) : (
+        <div className="mt-1 space-y-1 rounded border p-2">
+          <div>
+            {lead.first_name}&apos;s page will show {OFFER_NAME[to]}, with a new 3-day timer starting now. The {OFFER_NAME[lead.offer]} emails stop.
+          </div>
+          <label className="flex items-start gap-1">
+            <input type="checkbox" checked={followUp} onChange={(e) => setFollowUp(e.target.checked)} className="mt-0.5" />
+            <span>Also start the {OFFER_NAME[to]} follow-up emails</span>
+          </label>
+          <div className="flex gap-2">
+            <Button size="sm" className="h-7 px-2 text-xs" onClick={run} disabled={busy}>
+              {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Switch'}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setOpen(false)} disabled={busy}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+      {message && <div className="mt-1 text-muted-foreground">{message}</div>}
+    </div>
   );
 }

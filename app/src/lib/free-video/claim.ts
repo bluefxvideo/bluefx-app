@@ -22,7 +22,7 @@ import { createAdminClient } from '@/app/supabase/server';
 import { claimsTestLeads, fakeMode, OWNER_TEST_EMAILS, renderTargetAllowed } from '@/lib/free-video/config';
 import { offerBonusAds } from '@/lib/free-video/bonus-ads';
 import { asLead, customerIdByEmail, getLead, leadsTable, ownerAccountIdByEmail, readSettings, RETIRED_OWNER_TEST } from '@/lib/free-video/leads';
-import { cleanCopyEarned } from '@/lib/free-video/offer';
+import { bonusEarned } from '@/lib/free-video/offer-switch';
 import { checkCleanFile, cleanProps, inBackground } from '@/lib/free-video/unlock';
 import { BUCKET, jobDir, jobsTable, publicUrl, readJob, STALE_AFTER_MS, touchJob, upload, withRetry, writeJob } from '@/lib/smart-video/jobs';
 import { cutVideo, levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
@@ -95,7 +95,7 @@ export async function claimFreeVideo(lead: FreeVideoLead, userId: string, viaAft
     // A copy that got the marked free file is rendered clean again on the next click, while the working files exist
     // (2026-10-07: every clean render failed its frame check for a day, so the owner's copy kept the mark).
     // Never for a buyer after the 3-day bonus: that copy keeps the mark until its owner edits it.
-    const marked = existing.status === 'done' && Boolean(existing.warnings?.includes(MARKED_COPY)) && !lead.files_cleaned_at && cleanCopyEarned(lead);
+    const marked = existing.status === 'done' && Boolean(existing.warnings?.includes(MARKED_COPY)) && !lead.files_cleaned_at && (await bonusEarned(lead));
     if ((dead || marked) && !finishing.has(copyId)) startFinish(lead, existing, viaAfter);
     return copyId;
   }
@@ -205,7 +205,7 @@ async function finishCopy(lead: FreeVideoLead, initial: SmartVideoJob): Promise<
       // The $99 clean version exists.
       await copyFile(`${freeDir}/${path.basename(new URL(lead.clean_video_url).pathname)}`, `${toDir}/${target}`);
       videoUrl = publicUrl(`${toDir}/${target}`);
-    } else if (lead.files_cleaned_at || fakeMode() || !renderTargetAllowed() || !cleanCopyEarned(lead)) {
+    } else if (lead.files_cleaned_at || fakeMode() || !renderTargetAllowed() || !(await bonusEarned(lead))) {
       // The working files are gone (or this server may not render), or the sale came after the 3-day bonus: the free
       // file it is.
       videoUrl = await copyFree();

@@ -24,6 +24,7 @@ import { unlockOpen } from '@/lib/free-video/cleanup';
 import { ERRORS } from '@/lib/free-video/copy';
 import { isServiceRef } from '@/lib/free-video/funnel';
 import { cleanCopyUntil, isPlacement, unlockGoUrl } from '@/lib/free-video/offer';
+import { offerOf, offerSwitchOf } from '@/lib/free-video/offer-switch';
 import { displayDomain, emailKeyOf, normalizeWebsite, precheckSite } from '@/lib/free-video/website';
 import { whyItWorksOf } from '@/lib/free-video/why-it-works';
 import { jobsTable } from '@/lib/smart-video/jobs';
@@ -651,14 +652,16 @@ export function unlockViewOf(lead: FreeVideoLead): FreeVideoUnlockView {
  * done → the video; held → checking; failed → failed; rejected → unreadable. unlock = Offer 1.
  */
 export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | null): Promise<FreeVideoView> {
+  // The owner may have switched this lead to the other offer (offer-switch.ts); that offer's clock starts at the switch.
+  const sw = lead.status === 'done' ? await offerSwitchOf(lead.id) : null;
   // A lead whose email bought the AI Media Machine since (bought_at) counts as a customer: its video ad goes into the account.
   const base = {
     firstName: lead.first_name,
     domain: displayDomain(lead.website_domain),
     isCustomer: lead.is_customer || Boolean(lead.bought_at),
     unlock: unlockViewOf(lead),
-    // The service funnel (funnel.ts): its finished video ad lives on the Unlimited Video Ads page.
-    ...(isServiceRef(lead.ref) ? { service: true } : {}),
+    // The service funnel (funnel.ts), or a lead the owner switched to it: its finished video ad lives on the Unlimited Video Ads page.
+    ...(offerOf(lead, sw) === 'service' ? { service: true } : {}),
   };
   switch (lead.status) {
     case 'queued': {
@@ -692,7 +695,8 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
       };
     }
     case 'done': {
-      const until = cleanCopyUntil(lead);
+      // Switched to the AI Media Machine: the 3-day bonus counts from the switch.
+      const until = cleanCopyUntil(sw?.offer === 'machine' ? { ...lead, finished_at: sw.at.toISOString() } : lead);
       const why = whyItWorksOf(lead);
       const nextAds = nextAdCardsOf(lead);
       return lead.video_url

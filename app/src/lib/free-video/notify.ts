@@ -29,6 +29,7 @@ import {
 } from '@/lib/free-video/config';
 import { alertOwner } from '@/lib/free-video/alerts';
 import { isServiceRef } from '@/lib/free-video/funnel';
+import { offerOf, offerSwitchOf } from '@/lib/free-video/offer-switch';
 import { eventsTable, getLead, leadsTable } from '@/lib/free-video/leads';
 import { displayDomain, emailKeyOf } from '@/lib/free-video/website';
 import { subscribeToMailerLite } from '@/lib/mailerlite/subscribe';
@@ -210,7 +211,7 @@ export async function deliverLead(leadId: string): Promise<DeliverResult> {
 
 /** A lead of the service funnel, or any lead whose Unlimited Video Ads order was paid (service-order.ts). */
 async function isServiceMember(lead: FreeVideoLead): Promise<boolean> {
-  if (isServiceRef(lead.ref)) return true;
+  if (offerOf(lead, await offerSwitchOf(lead.id)) === 'service') return true;
   const { data } = await eventsTable().select('id').eq('lead_id', lead.id).eq('event', 'service_paid').limit(1);
   return Boolean(data?.length);
 }
