@@ -71,6 +71,7 @@ export const UNLOCK_PAGE = {
       { label: 'Other music or voice', ask: "I'd like other music or a different voice." },
       { label: 'Your own photos or your logo', ask: "I'd like to use my own photos or my logo." },
       { label: 'Your offer or your prices', ask: "I'd like to change the offer or the prices." },
+      { label: 'A different video style', ask: "I'd like my video ad in a different video style." },
     ],
     /** The 3 chips under the headline send these when tapped. */
     chipAsks: ["I'd like to change some of the wording.", "I'd like a different person on camera.", 'Please add my phone number.'],
