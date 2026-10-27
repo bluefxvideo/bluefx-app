@@ -7,12 +7,13 @@ import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useStat
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
 import { PLAN_INFO_PATH, planGoUrl, unlockGoUrl } from '@/lib/free-video/offer';
+import { RESULT_SALES } from '@/lib/free-video/result-sales';
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { UNLOCK_PAGE } from '@/lib/free-video/unlock-page';
 import type { UnlockPrice } from '@/lib/free-video/unlock-price';
 import { cn } from '@/lib/utils';
 import type { FreeVideoView } from '@/types/free-video';
-import { PayCards, ResultScene, Shield, Stars, Tick, VideoReview, videoReviewsOf } from './result-page';
+import { LoopVideo, PayCards, ResultScene, Shield, Stars, Tick, VideoReview, videoReviewsOf } from './result-page';
 import { SaveToPhotos } from './save-to-photos';
 import { VideoAdPlayer } from './video-ad-player';
 import rp from './result-page.module.css';
@@ -266,10 +267,6 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
           </div>
           <div ref={topBuy} className={s.heroAction}>
             <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} only="button" pulse={pulse} />
-            <button type="button" className={s.askLink} onClick={() => ask(null)}>
-              <span className={s.onPhone}>{F.chat.askLinkPhone} ↓</span>
-              <span className={s.onComputer}>{F.chat.askLinkComputer} →</span>
-            </button>
           </div>
           <div className={s.heroTrust}>
             <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} only="trust" />
@@ -291,14 +288,19 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
 
       <section className={s.section}>
         <div className={s.narrow}>
-          <h2 className={s.h2}>{F.changes.title}</h2>
-          <p className={s.p}>{F.changes.text}</p>
-          <p className={s.label}>{F.changes.examplesTitle}</p>
-          <ul className={s.chips}>
-            {F.changes.examples.map((line) => (
-              <li key={line}>{line}</li>
+          <h2 className={s.h2}>{F.styles.title}</h2>
+          <p className={s.p}>{F.styles.text}</p>
+          <ul className={s.styleGrid}>
+            {RESULT_SALES.styles.items.map((style) => (
+              <li key={style.id}>
+                <span className={s.styleTile}>
+                  <LoopVideo src={`/smart-video/looks/${style.id}.mp4`} poster={`/smart-video/looks/${style.id}-poster.jpg`} />
+                </span>
+                <span className={s.styleName}>{style.label}</span>
+              </li>
             ))}
           </ul>
+          <p className={s.small}>{F.styles.more}</p>
         </div>
       </section>
 

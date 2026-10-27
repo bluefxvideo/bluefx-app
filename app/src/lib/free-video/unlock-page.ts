@@ -69,6 +69,8 @@ export const UNLOCK_PAGE = {
       { label: 'A different person', ask: "I'd like a different person on camera." },
       { label: 'Change the wording', ask: "I'd like to change some of the wording." },
       { label: 'Other music or voice', ask: "I'd like other music or a different voice." },
+      { label: 'Your own photos or your logo', ask: "I'd like to use my own photos or my logo." },
+      { label: 'Your offer or your prices', ask: "I'd like to change the offer or the prices." },
     ],
     /** The 3 chips under the headline send these when tapped. */
     chipAsks: ["I'd like to change some of the wording.", "I'd like a different person on camera.", 'Please add my phone number.'],
@@ -109,6 +111,13 @@ export const UNLOCK_PAGE = {
       'A word or a line in the script',
       'Your offer or your prices',
     ],
+  },
+
+  /** The 8 looks the Phantom can remake a video ad in (RESULT_SALES.styles, the same loops as its style gallery). */
+  styles: {
+    title: 'Want to change the video style completely?',
+    text: 'Pick one of these 8 styles, and my team remakes your video ad in that style.',
+    more: 'New styles added every month.',
   },
 
   getTitle: 'What you get',
