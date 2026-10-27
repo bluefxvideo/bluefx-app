@@ -7,6 +7,8 @@
  *
  * Run from app/ (spends real API money; the render goes to the Remotion server .env.local points at):
  *   REMAKE_ALLOW_PAID=1 npx tsx src/scripts/remake-free-video.ts <view token> <look> <note file> <photo url>...
+ * REMAKE_LENGTH=script narrates the note file as the script (e.g. a client who needs 30 seconds); add REMAKE_NO_LINK=1
+ * so the website text is not appended to the script (the director would be told to narrate all of it).
  */
 import { config } from 'dotenv';
 import { randomUUID } from 'node:crypto';
@@ -45,7 +47,7 @@ async function main(): Promise<void> {
   console.log(`📎 ${uploads.length} client photos uploaded`);
 
   const now = new Date().toISOString();
-  const job = { id, userId, status: 'reading', brief: fs.readFileSync(noteFile, 'utf8').trim(), link: lead.website_url, length: 'auto', format: 'vertical', look, voiceOver: true, music: true, createdAt: now, updatedAt: now } as const;
+  const job = { id, userId, status: 'reading', brief: fs.readFileSync(noteFile, 'utf8').trim(), link: process.env.REMAKE_NO_LINK === '1' ? undefined : lead.website_url, length: process.env.REMAKE_LENGTH === 'script' ? 'script' : 'auto', format: 'vertical', look, voiceOver: true, music: true, createdAt: now, updatedAt: now } as const;
   await createJob(job as never);
   console.log(`🎬 Job ${id} for ${lead.website_domain}`);
 
