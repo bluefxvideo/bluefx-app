@@ -249,8 +249,8 @@ export const UNLOCK_PAGE = {
      * The owner's sales video for this offer (he records it: thank you, the math, the free month, the guarantee), shown
      * between the headline and the first button. Empty until it exists: a local preview shows where it goes.
      */
-    salesVideo: '' as string,
-    salesVideoPoster: '' as string,
+    salesVideo: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/thank-you-message/thank-you-message-1.mp4' as string,
+    salesVideoPoster: 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/thank-you-message/thank-you-message-1-poster.jpg' as string,
     salesVideoSpot: 'Your sales video goes here (between the headline and the first button)',
     plannedTitle: 'Here are your first 4, already planned from your website',
     /** Owner 2026-10-27: the 4 are only ideas to make planning easy; any other idea is fine. */

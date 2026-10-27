@@ -958,7 +958,8 @@ function ThanksOffer({ view, token, kicker, preview = false }: { view: FreeVideo
         </div>
         {F.salesVideo ? (
           <div className={s.salesVideo}>
-            <VideoAdPlayer src={F.salesVideo} label={F.title(view.domain)} className={rp.heroPlayerFrame} tapToPlay />
+            {/* Owner's own landscape message (2026-10-27): a plain wide player, sound on when they press play. */}
+            <video className={s.salesVideoEl} src={F.salesVideo} poster={F.salesVideoPoster || undefined} controls playsInline preload="metadata" aria-label="A message from Szilard" />
           </div>
         ) : preview ? (
           <div className={s.salesVideoSpot}>{F.salesVideoSpot}</div>
