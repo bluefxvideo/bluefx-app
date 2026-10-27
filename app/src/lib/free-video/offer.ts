@@ -227,11 +227,12 @@ export const UNLOCK = {
   /** The regular price's product, $99 (after the launch clock). */
   product: 'video-creation',
   /**
-   * The launch price (owner 2026-10-27): $49 on FastSpring's custom-video-ad for LAUNCH_DAYS from the lead's first visit
+   * The launch price (owner 2026-10-27): $49 on FastSpring's custom-video-ad for launchDays from the lead's first visit
    * to the unlock page, then video-creation at $99. Both products unlock the video ad.
    */
   launchProduct: 'custom-video-ad',
-  launchDays: 7,
+  /** Owner 2026-10-27: "3 days is more than enough" (was 7). */
+  launchDays: 3,
   regularPrice: '$99',
   storefront: 'https://bluefx.onfastspring.com',
   tagKey: 'freeVideoLead',

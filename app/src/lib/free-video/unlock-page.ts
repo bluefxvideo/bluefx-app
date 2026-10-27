@@ -38,9 +38,9 @@ export const UNLOCK_PAGE = {
   meta: (domain: string) => `Your video ad for ${domain}`,
   kicker: (domain: string) => `Your video ad for ${domain} is ready`,
   /** Owner 2026-10-27: "our biggest challenge, clients always want something changed", so the changes go in the headline, in red. */
-  title: 'Get the full version without the watermark,',
+  title: 'Get your video ad without the watermark,',
   titleRed: 'plus any changes you want.',
-  sub: 'What you watched is a sample. Tell us what to change, and a real person on my team does it until your video ad feels right.',
+  sub: 'What you watched is a sample. Tell us what to fix, and a real person on my team makes the changes until your video ad looks just right.',
   /** Real requests from leads who replied, as small chips under the sub. */
   chips: ['Your wording', 'A different person', 'Your phone number'] as const,
   priceUnit: 'one time',
@@ -53,11 +53,11 @@ export const UNLOCK_PAGE = {
     if (days > 0) return `${days} ${days === 1 ? 'day' : 'days'}${hours ? ` ${hours} h` : ''} left`;
     return `${hours ? `${hours} h ` : ''}${minutes % 60} min left`;
   },
-  button: (price: string) => `Unlock My Video Ad for ${price}`,
+  button: (price: string) => `Get My Video Ad for ${price}`,
   promiseShort: (price: string) => `The Feel-Right Promise: changes until your video ad feels right, or your ${price} back`,
   trust: 'Secure checkout by FastSpring. Cards and PayPal.',
   afterClick: 'Finish the payment in the new tab. This page updates by itself as soon as the payment arrives.',
-  bar: 'Unlock My Video Ad',
+  bar: 'Get My Video Ad',
   barWaiting: 'Waiting for your payment...',
   barCheck: 'Paid? Tap here',
 
