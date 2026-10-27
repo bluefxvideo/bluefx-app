@@ -82,7 +82,7 @@ export const UNLOCK_PAGE = {
     send: 'Send',
     thinking: 'Typing...',
     listTitle: 'Your changes are saved:',
-    listNote: 'Tap the green button. Your video ad without the watermark is ready in about 5 minutes, and my team emails you your changed video ad within 24 hours. Thought of something else? Add it here any time.',
+    listNote: 'Tap the green button. Right after you pay, our AI engine makes these changes on your page, in about 5 to 10 minutes. Not quite right? A real person on my team fixes it. Thought of something else? Add it here any time.',
     limit: 'You sent a lot of messages today. Please email your changes to support@bluefx.net.',
     error: 'Sorry, my answer did not come through. Please try again, or email support@bluefx.net.',
   },
@@ -234,7 +234,8 @@ export const UNLOCK_PAGE = {
   thanks: {
     /** The compact status at the top while the video ad is made (offer review 2026-10-27: one row, the offer starts on the first screen). */
     paidTitle: (name: string) => `Paid. Your video ad is being made${name ? `, ${name}` : ''}.`,
-    paidNote: 'A real person on my team checks your video ad before it goes out. We email you when it is ready.',
+    /** Owner 2026-10-27: nobody checks the clean file before it goes out, so the page says what really happens. */
+    paidNote: 'Your video ad shows up right here in about 5 minutes, and we email you a copy. Want anything changed? A real person on my team is here to help.',
     makingChanges: 'My team is making your changes:',
     /** The offer names itself first (3-expert review 2026-10-27: buyers did not know what the 4 pictures were for). */
     kickerPaid: 'One more thing',
