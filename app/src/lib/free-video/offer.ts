@@ -312,7 +312,7 @@ export const PLAN_PLACEMENT = 'fvplan';
  * 30-day free trial, then $99 a month. Its path must contain 'editing-service' (the webhook's service branch). Empty
  * until it exists: the thank-you offer then stays off the live site and /go/fvplan keeps the plain $99 product.
  */
-export const PLAN_TRIAL_PRODUCT: string = '';
+export const PLAN_TRIAL_PRODUCT: string = 'starter-editing-service-trial';
 export const planGoUrl = (token: string) => `/go/${PLAN_PLACEMENT}?t=${encodeURIComponent(token)}`;
 /** The public page that explains the plan at $99 (linked nowhere else, owner 2026-10-27). */
 export const PLAN_INFO_PATH = '/weekly-video-plan-99';
