@@ -33,7 +33,7 @@ import { frameOf, probeFile } from '@/lib/free-video/gate';
 import { asLead, getLead, getLeadByToken, leadsTable, readSettings, transitionUnlock } from '@/lib/free-video/leads';
 import { trackPurchase } from '@/lib/free-video/meta';
 import { deliverUnlock } from '@/lib/free-video/notify';
-import { latestChangePlan } from '@/lib/free-video/change-chat';
+import { chatWordsOf, latestChangePlan } from '@/lib/free-video/change-chat';
 import { aiChangesOf, startAiChange, wantsNewStyle } from '@/lib/free-video/instant-change';
 import { changesUsed, requestChange } from '@/lib/free-video/change-requests';
 import { UNLOCK, UNLOCK_PRODUCTS } from '@/lib/free-video/offer';
@@ -378,7 +378,17 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
     'Change plan',
     async () => {
       const plan = await latestChangePlan(paidLead.id);
-      if (!plan) return;
+      if (!plan) {
+        // Chatted but no list was saved (the model never wrote one): the owner gets the customer's own words.
+        const words = await chatWordsOf(paidLead.id);
+        if (words.length) {
+          await alertOwner(
+            [{ key: `unlock-chat-nolist:${paidLead.id}`, line: `${displayDomain(paidLead.website_domain)} paid ${UNLOCK.price} after using the change chat, but no change list was saved, so no change started. What they typed: ${words.map((w) => `"${w.slice(0, 120)}"`).join(', ')}. Make the changes by hand.` }],
+            'a paid buyer chatted about changes but none started'
+          );
+        }
+        return;
+      }
       const text = plan.map((c, i) => `${i + 1}. ${c}`).join('\n');
       // Owner 2026-10-27: the chat's list starts at once as instant change 1; a new style goes to the team.
       if (!wantsNewStyle(text)) {

@@ -57,6 +57,17 @@ export async function ownUploads(uploadJobId: string | undefined, uploads: Chang
   return prefix ? uploads.filter((u) => u.path.startsWith(prefix) && !u.path.includes('..')).slice(0, CHANGE_MAX_FILES) : [];
 }
 const PAID = ['paid', 'rendering', 'ready', 'failed'];
+/** Lines of a change that ask for another person on camera ("a different person", "a man in his 50s instead of the woman"). */
+const PERSON_WORDS = /\b(person|presenter|spokes(?:man|woman|person)|on camera|man|woman|guy|lady|girl|boy|actor|actress|face|avatar|host)\b/i;
+const VOICE_ONLY = /\b(voice|narrat|voice-?over|accent)\b/i;
+export function presenterWords(text: string): string | null {
+  const lines = text
+    .split(/\n+/)
+    .map((l) => l.replace(/^\s*\d+[.)]\s*/, '').trim())
+    .filter((l) => PERSON_WORDS.test(l) && !(VOICE_ONLY.test(l) && !/\bon camera\b/i.test(l)));
+  return lines.length ? lines.join('. ').slice(0, 300) : null;
+}
+
 /** The 8 looks of the style gallery: a change that asks for one of them goes to the team. */
 const STYLE_WORDS = /\b(hand-?drawn|whiteboard|vintage|news studio|cartoon|comic|chalkboard|scrapbook|clay|claymation|style)\b/i;
 
@@ -153,7 +164,11 @@ async function runAiChange(start: SmartVideoJob, baseId: string, lead: FreeVideo
         job = { ...job, status: stage };
         writeJob(job).catch(() => undefined);
       },
-      added
+      added,
+      undefined,
+      // A different person on camera is cast only through the presenter option, never from the note (owner rule
+      // 2026-10-13); a buyer's change that asks for one passes those lines as "who should be on camera".
+      { presenter: presenterWords(text) || undefined }
     );
     const result = withSubtitleLook(revised, saved, text);
     // The buyer paid for the clean version: never the SAMPLE watermark or the end card.

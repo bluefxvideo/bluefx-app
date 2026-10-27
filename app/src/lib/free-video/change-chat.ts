@@ -89,7 +89,7 @@ HOW TO TALK (like a friendly person on the team chatting with a customer, never 
 - Never promise a time other than this: right after the payment, our AI engine makes the changes on their page in about 5 to 10 minutes, and a real person on the team fixes anything that is not right (within 24 hours). A completely new style is made by the team, within 24 hours.
 - When something can't be done, say so kindly and offer the closest change the team can make.
 
-WHEN THE LIST IS CLEAR: only after the customer said there is nothing else, set "done" to true and put each change as one short line in "changes" in plain words a customer understands (for example "Put 555-123-4567 on the last screen", "A man in his 50s on camera instead of the woman"; never the word AI). Before that, "done" is false and "changes" is empty. If the customer adds more later, set "done" to true again with the full updated list.
+THE LIST: in every answer, "changes" holds every change the customer asked for so far, one short line each, in plain words a customer understands (for example "Put 555-123-4567 on the last screen", "A man in his 50s on camera instead of the woman"; never the word AI). Write what is known so far even when a detail is still open (for example "A different person on camera" before they said man or woman), and update the lines as answers come in. The customer may pay at any moment, so the list must always be complete. Set "done" to true only after the customer said there is nothing else; before that "done" is false. If the customer adds more later, set "done" to true again with the full updated list.
 
 Answer ONLY as JSON: {"reply": string, "done": boolean, "changes": string[]}`;
 }
@@ -116,22 +116,31 @@ export async function chatTurn(lead: FreeVideoLead, messages: ChatMessage[]): Pr
   const parsed = JSON.parse(text) as { reply?: unknown; done?: unknown; changes?: unknown };
   const reply = typeof parsed.reply === 'string' ? parsed.reply.replace(/\s[–—]\s/g, ', ').replace(/[–—]/g, ', ').trim() : '';
   if (!reply) throw new Error('change chat model gave no reply');
-  const changes =
-    parsed.done === true && Array.isArray(parsed.changes)
-      ? parsed.changes.filter((c): c is string => typeof c === 'string' && c.trim().length > 2).map((c) => c.trim().slice(0, 200)).slice(0, 12)
-      : [];
+  // The running list is saved after every answer (owner 2026-10-27, Tim paid while the chat was still asking "man or
+  // woman?" and his changes were lost): a payment at any moment carries everything asked for so far. The page only
+  // shows the list (and the "Changed Video Ad" button) once the customer said that's all.
+  const list = Array.isArray(parsed.changes)
+    ? parsed.changes.filter((c): c is string => typeof c === 'string' && c.trim().length > 2).map((c) => c.trim().slice(0, 200)).slice(0, 12)
+    : [];
+  const done = parsed.done === true && list.length > 0;
   const last = messages[messages.length - 1]?.text ?? '';
   await recordEvent({ event: 'change_chat', leadId: lead.id, ref: lead.ref, meta: { said: last.slice(0, CHAT_MAX_CHARS), reply: reply.slice(0, 600) } });
-  if (changes.length) await recordEvent({ event: 'change_plan', leadId: lead.id, ref: lead.ref, meta: { changes } });
-  return { reply, changes: changes.length ? changes : null };
+  if (list.length) await recordEvent({ event: 'change_plan', leadId: lead.id, ref: lead.ref, meta: { changes: list, done } });
+  return { reply, changes: done ? list : null };
 }
 
-/** The newest confirmed change list of a lead, or null. */
+/** The newest change list of a lead (confirmed or still being chatted about), or null. */
 export async function latestChangePlan(leadId: string): Promise<string[] | null> {
   const { data, error } = await eventsTable().select('meta').eq('lead_id', leadId).eq('event', 'change_plan').order('at', { ascending: false }).limit(1);
   if (error) throw new Error(`change plan not read: ${error.message}`);
   const changes = (data?.[0]?.meta as { changes?: unknown } | undefined)?.changes;
   return Array.isArray(changes) && changes.length ? (changes.filter((c) => typeof c === 'string') as string[]) : null;
+}
+
+/** What the customer typed in the change chat (oldest first), for the owner when no list was saved. */
+export async function chatWordsOf(leadId: string): Promise<string[]> {
+  const { data } = await eventsTable().select('meta').eq('lead_id', leadId).eq('event', 'change_chat').order('at', { ascending: true }).limit(40);
+  return (data ?? []).map((row: { meta?: { said?: unknown } }) => (typeof row.meta?.said === 'string' ? row.meta.said.trim() : '')).filter(Boolean);
 }
 
 /** The texts of the changes a buyer asked for so far (newest last), for the ready page. */
