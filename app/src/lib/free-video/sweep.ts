@@ -473,11 +473,56 @@ async function collectAlerts(
     add('setup', `unlock-setup:${dayKey()}`, `${owedUnlockEmails} clean ${UNLOCK.price} video ads wait for their email: ML_GROUP_UNLOCKED in lib/free-video/config.ts is still empty (the pages show the downloads).`);
   }
 
-  const subject =
-    Object.entries(counts)
-      .map(([kind, n]) => (kind === 'breaker' ? 'breaker tripped' : `${n} ${kind}`))
-      .join(', ') || 'nothing new';
+  // An AI provider out of credits (owner 2026-10-27: Gemini's prepaid credits ran out, 3 free video ads failed and the
+  // breaker paused everything): one plain alert at the top, to the owner's own inbox too, with what to do. Checks the
+  // failed free video ads and every Phantom job of the last hour, so paying customers' failures count as well.
+  const credits = await creditFailures();
+  if (credits) {
+    items.unshift({
+      key: `credits:${credits.provider}:${twoHourKey()}`,
+      line: `${credits.provider} is out of credits: ${credits.count} video ad(s) failed in the last hour (${credits.sample}). Free video ads and every app tool that uses ${credits.provider} fail until it is topped up. Top up: ${credits.where}. Then switch new starts back on if the breaker paused them: update free_video_settings set starting = true, updated_at = now() where id = 1; and make the failed free video ads again (the lines below have the SQL for each).`,
+    });
+    counts.credits = 1;
+  }
+
+  const subject = credits
+    ? `URGENT: ${credits.provider} is out of credits, video ads are failing`
+    : Object.entries(counts)
+        .map(([kind, n]) => (kind === 'breaker' ? 'breaker tripped' : `${n} ${kind}`))
+        .join(', ') || 'nothing new';
   return { items, subject };
+}
+
+/** An error that means a provider wants money, not a bad input: Google's prepay 402, fal's exhausted balance. */
+const OUT_OF_CREDITS = /\b402\b|credits are depleted|prepayment|exhausted balance|insufficient (?:balance|credits|funds)|billing/i;
+
+/** Which provider an out-of-credits error is from, and where to top it up. */
+function creditProvider(error: string): { provider: string; where: string } {
+  if (/generativelanguage|ai\.studio|gemini|prepayment/i.test(error)) return { provider: 'Gemini (Google AI)', where: 'https://ai.studio/projects, Billing (turn on auto-reload)' };
+  if (/\bfal\b|exhausted balance/i.test(error)) return { provider: 'fal.ai', where: 'https://fal.ai/dashboard/billing' };
+  return { provider: 'An AI provider', where: 'the provider named in the error' };
+}
+
+/** The failures of the last hour caused by a provider out of credits: failed free video ads plus failed Phantom jobs of any account. */
+async function creditFailures(): Promise<{ provider: string; where: string; count: number; sample: string } | null> {
+  // Only the last hour: a lead that failed on credits days ago must not alert again every 2 hours.
+  const hour = isoMinutesAgo(60);
+  const reasons: string[] = [];
+  try {
+    const { data } = await leadsTable().select('reason').eq('status', 'failed').gt('updated_at', hour).limit(100);
+    for (const row of (data ?? []) as { reason: string | null }[]) if (OUT_OF_CREDITS.test(row.reason || '')) reasons.push(row.reason as string);
+  } catch {
+    // The jobs alone still tell.
+  }
+  try {
+    const { data } = await jobsTable().select('job').eq('status', 'failed').gt('updated_at', hour).limit(100);
+    for (const row of (data ?? []) as { job: { error?: string } }[]) if (OUT_OF_CREDITS.test(row.job?.error || '')) reasons.push(row.job.error as string);
+  } catch {
+    // The leads alone still tell.
+  }
+  if (!reasons.length) return null;
+  const { provider, where } = creditProvider(reasons[0]);
+  return { provider, where, count: reasons.length, sample: reasons[0].replace(/\s+/g, ' ').slice(0, 160) };
 }
 
 /**

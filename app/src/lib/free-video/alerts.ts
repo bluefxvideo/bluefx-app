@@ -9,7 +9,7 @@
  */
 
 import { createAdminClient } from '@/app/supabase/server';
-import { ALERT_FROM, ALERTS_PER_DAY, OWNER_ALERT_EMAIL } from '@/lib/free-video/config';
+import { ALERT_FROM, ALERTS_PER_DAY, OWNER_ALERT_EMAIL, OWNER_URGENT_EMAILS } from '@/lib/free-video/config';
 
 export const alertsTable = () => (createAdminClient() as any).from('free_video_alerts');
 
@@ -148,7 +148,7 @@ export async function alertOwner(items: AlertItem[], subject: string): Promise<n
       '',
       RUNBOOK,
     ].join('\n');
-    const title = fresh ? subject : 'alerts that could not be sent earlier';
+    const title = fresh ? subject : subject.startsWith('URGENT') ? subject : 'alerts that could not be sent earlier';
     const result = await sendBrevo(lines.length > 1 ? `${title} (${lines.length})` : title, text);
     if (!result.ok) {
       await alertsTable()
@@ -165,6 +165,8 @@ export async function alertOwner(items: AlertItem[], subject: string): Promise<n
 
 /** One plain-text email to the owner through Brevo's transactional API (10 s timeout). */
 export async function sendBrevo(subject: string, text: string): Promise<{ ok: boolean; error?: string }> {
+  // An urgent alert ("URGENT: ..." subject) reaches the owner's own inbox too.
+  const to = subject.startsWith('URGENT') ? OWNER_URGENT_EMAILS.map((email) => ({ email })) : [{ email: OWNER_ALERT_EMAIL }];
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) return { ok: false, error: 'BREVO_API_KEY not set' };
   try {
@@ -173,7 +175,7 @@ export async function sendBrevo(subject: string, text: string): Promise<{ ok: bo
       headers: { 'api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         sender: ALERT_FROM,
-        to: [{ email: OWNER_ALERT_EMAIL }],
+        to,
         subject: `[Free video] ${subject}`,
         textContent: text,
       }),

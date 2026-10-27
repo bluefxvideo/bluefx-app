@@ -169,6 +169,8 @@ export const CLARITY_PROJECT_ID: string = 'yw7btj04u8'; // Clarity project "Blue
 
 /** INTERNAL_NOTIFY_EMAIL of the waas funnels (bluefx-waas/client-bluefx/.env). */
 export const OWNER_ALERT_EMAIL = 'support@bluefx.net';
+/** Urgent alerts (an AI provider out of credits, owner 2026-10-27) also go to the owner's own inbox. */
+export const OWNER_URGENT_EMAILS = ['support@bluefx.net', 'contact@bluefx.net'] as const;
 /** BREVO_FROM_EMAIL of the waas funnels: a sender that already sends through Brevo. */
 export const ALERT_FROM = { email: 'support@bluefx.net', name: 'BlueFX Free Video' } as const;
 
