@@ -437,7 +437,7 @@ export type TutorialOpenSource = (typeof TUTORIAL_OPEN_SOURCES)[number];
  */
 /** service_paid: a paid Unlimited Video Ads order of this lead (service-order.ts). */
 /** change_request: a change an unlock buyer typed on the unlock page (meta {text, round}). */
-export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused' | 'service_paid' | 'change_request';
+export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused' | 'service_paid' | 'change_request' | 'change_chat' | 'change_plan';
 
 export const FreeVideoEventSchema = z.object({
   e: z.enum(FREE_VIDEO_EVENTS),

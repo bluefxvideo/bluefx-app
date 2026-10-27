@@ -33,6 +33,8 @@ import { frameOf, probeFile } from '@/lib/free-video/gate';
 import { asLead, getLead, getLeadByToken, leadsTable, readSettings, transitionUnlock } from '@/lib/free-video/leads';
 import { trackPurchase } from '@/lib/free-video/meta';
 import { deliverUnlock } from '@/lib/free-video/notify';
+import { latestChangePlan } from '@/lib/free-video/change-chat';
+import { changesUsed, requestChange } from '@/lib/free-video/change-requests';
 import { UNLOCK, UNLOCK_PRODUCTS } from '@/lib/free-video/offer';
 import { displayDomain, emailKeyOf } from '@/lib/free-video/website';
 import { jobDir, readPlan, upload } from '@/lib/smart-video/jobs';
@@ -367,6 +369,16 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
   inBackground(
     'Meta Purchase',
     () => trackPurchase(paidLead, { id: orderId, amount: order.amount, currency: order.currency, email: order.email, ip: buyerIp }),
+    true
+  );
+  // The change list the buyer confirmed in the change chat before paying becomes the first change request: the owner's
+  // email with the list, and the ready page shows the changes being made (change-chat.ts).
+  inBackground(
+    'Change plan',
+    async () => {
+      const plan = await latestChangePlan(paidLead.id);
+      if (plan && (await changesUsed(paidLead.id)) === 0) await requestChange(paidLead, plan.map((c, i) => `${i + 1}. ${c}`).join('\n'), 0);
+    },
     true
   );
   if (updated.status === 'done') startCleanRender(updated.id, true);

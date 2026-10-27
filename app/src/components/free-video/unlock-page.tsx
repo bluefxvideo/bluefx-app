@@ -22,6 +22,10 @@ interface UnlockPageProps {
   price: UnlockPrice;
   /** The last day the video ad can be unlocked (ISO), or null when unknown. */
   filesUntil: string | null;
+  /** The change list confirmed in the change chat, if any. */
+  plan: string[] | null;
+  /** The changes asked for after the payment (the ready page lists them). */
+  requested: string[];
   changesLeft: number;
   /** A local preview of one display: the page never asks for news. */
   preview?: boolean;
@@ -37,7 +41,7 @@ const CLICK_WINDOW_MS = 30 * 60_000;
  * the Weekly Video Plan). The checkout opens in a new tab through /go/fvunlock; this page polls the lead's view, and asks
  * again every time the visitor comes back to this tab (no time limit), or taps "Paid? Tap here" in the phone bar.
  */
-export function UnlockPage({ token, initial, price, filesUntil, changesLeft, preview = false }: UnlockPageProps) {
+export function UnlockPage({ token, initial, price, filesUntil, plan, requested, changesLeft, preview = false }: UnlockPageProps) {
   const [view, setView] = useState(initial);
   const [clickedAt, setClickedAt] = useState<number | null>(null);
   const beacon = useFreeVideoBeacon(token);
@@ -81,10 +85,10 @@ export function UnlockPage({ token, initial, price, filesUntil, changesLeft, pre
   return (
     <div className={cn(rp.page, s.page)}>
       {unlock.state === 'available' && (
-        <Offer view={view} token={token} price={price} filesUntil={filesUntil} clicked={clickedAt !== null} onCheckout={onCheckout} onCheck={ask} />
+        <Offer view={view} token={token} price={price} filesUntil={filesUntil} initialPlan={plan} clicked={clickedAt !== null} onCheckout={onCheckout} onCheck={ask} />
       )}
       {working && <Unlocking view={view} token={token} />}
-      {unlock.state === 'ready' && <Ready view={view} token={token} changesLeft={changesLeft} onDownload={() => beacon('download')} />}
+      {unlock.state === 'ready' && <Ready view={view} token={token} requested={requested} changesLeft={changesLeft} onDownload={() => beacon('download')} />}
       {unlock.state === 'failed' && <Note title={UNLOCK_PAGE.failed.title} text={UNLOCK_PAGE.failed.text} />}
       {unlock.state === 'unavailable' && <Note title={UNLOCK_PAGE.closed.title} text={UNLOCK_PAGE.closed.text} link={{ href: `/v/${token}`, label: UNLOCK_PAGE.closed.button }} />}
     </div>
@@ -96,6 +100,7 @@ interface OfferProps {
   token: string;
   price: UnlockPrice;
   filesUntil: string | null;
+  initialPlan: string[] | null;
   clicked: boolean;
   onCheckout: () => void;
   onCheck: () => void;
@@ -172,7 +177,8 @@ function useBar(boxes: RefObject<HTMLDivElement | null>[]): boolean {
   return on;
 }
 
-function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }: OfferProps) {
+function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckout, onCheck }: OfferProps) {
+  const [plan, setPlan] = useState<string[] | null>(initialPlan);
   const F = UNLOCK_PAGE;
   const beacon = useFreeVideoBeacon(token);
   const topBuy = useRef<HTMLDivElement>(null);
@@ -183,7 +189,7 @@ function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }:
   const barOn = useBar(boxes);
   const checkout = unlockGoUrl(token);
   const left = useTimeLeft(price.endsAt);
-    const action = <Action href={checkout} price={price} clicked={clicked} onCheckout={onCheckout} />;
+    const action = <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} />;
 
   return (
     <>
@@ -219,6 +225,9 @@ function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }:
           </div>
           <div ref={topBuy} className={s.heroAction}>
             {action}
+          </div>
+          <div className={s.heroChat}>
+            <ChangeChat token={token} plan={plan} onPlan={setPlan} buy={<a className={s.button} href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>{F.buttonChanged(price.price)}</a>} />
           </div>
         </div>
       </section>
@@ -471,18 +480,20 @@ function PriceBlock({ price, left }: { price: UnlockPrice; left: number | null }
 interface ActionProps {
   href: string;
   price: UnlockPrice;
+  /** The visitor confirmed a change list in the chat. */
+  changed: boolean;
   clicked: boolean;
   onCheckout: () => void;
 }
 
 /** The button, the promise and the payment logos. */
-function Action({ href, price, clicked, onCheckout }: ActionProps) {
+function Action({ href, price, changed, clicked, onCheckout }: ActionProps) {
   const F = UNLOCK_PAGE;
   return (
     <div className={s.buy}>
       {/* A new tab, so this page keeps asking and shows the clean video ad once the payment arrives. */}
       <a className={s.button} href={href} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
-        {F.button(price.price)}
+        {changed ? F.buttonChanged(price.price) : F.button(price.price)}
       </a>
       {clicked && (
         <p className={s.clicked} role="status">
@@ -510,6 +521,90 @@ function CompactBuy({ price, left, action }: { price: UnlockPrice; left: number 
         {price.launch && left !== null && <em>{UNLOCK_PAGE.priceUpIn} {shortClock(left)}</em>}
       </p>
       {action}
+    </div>
+  );
+}
+
+
+/** The change chat (change-chat.ts): the visitor tells the AI what to change before paying; the confirmed list is saved. */
+function ChangeChat({ token, plan, onPlan, buy }: { token: string; plan: string[] | null; onPlan: (plan: string[]) => void; buy: ReactNode }) {
+  const F = UNLOCK_PAGE.chat;
+  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>([{ role: 'assistant', text: F.hello }]);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const list = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const box = list.current;
+    if (box && messages.length > 1) box.scrollTop = box.scrollHeight;
+  }, [messages, busy]);
+
+  const send = async () => {
+    const said = text.trim();
+    if (!said || busy) return;
+    const next = [...messages, { role: 'user' as const, text: said.slice(0, 600) }];
+    setMessages(next);
+    setText('');
+    setBusy(true);
+    try {
+      // The greeting is the page's own line, not the model's: the model sees the talk from the visitor's first message.
+      const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/change-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: next.slice(1).slice(-16) }),
+      });
+      const answer = await res.json().catch(() => null);
+      if (res.ok && answer?.success) {
+        setMessages((m) => [...m, { role: 'assistant', text: answer.data.reply as string }]);
+        if (Array.isArray(answer.data.changes) && answer.data.changes.length) onPlan(answer.data.changes as string[]);
+      } else {
+        setMessages((m) => [...m, { role: 'assistant', text: answer?.details?.code === 'limit' ? F.limit : F.error }]);
+      }
+    } catch {
+      setMessages((m) => [...m, { role: 'assistant', text: F.error }]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className={s.chat}>
+      <p className={s.chatTitle}>{F.title}</p>
+      <p className={s.chatNote}>{F.note}</p>
+      <div ref={list} className={s.chatList} aria-live="polite">
+        {messages.map((m, i) => (
+          <p key={i} className={m.role === 'user' ? s.chatMe : s.chatThem}>
+            {m.text}
+          </p>
+        ))}
+        {busy && <p className={cn(s.chatThem, s.chatBusy)}>{F.thinking}</p>}
+      </div>
+      {plan && (
+        <div className={s.chatPlan}>
+          <p>
+            <b>{F.listTitle}</b>
+          </p>
+          <ol>
+            {plan.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ol>
+          <p className={s.chatNote}>{F.listNote}</p>
+          {buy}
+        </div>
+      )}
+      <form
+        className={s.chatForm}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void send();
+        }}
+      >
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={F.placeholder} maxLength={600} aria-label={F.title} />
+        <button type="submit" disabled={busy || !text.trim()}>
+          {F.send}
+        </button>
+      </form>
     </div>
   );
 }
@@ -552,11 +647,12 @@ function Unlocking({ view, token }: { view: FreeVideoView; token: string }) {
 interface ReadyProps {
   view: FreeVideoView;
   token: string;
+  requested: string[];
   changesLeft: number;
   onDownload: () => void;
 }
 
-function Ready({ view, token, changesLeft, onDownload }: ReadyProps) {
+function Ready({ view, token, requested, changesLeft, onDownload }: ReadyProps) {
   const F = UNLOCK_PAGE.ready;
   const clean = view.unlock.cleanVideoUrl as string;
   const download = view.unlock.cleanDownloadUrl ?? clean;
@@ -571,6 +667,19 @@ function Ready({ view, token, changesLeft, onDownload }: ReadyProps) {
           {F.button}
         </a>
         <SaveToPhotos url={clean} fileName={DOWNLOAD.cleanFileName(view.domain)} onSaved={onDownload} variant="link" />
+        {requested.length > 0 && (
+          <div className={s.chatPlan}>
+            <p>
+              <b>{F.requestedTitle}</b>
+            </p>
+            {requested.map((r) => (
+              <p key={r} className={s.requestedText}>
+                {r}
+              </p>
+            ))}
+            <p className={s.chatNote}>{F.requestedNote}</p>
+          </div>
+        )}
         <ChangeBox token={token} initialLeft={changesLeft} />
         <PlanCard view={view} token={token} />
       </div>

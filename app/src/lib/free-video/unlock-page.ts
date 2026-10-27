@@ -57,6 +57,19 @@ export const UNLOCK_PAGE = {
     return `${hours ? `${hours} h ` : ''}${minutes % 60} min left`;
   },
   button: (price: string) => `Get My Video Ad for ${price}`,
+  buttonChanged: (price: string) => `Get My Changed Video Ad for ${price}`,
+  chat: {
+    title: 'What would you like changed?',
+    note: 'Tell us before you buy. A real person on my team makes the changes after you pay.',
+    hello: 'Hi! What would you like changed in your video ad? For example your phone number on the last screen, a different voice or a different person on camera.',
+    placeholder: 'Type your change here',
+    send: 'Send',
+    thinking: 'Typing...',
+    listTitle: 'Your changes, saved:',
+    listNote: 'Tap the green button. After you pay, my team makes these changes and emails you your changed video ad within 24 hours.',
+    limit: 'You sent a lot of messages today. Please email your changes to support@bluefx.net.',
+    error: 'Sorry, my answer did not come through. Please try again, or email support@bluefx.net.',
+  },
   promiseShort: (price: string) => `The Feel-Right Promise: changes until your video ad feels right, or your ${price} back`,
   trust: 'Secure checkout by FastSpring. Cards and PayPal.',
   afterClick: 'Finish the payment in the new tab. This page updates by itself as soon as the payment arrives.',
@@ -184,6 +197,8 @@ export const UNLOCK_PAGE = {
   ready: {
     title: 'Your video ad is ready',
     button: 'Download My Video Ad',
+    requestedTitle: 'Changes my team is making for you:',
+    requestedNote: 'Your changed video ad comes to your email within 24 hours.',
     changeLabel: 'Want something changed? Type it here',
     changePlaceholder: 'Example: Put our phone number on the last screen.',
     changeButton: 'Send My Change',
