@@ -152,17 +152,17 @@
   box-sizing: border-box;
   padding: 17px 18px;
   border-radius: 12px;
-  background: var(--green);
-  box-shadow: 0 3px 0 #5a8a2c;
+  background: #47801c;
+  box-shadow: 0 3px 0 #2f5214;
   color: #ffffff;
-  font-size: 19px;
+  font-size: clamp(17px, 5vw, 19px);
   font-weight: 900;
   text-align: center;
   text-decoration: none;
 }
 
 .button:hover {
-  background: #6fa33a;
+  background: #3f6a1c;
 }
 
 .trust {
@@ -658,9 +658,11 @@
 
 .bar a {
   flex: 1;
+  font-size: clamp(15px, 4.4vw, 17px) !important;
   padding: 13px 12px;
   border-radius: 10px;
-  background: var(--green);
+  background: #47801c;
+  white-space: nowrap;
   color: #ffffff;
   font-size: 17px;
   font-weight: 900;
@@ -878,7 +880,7 @@
 }
 
 .compareLabel {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--muted);
 }
@@ -1001,7 +1003,7 @@
 }
 
 .barPrice small {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   color: #9a6b00;
   white-space: nowrap;
@@ -1043,5 +1045,325 @@
 
   .guaranteeShort {
     justify-content: flex-start;
+  }
+}
+
+/* ---- v3 after the 4-expert review (2026-10-27) ---- */
+
+/* The hero: on phones the video sits beside the price, so the button is on the first screen. */
+.hero {
+  display: grid;
+  grid-template-columns: min(150px, 40vw) minmax(0, 1fr);
+  grid-template-areas:
+    'kicker kicker'
+    'title title'
+    'sub sub'
+    'video price'
+    'action action';
+  column-gap: 14px;
+  row-gap: 12px;
+  align-items: center;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.hero .kicker {
+  grid-area: kicker;
+  margin: 0;
+  letter-spacing: 0.4px;
+}
+
+.hero .title {
+  grid-area: title;
+  margin: 0;
+}
+
+.hero .sub {
+  grid-area: sub;
+  font-size: 15px;
+}
+
+.hero .video {
+  grid-area: video;
+  width: 100%;
+  align-self: start;
+}
+
+.heroPrice {
+  grid-area: price;
+  min-width: 0;
+}
+
+.heroAction {
+  grid-area: action;
+  min-width: 0;
+}
+
+.kicker,
+.title,
+.h2,
+.sub {
+  overflow-wrap: anywhere;
+}
+
+.priceBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.priceBlock .price {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.priceBlock .price b {
+  font-size: 38px;
+  line-height: 1;
+}
+
+.priceBlock .price span {
+  font-size: 15px;
+}
+
+.priceBlock .save {
+  align-self: flex-start;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+
+.deadline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 15px;
+  text-align: left;
+}
+
+.deadline b {
+  font-size: 16px;
+  color: #6b4a00;
+}
+
+.trust {
+  gap: 8px;
+}
+
+.finalBuy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.finalBuy .priceBlock {
+  align-items: center;
+}
+
+.finalBuy .save {
+  align-self: center;
+}
+
+.finalBuy .deadline {
+  text-align: center;
+}
+
+.finalBuy .buy {
+  width: 100%;
+}
+
+.compactBuy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #f5faef;
+  border: 1px solid #cfe3bb;
+}
+
+.compactPrice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.compactPrice s {
+  font-size: 18px;
+  font-weight: 700;
+  color: #b42318;
+}
+
+.compactPrice b {
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.compactPrice span {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--body);
+}
+
+.compactPrice em {
+  flex-basis: 100%;
+  font-style: normal;
+  font-size: 14px;
+  font-weight: 800;
+  color: #6b4a00;
+  text-align: center;
+}
+
+/* The comparison: one grid, so each row lines up across both columns. */
+.compare {
+  grid-template-rows: auto repeat(4, auto);
+  column-gap: 10px;
+  row-gap: 0;
+}
+
+.compareCol {
+  display: grid;
+  grid-row: span 5;
+  grid-template-rows: subgrid;
+  row-gap: 10px;
+}
+
+.compareCell {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.compareName {
+  margin: 0;
+}
+
+/* Reviews: a header row, then the quote full width. */
+.review {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reviewHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.reviewHead span {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.reviewHead small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.review .reviewFace {
+  width: 40px;
+  height: 40px;
+}
+
+.review blockquote {
+  font-size: 16px;
+}
+
+.barWaiting {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.barCheck {
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--navy);
+  color: #ffffff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+@media (min-width: 860px) {
+  .hero {
+    grid-template-columns: minmax(0, 560px) 300px;
+    grid-template-areas:
+      'kicker video'
+      'title video'
+      'sub video'
+      'price video'
+      'action video';
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: 48px;
+    row-gap: 16px;
+    align-items: start;
+    justify-content: center;
+  }
+
+  .hero .sub {
+    font-size: 19px;
+  }
+
+  .hero .video {
+    width: 300px;
+  }
+
+  .heroAction .buy {
+    margin: 0;
+  }
+
+  .priceBlock .price b {
+    font-size: 44px;
+  }
+
+  .compactBuy {
+    max-width: 480px;
+    margin-inline: auto;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .reviews {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.deadline b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Smallest phones (iPhone SE): the struck $99 already shows the saving, so the pill goes and the button stays on the first screen. */
+@media (max-width: 380px) {
+  .heroPrice .save {
+    display: none;
+  }
+
+  .hero .title {
+    font-size: 23px;
+  }
+
+  .hero .sub {
+    font-size: 14px;
   }
 }

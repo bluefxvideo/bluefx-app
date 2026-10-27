@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
 import { PLAN_INFO_PATH, planGoUrl, unlockGoUrl } from '@/lib/free-video/offer';
@@ -19,6 +19,8 @@ interface UnlockPageProps {
   token: string;
   initial: FreeVideoView;
   price: UnlockPrice;
+  /** The last day the video ad can be unlocked (ISO), or null when unknown. */
+  filesUntil: string | null;
   changesLeft: number;
   /** A local preview of one display: the page never asks for news. */
   preview?: boolean;
@@ -26,14 +28,15 @@ interface UnlockPageProps {
 
 /** How often the page asks for news while the payment or the clean video ad is on its way. */
 const POLL_MS = 4000;
-/** A checkout click keeps the page asking for 30 minutes. */
+/** A checkout click keeps the page asking on a timer for 30 minutes; after that it still asks whenever the page is shown again. */
 const CLICK_WINDOW_MS = 30 * 60_000;
 
 /**
  * The unlock page (owner 2026-10-27): offer → "unlocking" (paid, the clean render runs) → ready (download, change box,
- * the Weekly Video Plan). The checkout opens in a new tab through /go/fvunlock; this page polls the lead's view.
+ * the Weekly Video Plan). The checkout opens in a new tab through /go/fvunlock; this page polls the lead's view, and asks
+ * again every time the visitor comes back to this tab (no time limit), or taps "Paid? Tap here" in the phone bar.
  */
-export function UnlockPage({ token, initial, price, changesLeft, preview = false }: UnlockPageProps) {
+export function UnlockPage({ token, initial, price, filesUntil, changesLeft, preview = false }: UnlockPageProps) {
   const [view, setView] = useState(initial);
   const [clickedAt, setClickedAt] = useState<number | null>(null);
   const beacon = useFreeVideoBeacon(token);
@@ -44,34 +47,41 @@ export function UnlockPage({ token, initial, price, changesLeft, preview = false
     beacon('unlock_view');
   }, [beacon]);
 
+  const ask = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/free-video/${encodeURIComponent(token)}`, { cache: 'no-store' });
+      const answer = await res.json().catch(() => null);
+      if (res.ok && answer?.success && answer.data) setView(answer.data as FreeVideoView);
+    } catch {
+      /* the next round asks again */
+    }
+  }, [token]);
+
   // Ask for news while the payment is expected or the clean video ad is being made.
   useEffect(() => {
     const waiting = working || (clickedAt !== null && unlock.state === 'available');
     if (!waiting || preview) return;
-    const ask = async () => {
-      if (clickedAt !== null && !working && Date.now() - clickedAt > CLICK_WINDOW_MS) return;
-      try {
-        const res = await fetch(`/api/free-video/${encodeURIComponent(token)}`, { cache: 'no-store' });
-        const answer = await res.json().catch(() => null);
-        if (res.ok && answer?.success && answer.data) setView(answer.data as FreeVideoView);
-      } catch {
-        /* the next round asks again */
-      }
-    };
-    const timer = window.setInterval(ask, POLL_MS);
+    const timer = window.setInterval(() => {
+      if (!working && clickedAt !== null && Date.now() - clickedAt > CLICK_WINDOW_MS) return;
+      void ask();
+    }, POLL_MS);
     const onShow = () => document.visibilityState === 'visible' && void ask();
     document.addEventListener('visibilitychange', onShow);
+    window.addEventListener('focus', onShow);
     return () => {
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onShow);
+      window.removeEventListener('focus', onShow);
     };
-  }, [token, working, clickedAt, unlock.state, preview]);
+  }, [ask, working, clickedAt, unlock.state, preview]);
 
   const onCheckout = useCallback(() => setClickedAt(Date.now()), []);
 
   return (
     <div className={cn(rp.page, s.page)}>
-      {unlock.state === 'available' && <Offer view={view} token={token} price={price} clicked={clickedAt !== null} onCheckout={onCheckout} />}
+      {unlock.state === 'available' && (
+        <Offer view={view} token={token} price={price} filesUntil={filesUntil} clicked={clickedAt !== null} onCheckout={onCheckout} onCheck={ask} />
+      )}
       {working && <Unlocking view={view} token={token} />}
       {unlock.state === 'ready' && <Ready view={view} token={token} changesLeft={changesLeft} onDownload={() => beacon('download')} />}
       {unlock.state === 'failed' && <Note title={UNLOCK_PAGE.failed.title} text={UNLOCK_PAGE.failed.text} />}
@@ -84,25 +94,35 @@ interface OfferProps {
   view: FreeVideoView;
   token: string;
   price: UnlockPrice;
+  filesUntil: string | null;
   clicked: boolean;
   onCheckout: () => void;
+  onCheck: () => void;
 }
 
-function Offer({ view, token, price, clicked, onCheckout }: OfferProps) {
-  const F = UNLOCK_PAGE;
-  const beacon = useFreeVideoBeacon(token);
-  const topBuy = useRef<HTMLDivElement>(null);
-  const bottomBuy = useRef<HTMLDivElement>(null);
-  const [barOn, setBarOn] = useState(false);
-  const checkout = unlockGoUrl(token);
-  const left = useTimeLeft(price.endsAt);
+/** "7 days 4 h left" until the launch price ends, updated every minute; null without a deadline or before the page runs. */
+function useTimeLeft(endsAt: string | null): string | null {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    if (!endsAt) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, [endsAt]);
+  if (!endsAt || now === null) return null;
+  const ms = Date.parse(endsAt) - now;
+  return ms > 0 ? UNLOCK_PAGE.left(ms) : null;
+}
 
-  // Phone bar: shows once the top button has scrolled away, hides again when the bottom button is on screen.
+/** Phone bar: on once the first buy box has scrolled away, off while any buy box is on screen. */
+function useBar(boxes: RefObject<HTMLDivElement | null>[]): boolean {
+  const [on, setOn] = useState(false);
   useEffect(() => {
     const check = () => {
-      const top = topBuy.current?.getBoundingClientRect();
-      const bottom = bottomBuy.current?.getBoundingClientRect();
-      setBarOn(Boolean(top && top.bottom < 0) && !(bottom && bottom.top < window.innerHeight));
+      const rects = boxes.map((box) => box.current?.getBoundingClientRect()).filter((r): r is DOMRect => Boolean(r));
+      const first = rects[0];
+      const anyShown = rects.some((r) => r.top < window.innerHeight && r.bottom > 0);
+      setOn(Boolean(first && first.bottom < 0) && !anyShown);
     };
     check();
     window.addEventListener('scroll', check, { passive: true });
@@ -111,14 +131,33 @@ function Offer({ view, token, price, clicked, onCheckout }: OfferProps) {
       window.removeEventListener('scroll', check);
       window.removeEventListener('resize', check);
     };
-  }, []);
+  }, [boxes]);
+  return on;
+}
 
-  const buy = <BuyBox href={checkout} price={price} left={left} clicked={clicked} onCheckout={onCheckout} />;
+function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }: OfferProps) {
+  const F = UNLOCK_PAGE;
+  const beacon = useFreeVideoBeacon(token);
+  const topBuy = useRef<HTMLDivElement>(null);
+  const midBuy = useRef<HTMLDivElement>(null);
+  const lateBuy = useRef<HTMLDivElement>(null);
+  const bottomBuy = useRef<HTMLDivElement>(null);
+  const [boxes] = useState(() => [topBuy, midBuy, lateBuy, bottomBuy]);
+  const barOn = useBar(boxes);
+  const checkout = unlockGoUrl(token);
+  const left = useTimeLeft(price.endsAt);
   const us = F.compare.us(price.price);
+  const action = <Action href={checkout} price={price} clicked={clicked} onCheckout={onCheckout} />;
+
   return (
     <>
       <section className={s.top} aria-labelledby="unlock-title">
-        <div className={s.topIn}>
+        <div className={s.hero}>
+          <p className={s.kicker}>{F.kicker(view.domain)}</p>
+          <h1 id="unlock-title" className={s.title}>
+            {F.title}
+          </h1>
+          <p className={s.sub}>{F.sub}</p>
           <div className={s.video}>
             <VideoAdPlayer
               src={view.videoUrl as string}
@@ -129,22 +168,18 @@ function Offer({ view, token, price, clicked, onCheckout }: OfferProps) {
               onComplete={() => beacon('video_complete')}
             />
           </div>
-          <div className={s.text}>
-            <p className={s.kicker}>{F.kicker(view.domain)}</p>
-            <h1 id="unlock-title" className={s.title}>
-              {F.title}
-            </h1>
-            <p className={s.sub}>{F.sub}</p>
-            <div ref={topBuy} className={s.buyWrap}>
-              {buy}
-            </div>
+          <div className={s.heroPrice}>
+            <PriceBlock price={price} left={left} />
+          </div>
+          <div ref={topBuy} className={s.heroAction}>
+            {action}
           </div>
         </div>
       </section>
 
       <section className={s.proofStrip} aria-label={F.proof.line}>
         <div className={s.faces}>
-          {F.reviews.map((r) => (
+          {F.proof.faces.map((r) => (
             <Image key={r.name} src={r.photo} alt="" width={80} height={80} sizes="40px" />
           ))}
         </div>
@@ -158,66 +193,25 @@ function Offer({ view, token, price, clicked, onCheckout }: OfferProps) {
         <div className={s.narrow}>
           <h2 className={s.h2}>{F.compare.title(price.price)}</h2>
           <div className={s.compare}>
-            <div className={s.compareCol}>
-              <p className={s.compareName}>{F.compare.them.name}</p>
-              <ul>
-                {F.compare.them.rows.map((row, i) => (
-                  <li key={row}>
+            {[
+              { name: F.compare.them.name, rows: F.compare.them.rows, us: false },
+              { name: us.name, rows: us.rows, us: true },
+            ].map((col) => (
+              <div key={col.name} className={cn(s.compareCol, col.us && s.compareUs)}>
+                <p className={s.compareName}>{col.name}</p>
+                {col.rows.map((row, i) => (
+                  <p key={F.compare.labels[i]} className={s.compareCell}>
                     <span className={s.compareLabel}>{F.compare.labels[i]}</span>
-                    {i === 0 ? <b className={s.compareBad}>{row}</b> : row}
-                  </li>
+                    {i === 0 ? <b className={col.us ? s.compareGood : s.compareBad}>{row}</b> : row}
+                  </p>
                 ))}
-              </ul>
-            </div>
-            <div className={cn(s.compareCol, s.compareUs)}>
-              <p className={s.compareName}>{us.name}</p>
-              <ul>
-                {us.rows.map((row, i) => (
-                  <li key={row}>
-                    <span className={s.compareLabel}>{F.compare.labels[i]}</span>
-                    {i === 0 ? <b className={s.compareGood}>{row}</b> : row}
-                  </li>
-                ))}
-              </ul>
-            </div>
+              </div>
+            ))}
           </div>
           <p className={s.small}>{F.compare.note}</p>
-        </div>
-      </section>
-
-      <section className={cn(s.section, s.sectionSoft)}>
-        <div className={s.narrow}>
-          <h2 className={s.h2}>{F.getTitle}</h2>
-          <ul className={s.stack}>
-            {F.get.map((item) => (
-              <li key={item.title}>
-                <span className={s.tick}>
-                  <Tick size={14} stroke={3} />
-                </span>
-                <div>
-                  <h3>{item.title}</h3>
-                  <p>{item.text}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      <section className={s.section}>
-        <div className={s.narrow}>
-          <h2 className={s.h2}>{F.stepsTitle}</h2>
-          <ol className={s.steps}>
-            {F.steps.map((step, i) => (
-              <li key={step.title}>
-                <span className={s.stepNum}>{i + 1}</span>
-                <div>
-                  <h3>{step.title}</h3>
-                  <p>{step.text}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
+          <div ref={midBuy}>
+            <CompactBuy price={price} left={left} action={action} />
+          </div>
         </div>
       </section>
 
@@ -238,30 +232,50 @@ function Offer({ view, token, price, clicked, onCheckout }: OfferProps) {
 
       <section className={s.section}>
         <div className={s.narrow}>
+          <h2 className={s.h2}>{F.getTitle}</h2>
+          <ul className={s.stack}>
+            {F.get.map((item) => (
+              <li key={item.title}>
+                <span className={s.tick}>
+                  <Tick size={14} stroke={3} />
+                </span>
+                <div>
+                  <h3>{item.title}</h3>
+                  <p>{item.text}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className={cn(s.section, s.sectionSoft)}>
+        <div className={s.narrow}>
           <h2 className={s.h2}>{F.reviewsTitle}</h2>
           <div className={s.reviews}>
             {F.reviews.map((r) => (
               <figure key={r.name} className={s.review}>
-                <Image className={s.reviewFace} src={r.photo} alt={r.name} width={112} height={112} sizes="56px" />
-                <div>
-                  <Stars size={13} label={F.proof.stars} />
-                  <blockquote>&ldquo;{r.quote}&rdquo;</blockquote>
-                  <figcaption>
-                    <b>{r.name}</b>, {r.role}
-                  </figcaption>
-                </div>
+                <figcaption className={s.reviewHead}>
+                  <Image className={s.reviewFace} src={r.photo} alt={r.name} width={80} height={80} sizes="40px" />
+                  <span>
+                    <b>{r.name}</b>
+                    <small>{r.role}</small>
+                  </span>
+                  <Stars size={12} label={F.proof.stars} />
+                </figcaption>
+                <blockquote>&ldquo;{r.quote}&rdquo;</blockquote>
               </figure>
             ))}
           </div>
         </div>
       </section>
 
-      <section className={cn(s.section, s.sectionSoft)}>
+      <section className={s.section}>
         <div className={s.narrow}>
           <div className={s.founder}>
-            <Image className={s.founderFace} src={F.founder.photo} alt={F.founder.name} width={240} height={240} sizes="96px" />
+            <Image className={s.founderFace} src={F.founder.photo} alt={F.founder.name} width={240} height={240} sizes="120px" />
             <div className={s.founderText}>
-              <h2 className={s.h3}>{F.founder.title}</h2>
+              <h2 className={s.h3}>{F.founder.title(price.price)}</h2>
               {F.founder.text(view.domain, price.price).map((line) => (
                 <p key={line}>{line}</p>
               ))}
@@ -278,14 +292,17 @@ function Offer({ view, token, price, clicked, onCheckout }: OfferProps) {
               <p>{F.guarantee(price.price)}</p>
             </div>
           </div>
+          <div ref={lateBuy}>
+            <CompactBuy price={price} left={left} action={action} />
+          </div>
         </div>
       </section>
 
-      <section className={s.section}>
+      <section className={cn(s.section, s.sectionSoft)}>
         <div className={s.narrow}>
           <h2 className={s.h2}>{F.faqTitle}</h2>
           <dl className={s.faq}>
-            {F.faq(price.price, price.regular, price.launch).map((item) => (
+            {F.faq(price.price, price.regular, price.launch, filesUntil).map((item) => (
               <div key={item.q}>
                 <dt>{item.q}</dt>
                 <dd>{item.a}</dd>
@@ -298,55 +315,45 @@ function Offer({ view, token, price, clicked, onCheckout }: OfferProps) {
       <section className={cn(s.section, s.sectionFinal)}>
         <div ref={bottomBuy} className={s.narrow}>
           <h2 className={cn(s.h2, s.center)}>{F.bottomTitle(view.domain)}</h2>
-          {buy}
-          <p className={s.ps}>{F.ps(price.price, price.launch, price.regular)}</p>
+          <div className={s.finalBuy}>
+            <PriceBlock price={price} left={left} />
+            {action}
+            {filesUntil && <p className={cn(s.small, s.center)}>{F.filesLine(filesUntil)}</p>}
+          </div>
+          <p className={s.ps}>{F.ps(view.domain, price.price, price.regular, price.launch ? price.endsAt : null)}</p>
         </div>
       </section>
 
       <div className={cn(s.bar, barOn && s.barOn)} aria-hidden={!barOn}>
-        <div className={s.barPrice}>
-          {price.launch && <s>{price.regular}</s>}
-          <b>{price.price}</b>
-          {left && <small>{left}</small>}
-        </div>
-        <a href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout} tabIndex={barOn ? 0 : -1}>
-          {F.bar}
-        </a>
+        {clicked ? (
+          <>
+            <p className={s.barWaiting}>{F.barWaiting}</p>
+            <button type="button" className={s.barCheck} onClick={onCheck} tabIndex={barOn ? 0 : -1}>
+              {F.barCheck}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className={s.barPrice}>
+              {price.launch && <s>{price.regular}</s>}
+              <b>{price.price}</b>
+              {left && <small>{left}</small>}
+            </div>
+            <a href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout} tabIndex={barOn ? 0 : -1}>
+              {F.bar}
+            </a>
+          </>
+        )}
       </div>
     </>
   );
 }
 
-/** "2 days 5 h left" until the launch price ends, updated every minute; null without a deadline. */
-function useTimeLeft(endsAt: string | null): string | null {
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    if (!endsAt) return;
-    setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(timer);
-  }, [endsAt]);
-  if (!endsAt || now === null) return null;
-  const ms = Date.parse(endsAt) - now;
-  if (ms <= 0) return null;
-  const hours = Math.max(1, Math.ceil(ms / 3_600_000));
-  return UNLOCK_PAGE.left(Math.floor(hours / 24), hours % 24);
-}
-
-const endLabel = (iso: string) => new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date(iso));
-
-interface BuyBoxProps {
-  href: string;
-  price: UnlockPrice;
-  left: string | null;
-  clicked: boolean;
-  onCheckout: () => void;
-}
-
-function BuyBox({ href, price, left, clicked, onCheckout }: BuyBoxProps) {
+/** The price, the saving and the deadline. */
+function PriceBlock({ price, left }: { price: UnlockPrice; left: string | null }) {
   const F = UNLOCK_PAGE;
   return (
-    <div className={s.buy}>
+    <div className={s.priceBlock}>
       {price.launch && <p className={s.save}>{F.save(price.regular, price.price)}</p>}
       <p className={s.price}>
         {price.launch && <s>{price.regular}</s>}
@@ -354,10 +361,28 @@ function BuyBox({ href, price, left, clicked, onCheckout }: BuyBoxProps) {
       </p>
       {price.launch && price.endsAt && (
         <p className={s.deadline}>
-          {F.endsOn(endLabel(price.endsAt), price.regular)}
-          {left && <b> {left}</b>}
+          <b>
+            <Clock /> {left ?? ' '}
+          </b>
+          <span>{F.ends(price.endsAt, price.regular)}</span>
         </p>
       )}
+    </div>
+  );
+}
+
+interface ActionProps {
+  href: string;
+  price: UnlockPrice;
+  clicked: boolean;
+  onCheckout: () => void;
+}
+
+/** The button, the promise and the payment logos. */
+function Action({ href, price, clicked, onCheckout }: ActionProps) {
+  const F = UNLOCK_PAGE;
+  return (
+    <div className={s.buy}>
       {/* A new tab, so this page keeps asking and shows the clean video ad once the payment arrives. */}
       <a className={s.button} href={href} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
         {F.button(price.price)}
@@ -368,13 +393,36 @@ function BuyBox({ href, price, left, clicked, onCheckout }: BuyBoxProps) {
         </p>
       )}
       <p className={s.guaranteeShort}>
-        <Shield /> {F.guaranteeShort}
+        <Shield /> {F.promiseShort}
       </p>
       <div className={s.trust}>
-        <PayCards />
         <p>{F.trust}</p>
+        <PayCards />
       </div>
     </div>
+  );
+}
+
+/** A short buy box between sections: the price line and the button. */
+function CompactBuy({ price, left, action }: { price: UnlockPrice; left: string | null; action: ReactNode }) {
+  const F = UNLOCK_PAGE;
+  return (
+    <div className={s.compactBuy}>
+      <p className={s.compactPrice}>
+        {price.launch && <s>{price.regular}</s>} <b>{price.price}</b> <span>{F.priceUnit}</span>
+        {price.launch && left && <em>{left}</em>}
+      </p>
+      {action}
+    </div>
+  );
+}
+
+function Clock() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true" style={{ verticalAlign: '-2px' }}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
   );
 }
 

@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { UnlockPage } from '@/components/free-video/unlock-page';
 import { loadLead } from '@/components/free-video/free-video-status-page';
 import { CHANGE_ROUNDS, changesUsed } from '@/lib/free-video/change-requests';
+import { UNLOCK_DAYS } from '@/lib/free-video/cleanup';
 import { isLive } from '@/lib/free-video/config';
 import { readSettings, toView } from '@/lib/free-video/leads';
 import { UNLOCK_PAGE } from '@/lib/free-video/unlock-page';
@@ -41,5 +42,8 @@ export default async function UnlockRoute({ params, searchParams }: UnlockRouteP
     view.unlock = shown === 'ready' ? { state: 'ready', cleanVideoUrl: view.videoUrl, cleanDownloadUrl: view.downloadUrl ?? view.videoUrl } : { state: shown };
   }
   const [used, price] = await Promise.all([changesUsed(lead.id).catch(() => 0), unlockPriceOf(lead.id)]);
-  return <UnlockPage token={token} initial={view} price={price} changesLeft={Math.max(0, CHANGE_ROUNDS - used)} preview={Boolean(shown)} />;
+  // The last day the video ad can be unlocked (cleanup.ts unlockOpen), shown on the offer as a true deadline.
+  const finished = lead.finished_at ? Date.parse(lead.finished_at) : NaN;
+  const filesUntil = Number.isFinite(finished) ? new Date(finished + UNLOCK_DAYS * 86_400_000).toISOString() : null;
+  return <UnlockPage token={token} initial={view} price={price} filesUntil={filesUntil} changesLeft={Math.max(0, CHANGE_ROUNDS - used)} preview={Boolean(shown)} />;
 }
