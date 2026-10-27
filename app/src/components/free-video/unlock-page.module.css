@@ -3174,3 +3174,10 @@
   flex-direction: column;
   gap: 8px;
 }
+
+/* The price line under every free-month button: as readable as the button's own promise, never small print. */
+.thanksBuy .small {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}

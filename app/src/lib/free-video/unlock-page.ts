@@ -274,7 +274,8 @@ export const UNLOCK_PAGE = {
       'After your free month, your plan continues at $99 a month.',
     ],
     button: 'Yes! Start My Free Month',
-    today: '$0 today. Cancel any time with one email.',
+    /** Owner 2026-10-27: under every button, never hidden: $0 today, $99 a month after 30 days, cancel any time. */
+    today: '$0 today, then $99 per month after 30 days. Cancel any time with one email.',
     noThanks: 'No thanks, just my video ad',
     sign: 'I\u2019m looking forward to making your next videos and getting you more customers from social media.',
     signName: 'Szilard',
