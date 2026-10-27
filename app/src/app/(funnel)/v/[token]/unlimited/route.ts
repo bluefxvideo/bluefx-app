@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { SITE_URL } from '@/lib/free-video/config';
+import { unlockPagePath } from '@/lib/free-video/offer';
 import { hasInternalCookie } from '@/lib/free-video/internal-visit';
 import { getLeadByToken, toView } from '@/lib/free-video/leads';
 import { renderServicePage, serviceClockStart, servicePhaseAt } from '@/lib/free-video/service-page';
@@ -39,6 +40,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   if (!view || view.state !== 'ready' || !view.videoUrl) return NextResponse.redirect(`${SITE_URL}/v/${token}`, 302);
 
   const internal = req.nextUrl.searchParams.get('internal') === '1' || hasInternalCookie(req.headers.get('cookie'));
+  // Owner 2026-10-27: the $99 a month page is for leads switched to it by hand only. Funnel 2 sells the $49 video ad
+  // (old emails still link here), and a lead switched to the AI Media Machine gets its own page.
+  const keep = internal ? '?internal=1' : '';
+  if (view.videoOffer) return NextResponse.redirect(`${SITE_URL}${unlockPagePath(token)}${keep}`, 302);
+  if (!view.service) return NextResponse.redirect(`${SITE_URL}/v/${token}${keep}`, 302);
   const html = renderServicePage({
     token,
     lead,
