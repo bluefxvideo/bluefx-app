@@ -268,6 +268,21 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
           <div ref={topBuy} className={s.heroAction}>
             <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} only="button" pulse={pulse} />
           </div>
+          <div className={s.heroStyles}>
+            <p className={s.heroStylesTitle}>{F.styles.title}</p>
+            <p className={s.heroStylesText}>{F.styles.text}</p>
+            <ul className={s.styleGrid}>
+              {RESULT_SALES.styles.items.map((style) => (
+                <li key={style.id}>
+                  <span className={s.styleTile}>
+                    <LoopVideo src={`/smart-video/looks/${style.id}.mp4`} poster={`/smart-video/looks/${style.id}-poster.jpg`} />
+                  </span>
+                  <span className={s.styleName}>{style.label}</span>
+                </li>
+              ))}
+            </ul>
+            <p className={s.heroStylesText}>{F.styles.more}</p>
+          </div>
           <div className={s.heroTrust}>
             <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} only="trust" />
           </div>
@@ -286,23 +301,6 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
         </div>
       </section>
 
-      <section className={s.section}>
-        <div className={s.narrow}>
-          <h2 className={s.h2}>{F.styles.title}</h2>
-          <p className={s.p}>{F.styles.text}</p>
-          <ul className={s.styleGrid}>
-            {RESULT_SALES.styles.items.map((style) => (
-              <li key={style.id}>
-                <span className={s.styleTile}>
-                  <LoopVideo src={`/smart-video/looks/${style.id}.mp4`} poster={`/smart-video/looks/${style.id}-poster.jpg`} />
-                </span>
-                <span className={s.styleName}>{style.label}</span>
-              </li>
-            ))}
-          </ul>
-          <p className={s.small}>{F.styles.more}</p>
-        </div>
-      </section>
 
       <section className={cn(s.section, s.sectionSoft)}>
         <div className={s.narrow}>
