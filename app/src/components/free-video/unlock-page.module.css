@@ -2496,3 +2496,79 @@
 .side .heroChat {
   order: 1;
 }
+
+/* ---- v12 after the second review (2026-10-27) ---- */
+.chatThem {
+  padding: 0;
+}
+
+.chatIdeas {
+  padding-left: 0;
+}
+
+.chatIdeas button {
+  padding: 8px 14px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.hero .heroSub {
+  font-size: 16px;
+  line-height: 1.45;
+  color: #475569;
+  text-align: left;
+}
+
+@media (max-width: 859px) {
+  .chatHead .chatTitle {
+    font-size: 20px;
+  }
+
+  .chatHead .chatNote {
+    font-size: 14px;
+  }
+
+  .arrowText {
+    font-size: 21px;
+  }
+
+  .arrowSvg {
+    width: 54px;
+    height: 42px;
+  }
+}
+
+@media (min-width: 860px) {
+  .hero .video {
+    width: 203px;
+  }
+
+  .side {
+    gap: 2px;
+  }
+
+  .arrowNote {
+    margin-left: -20px;
+    margin-bottom: -2px;
+  }
+
+  .chatHead {
+    padding: 10px 16px;
+  }
+
+  .chatHead .chatNote {
+    font-size: 13px;
+  }
+
+  .chatList {
+    gap: 10px;
+  }
+}
+
+@media (min-width: 860px) {
+  .chatIdeas button {
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+}

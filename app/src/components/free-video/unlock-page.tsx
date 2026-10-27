@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { Caveat } from 'next/font/google';
-import { ArrowUp, Pencil, Phone, Sparkles, User } from 'lucide-react';
+import { ArrowUp, Pencil, Phone, User } from 'lucide-react';
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
@@ -680,7 +680,6 @@ function ChangeChat({ token, plan, onPlan, pending, buy }: ChangeChatProps) {
       <div className={s.chatHead}>
         <span className={s.chatFace}>
           <Image src={SALES_PAGE_FOUNDER_PHOTO} alt="Szilard" width={88} height={88} sizes="44px" />
-          <i aria-hidden="true" />
         </span>
         <div>
           <p className={s.chatTitle}>{F.title}</p>
@@ -694,12 +693,9 @@ function ChangeChat({ token, plan, onPlan, pending, buy }: ChangeChatProps) {
               {m.text}
             </p>
           ) : (
-            <div key={i} className={s.chatRow}>
-              <span className={s.chatAvatar} aria-hidden="true">
-                <Sparkles size={14} strokeWidth={2.5} />
-              </span>
-              <p className={s.chatThem}>{m.text}</p>
-            </div>
+            <p key={i} className={s.chatThem}>
+              {m.text}
+            </p>
           )
         )}
         {!started && (
@@ -712,18 +708,13 @@ function ChangeChat({ token, plan, onPlan, pending, buy }: ChangeChatProps) {
           </div>
         )}
         {busy && (
-          <div className={s.chatRow}>
-            <span className={s.chatAvatar} aria-hidden="true">
-              <Sparkles size={14} strokeWidth={2.5} />
+          <p className={cn(s.chatThem, s.chatBusy)}>
+            <span className={s.dots} aria-label={F.thinking}>
+              <i />
+              <i />
+              <i />
             </span>
-            <p className={cn(s.chatThem, s.chatBusy)}>
-              <span className={s.dots} aria-label={F.thinking}>
-                <i />
-                <i />
-                <i />
-              </span>
-            </p>
-          </div>
+          </p>
         )}
       </div>
       {plan && (
