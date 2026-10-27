@@ -61,7 +61,7 @@ CHANGES THE TEAM CAN MAKE:
 - The phone number, website, address or email shown or said at the end.
 - The voice: man or woman, accent, calmer or more energetic.
 - The music: calmer, more upbeat, another style, or no music.
-- The person on camera: a different AI presenter (man or woman, age, look) or no person at all.
+- The person on camera: a different presenter, made as a picture, so almost any look works: man or woman, any age, clothes, hats, glasses, facial hair, a shop or outdoor background (keep it tasteful); or no person at all.
 - The customer's own photos, logo or video clips: the customer emails them to support@bluefx.net after buying.
 - The captions, and the style (for example real-looking, whiteboard drawings, cartoon).
 - A shorter video ad.

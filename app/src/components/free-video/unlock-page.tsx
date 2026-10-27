@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { Pencil, Phone, User } from 'lucide-react';
+import { ArrowUp, MessageCircle, Pencil, Phone, User } from 'lucide-react';
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
@@ -569,15 +569,44 @@ function ChangeChat({ token, plan, onPlan, buy }: { token: string; plan: string[
 
   return (
     <div className={s.chat}>
-      <p className={s.chatTitle}>{F.title}</p>
-      <p className={s.chatNote}>{F.note}</p>
+      <div className={s.chatHead}>
+        <span className={s.chatHeadIcon} aria-hidden="true">
+          <MessageCircle size={20} strokeWidth={2.5} />
+        </span>
+        <div>
+          <p className={s.chatTitle}>{F.title}</p>
+          <p className={s.chatNote}>{F.note}</p>
+        </div>
+      </div>
       <div ref={list} className={s.chatList} aria-live="polite">
-        {messages.map((m, i) => (
-          <p key={i} className={m.role === 'user' ? s.chatMe : s.chatThem}>
-            {m.text}
-          </p>
-        ))}
-        {busy && <p className={cn(s.chatThem, s.chatBusy)}>{F.thinking}</p>}
+        {messages.map((m, i) =>
+          m.role === 'user' ? (
+            <p key={i} className={s.chatMe}>
+              {m.text}
+            </p>
+          ) : (
+            <div key={i} className={s.chatRow}>
+              <span className={s.chatAvatar} aria-hidden="true">
+                S
+              </span>
+              <p className={s.chatThem}>{m.text}</p>
+            </div>
+          )
+        )}
+        {busy && (
+          <div className={s.chatRow}>
+            <span className={s.chatAvatar} aria-hidden="true">
+              S
+            </span>
+            <p className={cn(s.chatThem, s.chatBusy)}>
+              <span className={s.dots} aria-label={F.thinking}>
+                <i />
+                <i />
+                <i />
+              </span>
+            </p>
+          </div>
+        )}
       </div>
       {plan && (
         <div className={s.chatPlan}>
@@ -601,8 +630,8 @@ function ChangeChat({ token, plan, onPlan, buy }: { token: string; plan: string[
         }}
       >
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder={F.placeholder} maxLength={600} aria-label={F.title} />
-        <button type="submit" disabled={busy || !text.trim()}>
-          {F.send}
+        <button type="submit" disabled={busy || !text.trim()} aria-label={F.send}>
+          <ArrowUp size={18} strokeWidth={2.75} aria-hidden="true" />
         </button>
       </form>
     </div>
