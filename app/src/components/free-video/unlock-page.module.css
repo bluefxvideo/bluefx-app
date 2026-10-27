@@ -3275,3 +3275,13 @@
     font-size: 32px;
   }
 }
+
+/* The ready title sits centred above the video on every screen. */
+.thanksTop .readyTitle {
+  text-align: center !important;
+  align-self: center;
+}
+
+.thanksTop .askLink {
+  align-self: center;
+}
