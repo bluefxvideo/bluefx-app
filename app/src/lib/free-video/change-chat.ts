@@ -1,3 +1,4 @@
+import { alertOwner } from '@/lib/free-video/alerts';
 import { FREE_DIRECTOR } from '@/lib/free-video/config';
 import { eventsTable, readSettings, recordEvent } from '@/lib/free-video/leads';
 import { displayDomain } from '@/lib/free-video/website';
@@ -137,4 +138,35 @@ export async function latestChangePlan(leadId: string): Promise<string[] | null>
 export async function requestedChanges(leadId: string): Promise<string[]> {
   const { data } = await eventsTable().select('meta').eq('lead_id', leadId).eq('event', 'change_request').order('at', { ascending: true });
   return (data ?? []).map((row: { meta?: { text?: unknown } }) => (typeof row.meta?.text === 'string' ? row.meta.text : '')).filter(Boolean);
+}
+
+/**
+ * The safety net (owner 2026-10-27, after the Google key ran dry): when the model fails, the visitor's own words are
+ * saved as the change list (so the payment still carries them to the team) and the owner is emailed once a day.
+ * Never throws.
+ */
+export async function chatFallback(lead: FreeVideoLead, messages: ChatMessage[], error: unknown): Promise<ChatAnswer> {
+  const changes = messages
+    .filter((m) => m.role === 'user')
+    .map((m) => m.text.trim().slice(0, 200))
+    .filter(Boolean)
+    .slice(-8);
+  try {
+    if (changes.length) await recordEvent({ event: 'change_plan', leadId: lead.id, ref: lead.ref, meta: { changes, fallback: true } });
+    await alertOwner(
+      [
+        {
+          key: `change-chat-down:${new Date().toISOString().slice(0, 10)}`,
+          line: `The change chat on the $49 page could not reach Google (${String(error).slice(0, 160)}). Visitors still see a friendly answer and their own words are saved as their change list (first seen on ${displayDomain(lead.website_domain)}). Check GOOGLE_GENERATIVE_AI_API_KEY credit.`,
+        },
+      ],
+      'the change chat is down'
+    );
+  } catch (e) {
+    console.error('❌ [free-video] Change chat fallback could not save:', e);
+  }
+  return {
+    reply: 'Thanks! I saved your change for my team. Tap the green button, and after you pay, a real person on my team makes your changes and emails you your changed video ad within 24 hours. Want to add something? Just type it here.',
+    changes: changes.length ? changes : null,
+  };
 }

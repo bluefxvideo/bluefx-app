@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { CHAT_MAX_CHARS, CHAT_MAX_MESSAGES, chatTurn } from '@/lib/free-video/change-chat';
+import { CHAT_MAX_CHARS, CHAT_MAX_MESSAGES, chatFallback, chatTurn } from '@/lib/free-video/change-chat';
 import { isLive, PROD_SITE_URL, SITE_URL } from '@/lib/free-video/config';
 import { getLeadByToken } from '@/lib/free-video/leads';
 import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
@@ -41,13 +41,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   if (!FREE_VIDEO_TOKEN_PATTERN.test(token) || !sameOrigin(req.headers.get('origin'))) return answer(createApiError('Not found', { code: 'notFound' }), 404);
   const parsed = BodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return answer(createApiError('Please type your change.', { code: 'invalid' }), 400);
+  let lead: Awaited<ReturnType<typeof getLeadByToken>> = null;
   try {
-    const lead = await getLeadByToken(token);
+    lead = await getLeadByToken(token);
     if (!lead || lead.status !== 'done') return answer(createApiError('Not found', { code: 'notFound' }), 404);
     const turn = await chatTurn(lead, parsed.data.messages);
     if (turn === 'limit') return answer(createApiError('limit', { code: 'limit' }), 429);
     return answer(createApiSuccess(turn));
   } catch (error) {
+    // The safety net: the model failed (for example the Google key ran out), so the visitor's own words become the list.
+    if (lead) {
+      console.error('❌ [free-video] Change chat model failed, saving the visitor\'s words:', error);
+      return answer(createApiSuccess(await chatFallback(lead, parsed.data.messages, error)));
+    }
     console.error('❌ [free-video] Change chat failed:', error);
     return answer(createApiError(FALLBACK, { code: 'generic' }), 503);
   }
