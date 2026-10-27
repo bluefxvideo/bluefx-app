@@ -3181,3 +3181,97 @@
   font-weight: 700;
   color: var(--ink);
 }
+
+/* ---- Thank-you offer v2 (3-expert review 2026-10-27) ---- */
+.paidStrip {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #eef5e6;
+  border: 1px solid #cfe3bb;
+}
+
+.paidStrip .statusTick {
+  width: 26px;
+  height: 26px;
+}
+
+.paidStrip h1 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.paidStrip p {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--body);
+}
+
+.thanksHead {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+}
+
+.thanksHead .h2 {
+  font-size: 25px;
+}
+
+.thanksBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.getBox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 3px solid #47801c;
+  background: #f5faef;
+}
+
+.getPrices {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px dashed #cfe3bb;
+  text-align: center;
+}
+
+.getPrices p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.getPrices .strikeLine {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.getPrices .firstMonth {
+  font-size: 22px;
+  font-weight: 900;
+  color: #3f6a1c;
+}
+
+.readyVideoSmall {
+  width: min(190px, 50vw);
+}
+
+@media (min-width: 860px) {
+  .thanksHead .h2 {
+    font-size: 32px;
+  }
+}

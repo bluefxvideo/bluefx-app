@@ -799,16 +799,13 @@ function Unlocking({ view, token, requested, trial }: { view: FreeVideoView; tok
     <>
       <section className={cn(s.section, s.thanksTop)}>
         <div className={s.narrow}>
-          <div className={s.making} role="status">
-            {view.poster || view.nextAds?.[0]?.imageUrl ? (
-              <Image className={s.makingThumb} src={(view.poster || view.nextAds?.[0]?.imageUrl) as string} alt="" width={120} height={150} sizes="60px" />
-            ) : null}
-            <div className={s.makingText}>
-              <h1>{F.title(view.firstName)}</h1>
-              <p>{F.making}</p>
-              <div className={s.progressTrack}>
-                <span />
-              </div>
+          <div className={s.paidStrip} role="status">
+            <span className={s.statusTick}>
+              <Tick size={14} stroke={3} />
+            </span>
+            <div>
+              <h1>{F.paidTitle(view.firstName)}</h1>
+              <p>{F.paidNote}</p>
               {requested.length > 0 && (
                 <div className={s.makingChanges}>
                   <b>{F.makingChanges}</b>
@@ -821,13 +818,21 @@ function Unlocking({ view, token, requested, trial }: { view: FreeVideoView; tok
           </div>
         </div>
       </section>
-      {trial ? <ThanksOffer view={view} token={token} /> : <section className={s.section}><div className={s.narrow}><PlanCard view={view} token={token} /></div></section>}
+      {trial ? (
+        <ThanksOffer view={view} token={token} kicker={F.kickerPaid} />
+      ) : (
+        <section className={s.section}>
+          <div className={s.narrow}>
+            <PlanCard view={view} token={token} />
+          </div>
+        </section>
+      )}
     </>
   );
 }
 
-/** The Weekly Video Plan offer after the $49 payment (owner 2026-10-27): first month free, then $99 a month. */
-function ThanksOffer({ view, token }: { view: FreeVideoView; token: string }) {
+/** The Weekly Video Plan offer after the $49 payment (owner 2026-10-27, rebuilt after the 3-expert review): the offer names itself first. */
+function ThanksOffer({ view, token, kicker }: { view: FreeVideoView; token: string; kicker: string }) {
   const F = UNLOCK_PAGE.thanks;
   const [declined, setDeclined] = useState(false);
   const planned = (view.nextAds ?? []).slice(0, 3);
@@ -856,44 +861,86 @@ function ThanksOffer({ view, token }: { view: FreeVideoView; token: string }) {
   return (
     <section className={cn(s.section, s.thanks)}>
       <div className={s.narrow}>
-        <h2 className={cn(s.h2, s.center)}>{F.hook}</h2>
-        <p className={s.label}>{F.nextTitle(view.domain)}</p>
-        <ul className={s.plannedGrid}>
-          {cards.map((card, i) => (
-            <li key={card.key}>
-              <span className={s.plannedImage}>
-                {card.image ? <Image src={card.image} alt="" width={432} height={540} sizes="(min-width: 700px) 150px, 45vw" /> : null}
-                <em>{F.styles[i]}</em>
-              </span>
-              <b>{card.title}</b>
-              <span>{card.teaser}</span>
-            </li>
-          ))}
-        </ul>
-        <div className={s.mathBox}>
-          <p className={s.h3}>{F.mathTitle}</p>
-          {F.math.map((line) => (
-            <p key={line}>{line}</p>
-          ))}
-          <p className={s.mathPunch}>{F.mathPunch}</p>
-        </div>
-        <div className={s.freeBox}>
-          <p className={s.h3}>{F.freeTitle}</p>
-          <p>{F.freeText}</p>
+        <div className={s.thanksHead}>
+          <p className={s.label}>{kicker}</p>
+          <h2 className={s.h2}>{F.title(view.domain)}</h2>
+          <p className={s.p}>{F.sub}</p>
         </div>
         {buy}
-        <div>
-          <p className={s.h3}>{F.whyTitle}</p>
-          <p className={s.p}>{F.whyText}</p>
-        </div>
-        <div className={s.guarantee}>
-          <Shield />
-          <div>
-            <h2>{F.riskTitle}</h2>
-            {F.risk.map((line) => (
-              <p key={line}>{line}</p>
+        <div className={s.thanksBlock}>
+          <p className={s.h3}>{F.plannedTitle}</p>
+          <p className={s.p}>{F.plannedNote}</p>
+          <ul className={s.plannedGrid}>
+            {cards.map((card, i) => (
+              <li key={card.key}>
+                <span className={s.plannedImage}>
+                  {card.image ? <Image src={card.image} alt="" width={432} height={540} sizes="(min-width: 700px) 150px, 45vw" /> : null}
+                  <em>
+                    {F.week(i + 1)} · {F.styles[i]}
+                  </em>
+                </span>
+                <b>{card.title}</b>
+                <span>{card.teaser}</span>
+              </li>
             ))}
+          </ul>
+        </div>
+        <div className={s.thanksBlock}>
+          <p className={s.h3}>{F.howTitle}</p>
+          <ol className={s.steps}>
+            {F.how.map((step, i) => (
+              <li key={step.title}>
+                <span className={s.stepNum}>{i + 1}</span>
+                <div>
+                  <h3>{step.title}</h3>
+                  <p>{step.text}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className={s.getBox}>
+          <p className={s.h3}>{F.getTitle}</p>
+          <ul className={s.checklist}>
+            {F.get.map((line) => (
+              <li key={line}>
+                <span className={s.tick}>
+                  <Tick size={11} stroke={3.5} />
+                </span>
+                {line}
+              </li>
+            ))}
+          </ul>
+          <div className={s.getPrices}>
+            <p className={s.strikeLine}>{F.oneByOne}</p>
+            <p>{F.planPrice}</p>
+            <p className={s.firstMonth}>{F.firstMonth}</p>
           </div>
+          {buy}
+        </div>
+        <div className={s.thanksBlock}>
+          <p className={s.h3}>{F.riskTitle}</p>
+          <ul className={s.checklist}>
+            {F.risk.map((line) => (
+              <li key={line}>
+                <span className={s.tick}>
+                  <Tick size={11} stroke={3.5} />
+                </span>
+                {line}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className={s.thanksBlock}>
+          <p className={s.h3}>{F.faqTitle}</p>
+          <dl className={s.faq}>
+            {F.faq.map((item) => (
+              <div key={item.q}>
+                <dt>{item.q}</dt>
+                <dd>{item.a}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
         {buy}
         <button type="button" className={s.noThanks} onClick={() => setDeclined(true)}>
@@ -930,7 +977,7 @@ function Ready({ view, token, requested, trial, changesLeft, onDownload }: Ready
     <section className={cn(s.section, s.thanksTop)}>
       <div className={s.narrow}>
         <h1 className={cn(s.title, s.center, s.readyTitle)}>{F.title}</h1>
-        <div className={s.readyVideo}>
+        <div className={cn(s.readyVideo, trial && s.readyVideoSmall)}>
           <VideoAdPlayer key={clean} src={clean} label={PLAYER.label(view.domain)} className={rp.heroPlayerFrame} tapToPlay />
         </div>
         <a className={s.button} href={download} onClick={onDownload}>
@@ -950,17 +997,18 @@ function Ready({ view, token, requested, trial, changesLeft, onDownload }: Ready
             <p className={s.chatNote}>{F.requestedNote}</p>
           </div>
         )}
-        <ChangeBox token={token} initialLeft={changesLeft} />
+        <ChangeBox token={token} initialLeft={changesLeft} collapsible={trial} />
         {!trial && <PlanCard view={view} token={token} />}
       </div>
     </section>
-    {trial && <ThanksOffer view={view} token={token} />}
+    {trial && <ThanksOffer view={view} token={token} kicker={UNLOCK_PAGE.thanks.kickerReady} />}
     </>
   );
 }
 
-function ChangeBox({ token, initialLeft }: { token: string; initialLeft: number }) {
+function ChangeBox({ token, initialLeft, collapsible = false }: { token: string; initialLeft: number; collapsible?: boolean }) {
   const F = UNLOCK_PAGE.ready;
+  const [open, setOpen] = useState(!collapsible);
   const [text, setText] = useState('');
   const [left, setLeft] = useState(initialLeft);
   const [sending, setSending] = useState(false);
@@ -993,6 +1041,13 @@ function ChangeBox({ token, initialLeft }: { token: string; initialLeft: number 
     }
   };
 
+  if (!open && left > 0) {
+    return (
+      <button type="button" className={s.askLink} onClick={() => setOpen(true)}>
+        {F.changeOpen}
+      </button>
+    );
+  }
   return (
     <div className={s.changeBox}>
       {left > 0 && (
