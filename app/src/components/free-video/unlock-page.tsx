@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { Pencil, Phone, User } from 'lucide-react';
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
@@ -154,9 +155,21 @@ function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }:
         <div className={s.hero}>
           <p className={s.kicker}>{F.kicker(view.domain)}</p>
           <h1 id="unlock-title" className={s.title}>
-            {F.title}
+            {F.title} <span className={s.titleRed}>{F.titleRed}</span>
           </h1>
-          <p className={s.sub}>{F.sub}</p>
+          <div className={s.subWrap}>
+            <p className={s.sub}>{F.sub}</p>
+            <ul className={s.changeChips} aria-label="Changes people ask for">
+              {F.chips.map((chip, i) => {
+                const Icon = [Pencil, User, Phone][i];
+                return (
+                  <li key={chip}>
+                    <Icon size={13} strokeWidth={2.5} aria-hidden="true" /> {chip}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
           <div className={s.video}>
             <VideoAdPlayer
               src={view.videoUrl as string}
@@ -441,7 +454,7 @@ function Action({ href, price, clicked, onCheckout }: ActionProps) {
         </p>
       )}
       <p className={s.guaranteeShort}>
-        <Shield /> {F.promiseShort}
+        <Shield /> {F.promiseShort(price.price)}
       </p>
       <div className={s.trust}>
         <p>{F.trust}</p>

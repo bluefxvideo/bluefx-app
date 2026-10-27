@@ -1078,8 +1078,15 @@
   margin: 0;
 }
 
-.hero .sub {
+.subWrap {
   grid-area: sub;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hero .sub {
   font-size: 15px;
 }
 
@@ -1536,4 +1543,64 @@
 
 .lessons li {
   list-style: decimal;
+}
+
+/* The red "plus any changes you want." on its own line (owner 2026-10-27). */
+.titleRed {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.86em;
+  color: #c0271c;
+}
+
+.changeChips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.changeChips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fdecea;
+  color: #9b1c13;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* The struck $99 already shows the saving; on phones the pill goes so the button stays on the first screen. */
+@media (max-width: 859px) {
+  .heroPrice .save {
+    display: none;
+  }
+}
+
+@media (min-width: 860px) {
+  .changeChips {
+    justify-content: flex-start;
+  }
+}
+
+/* Phones: a narrower video and tighter gaps, so the button stays on the first screen under the red line and the chips. */
+@media (max-width: 859px) {
+  .hero {
+    grid-template-columns: min(124px, 33vw) minmax(0, 1fr);
+    row-gap: 10px;
+  }
+
+  .changeChips li {
+    padding: 3px 9px;
+    font-size: 12px;
+  }
+
+  .hero .sub {
+    line-height: 1.4;
+  }
 }

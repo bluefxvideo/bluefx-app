@@ -36,9 +36,13 @@ const FREELANCE_TOTAL = FREELANCE_PARTS.reduce((sum, item) => sum + item.price, 
  */
 export const UNLOCK_PAGE = {
   meta: (domain: string) => `Your video ad for ${domain}`,
-  kicker: (domain: string) => `Your video ad for ${domain}`,
-  title: 'Your video ad is ready. Get the full version without the watermark.',
-  sub: 'What you watched is a sample. Get your video ad without the watermark, ready to post anywhere. Want something changed? Just tell my team.',
+  kicker: (domain: string) => `Your video ad for ${domain} is ready`,
+  /** Owner 2026-10-27: "our biggest challenge, clients always want something changed", so the changes go in the headline, in red. */
+  title: 'Get the full version without the watermark,',
+  titleRed: 'plus any changes you want.',
+  sub: 'What you watched is a sample. Tell us what to change, and a real person on my team does it until your video ad feels right.',
+  /** Real requests from leads who replied, as small chips under the sub. */
+  chips: ['Your wording', 'A different person', 'Your phone number'] as const,
   priceUnit: 'one time',
   save: (regular: string, price: string) => `Your free video ad price: save $${Number(regular.slice(1)) - Number(price.slice(1))}`,
   ends: (iso: string, regular: string) => `Ends ${shortDate(iso)}, then ${regular}`,
@@ -50,7 +54,7 @@ export const UNLOCK_PAGE = {
     return `${hours ? `${hours} h ` : ''}${minutes % 60} min left`;
   },
   button: (price: string) => `Unlock My Video Ad for ${price}`,
-  promiseShort: 'The Feel-Right Promise: 30-day money-back guarantee',
+  promiseShort: (price: string) => `The Feel-Right Promise: changes until your video ad feels right, or your ${price} back`,
   trust: 'Secure checkout by FastSpring. Cards and PayPal.',
   afterClick: 'Finish the payment in the new tab. This page updates by itself as soon as the payment arrives.',
   bar: 'Unlock My Video Ad',
