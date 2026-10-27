@@ -3,6 +3,7 @@ import { SITE_URL } from '@/lib/free-video/config';
 import { eventsTable, recordEvent } from '@/lib/free-video/leads';
 import { unlockPagePath } from '@/lib/free-video/offer';
 import { displayDomain } from '@/lib/free-video/website';
+import { publicUrl } from '@/lib/smart-video/jobs';
 import type { FreeVideoLead } from '@/types/free-video';
 
 /**
@@ -36,9 +37,9 @@ export function changeRefusal(lead: FreeVideoLead, used: number, now = Date.now(
 }
 
 /** Saves one change and emails the owner. Returns the rounds left. Throws on a database error. */
-export async function requestChange(lead: FreeVideoLead, text: string, used: number): Promise<number> {
+export async function requestChange(lead: FreeVideoLead, text: string, used: number, files: { name: string; path: string }[] = []): Promise<number> {
   const round = used + 1;
-  await recordEvent({ event: 'change_request', leadId: lead.id, ref: lead.ref, meta: { text, round } });
+  await recordEvent({ event: 'change_request', leadId: lead.id, ref: lead.ref, meta: { text, round, files: files.map((f) => f.path) } });
   const domain = displayDomain(lead.website_domain);
   await alertOwner(
     [
@@ -47,6 +48,7 @@ export async function requestChange(lead: FreeVideoLead, text: string, used: num
         line: [
           `${lead.first_name} (${lead.email}) asked for change ${round} of ${CHANGE_ROUNDS} to the video ad for ${domain}:`,
           `"${text}"`,
+          ...(files.length ? [`Their files: ${files.map((f) => publicUrl(f.path)).join(' , ')}`] : []),
           `Make the change in the Phantom (job ${lead.job_id ?? 'unknown'}) and email the changed video ad within 24 hours. Their page: ${SITE_URL}${unlockPagePath(lead.view_token)}?internal=1`,
         ].join('\n'),
       },

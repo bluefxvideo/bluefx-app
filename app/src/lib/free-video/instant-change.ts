@@ -4,7 +4,9 @@ import { SITE_URL } from '@/lib/free-video/config';
 import { eventsTable, readSettings, recordEvent } from '@/lib/free-video/leads';
 import { unlockPagePath } from '@/lib/free-video/offer';
 import { displayDomain } from '@/lib/free-video/website';
-import { createJob, finish, isDead, jobDir, readJob, readPlan, touchJob, upload, writeJob } from '@/lib/smart-video/jobs';
+import { BUCKET, createJob, download, finish, isDead, jobDir, readJob, readPlan, safeName, touchJob, upload, writeJob } from '@/lib/smart-video/jobs';
+import { prepareAssets } from '@/lib/smart-video/prepare-assets';
+import { createAdminClient } from '@/app/supabase/server';
 import { reviseSmartVideo, withSubtitleLook } from '@/lib/smart-video/pipeline';
 import type { FreeVideoLead } from '@/types/free-video';
 import type { SmartVideoJob } from '@/types/smart-video';
@@ -18,6 +20,42 @@ import type { SmartVideoJob } from '@/types/smart-video';
  * those to the team. Each change is an 'ai_change' event on the lead (meta: the job id, the text, the round).
  */
 export const AI_CHANGES = 3;
+/** The files a buyer may add to one change: the app's own edit limits (types/smart-video.ts). */
+export const CHANGE_MAX_FILES = 5;
+export const CHANGE_MAX_FILE_MB = 100;
+
+export interface ChangeUpload {
+  name: string;
+  path: string;
+}
+
+/**
+ * Step 1 of a change with files: a job id and one signed upload URL per file, under that job's src folder of the
+ * free-video system user (the browser sends each file straight to storage, never through this server).
+ */
+export async function changeUploadSlots(files: { name: string; size: number }[]): Promise<{ uploadJobId: string; slots: (ChangeUpload & { uploadUrl: string })[] }> {
+  const settings = await readSettings(true);
+  const userId = settings?.system_user_id;
+  if (!userId) throw new Error('No system user');
+  const uploadJobId = randomUUID();
+  const storage = createAdminClient().storage.from(BUCKET);
+  const slots: (ChangeUpload & { uploadUrl: string })[] = [];
+  for (const [i, file] of files.entries()) {
+    const path = `${jobDir(userId, uploadJobId)}/src/${String(i + 1).padStart(2, '0')}-${safeName(file.name)}`;
+    const { data, error } = await storage.createSignedUploadUrl(path);
+    if (error || !data?.signedUrl) throw new Error(`no upload URL for ${file.name}`);
+    slots.push({ name: file.name, path, uploadUrl: data.signedUrl });
+  }
+  return { uploadJobId, slots };
+}
+
+/** Uploads that really belong to that upload job's src folder (a browser could send any path). */
+export async function ownUploads(uploadJobId: string | undefined, uploads: ChangeUpload[]): Promise<ChangeUpload[]> {
+  if (!uploadJobId || !uploads.length) return [];
+  const settings = await readSettings(true);
+  const prefix = settings?.system_user_id ? `${jobDir(settings.system_user_id, uploadJobId)}/src/` : null;
+  return prefix ? uploads.filter((u) => u.path.startsWith(prefix) && !u.path.includes('..')).slice(0, CHANGE_MAX_FILES) : [];
+}
 const PAID = ['paid', 'rendering', 'ready', 'failed'];
 /** The 8 looks of the style gallery: a change that asks for one of them goes to the team. */
 const STYLE_WORDS = /\b(hand-?drawn|whiteboard|vintage|news studio|cartoon|comic|chalkboard|scrapbook|clay|claymation|style)\b/i;
@@ -75,20 +113,26 @@ export function aiChangeRefusal(lead: FreeVideoLead, changes: AiChange[], text: 
  * Starts one instant change and returns at once; `run` is handed to the caller's after() so the work outlives the
  * request. Builds on the newest finished version (else the lead's free video ad). Throws on a database error.
  */
-export async function startAiChange(lead: FreeVideoLead, text: string, changes: AiChange[]): Promise<{ jobId: string; run: () => Promise<void> }> {
+export async function startAiChange(
+  lead: FreeVideoLead,
+  text: string,
+  changes: AiChange[],
+  files: { uploadJobId?: string; uploads: ChangeUpload[] } = { uploads: [] }
+): Promise<{ jobId: string; run: () => Promise<void> }> {
   const settings = await readSettings(true);
   const userId = settings?.system_user_id;
   if (!userId || !lead.job_id) throw new Error('No system user or job for the change');
   const base = [...changes].reverse().find((c) => c.status === 'done')?.jobId ?? lead.job_id;
   const now = new Date().toISOString();
-  const job: SmartVideoJob = { id: randomUUID(), userId, status: 'directing', brief: '', parentId: base, note: text, createdAt: now, updatedAt: now, freeLeadId: lead.id };
+  const id = files.uploads.length && files.uploadJobId ? files.uploadJobId : randomUUID();
+  const job: SmartVideoJob = { id, userId, status: 'directing', brief: '', parentId: base, note: text, createdAt: now, updatedAt: now, freeLeadId: lead.id };
   await createJob(job);
   const round = changes.filter((c) => c.status !== 'failed').length + 1;
-  await recordEvent({ event: 'ai_change', leadId: lead.id, ref: lead.ref, meta: { jobId: job.id, text, round } });
-  return { jobId: job.id, run: () => runAiChange(job, base, lead, text, round) };
+  await recordEvent({ event: 'ai_change', leadId: lead.id, ref: lead.ref, meta: { jobId: job.id, text, round, files: files.uploads.map((u) => u.name) } });
+  return { jobId: job.id, run: () => runAiChange(job, base, lead, text, round, files.uploads) };
 }
 
-async function runAiChange(start: SmartVideoJob, baseId: string, lead: FreeVideoLead, text: string, round: number): Promise<void> {
+async function runAiChange(start: SmartVideoJob, baseId: string, lead: FreeVideoLead, text: string, round: number, uploads: ChangeUpload[]): Promise<void> {
   let job = start;
   const heartbeat = setInterval(() => touchJob(job.id).catch(() => undefined), 45_000);
   try {
@@ -96,10 +140,21 @@ async function runAiChange(start: SmartVideoJob, baseId: string, lead: FreeVideo
     if (!saved.media) throw new Error('The video ad has no saved media to change');
     const dir = jobDir(job.userId, job.id);
     const store = (data: Buffer, name: string, contentType: string) => upload(`${dir}/${name}`, data, contentType);
-    const revised = await reviseSmartVideo({ plan: saved.plan, media: saved.media }, text, saved.brief || '', store, (stage) => {
-      job = { ...job, status: stage };
-      writeJob(job).catch(() => undefined);
-    });
+    // The buyer's files continue the numbering of the video ad's own files (a1, a2, ... then a7, a8), as in the app.
+    const taken = Object.keys(saved.media.assets).map((assetId) => Number(/^a(\d+)/.exec(assetId)?.[1] || 0));
+    const files = await Promise.all(uploads.map(async (u) => ({ filename: u.name, data: await download(u.path) })));
+    const added = files.length ? await prepareAssets(files, store, Math.max(0, ...taken) + 1) : [];
+    const revised = await reviseSmartVideo(
+      { plan: saved.plan, media: saved.media },
+      text,
+      saved.brief || '',
+      store,
+      (stage) => {
+        job = { ...job, status: stage };
+        writeJob(job).catch(() => undefined);
+      },
+      added
+    );
     const result = withSubtitleLook(revised, saved, text);
     // The buyer paid for the clean version: never the SAMPLE watermark or the end card.
     const props = { ...result.props };

@@ -3449,3 +3449,85 @@
   width: 18px;
   height: 18px;
 }
+
+/* The file picker of a change (owner 2026-10-27: photos, logos, videos, with the limits shown). */
+.filePicker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fileButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 8px 14px;
+  border: 1.5px dashed #64748b;
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fileButton:disabled {
+  opacity: 0.55;
+}
+
+.fileLimit {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.fileList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fileList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.fileList li span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileList button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  cursor: pointer;
+}
+
+.fileWarning {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #b42318;
+}

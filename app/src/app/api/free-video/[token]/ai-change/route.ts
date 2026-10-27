@@ -1,7 +1,7 @@
 import { after, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isLive, PROD_SITE_URL, SITE_URL } from '@/lib/free-video/config';
-import { AI_CHANGES, aiChangeRefusal, aiChangesOf, startAiChange, type AiChange } from '@/lib/free-video/instant-change';
+import { AI_CHANGES, aiChangeRefusal, aiChangesOf, CHANGE_MAX_FILES, ownUploads, startAiChange, type AiChange } from '@/lib/free-video/instant-change';
 import { getLeadByToken } from '@/lib/free-video/leads';
 import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
 import { createApiError, createApiSuccess, type ApiResponse } from '@/types/validation';
@@ -14,7 +14,11 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 800;
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
-const BodySchema = z.object({ text: z.string().trim().min(3).max(1500) });
+const BodySchema = z.object({
+  text: z.string().trim().min(3).max(1500),
+  uploadJobId: z.string().uuid().optional(),
+  uploads: z.array(z.object({ name: z.string().min(1).max(200), path: z.string().min(1).max(400) })).max(CHANGE_MAX_FILES).default([]),
+});
 
 function sameOrigin(origin: string | null): boolean {
   if (!origin) return false;
@@ -56,7 +60,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     const changes = await aiChangesOf(lead);
     const refusal = aiChangeRefusal(lead, changes, parsed.data.text);
     if (refusal) return answer(createApiError(refusal, { code: refusal }), 409);
-    const started = await startAiChange(lead, parsed.data.text, changes);
+    const uploads = await ownUploads(parsed.data.uploadJobId, parsed.data.uploads);
+    const started = await startAiChange(lead, parsed.data.text, changes, { uploadJobId: parsed.data.uploadJobId, uploads });
     after(started.run);
     const now = await aiChangesOf(lead);
     return answer(createApiSuccess({ changes: now, left: leftOf(now) }));

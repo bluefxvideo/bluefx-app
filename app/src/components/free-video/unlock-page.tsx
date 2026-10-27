@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { Caveat } from 'next/font/google';
-import { ArrowUp, Download, Maximize2, Pencil, Phone, Sparkles, User, X } from 'lucide-react';
+import { ArrowUp, Download, Maximize2, Paperclip, Pencil, Phone, Sparkles, User, X } from 'lucide-react';
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
@@ -1087,6 +1087,76 @@ function useAiChanges(token: string, enabled: boolean) {
 
 type AiState = ReturnType<typeof useAiChanges>;
 
+
+const FILE_OK = /\.(jpe?g|png|webp|tiff?|gif|bmp|heic|heif|avif|mp4|mov|webm|m4v)$/i;
+const MAX_FILES = 5;
+const MAX_MB = 100;
+
+/** Sends the picked files straight to storage (signed URLs from /change-uploads). Throws when one fails. */
+async function uploadChangeFiles(token: string, files: File[]): Promise<{ uploadJobId?: string; uploads: { name: string; path: string }[] }> {
+  if (!files.length) return { uploads: [] };
+  const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/change-uploads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ files: files.map((f) => ({ name: f.name, size: f.size })) }),
+  });
+  const answer = await res.json().catch(() => null);
+  if (!res.ok || !answer?.success) throw new Error('slots');
+  const slots = answer.data.slots as { name: string; path: string; uploadUrl: string }[];
+  for (const [i, slot] of slots.entries()) {
+    const put = await fetch(slot.uploadUrl, { method: 'PUT', headers: { 'Content-Type': files[i].type || 'application/octet-stream' }, body: files[i] });
+    if (!put.ok) throw new Error('upload');
+  }
+  return { uploadJobId: answer.data.uploadJobId, uploads: slots.map(({ name, path }) => ({ name, path })) };
+}
+
+/** The file picker of a change: photos, logos and clips, with the limits written next to it (owner 2026-10-27). */
+function FilePicker({ files, onChange, disabled }: { files: File[]; onChange: (files: File[]) => void; disabled?: boolean }) {
+  const F = UNLOCK_PAGE.changes;
+  const input = useRef<HTMLInputElement>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const add = (picked: File[]) => {
+    const wrong = picked.filter((f) => !FILE_OK.test(f.name));
+    const big = picked.filter((f) => FILE_OK.test(f.name) && f.size > MAX_MB * 1024 * 1024);
+    setWarning([wrong.length ? F.filesWrongType(wrong.map((f) => f.name).join(', ')) : '', big.length ? F.filesTooBig(big.map((f) => f.name).join(', ')) : ''].filter(Boolean).join(' ') || null);
+    onChange([...files, ...picked.filter((f) => !wrong.includes(f) && !big.includes(f))].slice(0, MAX_FILES));
+  };
+  return (
+    <div className={s.filePicker}>
+      <input
+        ref={input}
+        type="file"
+        multiple
+        hidden
+        accept="image/*,video/mp4,video/quicktime,video/webm,.heic,.heif"
+        onChange={(e) => {
+          add(Array.from(e.target.files ?? []));
+          e.target.value = '';
+        }}
+      />
+      {files.length < MAX_FILES && (
+        <button type="button" className={s.fileButton} onClick={() => input.current?.click()} disabled={disabled}>
+          <Paperclip size={16} strokeWidth={2.5} aria-hidden="true" /> {F.filesButton}
+        </button>
+      )}
+      <p className={s.fileLimit}>{F.filesLimit}</p>
+      {files.length > 0 && (
+        <ul className={s.fileList}>
+          {files.map((f, i) => (
+            <li key={`${f.name}-${i}`}>
+              <span>{f.name}</span>
+              <button type="button" onClick={() => onChange(files.filter((_, j) => j !== i))} disabled={disabled} aria-label={`${F.remove} ${f.name}`}>
+                <X size={14} strokeWidth={2.5} aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {warning && <p className={s.fileWarning}>{warning}</p>}
+    </div>
+  );
+}
+
 /** The two ways to change a paid video ad: 3 instant AI changes, and the team for anything else (owner 2026-10-27). */
 function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: string; ai: AiState; changesLeft: number; startOpen: boolean; justDone: boolean }) {
   const F = UNLOCK_PAGE.changes;
@@ -1095,6 +1165,7 @@ function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [human, setHuman] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
   const running = ai.changes.find((c) => c.status === 'working');
   const last = ai.changes[ai.changes.length - 1];
 
@@ -1102,17 +1173,26 @@ function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: 
     const said = text.trim();
     if (said.length < 3 || busy) return;
     setBusy(true);
-    setMessage(null);
+    setMessage(files.length ? F.filesUploading : null);
     try {
+      let sent: Awaited<ReturnType<typeof uploadChangeFiles>>;
+      try {
+        sent = await uploadChangeFiles(token, files);
+      } catch {
+        setMessage(F.filesFailed);
+        return;
+      }
+      setMessage(null);
       const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/ai-change`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: said }),
+        body: JSON.stringify({ text: said, ...sent }),
       });
       const answer = await res.json().catch(() => null);
       if (res.ok && answer?.success) {
         ai.set({ changes: answer.data.changes, left: answer.data.left, loaded: true });
         setText('');
+        setFiles([]);
       } else {
         const code = answer?.details?.code as keyof typeof F.refusals | undefined;
         setMessage(code && code in F.refusals ? F.refusals[code] : F.refusals.generic);
@@ -1159,6 +1239,7 @@ function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: 
           <>
             <p className={s.small}>{F.instantNote(ai.left)}</p>
             <textarea className={s.box} rows={3} maxLength={1500} placeholder={F.placeholder} value={text} onChange={(e) => setText(e.target.value)} />
+            <FilePicker files={files} onChange={setFiles} disabled={busy} />
             <button type="button" className={s.instantButton} onClick={start} disabled={busy || text.trim().length < 3}>
               {busy ? F.starting : F.instantButton}
             </button>
@@ -1196,21 +1277,30 @@ function ChangeBox({ token, initialLeft, collapsible = false }: { token: string;
   const [left, setLeft] = useState(initialLeft);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<string | null>(left > 0 ? null : F.refusals.noRoundsLeft);
+  const [files, setFiles] = useState<File[]>([]);
 
   const send = async () => {
     if (text.trim().length < 3 || sending) return;
     setSending(true);
     try {
+      let sent: Awaited<ReturnType<typeof uploadChangeFiles>>;
+      try {
+        sent = await uploadChangeFiles(token, files);
+      } catch {
+        setMessage(UNLOCK_PAGE.changes.filesFailed);
+        return;
+      }
       const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/change`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text.trim() }),
+        body: JSON.stringify({ text: text.trim(), ...sent }),
       });
       const answer = await res.json().catch(() => null);
       if (res.ok && answer?.success) {
         const now = Number(answer.data?.left ?? 0);
         setLeft(now);
         setText('');
+        setFiles([]);
         setMessage(F.sent());
       } else {
         const code = answer?.details?.code as keyof typeof F.refusals | undefined;
@@ -1239,6 +1329,7 @@ function ChangeBox({ token, initialLeft, collapsible = false }: { token: string;
             {F.changeLabel}
             <textarea className={s.box} rows={3} maxLength={2000} placeholder={F.changePlaceholder} value={text} onChange={(e) => setText(e.target.value)} />
           </label>
+          <FilePicker files={files} onChange={setFiles} disabled={sending} />
           <button type="button" className={s.buttonQuiet} onClick={send} disabled={sending || text.trim().length < 3}>
             {sending ? F.sending : F.changeButton}
           </button>
