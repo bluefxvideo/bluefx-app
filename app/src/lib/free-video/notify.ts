@@ -29,6 +29,7 @@ import {
 } from '@/lib/free-video/config';
 import { alertOwner } from '@/lib/free-video/alerts';
 import { isServiceRef } from '@/lib/free-video/funnel';
+import { unlockPagePath } from '@/lib/free-video/offer';
 import { offerOf, offerSwitchOf } from '@/lib/free-video/offer-switch';
 import { eventsTable, getLead, leadsTable } from '@/lib/free-video/leads';
 import { displayDomain, emailKeyOf } from '@/lib/free-video/website';
@@ -262,13 +263,15 @@ export async function deliverUnlock(leadId: string): Promise<DeliverResult> {
       console.error(`❌ [free-video] ML_GROUP_UNLOCKED is not set: the clean video of lead ${lead.id} waits for its email (the page shows it)`);
       return 'none';
     }
+    // The buyer also joins 'Free Video - Bought': the AI Media Machine follow-ups exit on it (owner 2026-10-27: an unlock
+    // buyer only wanted the video ad). The page link becomes the unlock page: download, change box, Weekly Video Plan.
     const result = await subscribeToMailerLite({
       email: lead.email,
       fullName: await nameFor(lead),
-      groups: [ML_GROUP_UNLOCKED],
+      groups: [ML_GROUP_UNLOCKED, ...(ML_GROUP_BOUGHT ? [ML_GROUP_BOUGHT] : [])],
       fields: {
         [ML_FIELDS.cleanUrl]: lead.clean_video_url,
-        [ML_FIELDS.url]: viewUrl(lead.view_token),
+        [ML_FIELDS.url]: `${SITE_URL}${unlockPagePath(lead.view_token)}`,
         [ML_FIELDS.site]: displayDomain(lead.website_domain),
         [ML_FIELDS.token]: lead.view_token,
       },

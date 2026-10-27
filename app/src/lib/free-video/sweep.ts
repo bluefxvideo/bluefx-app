@@ -36,7 +36,7 @@ import { cleanRendersRunning, startCleanRender } from '@/lib/free-video/unlock';
 import { copyLeadsToAccounts } from '@/lib/free-video/claim';
 import { writeMissingNextAds } from '@/lib/free-video/next-ads';
 import { cleanWorkingFiles } from '@/lib/free-video/cleanup';
-import { leadPrefixOfVtid } from '@/lib/free-video/offer';
+import { leadPrefixOfVtid, UNLOCK } from '@/lib/free-video/offer';
 import { displayDomain } from '@/lib/free-video/website';
 import { jobsTable } from '@/lib/smart-video/jobs';
 import type { FreeVideoGateResult, FreeVideoSettings } from '@/types/free-video';
@@ -440,14 +440,14 @@ async function collectAlerts(
     add(
       'unlock',
       `unlock-failed:${lead.id}:${lead.unlock_order_id || 'manual'}:${lead.clean_attempts}`,
-      `The $99 clean video of ${who(lead)} failed ${lead.clean_attempts} times (order ${lead.unlock_order_id || '?'}). Render it again: ${RERENDER_SQL(lead.id)} Or refund the order in FastSpring.`
+      `The ${UNLOCK.price} clean video of ${who(lead)} failed ${lead.clean_attempts} times (order ${lead.unlock_order_id || '?'}). Render it again: ${RERENDER_SQL(lead.id)} Or refund the order in FastSpring.`
     );
   }
   for (const lead of unlockEmail) {
     add(
       'unlock',
       `unlock-email:${lead.id}`,
-      `The $99 clean video of ${who(lead)} is ready but its email did not go out (MailerLite status ${lead.ml_status || 'unknown'}). The page shows the download: ${viewUrl(lead.view_token)}`
+      `The ${UNLOCK.price} clean video of ${who(lead)} is ready but its email did not go out (MailerLite status ${lead.ml_status || 'unknown'}). The page shows the download: ${viewUrl(lead.view_token)}`
     );
   }
 
@@ -470,7 +470,7 @@ async function collectAlerts(
     add('setup', `email-setup:${dayKey()}`, `${owedEmails} finished video ads wait for their email: the MailerLite group ids in lib/free-video/config.ts are still empty.`);
   }
   if (isLive() && !ML_GROUP_UNLOCKED && owedUnlockEmails > 0) {
-    add('setup', `unlock-setup:${dayKey()}`, `${owedUnlockEmails} clean $99 video ads wait for their email: ML_GROUP_UNLOCKED in lib/free-video/config.ts is still empty (the pages show the downloads).`);
+    add('setup', `unlock-setup:${dayKey()}`, `${owedUnlockEmails} clean ${UNLOCK.price} video ads wait for their email: ML_GROUP_UNLOCKED in lib/free-video/config.ts is still empty (the pages show the downloads).`);
   }
 
   const subject =

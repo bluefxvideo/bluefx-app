@@ -282,7 +282,7 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
 
   if (!order.id) {
     await recordUnlockEvent(`free_video_unlock_${order.reference || Date.now()}_invalid`, 'FREE_VIDEO_UNLOCK_UNMATCHED', { data: raw, reason: 'order without an id' });
-    alertLater([{ key: `unlock-unmatched:${order.reference || dayKey()}`, line: `A $99 unlock order arrived without an order id (reference ${order.reference || 'none'}). Nothing was unlocked; see webhook_events FREE_VIDEO_UNLOCK_UNMATCHED.` }], 'an unlock order could not be read');
+    alertLater([{ key: `unlock-unmatched:${order.reference || dayKey()}`, line: `A ${UNLOCK.price} unlock order arrived without an order id (reference ${order.reference || 'none'}). Nothing was unlocked; see webhook_events FREE_VIDEO_UNLOCK_UNMATCHED.` }], 'an unlock order could not be read');
     return 'invalid';
   }
 
@@ -301,14 +301,14 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
   if (check.verdict === 'rejected') {
     await recordUnlockEvent(`free_video_unlock_${order.id}_unverified`, 'FREE_VIDEO_UNLOCK_UNVERIFIED', { data: raw, reason: check.note ?? null });
     alertLater(
-      [{ key: `unlock-unverified:${order.id}`, line: `A $99 unlock webhook for order ${order.id} was NOT applied: ${check.note}. If the order is real, unlock it by hand: ${manualUnlockSql(order.id)}` }],
+      [{ key: `unlock-unverified:${order.id}`, line: `A ${UNLOCK.price} unlock webhook for order ${order.id} was NOT applied: ${check.note}. If the order is real, unlock it by hand: ${manualUnlockSql(order.id)}` }],
       'an unlock order did not check out'
     );
     return 'unverified';
   }
   if (check.verdict === 'unchecked' && check.note) {
     alertLater(
-      [{ key: `unlock-unconfirmed:${dayKey()}`, line: `$99 unlock order ${order.id} was applied without confirmation: ${check.note}. Check FASTSPRING_USERNAME / FASTSPRING_API_KEY.` }],
+      [{ key: `unlock-unconfirmed:${dayKey()}`, line: `${UNLOCK.price} unlock order ${order.id} was applied without confirmation: ${check.note}. Check FASTSPRING_USERNAME / FASTSPRING_API_KEY.` }],
       'unlocks applied without an API check'
     );
   }
@@ -319,7 +319,7 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
   if (!lead) {
     await recordUnlockEvent(`free_video_unlock_${order.id}_unmatched`, 'FREE_VIDEO_UNLOCK_UNMATCHED', { data: raw, email: order.email, token: order.token });
     alertLater(
-      [{ key: `unlock-unmatched:${order.id}`, line: `A $99 unlock was paid (order ${order.id}${order.reference ? `, ${order.reference}` : ''}, ${order.email || 'no email'}) but matches no free video lead. Find the lead and unlock it by hand: ${manualUnlockSql(order.id)}` }],
+      [{ key: `unlock-unmatched:${order.id}`, line: `A ${UNLOCK.price} unlock was paid (order ${order.id}${order.reference ? `, ${order.reference}` : ''}, ${order.email || 'no email'}) but matches no free video lead. Find the lead and unlock it by hand: ${manualUnlockSql(order.id)}` }],
       'an unlock payment matches no lead'
     );
     return 'unmatched';
@@ -354,7 +354,7 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
     if ((await leadByOrder([order.id]))?.id === lead.id) return 'duplicate';
     await recordUnlockEvent(`free_video_unlock_${order.id}_second`, 'FREE_VIDEO_UNLOCK_DUPLICATE', { data: raw, lead: lead.id, unlockStatus: lead.unlock_status });
     alertLater(
-      [{ key: `unlock-duplicate:${order.id}`, line: `A second $99 unlock payment (order ${order.id}) arrived for ${displayDomain(lead.website_domain)} (lead ${lead.id}, unlock already ${lead.unlock_status} by order ${lead.unlock_order_id || '?'}). Refund order ${order.id} in FastSpring.` }],
+      [{ key: `unlock-duplicate:${order.id}`, line: `A second ${UNLOCK.price} unlock payment (order ${order.id}) arrived for ${displayDomain(lead.website_domain)} (lead ${lead.id}, unlock already ${lead.unlock_status} by order ${lead.unlock_order_id || '?'}). Refund order ${order.id} in FastSpring.` }],
       'a second unlock payment'
     );
     return 'second-payment';
@@ -372,7 +372,7 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
   if (updated.status === 'done') startCleanRender(updated.id, true);
   else if (updated.status === 'failed' || updated.status === 'rejected') {
     alertLater(
-      [{ key: `unlock-novideo:${lead.id}:${order.id}`, line: `$99 unlock paid (order ${order.id}) for ${displayDomain(lead.website_domain)}, but that free video ad ${updated.status === 'rejected' ? 'could not be made (website not readable)' : 'failed'}. Make a new one (it is rendered clean as soon as it is done) or refund the order: update free_video_leads set status = 'queued', attempts = 0, reason = null, not_before = null, updated_at = now() where id = '${lead.id}';` }],
+      [{ key: `unlock-novideo:${lead.id}:${order.id}`, line: `${UNLOCK.price} unlock paid (order ${order.id}) for ${displayDomain(lead.website_domain)}, but that free video ad ${updated.status === 'rejected' ? 'could not be made (website not readable)' : 'failed'}. Make a new one (it is rendered clean as soon as it is done) or refund the order: update free_video_leads set status = 'queued', attempts = 0, reason = null, not_before = null, updated_at = now() where id = '${lead.id}';` }],
       'an unlock paid for a video ad that does not exist'
     );
   }
@@ -398,7 +398,7 @@ async function handleUnlockRefund(eventType: string, order: UnlockOrder, raw: Re
     // A cancelled order that never unlocked anything needs no one's attention.
     if (eventType !== 'order.canceled') {
       alertLater(
-        [{ key: `unlock-refund:${eventKey}`, line: `A $99 unlock ${eventType} (${eventKey}) matches no unlocked lead: no unlock was taken back (a refunded second payment needs nothing else). See webhook_events FREE_VIDEO_UNLOCK_REFUND_UNMATCHED.` }],
+        [{ key: `unlock-refund:${eventKey}`, line: `A ${UNLOCK.price} unlock ${eventType} (${eventKey}) matches no unlocked lead: no unlock was taken back (a refunded second payment needs nothing else). See webhook_events FREE_VIDEO_UNLOCK_REFUND_UNMATCHED.` }],
         'an unlock refund matches no lead'
       );
     }
@@ -412,7 +412,7 @@ async function handleUnlockRefund(eventType: string, order: UnlockOrder, raw: Re
   await recordUnlockEvent(`free_video_unlock_${eventKey}_refund`, 'FREE_VIDEO_UNLOCK_REFUND', { data: raw, eventType, lead: lead.id });
   console.warn(`⚠️ [free-video] Lead ${lead.id}: $99 unlock ${eventType}, now refunded`);
   alertLater(
-    [{ key: `unlock-refund:${lead.id}:${lead.unlock_order_id || eventKey}`, line: `$99 unlock of ${displayDomain(lead.website_domain)} (lead ${lead.id}, order ${lead.unlock_order_id || '?'}): ${eventType}. The lead is marked refunded; the clean file stays where it is.` }],
+    [{ key: `unlock-refund:${lead.id}:${lead.unlock_order_id || eventKey}`, line: `${UNLOCK.price} unlock of ${displayDomain(lead.website_domain)} (lead ${lead.id}, order ${lead.unlock_order_id || '?'}): ${eventType}. The lead is marked refunded; the clean file stays where it is.` }],
     'an unlock was refunded'
   );
 }

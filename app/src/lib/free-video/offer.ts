@@ -227,10 +227,14 @@ export const UNLOCK = {
   product: 'video-creation',
   storefront: 'https://bluefx.onfastspring.com',
   tagKey: 'freeVideoLead',
-  price: '$99',
+  /** $49 since 2026-10-27 (owner: the unlock page sells the video ad itself, /v/<token>/unlock); the FastSpring product's own price must match. */
+  price: '$49',
   /** Not a ClickBank tid: /go/fvunlock is special-cased to the FastSpring checkout. */
   placement: 'fvunlock',
 } as const;
+
+/** The unlock page of one lead (owner 2026-10-27): pay once, download the video ad without the watermark, changes included. */
+export const unlockPagePath = (token: string) => `/v/${token}/unlock`;
 
 /** The FastSpring checkout for one lead's unlock. */
 export const unlockCheckoutUrl = (token: string) =>
@@ -285,6 +289,15 @@ export const serviceCheckoutUrl = (token: string, product: string) =>
 
 /** The service emails' and old pages' checkout link: /go/fvservice logs the click, then 302s to serviceCheckoutUrl(token). */
 export const serviceGoUrl = (token: string) => `/go/${SERVICE.placement}?t=${encodeURIComponent(token)}`;
+
+/**
+ * The Weekly Video Plan offered to an unlock buyer (owner 2026-10-27: one video ad first, then the monthly plan): always the
+ * $99 product, whatever the lead's service clock says. /go/fvplan logs the click, then opens that checkout.
+ */
+export const PLAN_PLACEMENT = 'fvplan';
+export const planGoUrl = (token: string) => `/go/${PLAN_PLACEMENT}?t=${encodeURIComponent(token)}`;
+/** The public page that explains the plan at $99 (linked nowhere else, owner 2026-10-27). */
+export const PLAN_INFO_PATH = '/weekly-video-plan-99';
 
 /** The service page of one lead. */
 export const servicePagePath = (token: string) => `/v/${token}/unlimited`;

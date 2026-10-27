@@ -410,10 +410,11 @@ export const FREE_VIDEO_STEP_OF: Record<SmartVideoJobStatus, 1 | 2 | 3 | 4 | 5> 
 
 /**
  * tour_play: the founder's walkthrough of the AI Media Machine on the result page was started (SALES_PAGE.tour).
+ * unlock_view: the unlock page (/v/<token>/unlock) was opened in a browser.
  * service_view: the Unlimited Video Ads page (/v/<token>/unlimited) was opened in a browser that runs its script; the
  * lead's first one starts its 3-day $99 hold (service-page.ts). Sent by the page, so email link scanners never start it.
  */
-export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open', 'tour_play', 'chat_open', 'tutorial_open', 'tutorial_end', 'service_view', 'service_click'] as const;
+export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open', 'tour_play', 'chat_open', 'tutorial_open', 'tutorial_end', 'service_view', 'service_click', 'unlock_view'] as const;
 /** A page event the browser may send. */
 export type FreeVideoEvent = (typeof FREE_VIDEO_EVENTS)[number];
 /**
@@ -435,7 +436,8 @@ export type TutorialOpenSource = (typeof TUTORIAL_OPEN_SOURCES)[number];
  * meta {fbc, fbp}) and the outcome of every Conversions API send ('capi', meta {name, id, ok, error}).
  */
 /** service_paid: a paid Unlimited Video Ads order of this lead (service-order.ts). */
-export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused' | 'service_paid';
+/** change_request: a change an unlock buyer typed on the unlock page (meta {text, round}). */
+export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused' | 'service_paid' | 'change_request';
 
 export const FreeVideoEventSchema = z.object({
   e: z.enum(FREE_VIDEO_EVENTS),
