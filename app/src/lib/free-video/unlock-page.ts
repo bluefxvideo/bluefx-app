@@ -1,11 +1,12 @@
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
 
-/** The freelancer's price for 1 video ad like the free one (the owner's Fiverr screenshot, 2026-10-08). */
-const FREELANCER = '$600';
-
 type Client = (typeof SALES_PAGE.reviews.items)[number];
 const clients = (names: readonly string[]) =>
-  names.map((name) => SALES_PAGE.reviews.items.find((item) => item.name === name)).filter((item): item is Client => Boolean(item));
+  names
+    .map((name) => SALES_PAGE.reviews.items.find((item) => item.name === name))
+    .filter((item): item is Client => Boolean(item))
+    // The sales page points at a clip above ("His video ad is in the clip above."); this page has no such clip.
+    .map((item) => ({ ...item, role: item.role.replace(/\.\s*His video ad is in the clip above\.?$/, '') }));
 
 /** Short dates on the page: "Tue, Nov 3". */
 export const shortDate = (iso: string) => new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(iso));
@@ -13,18 +14,31 @@ export const shortDate = (iso: string) => new Intl.DateTimeFormat('en-US', { wee
 export const longDate = (iso: string) => new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date(iso));
 
 /**
- * The unlock page, /v/<token>/unlock (owner 2026-10-27, "it has to be strong", then a 4-expert review the owner
- * approved in full): the visitor's own video ad without the watermark for one payment, $49 for 7 days from the first
- * visit, then $99. Changes are included but never asked for before the payment. After the download: the Weekly Video
- * Plan at $99 a month. Copy rules: "your video ad", no em dashes, concrete words, true facts only (the clean file is
- * the same 720 x 1280 render as the free one, so HD, not full HD). Prices come in as arguments, because the lead's own
- * clock picks them.
+ * What a freelancer charges for each part of a video ad like the free one (owner 2026-10-27: itemize it, then show
+ * that everything is included). The voice-over and editing prices are the ones the Weekly Video Plan page already
+ * uses ($200+ per script, $100+ an hour); the others are the owner's to confirm.
+ */
+const FREELANCE_PARTS = [
+  { part: 'A script written to sell', price: 100 },
+  { part: 'A voice-over artist', price: 200 },
+  { part: 'A person on camera', price: 150 },
+  { part: 'Graphics, music and captions', price: 100 },
+  { part: 'Editing, about 2 hours at $100 an hour', price: 200 },
+] as const;
+const FREELANCE_TOTAL = FREELANCE_PARTS.reduce((sum, item) => sum + item.price, 0);
+
+/**
+ * The unlock page, /v/<token>/unlock. Rewritten 2026-10-27 after the owner's notes ("you made this like a robot"):
+ * talk like a person, the free video ad is a sample, revisions (not "rounds") until the video ad is just right, common
+ * change examples, one itemized freelancer comparison, the long pages' benefits (customers scrolling, the walking
+ * customers, 222,712 leads), every testimonial, and the $60K founder story from the Weekly Video Plan page. No P.S.
+ * True facts only: the clean file is the same 720 x 1280 render as the free one (HD, not full HD).
  */
 export const UNLOCK_PAGE = {
   meta: (domain: string) => `Your video ad for ${domain}`,
-  kicker: (domain: string) => `Your video ad for ${domain} is ready`,
-  title: 'Post your video ad on Facebook today, without the watermark',
-  sub: 'Pay once. Download your video ad in 5 minutes. Our team makes 2 rounds of changes for you in the next 30 days.',
+  kicker: (domain: string) => `Your video ad for ${domain}`,
+  title: 'Your video ad is ready. Get the full version without the watermark.',
+  sub: 'What you watched is a sample. Get your video ad without the watermark, ready to post anywhere. Want something changed? Just tell my team.',
   priceUnit: 'one time',
   save: (regular: string, price: string) => `Your free video ad price: save $${Number(regular.slice(1)) - Number(price.slice(1))}`,
   ends: (iso: string, regular: string) => `Ends ${shortDate(iso)}, then ${regular}`,
@@ -36,7 +50,7 @@ export const UNLOCK_PAGE = {
     return `${hours ? `${hours} h ` : ''}${minutes % 60} min left`;
   },
   button: (price: string) => `Unlock My Video Ad for ${price}`,
-  promiseShort: 'The Feel-Right Promise: changes, or every cent back for 30 days',
+  promiseShort: 'The Feel-Right Promise: 30-day money-back guarantee',
   trust: 'Secure checkout by FastSpring. Cards and PayPal.',
   afterClick: 'Finish the payment in the new tab. This page updates by itself as soon as the payment arrives.',
   bar: 'Unlock My Video Ad',
@@ -44,74 +58,107 @@ export const UNLOCK_PAGE = {
   barCheck: 'Paid? Tap here',
 
   proof: {
-    line: 'BlueFX has made video ads for businesses since 2008',
+    line: 'BlueFX has made videos for businesses since 2008',
     stars: '5 out of 5 stars',
     faces: clients(['Alex Goad', 'Steve Kane', 'Tony Monaco', 'Gregory Green']),
   },
 
-  compare: {
-    title: (price: string) => `A video ad like yours costs ${FREELANCER} on Fiverr. Yours is ${price}.`,
-    note: 'Fiverr is the biggest website for hiring freelancers. The price is a Top Rated seller’s basic package for 1 video ad like yours.',
-    labels: ['Price', 'Ready in', 'Changes', 'Your work'],
-    them: { name: 'A Fiverr freelancer', rows: [FREELANCER, '14 days', '2 revisions', 'You explain everything to them'] },
-    us: (price: string) => ({ name: 'Your video ad', rows: [price, '5 minutes', '2 rounds in 30 days', 'Already made from your website'] }),
+  changes: {
+    title: 'Want something changed? Just tell us.',
+    text: 'Type what you want in plain words, and a real person on my team makes the change. You get as many revisions as you need, within reason, until your video ad is just right.',
+    examplesTitle: 'What people usually ask for:',
+    examples: [
+      'Your phone number on the last screen',
+      'A different voice, a man or a woman',
+      'Other music',
+      'Your own photos or your logo',
+      'A different person on camera, or no person',
+      'A word or a line in the script',
+      'Your offer or your prices',
+    ],
   },
-
-  changesTitle: 'Want something changed? Our team does that for free',
-  changesText: 'You get 2 rounds of changes to the words, voice, photos, logo or presenter. Changes our team made for other business owners recently:',
-  changes: [
-    "'Organically grown' instead of 'certified organic'",
-    'A real person on camera instead of drawings',
-    "The owner's last name, said the right way",
-    "The shop's own cap in the presenter's hand",
-  ],
 
   getTitle: 'What you get',
   get: [
-    { title: 'Your video ad in HD, made for phones', text: 'Without the SAMPLE watermark and without the BlueFX logo at the end.' },
-    { title: 'Your download in 5 minutes', text: 'The download button shows up on this page, and a copy comes to your email.' },
-    { title: 'Post your video ad anywhere', text: 'Facebook, Instagram, YouTube, TikTok and your website. You can use your video ad in paid Facebook ads too. You own your video ad.' },
-    { title: '2 rounds of changes by our team', text: 'Type the change on this page in plain words, any time in the next 30 days. A real person on our team makes the change, and your changed video ad comes back by email within 24 hours.' },
+    { title: 'Your video ad without the watermark', text: 'In HD, made for phones, without the SAMPLE watermark and without our logo at the end.' },
+    { title: 'Ready in 5 minutes', text: 'Your download button shows up on this page, and a copy comes to your email.' },
+    { title: 'Revisions until your video ad is just right', text: 'Tell us what to change, and my team emails you the new version within 24 hours.' },
+    { title: 'Post your video ad anywhere', text: 'You own your video ad. Post your video ad as often as you like, and use your video ad in paid ads too.' },
   ],
+  platforms: ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'Your website'],
 
-  reviewsTitle: 'What clients say about videos BlueFX made for them',
-  /** Owner 2026-10-27: the 2 quotes about the work itself; the $1 million and "atomic power" quotes read as hype next to $49. */
-  reviews: clients(['Steve Kane', 'Tony Monaco']),
+  scrolling: {
+    title: 'Your customers are scrolling right now',
+    text: 'How did you find us? Probably through a video on Facebook or YouTube. Your customers are there too, over 2 hours a day. When your video ad shows up in their feed, your business is the name they remember when they need what you sell.',
+    sceneNote: 'Your video ad shows your business to the people scrolling Facebook, Instagram, TikTok and YouTube every day.',
+    leadsStrong: 'Our own video ads brought BlueFX 222,712 leads.',
+    leadsRest: 'Your video ad is built the same way.',
+    image: '/free-video/leadpages-leads.jpg',
+    alt: 'Our Leadpages dashboard showing 222,712 leads',
+    caption: 'Our Leadpages dashboard: 222,712 leads since 2013, from our own video ads.',
+  },
 
+  compare: {
+    title: 'What a video ad like yours costs from a freelancer',
+    parts: FREELANCE_PARTS.map((item) => ({ part: item.part, price: `$${item.price}` })),
+    totalLabel: 'A freelancer, all together',
+    total: `$${FREELANCE_TOTAL}`,
+    wait: 'plus days of waiting',
+    usLabel: 'Your video ad, everything included',
+    usNote: 'Script, voice-over, person on camera, graphics, music, captions and editing: already done.',
+  },
+
+  reviewsTitle: 'What our clients say',
+  reviewsLead: "I've been building BlueFX since 2008, for more than 36,000 customers. Here's what a few of them say.",
+  reviewsWorkLabel: 'Video work my team made for them',
+  reviews: clients(['Steve Kane', 'Alex Goad', 'Dov Rom', 'Tony Monaco']),
+  videoReviewsLabel: 'Customers of BlueFX video templates',
+  videoReviews: ['Gregory Green', 'Deryck Jones', 'Bucky Helms'] as const,
+
+  /** The founder story of the Weekly Video Plan page (owner 2026-10-27: "we already made a good founder story ... use that"). */
   founder: {
     photo: SALES_PAGE.founder.photo,
-    name: SALES_PAGE.founder.name,
-    role: SALES_PAGE.founder.role,
-    title: (price: string) => `Why your video ad is ${price} and not ${FREELANCER}`,
-    text: (domain: string, price: string) => [
-      "Hi, I'm Szilard. I've made videos for businesses since 2008, and I spend my own money on Facebook ads every week.",
-      `Your video ad for ${domain} is already made from your website, so the hard part is done. That is why you pay ${price} and not the ${FREELANCER} a freelancer charges. My team changes anything you want for 30 days.`,
-      'If your video ad still doesn’t feel right, email me and you get every cent back.',
+    name: 'Szilard Gyorfi, founder of BlueFX',
+    title: 'I spent $60K of my own money on video ads to figure out what actually brings in customers',
+    text: (price: string) => [
+      "I'm Szilard Gyorfi. I've been building BlueFX since 2008, from a one-man video template shop into a business that has served 36,000+ customers around the world.",
+      'I made 700+ videos for customers by hand, and each video took days, sometimes weeks.',
+      `2 years ago I moved all my video work to AI. A video ad that used to take me a week now takes minutes. That's why your video ad is ${price} and not hundreds of dollars.`,
     ],
-    sign: 'Szilard',
+    lessonsTitle: 'What spending $60K on video ads taught me:',
+    lessons: [
+      { strong: 'Get attention first.', text: 'Your video ad opens with 1 problem your customer has, in the first 3 seconds.' },
+      { strong: 'Present the facts in an interesting way.', text: 'Your real prices, your real offer and your real photos, shown so people keep watching.' },
+      { strong: 'Tell people what to do next.', text: 'Your website on screen at the end.' },
+    ],
+    lessonsEnd: 'Your video ad has all 3.',
+    stats: [
+      { n: '18', label: 'years building BlueFX' },
+      { n: '$60K+', label: 'spent testing video ads' },
+      { n: '777', label: 'YouTube videos' },
+      { n: '36K+', label: 'customers served' },
+    ],
   },
 
   guaranteeTitle: 'The Feel-Right Promise',
+  guaranteeSub: '30-day money-back guarantee',
   guarantee: (price: string) =>
-    `If your video ad doesn't feel right for your business, our team changes your video ad, 2 rounds in 30 days. Still not right? Email support@bluefx.net within 30 days and you get every cent of your ${price} back.`,
+    `If your video ad doesn't feel right for your business, tell us, and my team changes your video ad until it does. Still not happy? Email support@bluefx.net within 30 days, and you get every cent of your ${price} back.`,
 
   faqTitle: 'Questions',
-  faq: (price: string, regular: string, launch: boolean, filesUntil: string | null) => [
+  faq: (price: string, filesUntil: string | null) => [
     { q: 'Is this a monthly plan?', a: `No. You pay ${price} once for your video ad. Nothing renews.` },
-    ...(launch ? [{ q: `Why ${price} and not ${regular}?`, a: `${price} is the price for people who made a free video ad. After 7 days your video ad costs ${regular}.` }] : []),
-    { q: 'Who makes my changes?', a: 'A real person on our team. Your changed video ad comes back by email within 24 hours.' },
-    { q: 'Can I add my phone number or my offer?', a: 'Yes. Type the change on this page in plain words, for example "Put our phone number on the last screen."' },
+    { q: 'How many revisions do I get?', a: 'As many as you need, within reason, until your video ad is just right. Send them in the 30 days after you pay.' },
+    { q: 'Who makes my changes?', a: 'A real person on my team. Your new version comes back by email within 24 hours.' },
     { q: 'What file do I get?', a: 'An MP4 video file in HD (720 x 1280), standing up for phones, usually 40 to 55 seconds long. Facebook, Instagram, TikTok and YouTube Shorts take your video ad as it is.' },
-    { q: 'Is the person in my video ad real?', a: 'The presenter in your video ad is an AI presenter, made for your video ad. Want a different person, or no person at all? Ask for that as one of your changes.' },
+    { q: 'Is the person in my video ad real?', a: 'The presenter in your video ad is an AI presenter, made for your video ad. Want a different person, or no person at all? Just ask.' },
     { q: 'Will Facebook run my video ad as a paid ad?', a: 'Facebook checks every paid ad before it runs. Some products, like CBD or supplements, need Facebook’s approval first. Posting your video ad on your own Facebook page, your website or YouTube works for every business.' },
     { q: 'Who owns my video ad?', a: 'You do. Post your video ad anywhere you like, as often as you like, paid ads included.' },
     ...(filesUntil ? [{ q: 'How long can I unlock my video ad?', a: `Until ${longDate(filesUntil)}. The working files of your video ad are deleted 30 days after your video ad was made, and after that your video ad can't be unlocked.` }] : []),
-    { q: 'What if I don’t like my video ad?', a: `Ask for a change first. If your video ad still doesn't feel right, email support@bluefx.net within 30 days and you get your ${price} back.` },
+    { q: 'What if I don’t like my video ad?', a: `Tell us what to change first. Still not happy? Email support@bluefx.net within 30 days, and you get your ${price} back.` },
   ],
-  bottomTitle: (domain: string) => `Post your video ad for ${domain} today`,
+  bottomTitle: (domain: string) => `Get your video ad for ${domain} without the watermark`,
   filesLine: (iso: string) => `Your video ad can be unlocked until ${longDate(iso)}.`,
-  ps: (domain: string, price: string, regular: string, endsAt: string | null) =>
-    `P.S. Your video ad for ${domain} is already made. A freelancer charges ${FREELANCER} and makes you wait 14 days for a video ad like yours. Your video ad is ${price}${endsAt ? ` until ${longDate(endsAt)}, then ${regular}` : ''}, and the Feel-Right Promise covers every cent.`,
 
   paid: {
     title: 'Payment received. Your video ad is unlocking.',
@@ -130,16 +177,15 @@ export const UNLOCK_PAGE = {
   ready: {
     title: 'Your video ad is ready',
     button: 'Download My Video Ad',
-    changeLabel: 'Want a change? Type the change here',
+    changeLabel: 'Want something changed? Type it here',
     changePlaceholder: 'Example: Put our phone number on the last screen.',
     changeButton: 'Send My Change',
     sending: 'Sending...',
-    changeNote: 'Free, 2 rounds in 30 days. Your changed video ad comes back by email within 24 hours.',
-    sent: (left: number) =>
-      `Got it. Our team is making your change and emails your changed video ad within 24 hours. ${left === 1 ? 'You have 1 more round of changes.' : left > 1 ? `You have ${left} more rounds of changes.` : 'That was your last round of changes.'}`,
+    changeNote: 'Free revisions until your video ad is just right. Your new version comes back by email within 24 hours.',
+    sent: () => 'Got it. My team is making your change and emails you the new version within 24 hours. Want something else changed too? Send it any time.',
     refusals: {
-      noRoundsLeft: 'You used both rounds of changes. For more changes, email support@bluefx.net.',
-      tooLate: 'The 30 days for changes are over. For more changes, email support@bluefx.net.',
+      noRoundsLeft: 'You sent a lot of revisions. To keep going, email support@bluefx.net and my team helps you.',
+      tooLate: 'Revisions are open for 30 days after you pay. For more changes, email support@bluefx.net.',
       notPaid: 'Changes open once your payment is in.',
       generic: 'Your change did not go through. Please email support@bluefx.net with your change.',
     },

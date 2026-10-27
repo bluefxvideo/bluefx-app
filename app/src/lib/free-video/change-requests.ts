@@ -10,7 +10,8 @@ import type { FreeVideoLead } from '@/types/free-video';
  * change_request event on the lead plus an email to the owner, who makes the change in the Phantom and emails the
  * changed video ad back by hand. CHANGE_ROUNDS rounds within CHANGE_DAYS days of the payment.
  */
-export const CHANGE_ROUNDS = 2;
+/** Owner 2026-10-27: "as many revisions as you need, within reason". This cap is the "within reason": past it, the buyer emails support. */
+export const CHANGE_ROUNDS = 10;
 export const CHANGE_DAYS = 30;
 export const CHANGE_MAX_CHARS = 2000;
 

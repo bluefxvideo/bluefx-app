@@ -9,7 +9,7 @@ import { UNLOCK_PAGE } from '@/lib/free-video/unlock-page';
 import type { UnlockPrice } from '@/lib/free-video/unlock-price';
 import { cn } from '@/lib/utils';
 import type { FreeVideoView } from '@/types/free-video';
-import { PayCards, Shield, Stars, Tick } from './result-page';
+import { PayCards, ResultScene, Shield, Stars, Tick, VideoReview, videoReviewsOf } from './result-page';
 import { SaveToPhotos } from './save-to-photos';
 import { VideoAdPlayer } from './video-ad-player';
 import rp from './result-page.module.css';
@@ -146,8 +146,7 @@ function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }:
   const barOn = useBar(boxes);
   const checkout = unlockGoUrl(token);
   const left = useTimeLeft(price.endsAt);
-  const us = F.compare.us(price.price);
-  const action = <Action href={checkout} price={price} clicked={clicked} onCheckout={onCheckout} />;
+    const action = <Action href={checkout} price={price} clicked={clicked} onCheckout={onCheckout} />;
 
   return (
     <>
@@ -191,50 +190,22 @@ function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }:
 
       <section className={s.section}>
         <div className={s.narrow}>
-          <h2 className={s.h2}>{F.compare.title(price.price)}</h2>
-          <div className={s.compare}>
-            {[
-              { name: F.compare.them.name, rows: F.compare.them.rows, us: false },
-              { name: us.name, rows: us.rows, us: true },
-            ].map((col) => (
-              <div key={col.name} className={cn(s.compareCol, col.us && s.compareUs)}>
-                <p className={s.compareName}>{col.name}</p>
-                {col.rows.map((row, i) => (
-                  <p key={F.compare.labels[i]} className={s.compareCell}>
-                    <span className={s.compareLabel}>{F.compare.labels[i]}</span>
-                    {i === 0 ? <b className={col.us ? s.compareGood : s.compareBad}>{row}</b> : row}
-                  </p>
-                ))}
-              </div>
-            ))}
-          </div>
-          <p className={s.small}>{F.compare.note}</p>
-          <div ref={midBuy}>
-            <CompactBuy price={price} left={left} action={action} />
-          </div>
-        </div>
-      </section>
-
-      <section className={cn(s.section, s.sectionSoft)}>
-        <div className={s.narrow}>
-          <h2 className={s.h2}>{F.changesTitle}</h2>
-          <p className={s.p}>{F.changesText}</p>
-          <ul className={s.changes}>
-            {F.changes.map((line) => (
-              <li key={line}>
-                <Tick size={14} stroke={3} color="#3f6a1c" />
-                {line}
-              </li>
+          <h2 className={s.h2}>{F.changes.title}</h2>
+          <p className={s.p}>{F.changes.text}</p>
+          <p className={s.label}>{F.changes.examplesTitle}</p>
+          <ul className={s.chips}>
+            {F.changes.examples.map((line) => (
+              <li key={line}>{line}</li>
             ))}
           </ul>
         </div>
       </section>
 
-      <section className={s.section}>
+      <section className={cn(s.section, s.sectionSoft)}>
         <div className={s.narrow}>
           <h2 className={s.h2}>{F.getTitle}</h2>
           <ul className={s.stack}>
-            {F.get.map((item) => (
+            {F.get.map((item, i) => (
               <li key={item.title}>
                 <span className={s.tick}>
                   <Tick size={14} stroke={3} />
@@ -242,16 +213,71 @@ function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }:
                 <div>
                   <h3>{item.title}</h3>
                   <p>{item.text}</p>
+                  {i === F.get.length - 1 && (
+                    <ul className={cn(s.chips, s.chipsSmall)}>
+                      {F.platforms.map((name) => (
+                        <li key={name}>{name}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </li>
             ))}
           </ul>
+          <div ref={midBuy}>
+            <CompactBuy price={price} left={left} action={action} />
+          </div>
+        </div>
+      </section>
+
+      <section className={s.section}>
+        <div className={s.narrow}>
+          <h2 className={s.h2}>{F.scrolling.title}</h2>
+          <p className={s.p}>{F.scrolling.text}</p>
+          <ResultScene domain={view.domain} note={F.scrolling.sceneNote} />
+          <p className={s.p}>
+            <strong>{F.scrolling.leadsStrong}</strong> {F.scrolling.leadsRest}
+          </p>
+          <figure className={s.leads}>
+            <Image src={F.scrolling.image} alt={F.scrolling.alt} width={554} height={178} sizes="(min-width: 700px) 640px, 100vw" />
+            <figcaption>{F.scrolling.caption}</figcaption>
+          </figure>
         </div>
       </section>
 
       <section className={cn(s.section, s.sectionSoft)}>
         <div className={s.narrow}>
+          <h2 className={s.h2}>{F.compare.title}</h2>
+          <div className={s.bill}>
+            {F.compare.parts.map((item) => (
+              <p key={item.part} className={s.billRow}>
+                <span>{item.part}</span>
+                <b>{item.price}</b>
+              </p>
+            ))}
+            <p className={cn(s.billRow, s.billTotal)}>
+              <span>
+                {F.compare.totalLabel}
+                <small>{F.compare.wait}</small>
+              </span>
+              <b className={s.compareBad}>{F.compare.total}</b>
+            </p>
+          </div>
+          <div className={s.billUs}>
+            <p className={s.billRow}>
+              <span>{F.compare.usLabel}</span>
+              <b className={s.compareGood}>{price.price}</b>
+            </p>
+            <p className={s.small}>{F.compare.usNote}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className={s.section}>
+        <div className={s.narrow}>
           <h2 className={s.h2}>{F.reviewsTitle}</h2>
+          <p className={s.p}>{F.reviewsLead}</p>
+          <p className={s.label}>{F.reviewsWorkLabel}</p>
           <div className={s.reviews}>
             {F.reviews.map((r) => (
               <figure key={r.name} className={s.review}>
@@ -267,28 +293,51 @@ function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }:
               </figure>
             ))}
           </div>
+          <p className={s.label}>{F.videoReviewsLabel}</p>
+          <ul className={rp.reviews}>
+            {videoReviewsOf(F.videoReviews).map((item) => (
+              <VideoReview key={item.name} item={item} />
+            ))}
+          </ul>
         </div>
       </section>
 
-      <section className={s.section}>
+      <section className={cn(s.section, s.sectionSoft)}>
         <div className={s.narrow}>
           <div className={s.founder}>
             <Image className={s.founderFace} src={F.founder.photo} alt={F.founder.name} width={240} height={240} sizes="120px" />
             <div className={s.founderText}>
-              <h2 className={s.h3}>{F.founder.title(price.price)}</h2>
-              {F.founder.text(view.domain, price.price).map((line) => (
+              <p className={s.label}>{F.founder.name}</p>
+              <h2 className={s.h2}>{F.founder.title}</h2>
+              {F.founder.text(price.price).map((line) => (
                 <p key={line}>{line}</p>
               ))}
-              <p className={s.sign}>{F.founder.sign}</p>
-              <p className={s.small}>
-                {F.founder.name}, {F.founder.role}
+              <p>
+                <b>{F.founder.lessonsTitle}</b>
               </p>
+              <ol className={s.lessons}>
+                {F.founder.lessons.map((l) => (
+                  <li key={l.strong}>
+                    <b>{l.strong}</b> {l.text}
+                  </li>
+                ))}
+              </ol>
+              <p>{F.founder.lessonsEnd}</p>
             </div>
           </div>
+          <ul className={s.stats}>
+            {F.founder.stats.map((st) => (
+              <li key={st.label}>
+                <b>{st.n}</b>
+                <span>{st.label}</span>
+              </li>
+            ))}
+          </ul>
           <div className={s.guarantee}>
             <Shield />
             <div>
               <h2>{F.guaranteeTitle}</h2>
+              <p className={s.guaranteeSub}>{F.guaranteeSub}</p>
               <p>{F.guarantee(price.price)}</p>
             </div>
           </div>
@@ -298,11 +347,11 @@ function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }:
         </div>
       </section>
 
-      <section className={cn(s.section, s.sectionSoft)}>
+      <section className={s.section}>
         <div className={s.narrow}>
           <h2 className={s.h2}>{F.faqTitle}</h2>
           <dl className={s.faq}>
-            {F.faq(price.price, price.regular, price.launch, filesUntil).map((item) => (
+            {F.faq(price.price, filesUntil).map((item) => (
               <div key={item.q}>
                 <dt>{item.q}</dt>
                 <dd>{item.a}</dd>
@@ -320,7 +369,6 @@ function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }:
             {action}
             {filesUntil && <p className={cn(s.small, s.center)}>{F.filesLine(filesUntil)}</p>}
           </div>
-          <p className={s.ps}>{F.ps(view.domain, price.price, price.regular, price.launch ? price.endsAt : null)}</p>
         </div>
       </section>
 
@@ -502,7 +550,7 @@ function ChangeBox({ token, initialLeft }: { token: string; initialLeft: number 
         const now = Number(answer.data?.left ?? 0);
         setLeft(now);
         setText('');
-        setMessage(F.sent(now));
+        setMessage(F.sent());
       } else {
         const code = answer?.details?.code as keyof typeof F.refusals | undefined;
         if (code === 'noRoundsLeft') setLeft(0);

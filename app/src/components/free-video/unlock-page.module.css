@@ -1367,3 +1367,173 @@
     font-size: 14px;
   }
 }
+
+/* ---- v4 rewrite (owner notes 2026-10-27) ---- */
+
+.label {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--green-dark);
+}
+
+.chipsSmall {
+  margin-top: 10px;
+}
+
+.chipsSmall li {
+  padding: 5px 11px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--soft);
+}
+
+.leads {
+  margin: 0;
+}
+
+.leads img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+
+.leads figcaption {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.bill,
+.billUs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.billUs {
+  gap: 6px;
+  padding: 14px 16px;
+  border: 3px solid var(--green);
+  background: #f5faef;
+}
+
+.billRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 9px 0;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.bill .billRow + .billRow {
+  border-top: 1px dashed var(--line);
+}
+
+.billRow span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.billRow small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.billRow > b {
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.billTotal {
+  font-weight: 800;
+}
+
+.billTotal > b,
+.billUs .billRow > b {
+  font-size: 28px;
+}
+
+.billUs .billRow {
+  padding: 0;
+  font-weight: 800;
+}
+
+.lessons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--body);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stats li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 8px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+.stats b {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--navy);
+}
+
+.stats span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.guarantee .guaranteeSub {
+  margin: -2px 0 6px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--green-dark);
+}
+
+.founderText .h2 {
+  font-size: 24px;
+}
+
+@media (min-width: 860px) {
+  .stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .founderText .h2 {
+    font-size: 28px;
+  }
+}
+
+.lessons li {
+  list-style: decimal;
+}

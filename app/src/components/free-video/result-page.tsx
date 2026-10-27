@@ -626,7 +626,8 @@ const WALKERS = [
 ];
 
 /** THE RESULT: the whiteboard drawing with customers walking from the video ad on the phone into the shop, and the money they bring popping up at the door. */
-export function ResultScene({ domain }: { domain: string }) {
+/** The walking customers and the money at the door. `note` replaces the line under the title (the unlock page never names the AI Media Machine). */
+export function ResultScene({ domain, note }: { domain: string; note?: string }) {
   const { result } = RESULT_PAGE.how;
   return (
     <div className={styles.result}>
@@ -664,7 +665,7 @@ export function ResultScene({ domain }: { domain: string }) {
       <div className={styles.resultText}>
         <p className={styles.resultKicker}>{result.kicker}</p>
         <p className={styles.resultTitle}>{result.title(domain)}</p>
-        <p className={styles.resultNote}>{result.text}</p>
+        <p className={styles.resultNote}>{note ?? result.text}</p>
       </div>
     </div>
   );
