@@ -335,14 +335,9 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
         <div className={s.narrow}>
           <h2 className={s.h2}>{F.scrolling.title}</h2>
           <p className={s.p}>{F.scrolling.text}</p>
-          <ResultScene domain={view.domain} note={F.scrolling.sceneNote} />
-          <p className={s.p}>
-            <strong>{F.scrolling.leadsStrong}</strong> {F.scrolling.leadsRest}
-          </p>
-          <figure className={s.leads}>
-            <Image src={F.scrolling.image} alt={F.scrolling.alt} width={554} height={178} sizes="(min-width: 700px) 640px, 100vw" />
-            <figcaption>{F.scrolling.caption}</figcaption>
-          </figure>
+          <div className={s.sceneWrap}>
+            <ResultScene domain={view.domain} note={F.scrolling.sceneNote} />
+          </div>
         </div>
       </section>
 
@@ -395,7 +390,7 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
             ))}
           </div>
           <p className={s.label}>{F.videoReviewsLabel}</p>
-          <ul className={rp.reviews}>
+          <ul className={cn(rp.reviews, s.videoReviews)}>
             {videoReviewsOf(F.videoReviews).map((item) => (
               <VideoReview key={item.name} item={item} />
             ))}
@@ -423,7 +418,13 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
                   </li>
                 ))}
               </ol>
-              <p>{F.founder.lessonsEnd}</p>
+              <p>
+                <b>{F.founder.lessonsEnd}</b> {F.founder.proofLine}
+              </p>
+              <figure className={s.leads}>
+                <Image src={F.founder.proofImage} alt={F.founder.proofAlt} width={554} height={178} sizes="(min-width: 700px) 520px, 100vw" />
+                <figcaption>{F.founder.proofCaption}</figcaption>
+              </figure>
             </div>
           </div>
           <ul className={s.stats}>

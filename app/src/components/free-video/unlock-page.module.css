@@ -2688,3 +2688,95 @@
     width: 320px;
   }
 }
+
+/* The walking customers in this page's narrow column: the picture on top, the text under it (the result page lays
+   them side by side on a computer, which leaves a tall empty box here). */
+.sceneWrap > div {
+  display: block !important;
+  width: 100%;
+}
+
+/* The 3 video testimonials: a tidy grid of equal cards on a computer, a list on a phone. */
+@media (min-width: 860px) {
+  .videoReviews {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    max-width: none !important;
+  }
+
+  .videoReviews > li {
+    display: flex !important;
+    flex-direction: column;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  .videoReviews > li > button,
+  .videoReviews > li > iframe {
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+  }
+
+  .videoReviews > li > button img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+  }
+}
+
+/* A slow pulse on the chat's message box until the visitor starts typing (owner 2026-10-27). */
+.chatForm:not(.chatReady):not(:focus-within) {
+  animation: composerPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes composerPulse {
+  0%,
+  100% {
+    border-color: #d1d5db;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.06);
+  }
+  50% {
+    border-color: #47801c;
+    box-shadow: 0 0 0 4px rgba(71, 128, 28, 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chatForm {
+    animation: none !important;
+  }
+}
+
+/* Card logos: bigger and centered everywhere on this page (owner 2026-10-27). */
+.trust {
+  align-items: center !important;
+}
+
+.trust p {
+  text-align: center !important;
+}
+
+.trust > div {
+  justify-content: center;
+  gap: 8px;
+}
+
+.trust > div svg {
+  width: 58px;
+  height: 36px;
+}
+
+.trust > div svg[width='49'] {
+  width: 68px;
+}
+
+/* The sticky bar is for phones only (its base rule above came after the old computer rule that hid it). */
+@media (min-width: 860px) {
+  .bar {
+    display: none;
+  }
+}

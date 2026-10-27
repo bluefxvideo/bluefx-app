@@ -15,12 +15,12 @@ export const longDate = (iso: string) => new Intl.DateTimeFormat('en-US', { week
 
 /**
  * What a freelancer charges for each part of a video ad like the free one (owner 2026-10-27: itemize it, then show
- * that everything is included). The voice-over and editing prices are the ones the Weekly Video Plan page already
- * uses ($200+ per script, $100+ an hour); the others are the owner's to confirm.
+ * that everything is included). Voice-over $70 (owner 2026-10-27: "200 is way too much, maybe 70"); editing at $100 an
+ * hour as on the Weekly Video Plan page; the others are the owner's to confirm.
  */
 const FREELANCE_PARTS = [
   { part: 'A script written to sell', price: 100 },
-  { part: 'A voice-over artist', price: 200 },
+  { part: 'A voice-over artist', price: 70 },
   { part: 'A person on camera', price: 150 },
   { part: 'Graphics, music and captions', price: 100 },
   { part: 'Editing, about 2 hours at $100 an hour', price: 200 },
@@ -164,7 +164,11 @@ export const UNLOCK_PAGE = {
       { strong: 'Present the facts in an interesting way.', text: 'Your real prices, your real offer and your real photos, shown so people keep watching.' },
       { strong: 'Tell people what to do next.', text: 'Your website on screen at the end.' },
     ],
-    lessonsEnd: 'Your video ad has all 3.',
+    lessonsEnd: 'Your video ad is built on this proven sales video formula, with all 3 steps.',
+    proofLine: 'The same formula is behind our own video ads, and those video ads brought BlueFX 222,712 leads.',
+    proofImage: '/free-video/leadpages-leads.jpg',
+    proofAlt: 'Our Leadpages dashboard showing 222,712 leads',
+    proofCaption: 'Our Leadpages dashboard: 222,712 leads since 2013, from our own video ads.',
     stats: [
       { n: '18', label: 'years building BlueFX' },
       { n: '$60K+', label: 'spent testing video ads' },
