@@ -88,7 +88,7 @@ export const UNLOCK_PAGE = {
   },
   promiseShort: (price: string) => `The Feel-Right Promise: changes until your video ad feels right, or your ${price} back`,
   trust: 'Secure checkout by FastSpring. Cards and PayPal.',
-  afterClick: 'Finish the payment in the new tab. This page updates by itself as soon as the payment arrives.',
+  afterClick: 'Finish the payment in the checkout window. This page updates by itself as soon as the payment arrives.',
   bar: 'Get My Video Ad',
   barWaiting: 'Waiting for your payment...',
   barCheck: 'Paid? Tap here',

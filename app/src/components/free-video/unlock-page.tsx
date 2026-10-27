@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { Caveat } from 'next/font/google';
 import { ArrowUp, Download, Maximize2, Paperclip, Pencil, Phone, Sparkles, User, X } from 'lucide-react';
-import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
 import { PLAN_INFO_PATH, planGoUrl, unlockGoUrl } from '@/lib/free-video/offer';
@@ -36,6 +36,8 @@ interface UnlockPageProps {
   changesLeft: number;
   /** The free-month Weekly Video Plan offer is on (its FastSpring product exists, or a local preview). */
   trial: boolean;
+  /** FastSpring's popup storefront (the live one on the live site, the test one elsewhere). */
+  storefront: string;
   /** A local preview of one display: the page never asks for news. */
   preview?: boolean;
 }
@@ -50,7 +52,7 @@ const CLICK_WINDOW_MS = 30 * 60_000;
  * the Weekly Video Plan). The checkout opens in a new tab through /go/fvunlock; this page polls the lead's view, and asks
  * again every time the visitor comes back to this tab (no time limit), or taps "Paid? Tap here" in the phone bar.
  */
-export function UnlockPage({ token, initial, price, filesUntil, plan, requested, changesLeft, trial, preview = false }: UnlockPageProps) {
+export function UnlockPage({ token, initial, price, filesUntil, plan, requested, changesLeft, trial, storefront, preview = false }: UnlockPageProps) {
   const [view, setView] = useState(initial);
   const [clickedAt, setClickedAt] = useState<number | null>(null);
   const beacon = useFreeVideoBeacon(token);
@@ -89,7 +91,23 @@ export function UnlockPage({ token, initial, price, filesUntil, plan, requested,
     };
   }, [ask, working, clickedAt, unlock.state, preview]);
 
-  const onCheckout = useCallback(() => setClickedAt(Date.now()), []);
+  // FastSpring's popup cart (owner 2026-10-27: "use the FastSpring pop-up, so when they finish it goes to the thank-you
+  // page"): the checkout opens over this page; a finished order closes it and this page turns into the thank-you page.
+  const popup = useFastSpringPopup(storefront, useCallback(() => {
+    setClickedAt(Date.now());
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    void ask();
+  }, [ask]));
+  const onCheckout = useCallback(
+    (e?: ReactMouseEvent<HTMLAnchorElement>) => {
+      setClickedAt(Date.now());
+      if (!popup.open(price.product, token)) return; // no popup yet: the link opens the hosted checkout in a new tab
+      e?.preventDefault();
+      // The click still goes through /go/fvunlock for the funnel's numbers and Facebook's checkout event (no redirect followed).
+      void fetch(unlockGoUrl(token), { redirect: 'manual', credentials: 'same-origin' }).catch(() => undefined);
+    },
+    [popup, price.product, token]
+  );
 
   return (
     <div className={cn(rp.page, s.page)}>
@@ -104,6 +122,68 @@ export function UnlockPage({ token, initial, price, filesUntil, plan, requested,
   );
 }
 
+
+declare global {
+  interface Window {
+    fastspring?: { builder?: { push: (cmd: Record<string, unknown>) => void; reset: () => void } };
+    onFSPopupClosed?: (order: { reference?: string; id?: string } | null) => void;
+  }
+}
+
+/**
+ * FastSpring's popup cart on this page (the Store Builder script with the popup storefront, as the Weekly Video Plan page
+ * uses). The app's root layout loads an older Store Builder for the web storefront; this page swaps it for the popup one.
+ * open() returns false while the script is not ready, so the link's hosted checkout is the fallback.
+ */
+function useFastSpringPopup(storefront: string, onPaid: () => void) {
+  const ready = useRef(false);
+  const paid = useRef(onPaid);
+  paid.current = onPaid;
+  useEffect(() => {
+    window.onFSPopupClosed = (order) => {
+      if (order && (order.reference || order.id)) {
+        try {
+          window.fastspring?.builder?.reset();
+        } catch {
+          /* nothing to reset */
+        }
+        paid.current();
+      }
+    };
+    document.getElementById('fsc-api')?.remove();
+    delete window.fastspring;
+    const script = document.createElement('script');
+    script.id = 'fsc-api';
+    script.src = 'https://sbl.onfastspring.com/sbl/1.0.5/fastspring-builder.min.js';
+    script.type = 'text/javascript';
+    script.dataset.storefront = storefront;
+    script.setAttribute('data-popup-closed', 'onFSPopupClosed');
+    script.onload = () => {
+      ready.current = true;
+    };
+    document.body.appendChild(script);
+    return () => {
+      script.remove();
+      ready.current = false;
+    };
+  }, [storefront]);
+  return useMemo(
+    () => ({
+      open(product: string, token: string): boolean {
+        const builder = window.fastspring?.builder;
+        if (!ready.current || !builder) return false;
+        try {
+          builder.push({ reset: true, products: [{ path: product, quantity: 1 }], tags: { freeVideoLead: token }, checkout: true });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    }),
+    []
+  );
+}
+
 interface OfferProps {
   view: FreeVideoView;
   token: string;
@@ -111,7 +191,7 @@ interface OfferProps {
   filesUntil: string | null;
   initialPlan: string[] | null;
   clicked: boolean;
-  onCheckout: () => void;
+  onCheckout: (e?: ReactMouseEvent<HTMLAnchorElement>) => void;
   onCheck: () => void;
 }
 
@@ -535,7 +615,7 @@ interface ActionProps {
   /** Grows by one each time a change list is saved: the button pulses once. */
   pulse?: number;
   clicked: boolean;
-  onCheckout: () => void;
+  onCheckout: (e?: ReactMouseEvent<HTMLAnchorElement>) => void;
 }
 
 /** The button, the promise and the payment logos. */
