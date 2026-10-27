@@ -2572,3 +2572,119 @@
     font-size: 14px;
   }
 }
+
+/* "Watch your video ad full size" and the big player (UX review 2026-10-27). */
+.watchBig {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--navy);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.bigBack {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px));
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.bigBox {
+  position: relative;
+  height: min(85vh, 760px);
+  aspect-ratio: 9 / 16;
+  max-width: calc(100vw - 32px);
+}
+
+.bigVideo {
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  background: #000000;
+  object-fit: contain;
+}
+
+.bigClose {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+@media (min-width: 860px) {
+  .side .arrowNote {
+    margin-top: -8px;
+  }
+}
+
+/* The "full size" link sits on the video as a small pill, so the first screen keeps its height. */
+.side .video {
+  position: relative;
+}
+
+.watchBig {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 3;
+  width: auto;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+@media (max-width: 859px) {
+  .watchBig {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+}
+
+@media (min-width: 860px) {
+  .side .arrowNote {
+    margin-top: 0;
+  }
+}
+
+/* Owner 2026-10-27: "what if it is bigger and pushing the box a bit down?": a bigger video on a computer; the arrow and
+   the chat header stay on the first screen, the message box just under it. */
+@media (min-width: 860px) {
+  .hero .video {
+    width: 270px;
+  }
+}
+
+@media (min-width: 860px) {
+  .hero .video {
+    width: 320px;
+  }
+}

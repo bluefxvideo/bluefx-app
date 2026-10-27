@@ -58,6 +58,8 @@ export const UNLOCK_PAGE = {
   },
   button: (price: string) => `Get My Video Ad for ${price}`,
   buttonChanged: (price: string) => `Get My Changed Video Ad for ${price}`,
+  watchBig: 'Watch full size',
+  close: 'Close',
   chat: {
     title: 'What would you like changed in your video ad?',
     note: 'Type your changes here. A real person on my team makes them.',
@@ -72,7 +74,7 @@ export const UNLOCK_PAGE = {
     chipAsks: ["I'd like to change some of the wording.", "I'd like a different person on camera.", 'Please add my phone number.'],
     arrowNote: 'Tell us your changes here',
     askLinkPhone: 'Want something changed? Tell us below',
-    askLinkComputer: 'Want something changed? Tell us on the right',
+    askLinkComputer: 'Want something changed? Tell us below on the right',
     placeholder: 'Type your change here',
     send: 'Send',
     thinking: 'Typing...',

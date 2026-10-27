@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { Caveat } from 'next/font/google';
-import { ArrowUp, Pencil, Phone, User } from 'lucide-react';
+import { ArrowUp, Maximize2, Pencil, Phone, User, X } from 'lucide-react';
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
@@ -187,6 +187,7 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
   const [plan, setPlanState] = useState<string[] | null>(initialPlan);
   const [pending, setPending] = useState<{ text: string | null; n: number }>({ text: null, n: 0 });
   const [pulse, setPulse] = useState(0);
+  const [big, setBig] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const setPlan = useCallback((next: string[]) => {
     setPlanState(next);
@@ -240,7 +241,11 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
                 onPlayWithSound={() => beacon('video_play')}
                 onComplete={() => beacon('video_complete')}
               />
+              <button type="button" className={s.watchBig} onClick={() => setBig(true)}>
+                <Maximize2 size={13} strokeWidth={2.5} aria-hidden="true" /> {F.watchBig}
+              </button>
             </div>
+            {big && <BigPlayer src={view.videoUrl as string} label={PLAYER.label(view.domain)} onClose={() => setBig(false)} />}
             <div ref={chatRef} className={s.heroChat} id="changes-chat">
               <ArrowNote text={F.chat.arrowNote} />
               <ChangeChat
@@ -748,6 +753,30 @@ function ChangeChat({ token, plan, onPlan, pending, buy }: ChangeChatProps) {
           <ArrowUp size={18} strokeWidth={2.75} aria-hidden="true" />
         </button>
       </form>
+    </div>
+  );
+}
+
+/** The visitor's video ad, big, with sound, over a dark backdrop (UX review 2026-10-27: on a computer the page shows a small preview). */
+function BigPlayer({ src, label, onClose }: { src: string; label: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflow;
+    };
+  }, [onClose]);
+  return (
+    <div className={s.bigBack} role="dialog" aria-modal="true" aria-label={label} onClick={onClose}>
+      <div className={s.bigBox} onClick={(e) => e.stopPropagation()}>
+        <video src={src} controls autoPlay playsInline className={s.bigVideo} />
+        <button type="button" className={s.bigClose} onClick={onClose} aria-label={UNLOCK_PAGE.close}>
+          <X size={22} strokeWidth={2.5} aria-hidden="true" />
+        </button>
+      </div>
     </div>
   );
 }
