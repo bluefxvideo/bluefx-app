@@ -3531,3 +3531,25 @@
   font-weight: 700;
   color: #b42318;
 }
+
+/* Owner 2026-10-27: his face on the human help option. */
+.humanHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.humanFace {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+/* Owner 2026-10-27: the video ad a little bigger on a computer once it is ready. */
+@media (min-width: 860px) {
+  .readyVideoSmall {
+    width: 280px;
+  }
+}

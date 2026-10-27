@@ -1254,9 +1254,10 @@ function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: 
         )}
       </div>
       <div className={s.changeWay}>
-        <p className={s.changeWayTitle}>
-          <User size={16} strokeWidth={2.5} aria-hidden="true" /> {F.humanTitle}
-        </p>
+        <div className={s.humanHead}>
+          <Image className={s.humanFace} src={SALES_PAGE_FOUNDER_PHOTO} alt="Szilard" width={96} height={96} sizes="48px" />
+          <p className={s.changeWayTitle}>{F.humanTitle}</p>
+        </div>
         <p className={s.small}>{F.humanNote}</p>
         {human || ai.left === 0 ? (
           <ChangeBox token={token} initialLeft={changesLeft} />

@@ -253,7 +253,8 @@ export const UNLOCK_PAGE = {
     salesVideoPoster: '' as string,
     salesVideoSpot: 'Your sales video goes here (between the headline and the first button)',
     plannedTitle: 'Here are your first 4, already planned from your website',
-    plannedNote: 'My team wrote these ideas from your website. Start your free month, and we make them for you, one a week.',
+    /** Owner 2026-10-27: the 4 are only ideas to make planning easy; any other idea is fine. */
+    plannedNote: 'These are just ideas my team planned from your website, to make planning your next videos easy. Don\u2019t like one? Tell us, and we make a different one. Start your free month, and we make them for you, one a week.',
     week: (n: number) => `Week ${n}`,
     styles: ['Hand-drawn', 'News studio', 'Cartoon', 'Vintage TV'],
     promoCard: {
