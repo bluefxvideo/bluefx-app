@@ -2164,3 +2164,335 @@
 .chatHead .chatNote {
   color: #fde3df;
 }
+
+/* ---- v8: the change chat after the UX review (2026-10-27) ----
+   Phone: headline, chips, video + price, button, "Want changes first?", the sample line, the arrow + chat, then the
+   trust lines. Computer: the text and the buy button on the left, the video and the chat under it on the right. */
+.side {
+  display: contents;
+}
+
+.hero {
+  grid-template-areas:
+    'kicker kicker'
+    'title title'
+    'chips chips'
+    'video price'
+    'action action'
+    'sub sub'
+    'chat chat'
+    'trust trust';
+}
+
+@media (max-width: 859px) {
+  .hero {
+    grid-template-areas:
+      'kicker kicker'
+      'title title'
+      'chips chips'
+      'video price'
+      'action action'
+      'sub sub'
+      'chat chat'
+      'trust trust';
+  }
+}
+
+.heroTrust {
+  grid-area: trust;
+  min-width: 0;
+}
+
+.heroAction {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.askLink {
+  align-self: center;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: var(--navy);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.onComputer {
+  display: none;
+}
+
+@media (min-width: 860px) {
+  .onPhone {
+    display: none;
+  }
+
+  .onComputer {
+    display: inline;
+  }
+
+  .askLink {
+    align-self: flex-start;
+  }
+
+  .hero {
+    grid-template-columns: minmax(0, 560px) 440px;
+    grid-template-areas:
+      'kicker side'
+      'title side'
+      'chips side'
+      'sub side'
+      'price side'
+      'action side'
+      'trust side';
+    grid-template-rows: auto auto auto auto auto auto 1fr;
+  }
+
+  .side {
+    grid-area: side;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .hero .video {
+    width: 236px;
+  }
+
+  .heroChat {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* The chips under the headline are buttons now: a tap sends that change to the chat. */
+.changeChips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Friendly, not a warning: a white card with the page's green, the founder's face in a pale green header. */
+.chat {
+  padding: 0 14px 14px;
+  border: 2px solid #47801c;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(31, 42, 68, 0.14);
+  overflow: hidden;
+}
+
+.chatHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 -14px 6px;
+  padding: 12px 14px;
+  background: #eef5e6;
+  color: #1f2a44;
+}
+
+.chatHead .chatTitle {
+  font-size: 17px;
+  line-height: 1.25;
+  color: #1f2a44;
+}
+
+.chatHead .chatNote {
+  margin-top: 2px;
+  color: #64748b;
+}
+
+.chatFace {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+}
+
+.chatFace img {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.chatFace i {
+  position: absolute;
+  right: 0;
+  bottom: 1px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #eef5e6;
+  border-radius: 999px;
+  background: #22c55e;
+}
+
+.chatAvatar {
+  background: #1f2a44;
+}
+
+.chatIdeas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-left: 38px;
+}
+
+.chatIdeas button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1.5px solid #47801c;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #3f6a1c;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chatIdeas button:hover {
+  background: #f5faef;
+}
+
+.chatPlan {
+  background: #f5faef;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 2px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.checklist .tick {
+  width: 20px;
+  height: 20px;
+}
+
+.chatForm.chatReady button:not(:disabled) {
+  background: #47801c;
+}
+
+.chatGlow {
+  animation: chatGlow 2s ease-in-out 2;
+}
+
+@keyframes chatGlow {
+  0%,
+  100% {
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.06);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(71, 128, 28, 0.35);
+  }
+}
+
+.buttonPulse {
+  animation: buttonPulse 0.9s ease-in-out 1;
+}
+
+@keyframes buttonPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.04);
+  }
+}
+
+/* The hand-drawn arrow with its handwritten note, above the chat, pointing down into the header. */
+.arrowNote {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 2px 0 0 6px;
+  margin-bottom: -6px;
+}
+
+.arrowText {
+  font-size: 23px;
+  line-height: 1.05;
+  color: #c0271c;
+  transform: rotate(-4deg);
+  transform-origin: left bottom;
+  padding-bottom: 14px;
+}
+
+.arrowSvg {
+  width: 62px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.arrowSvg path {
+  stroke-dasharray: 140;
+  stroke-dashoffset: 140;
+}
+
+.arrowShown .arrowSvg path {
+  transition: stroke-dashoffset 0.8s ease-out;
+  stroke-dashoffset: 0;
+}
+
+.arrowShown .arrowSvg path + path {
+  transition-delay: 0.6s;
+  transition-duration: 0.3s;
+}
+
+@media (min-width: 860px) {
+  .arrowText {
+    font-size: 27px;
+  }
+
+  .arrowSvg {
+    width: 78px;
+    height: 60px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arrowSvg path {
+    stroke-dashoffset: 0;
+  }
+
+  .chatGlow,
+  .buttonPulse {
+    animation: none;
+  }
+}
+
+.side .video {
+  order: 0;
+}
+
+.side .heroChat {
+  order: 1;
+}

@@ -40,7 +40,7 @@ export const UNLOCK_PAGE = {
   /** Owner 2026-10-27: "our biggest challenge, clients always want something changed", so the changes go in the headline, in red. */
   title: 'Get your video ad without the watermark,',
   titleRed: 'plus any changes you want.',
-  sub: 'What you watched is a sample. Tell us what to fix, and a real person on my team makes the changes until your video ad looks just right.',
+  sub: 'This video is a sample of how your video ad would look, and it may contain mistakes. Tell us what to fix, and a real person on my team makes the changes until your video ad is so good it can proudly represent your business.',
   /** Real requests from leads who replied, as small chips under the sub. */
   chips: ['Your wording', 'A different person', 'Your phone number'] as const,
   priceUnit: 'one time',
@@ -59,9 +59,21 @@ export const UNLOCK_PAGE = {
   button: (price: string) => `Get My Video Ad for ${price}`,
   buttonChanged: (price: string) => `Get My Changed Video Ad for ${price}`,
   chat: {
-    title: 'What would you like changed?',
-    note: 'Tell us before you buy. A real person on my team makes the changes after you pay.',
-    hello: 'Hi! What would you like changed in your video ad? For example your phone number on the last screen, a different voice or a different person on camera.',
+    title: 'What would you like changed in your video ad?',
+    note: 'Our assistant takes your list. A real person makes the changes.',
+    hello: 'Hi! Tap an idea below, or type your own change.',
+    ideas: [
+      { label: 'Add my phone number', ask: 'Please add my phone number.' },
+      { label: 'A different person', ask: "I'd like a different person on camera." },
+      { label: 'Change the wording', ask: "I'd like to change some of the wording." },
+      { label: 'Different music', ask: "I'd like different music." },
+      { label: 'Different voice', ask: "I'd like a different voice." },
+    ],
+    /** The 3 chips under the headline send these when tapped. */
+    chipAsks: ["I'd like to change some of the wording.", "I'd like a different person on camera.", 'Please add my phone number.'],
+    arrowNote: 'Tell us your changes here',
+    askLinkPhone: 'Want changes first? Tell us below',
+    askLinkComputer: 'Want changes first? Tell us on the right',
     placeholder: 'Type your change here',
     send: 'Send',
     thinking: 'Typing...',

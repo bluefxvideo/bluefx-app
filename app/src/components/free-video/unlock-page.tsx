@@ -1,11 +1,13 @@
 'use client';
 
 import Image from 'next/image';
-import { ArrowUp, MessageCircle, Pencil, Phone, User } from 'lucide-react';
+import { Caveat } from 'next/font/google';
+import { ArrowUp, Pencil, Phone, Sparkles, User } from 'lucide-react';
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
 import { PLAN_INFO_PATH, planGoUrl, unlockGoUrl } from '@/lib/free-video/offer';
+import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { UNLOCK_PAGE } from '@/lib/free-video/unlock-page';
 import type { UnlockPrice } from '@/lib/free-video/unlock-price';
 import { cn } from '@/lib/utils';
@@ -15,6 +17,10 @@ import { SaveToPhotos } from './save-to-photos';
 import { VideoAdPlayer } from './video-ad-player';
 import rp from './result-page.module.css';
 import s from './unlock-page.module.css';
+
+/** The handwritten note by the arrow. */
+const caveat = Caveat({ subsets: ['latin'], weight: '700', display: 'swap' });
+const SALES_PAGE_FOUNDER_PHOTO = SALES_PAGE.founder.photo;
 
 interface UnlockPageProps {
   token: string;
@@ -178,7 +184,19 @@ function useBar(boxes: RefObject<HTMLDivElement | null>[]): boolean {
 }
 
 function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckout, onCheck }: OfferProps) {
-  const [plan, setPlan] = useState<string[] | null>(initialPlan);
+  const [plan, setPlanState] = useState<string[] | null>(initialPlan);
+  const [pending, setPending] = useState<{ text: string | null; n: number }>({ text: null, n: 0 });
+  const [pulse, setPulse] = useState(0);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const setPlan = useCallback((next: string[]) => {
+    setPlanState(next);
+    setPulse((n) => n + 1);
+  }, []);
+  // A chip or the "Want changes first?" link: scroll to the chat, then send the chip's message (or just focus the box).
+  const ask = useCallback((text: string | null) => {
+    chatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setPending((p) => ({ text, n: p.n + 1 }));
+  }, []);
   const F = UNLOCK_PAGE;
   const beacon = useFreeVideoBeacon(token);
   const topBuy = useRef<HTMLDivElement>(null);
@@ -204,30 +222,52 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
               const Icon = [Pencil, User, Phone][i];
               return (
                 <li key={chip}>
-                  <Icon size={13} strokeWidth={2.5} aria-hidden="true" /> {chip}
+                  <button type="button" onClick={() => ask(F.chat.chipAsks[i])}>
+                    <Icon size={13} strokeWidth={2.5} aria-hidden="true" /> {chip}
+                  </button>
                 </li>
               );
             })}
           </ul>
           <p className={cn(s.sub, s.heroSub)}>{F.sub}</p>
-          <div className={s.video}>
-            <VideoAdPlayer
-              src={view.videoUrl as string}
-              label={PLAYER.label(view.domain)}
-              className={rp.heroPlayerFrame}
-              tapToPlay
-              onPlayWithSound={() => beacon('video_play')}
-              onComplete={() => beacon('video_complete')}
-            />
+          <div className={s.side}>
+            <div className={s.video}>
+              <VideoAdPlayer
+                src={view.videoUrl as string}
+                label={PLAYER.label(view.domain)}
+                className={rp.heroPlayerFrame}
+                tapToPlay
+                onPlayWithSound={() => beacon('video_play')}
+                onComplete={() => beacon('video_complete')}
+              />
+            </div>
+            <div ref={chatRef} className={s.heroChat} id="changes-chat">
+              <ArrowNote text={F.chat.arrowNote} />
+              <ChangeChat
+                token={token}
+                plan={plan}
+                onPlan={setPlan}
+                pending={pending}
+                buy={
+                  <a className={s.button} href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
+                    {F.buttonChanged(price.price)}
+                  </a>
+                }
+              />
+            </div>
           </div>
           <div className={s.heroPrice}>
             <PriceBlock price={price} left={left} />
           </div>
           <div ref={topBuy} className={s.heroAction}>
-            {action}
+            <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} only="button" pulse={pulse} />
+            <button type="button" className={s.askLink} onClick={() => ask(null)}>
+              <span className={s.onPhone}>{F.chat.askLinkPhone} ↓</span>
+              <span className={s.onComputer}>{F.chat.askLinkComputer} →</span>
+            </button>
           </div>
-          <div className={s.heroChat}>
-            <ChangeChat token={token} plan={plan} onPlan={setPlan} buy={<a className={s.button} href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>{F.buttonChanged(price.price)}</a>} />
+          <div className={s.heroTrust}>
+            <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} only="trust" />
           </div>
         </div>
       </section>
@@ -482,17 +522,23 @@ interface ActionProps {
   price: UnlockPrice;
   /** The visitor confirmed a change list in the chat. */
   changed: boolean;
+  /** The hero splits the box: the button (with the chat link under it) and the trust lines. */
+  only?: 'button' | 'trust';
+  /** Grows by one each time a change list is saved: the button pulses once. */
+  pulse?: number;
   clicked: boolean;
   onCheckout: () => void;
 }
 
 /** The button, the promise and the payment logos. */
-function Action({ href, price, changed, clicked, onCheckout }: ActionProps) {
+function Action({ href, price, changed, clicked, onCheckout, only, pulse = 0 }: ActionProps) {
   const F = UNLOCK_PAGE;
   return (
     <div className={s.buy}>
+      {only !== 'trust' && (
+        <>
       {/* A new tab, so this page keeps asking and shows the clean video ad once the payment arrives. */}
-      <a className={s.button} href={href} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
+      <a key={pulse} className={cn(s.button, pulse > 0 && s.buttonPulse)} href={href} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
         {changed ? F.buttonChanged(price.price) : F.button(price.price)}
       </a>
       {clicked && (
@@ -500,6 +546,10 @@ function Action({ href, price, changed, clicked, onCheckout }: ActionProps) {
           {F.afterClick}
         </p>
       )}
+        </>
+      )}
+      {only !== 'button' && (
+        <>
       <p className={s.guaranteeShort}>
         <Shield /> {F.promiseShort(price.price)}
       </p>
@@ -507,6 +557,8 @@ function Action({ href, price, changed, clicked, onCheckout }: ActionProps) {
         <p>{F.trust}</p>
         <PayCards />
       </div>
+        </>
+      )}
     </div>
   );
 }
@@ -526,52 +578,109 @@ function CompactBuy({ price, left, action }: { price: UnlockPrice; left: number 
 }
 
 
-/** The change chat (change-chat.ts): the visitor tells the AI what to change before paying; the confirmed list is saved. */
-function ChangeChat({ token, plan, onPlan, buy }: { token: string; plan: string[] | null; onPlan: (plan: string[]) => void; buy: ReactNode }) {
+/** The hand-drawn red arrow and note that point at the change chat (UX review 2026-10-27); the arrow draws itself once in view. */
+function ArrowNote({ text }: { text: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return setShown(true);
+    const io = new IntersectionObserver(([entry]) => entry.isIntersecting && (setShown(true), io.disconnect()), { threshold: 0.6 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className={cn(s.arrowNote, shown && s.arrowShown)} aria-hidden="true">
+      <span className={cn(caveat.className, s.arrowText)}>{text}</span>
+      <svg className={s.arrowSvg} viewBox="0 0 90 70" fill="none">
+        <path d="M6 6 C 40 4, 70 18, 72 52" stroke="#c0271c" strokeWidth="3.5" strokeLinecap="round" />
+        <path d="M60 42 L72 56 L82 41" stroke="#c0271c" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
+
+interface ChangeChatProps {
+  token: string;
+  plan: string[] | null;
+  onPlan: (plan: string[]) => void;
+  /** A chip tap from the page: send this text (or just focus the box when text is null). n changes on every tap. */
+  pending: { text: string | null; n: number };
+  buy: ReactNode;
+}
+
+/** The change chat (change-chat.ts): the visitor tells the assistant what to change before paying; the confirmed list is saved. */
+function ChangeChat({ token, plan, onPlan, pending, buy }: ChangeChatProps) {
   const F = UNLOCK_PAGE.chat;
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>([{ role: 'assistant', text: F.hello }]);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [glow, setGlow] = useState(false);
   const list = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const started = messages.some((m) => m.role === 'user');
 
   useEffect(() => {
-    const box = list.current;
-    if (box && messages.length > 1) box.scrollTop = box.scrollHeight;
+    const el = list.current;
+    if (el && messages.length > 1) el.scrollTop = el.scrollHeight;
   }, [messages, busy]);
 
-  const send = async () => {
-    const said = text.trim();
-    if (!said || busy) return;
-    const next = [...messages, { role: 'user' as const, text: said.slice(0, 600) }];
-    setMessages(next);
-    setText('');
-    setBusy(true);
-    try {
-      // The greeting is the page's own line, not the model's: the model sees the talk from the visitor's first message.
-      const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/change-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next.slice(1).slice(-16) }),
-      });
-      const answer = await res.json().catch(() => null);
-      if (res.ok && answer?.success) {
-        setMessages((m) => [...m, { role: 'assistant', text: answer.data.reply as string }]);
-        if (Array.isArray(answer.data.changes) && answer.data.changes.length) onPlan(answer.data.changes as string[]);
-      } else {
-        setMessages((m) => [...m, { role: 'assistant', text: answer?.details?.code === 'limit' ? F.limit : F.error }]);
+  // A soft glow on the message box the first time the chat is on screen.
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([entry]) => entry.isIntersecting && (setGlow(true), io.disconnect()), { threshold: 0.5 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const send = useCallback(
+    async (raw: string) => {
+      const said = raw.trim();
+      if (!said || busy) return;
+      const next = [...messages, { role: 'user' as const, text: said.slice(0, 600) }];
+      setMessages(next);
+      setText('');
+      setBusy(true);
+      try {
+        // The greeting is the page's own line: the model sees the talk from the visitor's first message.
+        const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/change-chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: next.slice(1).slice(-16) }),
+        });
+        const answer = await res.json().catch(() => null);
+        if (res.ok && answer?.success) {
+          setMessages((m) => [...m, { role: 'assistant', text: answer.data.reply as string }]);
+          if (Array.isArray(answer.data.changes) && answer.data.changes.length) onPlan(answer.data.changes as string[]);
+        } else {
+          setMessages((m) => [...m, { role: 'assistant', text: answer?.details?.code === 'limit' ? F.limit : F.error }]);
+        }
+      } catch {
+        setMessages((m) => [...m, { role: 'assistant', text: F.error }]);
+      } finally {
+        setBusy(false);
       }
-    } catch {
-      setMessages((m) => [...m, { role: 'assistant', text: F.error }]);
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+    [busy, messages, token, onPlan, F.limit, F.error]
+  );
+
+  // A tap on a chip under the headline or on "Want changes first?".
+  const lastPending = useRef(0);
+  useEffect(() => {
+    if (pending.n === 0 || pending.n === lastPending.current) return;
+    lastPending.current = pending.n;
+    if (pending.text) void send(pending.text);
+    else if (window.matchMedia('(min-width: 860px)').matches) input.current?.focus({ preventScroll: true });
+  }, [pending, send]);
 
   return (
-    <div className={s.chat}>
+    <div ref={box} className={s.chat}>
       <div className={s.chatHead}>
-        <span className={s.chatHeadIcon} aria-hidden="true">
-          <MessageCircle size={20} strokeWidth={2.5} />
+        <span className={s.chatFace}>
+          <Image src={SALES_PAGE_FOUNDER_PHOTO} alt="Szilard" width={88} height={88} sizes="44px" />
+          <i aria-hidden="true" />
         </span>
         <div>
           <p className={s.chatTitle}>{F.title}</p>
@@ -587,16 +696,25 @@ function ChangeChat({ token, plan, onPlan, buy }: { token: string; plan: string[
           ) : (
             <div key={i} className={s.chatRow}>
               <span className={s.chatAvatar} aria-hidden="true">
-                S
+                <Sparkles size={14} strokeWidth={2.5} />
               </span>
               <p className={s.chatThem}>{m.text}</p>
             </div>
           )
         )}
+        {!started && (
+          <div className={s.chatIdeas}>
+            {F.ideas.map((idea) => (
+              <button key={idea.label} type="button" onClick={() => void send(idea.ask)}>
+                {idea.label}
+              </button>
+            ))}
+          </div>
+        )}
         {busy && (
           <div className={s.chatRow}>
             <span className={s.chatAvatar} aria-hidden="true">
-              S
+              <Sparkles size={14} strokeWidth={2.5} />
             </span>
             <p className={cn(s.chatThem, s.chatBusy)}>
               <span className={s.dots} aria-label={F.thinking}>
@@ -613,23 +731,28 @@ function ChangeChat({ token, plan, onPlan, buy }: { token: string; plan: string[
           <p>
             <b>{F.listTitle}</b>
           </p>
-          <ol>
+          <ul className={s.checklist}>
             {plan.map((c) => (
-              <li key={c}>{c}</li>
+              <li key={c}>
+                <span className={s.tick}>
+                  <Tick size={11} stroke={3.5} />
+                </span>
+                {c}
+              </li>
             ))}
-          </ol>
+          </ul>
           <p className={s.chatNote}>{F.listNote}</p>
           {buy}
         </div>
       )}
       <form
-        className={s.chatForm}
+        className={cn(s.chatForm, glow && s.chatGlow, text.trim() && s.chatReady)}
         onSubmit={(e) => {
           e.preventDefault();
-          void send();
+          void send(text);
         }}
       >
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={F.placeholder} maxLength={600} aria-label={F.title} />
+        <input ref={input} value={text} onChange={(e) => setText(e.target.value)} placeholder={F.placeholder} maxLength={600} aria-label={F.title} />
         <button type="submit" disabled={busy || !text.trim()} aria-label={F.send}>
           <ArrowUp size={18} strokeWidth={2.75} aria-hidden="true" />
         </button>
