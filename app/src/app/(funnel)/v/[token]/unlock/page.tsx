@@ -6,6 +6,7 @@ import { latestChangePlan, requestedChanges } from '@/lib/free-video/change-chat
 import { CHANGE_ROUNDS, changesUsed } from '@/lib/free-video/change-requests';
 import { UNLOCK_DAYS } from '@/lib/free-video/cleanup';
 import { isLive } from '@/lib/free-video/config';
+import { PLAN_TRIAL_PRODUCT } from '@/lib/free-video/offer';
 import { readSettings, toView } from '@/lib/free-video/leads';
 import { UNLOCK_PAGE } from '@/lib/free-video/unlock-page';
 import { unlockPriceOf } from '@/lib/free-video/unlock-price';
@@ -51,5 +52,5 @@ export default async function UnlockRoute({ params, searchParams }: UnlockRouteP
   // The last day the video ad can be unlocked (cleanup.ts unlockOpen), shown on the offer as a true deadline.
   const finished = lead.finished_at ? Date.parse(lead.finished_at) : NaN;
   const filesUntil = Number.isFinite(finished) ? new Date(finished + UNLOCK_DAYS * 86_400_000).toISOString() : null;
-  return <UnlockPage token={token} initial={view} price={price} filesUntil={filesUntil} plan={plan} requested={requested} changesLeft={Math.max(0, CHANGE_ROUNDS - used)} preview={Boolean(shown)} />;
+  return <UnlockPage token={token} initial={view} price={price} filesUntil={filesUntil} plan={plan} requested={requested} trial={Boolean(PLAN_TRIAL_PRODUCT) || !isLive()} changesLeft={Math.max(0, CHANGE_ROUNDS - used)} preview={Boolean(shown)} />;
 }

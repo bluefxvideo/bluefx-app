@@ -239,6 +239,47 @@ export const UNLOCK_PAGE = {
       generic: 'Your change did not go through. Please email support@bluefx.net with your change.',
     },
   },
+  /**
+   * The Weekly Video Plan offer right after the $49 payment (owner 2026-10-27, his sales video idea word for word where
+   * possible): first month free, then $99 a month for 4 social media videos (one a week, under $25 each against $49).
+   * Changes by the team come first; cancel any time and keep the videos.
+   */
+  thanks: {
+    title: (name: string) => `Thank you${name ? `, ${name}` : ''}! Your video ad is being made right now.`,
+    making: 'A real person on my team checks your video ad before it goes out, so there are no mistakes.',
+    makingChanges: 'My team is making your changes:',
+    readyTitle: 'Your video ad is ready',
+    hook: 'While you wait, let me show you how to put some money back in your pocket.',
+    nextTitle: (domain: string) => `Your next 4 social media videos for ${domain} are already planned`,
+    styles: ['Hand-drawn', 'News studio', 'Cartoon', 'Vintage TV'],
+    promoCard: {
+      title: 'Your next sale or holiday special',
+      teaser: 'Black Friday, a holiday sale, a new product? Tell us, and my team makes that week\u2019s social media video.',
+    },
+    mathTitle: 'The math',
+    math: [
+      'One new social media video every week means 4 social media videos a month.',
+      'At $49 each, that\u2019s $196 a month, even at today\u2019s price.',
+    ],
+    mathPunch: 'Join the Weekly Video Plan, and I cut that in half: 4 new social media videos every month for $99. That\u2019s under $25 per video.',
+    freeTitle: 'And here\u2019s the best part: your first month is free.',
+    freeText: 'Try the Weekly Video Plan with no commitment. Get your first 4 social media videos, post them, and see what they do for your business.',
+    whyTitle: 'Why a new social media video every week?',
+    whyText:
+      'Your business stays in front of your customers on social media instead of being forgotten. Running a Black Friday sale or a holiday special, launching a new product or service? Tell us, and my team makes that week\u2019s video. Change anything you want: the style, the wording, the person on camera.',
+    riskTitle: 'You take no risk',
+    risk: [
+      'Don\u2019t like a video? My team fixes or changes anything for you: the style, the script, the person on screen, the editing. No problem.',
+      'Still not happy with the service, for any reason? Cancel any time with one email, and keep every video we made for you. No contract. That\u2019s how sure I am you\u2019ll love them.',
+      'After your free month, your plan continues at $99 a month.',
+    ],
+    button: 'Yes! Start My Free Month',
+    today: '$0 today. Cancel any time with one email.',
+    noThanks: 'No thanks, just my video ad',
+    sign: 'I\u2019m looking forward to making your next videos and getting you more customers from social media.',
+    signName: 'Szilard',
+    declined: 'No problem. Your video ad is all yours.',
+  },
   plan: {
     kicker: 'For more customers every week',
     title: (domain: string) => `Get a new video ad like this for ${domain} every Tuesday`,

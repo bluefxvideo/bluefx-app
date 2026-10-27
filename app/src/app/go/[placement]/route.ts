@@ -9,7 +9,7 @@ import { clientIp, getLeadByToken, isActiveCustomerId, markClicked } from '@/lib
 import { rememberCheckoutIds, requestFacts, trackCheckout } from '@/lib/free-video/meta';
 import { serviceClockStart, servicePhaseAt } from '@/lib/free-video/service-page';
 import { unlockPriceOf } from '@/lib/free-video/unlock-price';
-import { checkoutUrl, isEmailPlacement, isPlacement, isResultPagePlacement, isSalesPagePlacement, PLAN_PLACEMENT, resultCheckoutUrl, salesPageUrl, SERVICE, serviceCheckoutUrl, UNLOCK, unlockCheckoutUrl, unlockPagePath } from '@/lib/free-video/offer';
+import { checkoutUrl, isEmailPlacement, isPlacement, isResultPagePlacement, isSalesPagePlacement, PLAN_PLACEMENT, PLAN_TRIAL_PRODUCT, resultCheckoutUrl, salesPageUrl, SERVICE, serviceCheckoutUrl, UNLOCK, unlockCheckoutUrl, unlockPagePath } from '@/lib/free-video/offer';
 import { CLICK_VISITOR_PARAM, VISITOR_ID_PATTERN } from '@/lib/free-video/internal-visit';
 import { CHECKOUT_EVENT_PARAM } from '@/lib/free-video/pixel';
 import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
@@ -123,7 +123,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
       await markClicked(token, PLAN_PLACEMENT);
       await rememberCheckoutIds(lead, facts, SERVICE.placement);
     });
-    return redirect(serviceCheckoutUrl(token, SERVICE.phases[0].product));
+    return redirect(serviceCheckoutUrl(token, PLAN_TRIAL_PRODUCT || SERVICE.phases[0].product));
   }
 
   if (placement === 'claim') {

@@ -34,6 +34,8 @@ interface UnlockPageProps {
   /** The changes asked for after the payment (the ready page lists them). */
   requested: string[];
   changesLeft: number;
+  /** The free-month Weekly Video Plan offer is on (its FastSpring product exists, or a local preview). */
+  trial: boolean;
   /** A local preview of one display: the page never asks for news. */
   preview?: boolean;
 }
@@ -48,7 +50,7 @@ const CLICK_WINDOW_MS = 30 * 60_000;
  * the Weekly Video Plan). The checkout opens in a new tab through /go/fvunlock; this page polls the lead's view, and asks
  * again every time the visitor comes back to this tab (no time limit), or taps "Paid? Tap here" in the phone bar.
  */
-export function UnlockPage({ token, initial, price, filesUntil, plan, requested, changesLeft, preview = false }: UnlockPageProps) {
+export function UnlockPage({ token, initial, price, filesUntil, plan, requested, changesLeft, trial, preview = false }: UnlockPageProps) {
   const [view, setView] = useState(initial);
   const [clickedAt, setClickedAt] = useState<number | null>(null);
   const beacon = useFreeVideoBeacon(token);
@@ -94,8 +96,8 @@ export function UnlockPage({ token, initial, price, filesUntil, plan, requested,
       {unlock.state === 'available' && (
         <Offer view={view} token={token} price={price} filesUntil={filesUntil} initialPlan={plan} clicked={clickedAt !== null} onCheckout={onCheckout} onCheck={ask} />
       )}
-      {working && <Unlocking view={view} token={token} />}
-      {unlock.state === 'ready' && <Ready view={view} token={token} requested={requested} changesLeft={changesLeft} onDownload={() => beacon('download')} />}
+      {working && <Unlocking view={view} token={token} requested={requested} trial={trial} />}
+      {unlock.state === 'ready' && <Ready view={view} token={token} requested={requested} trial={trial} changesLeft={changesLeft} onDownload={() => beacon('download')} />}
       {unlock.state === 'failed' && <Note title={UNLOCK_PAGE.failed.title} text={UNLOCK_PAGE.failed.text} />}
       {unlock.state === 'unavailable' && <Note title={UNLOCK_PAGE.closed.title} text={UNLOCK_PAGE.closed.text} link={{ href: `/v/${token}`, label: UNLOCK_PAGE.closed.button }} />}
     </div>
@@ -791,27 +793,120 @@ function Clock() {
   );
 }
 
-function Unlocking({ view, token }: { view: FreeVideoView; token: string }) {
-  const F = UNLOCK_PAGE.paid;
+function Unlocking({ view, token, requested, trial }: { view: FreeVideoView; token: string; requested: string[]; trial: boolean }) {
+  const F = UNLOCK_PAGE.thanks;
   return (
-    <section className={s.section}>
+    <>
+      <section className={cn(s.section, s.thanksTop)}>
+        <div className={s.narrow}>
+          <div className={s.making} role="status">
+            {view.poster || view.nextAds?.[0]?.imageUrl ? (
+              <Image className={s.makingThumb} src={(view.poster || view.nextAds?.[0]?.imageUrl) as string} alt="" width={120} height={150} sizes="60px" />
+            ) : null}
+            <div className={s.makingText}>
+              <h1>{F.title(view.firstName)}</h1>
+              <p>{F.making}</p>
+              <div className={s.progressTrack}>
+                <span />
+              </div>
+              {requested.length > 0 && (
+                <div className={s.makingChanges}>
+                  <b>{F.makingChanges}</b>
+                  {requested.map((r) => (
+                    <p key={r}>{r}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+      {trial ? <ThanksOffer view={view} token={token} /> : <section className={s.section}><div className={s.narrow}><PlanCard view={view} token={token} /></div></section>}
+    </>
+  );
+}
+
+/** The Weekly Video Plan offer after the $49 payment (owner 2026-10-27): first month free, then $99 a month. */
+function ThanksOffer({ view, token }: { view: FreeVideoView; token: string }) {
+  const F = UNLOCK_PAGE.thanks;
+  const [declined, setDeclined] = useState(false);
+  const planned = (view.nextAds ?? []).slice(0, 3);
+  const promoImage = view.poster || planned[0]?.imageUrl || null;
+  if (declined) {
+    return (
+      <section className={s.section}>
+        <div className={cn(s.narrow, s.center)}>
+          <p className={s.p}>{F.declined}</p>
+        </div>
+      </section>
+    );
+  }
+  const cards = [
+    ...planned.map((ad) => ({ key: String(ad.n), title: ad.title, teaser: ad.teaser, image: ad.imageUrl })),
+    { key: 'promo', title: F.promoCard.title, teaser: F.promoCard.teaser, image: promoImage },
+  ].slice(0, 4);
+  const buy = (
+    <div className={s.thanksBuy}>
+      <a className={s.button} href={planGoUrl(token)} target="_blank" rel="noopener noreferrer">
+        {F.button}
+      </a>
+      <p className={s.small}>{F.today}</p>
+    </div>
+  );
+  return (
+    <section className={cn(s.section, s.thanks)}>
       <div className={s.narrow}>
-        <div className={s.status} role="status">
-          <span className={s.statusTick}>
-            <Tick size={18} stroke={3} />
-          </span>
+        <h2 className={cn(s.h2, s.center)}>{F.hook}</h2>
+        <p className={s.label}>{F.nextTitle(view.domain)}</p>
+        <ul className={s.plannedGrid}>
+          {cards.map((card, i) => (
+            <li key={card.key}>
+              <span className={s.plannedImage}>
+                {card.image ? <Image src={card.image} alt="" width={432} height={540} sizes="(min-width: 700px) 150px, 45vw" /> : null}
+                <em>{F.styles[i]}</em>
+              </span>
+              <b>{card.title}</b>
+              <span>{card.teaser}</span>
+            </li>
+          ))}
+        </ul>
+        <div className={s.mathBox}>
+          <p className={s.h3}>{F.mathTitle}</p>
+          {F.math.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+          <p className={s.mathPunch}>{F.mathPunch}</p>
+        </div>
+        <div className={s.freeBox}>
+          <p className={s.h3}>{F.freeTitle}</p>
+          <p>{F.freeText}</p>
+        </div>
+        {buy}
+        <div>
+          <p className={s.h3}>{F.whyTitle}</p>
+          <p className={s.p}>{F.whyText}</p>
+        </div>
+        <div className={s.guarantee}>
+          <Shield />
           <div>
-            <h1 className={s.statusTitle}>{F.title}</h1>
-            <p>{F.text}</p>
+            <h2>{F.riskTitle}</h2>
+            {F.risk.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
           </div>
         </div>
-        <div className={s.progress}>
-          <div className={s.progressTrack}>
-            <span />
-          </div>
-          <p>{F.progress}</p>
+        {buy}
+        <button type="button" className={s.noThanks} onClick={() => setDeclined(true)}>
+          {F.noThanks}
+        </button>
+        <div className={s.thanksSign}>
+          <Image className={s.chatFaceImg} src={SALES_PAGE_FOUNDER_PHOTO} alt="Szilard" width={96} height={96} sizes="48px" />
+          <p>
+            {F.sign}
+            <br />
+            <b>{F.signName}</b>
+          </p>
         </div>
-        <PlanCard view={view} token={token} />
       </div>
     </section>
   );
@@ -821,16 +916,18 @@ interface ReadyProps {
   view: FreeVideoView;
   token: string;
   requested: string[];
+  trial: boolean;
   changesLeft: number;
   onDownload: () => void;
 }
 
-function Ready({ view, token, requested, changesLeft, onDownload }: ReadyProps) {
+function Ready({ view, token, requested, trial, changesLeft, onDownload }: ReadyProps) {
   const F = UNLOCK_PAGE.ready;
   const clean = view.unlock.cleanVideoUrl as string;
   const download = view.unlock.cleanDownloadUrl ?? clean;
   return (
-    <section className={s.section}>
+    <>
+    <section className={cn(s.section, s.thanksTop)}>
       <div className={s.narrow}>
         <h1 className={cn(s.title, s.center, s.readyTitle)}>{F.title}</h1>
         <div className={s.readyVideo}>
@@ -854,9 +951,11 @@ function Ready({ view, token, requested, changesLeft, onDownload }: ReadyProps) 
           </div>
         )}
         <ChangeBox token={token} initialLeft={changesLeft} />
-        <PlanCard view={view} token={token} />
+        {!trial && <PlanCard view={view} token={token} />}
       </div>
     </section>
+    {trial && <ThanksOffer view={view} token={token} />}
+    </>
   );
 }
 

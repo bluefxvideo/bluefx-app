@@ -2954,3 +2954,223 @@
     font-size: 13px;
   }
 }
+
+/* ---- The thank-you offer after the $49 payment (owner 2026-10-27) ----
+   A compact "being made" card on top, then the full Weekly Video Plan offer. */
+.thanksTop {
+  padding-block: 20px;
+}
+
+.making {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #f6f8fb;
+}
+
+.makingThumb {
+  flex-shrink: 0;
+  width: 60px;
+  height: 75px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.makingText {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.makingText h1 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.25;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.makingText p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--body);
+}
+
+.makingText .progressTrack {
+  height: 8px;
+}
+
+.makingText .progressTrack span {
+  animation: makingBar 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes makingBar {
+  from {
+    width: 18%;
+  }
+  to {
+    width: 72%;
+  }
+}
+
+.makingChanges {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.makingChanges p {
+  white-space: pre-wrap;
+  font-size: 13px;
+}
+
+.thanks {
+  padding-top: 8px;
+}
+
+.thanks .narrow {
+  gap: 18px;
+}
+
+.plannedGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plannedGrid li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--body);
+}
+
+.plannedGrid b {
+  font-size: 15px;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.plannedImage {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #e2e8f0;
+}
+
+.plannedImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.plannedImage em {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.82);
+  color: #ffffff;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mathBox,
+.freeBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 14px;
+}
+
+.mathBox {
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.freeBox {
+  background: #eef5e6;
+  border: 2px solid #47801c;
+}
+
+.mathBox p,
+.freeBox p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--body);
+}
+
+.mathBox .mathPunch {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.thanksBuy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+.thanks button.noThanks {
+  align-self: center;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+  font-size: 14px;
+}
+
+.thanksSign {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.thanksSign p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--body);
+}
+
+.chatFaceImg {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+@media (min-width: 860px) {
+  .plannedGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.thanks .guarantee > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
