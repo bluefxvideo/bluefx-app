@@ -8,6 +8,7 @@ import { unlockOpen } from '@/lib/free-video/cleanup';
 import { clientIp, getLeadByToken, isActiveCustomerId, markClicked } from '@/lib/free-video/leads';
 import { rememberCheckoutIds, requestFacts, trackCheckout } from '@/lib/free-video/meta';
 import { serviceClockStart, servicePhaseAt } from '@/lib/free-video/service-page';
+import { unlockPriceOf } from '@/lib/free-video/unlock-price';
 import { checkoutUrl, isEmailPlacement, isPlacement, isResultPagePlacement, isSalesPagePlacement, PLAN_PLACEMENT, resultCheckoutUrl, salesPageUrl, SERVICE, serviceCheckoutUrl, UNLOCK, unlockCheckoutUrl, unlockPagePath } from '@/lib/free-video/offer';
 import { CLICK_VISITOR_PARAM, VISITOR_ID_PATTERN } from '@/lib/free-video/internal-visit';
 import { CHECKOUT_EVENT_PARAM } from '@/lib/free-video/pixel';
@@ -77,7 +78,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
     if (lead.status === 'rejected' || lead.status === 'failed') return redirect(page);
     // 30 days after the video ad: the working files the clean version is made from are about to go (cleanup.ts).
     if (lead.status === 'done' && !unlockOpen(lead)) return redirect(page);
-    return redirect(unlockCheckoutUrl(token));
+    return redirect(unlockCheckoutUrl(token, (await unlockPriceOf(lead.id)).product));
   }
 
   // Unlimited Video Ads (done-for-you service): the click is logged on the lead, then FastSpring's checkout of the lead's

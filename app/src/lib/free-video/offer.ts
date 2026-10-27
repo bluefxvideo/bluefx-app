@@ -224,7 +224,15 @@ export const claimUrl = (token: string) => `/go/claim?t=${encodeURIComponent(tok
  * buy-credits-dialog.tsx uses for userId; the webhook reads it back at data.tags.freeVideoLead.
  */
 export const UNLOCK = {
+  /** The regular price's product, $99 (after the launch clock). */
   product: 'video-creation',
+  /**
+   * The launch price (owner 2026-10-27): $49 on FastSpring's custom-video-ad for LAUNCH_DAYS from the lead's first visit
+   * to the unlock page, then video-creation at $99. Both products unlock the video ad.
+   */
+  launchProduct: 'custom-video-ad',
+  launchDays: 7,
+  regularPrice: '$99',
   storefront: 'https://bluefx.onfastspring.com',
   tagKey: 'freeVideoLead',
   /** $49 since 2026-10-27 (owner: the unlock page sells the video ad itself, /v/<token>/unlock); the FastSpring product's own price must match. */
@@ -236,9 +244,12 @@ export const UNLOCK = {
 /** The unlock page of one lead (owner 2026-10-27): pay once, download the video ad without the watermark, changes included. */
 export const unlockPagePath = (token: string) => `/v/${token}/unlock`;
 
-/** The FastSpring checkout for one lead's unlock. */
-export const unlockCheckoutUrl = (token: string) =>
-  `${UNLOCK.storefront}/${UNLOCK.product}?tags=${UNLOCK.tagKey}:${encodeURIComponent(token)}`;
+/** Every FastSpring product that unlocks a free video ad. */
+export const UNLOCK_PRODUCTS: readonly string[] = [UNLOCK.product, UNLOCK.launchProduct];
+
+/** The FastSpring checkout for one lead's unlock, at the launch price or the regular one. */
+export const unlockCheckoutUrl = (token: string, product: string = UNLOCK.launchProduct) =>
+  `${UNLOCK.storefront}/${product}?tags=${UNLOCK.tagKey}:${encodeURIComponent(token)}`;
 
 /** The same-origin link the unlock button uses: /go/fvunlock logs the click, then 302s to unlockCheckoutUrl(token). */
 export const unlockGoUrl = (token: string) => `/go/${UNLOCK.placement}?t=${encodeURIComponent(token)}`;

@@ -1,13 +1,15 @@
 'use client';
 
+import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
 import { PLAN_INFO_PATH, planGoUrl, unlockGoUrl } from '@/lib/free-video/offer';
 import { UNLOCK_PAGE } from '@/lib/free-video/unlock-page';
+import type { UnlockPrice } from '@/lib/free-video/unlock-price';
 import { cn } from '@/lib/utils';
 import type { FreeVideoView } from '@/types/free-video';
-import { PayCards, Shield, Tick } from './result-page';
+import { PayCards, Shield, Stars, Tick } from './result-page';
 import { SaveToPhotos } from './save-to-photos';
 import { VideoAdPlayer } from './video-ad-player';
 import rp from './result-page.module.css';
@@ -16,6 +18,7 @@ import s from './unlock-page.module.css';
 interface UnlockPageProps {
   token: string;
   initial: FreeVideoView;
+  price: UnlockPrice;
   changesLeft: number;
   /** A local preview of one display: the page never asks for news. */
   preview?: boolean;
@@ -30,7 +33,7 @@ const CLICK_WINDOW_MS = 30 * 60_000;
  * The unlock page (owner 2026-10-27): offer → "unlocking" (paid, the clean render runs) → ready (download, change box,
  * the Weekly Video Plan). The checkout opens in a new tab through /go/fvunlock; this page polls the lead's view.
  */
-export function UnlockPage({ token, initial, changesLeft, preview = false }: UnlockPageProps) {
+export function UnlockPage({ token, initial, price, changesLeft, preview = false }: UnlockPageProps) {
   const [view, setView] = useState(initial);
   const [clickedAt, setClickedAt] = useState<number | null>(null);
   const beacon = useFreeVideoBeacon(token);
@@ -68,7 +71,7 @@ export function UnlockPage({ token, initial, changesLeft, preview = false }: Unl
 
   return (
     <div className={cn(rp.page, s.page)}>
-      {unlock.state === 'available' && <Offer view={view} token={token} clicked={clickedAt !== null} onCheckout={onCheckout} />}
+      {unlock.state === 'available' && <Offer view={view} token={token} price={price} clicked={clickedAt !== null} onCheckout={onCheckout} />}
       {working && <Unlocking view={view} token={token} />}
       {unlock.state === 'ready' && <Ready view={view} token={token} changesLeft={changesLeft} onDownload={() => beacon('download')} />}
       {unlock.state === 'failed' && <Note title={UNLOCK_PAGE.failed.title} text={UNLOCK_PAGE.failed.text} />}
@@ -80,17 +83,19 @@ export function UnlockPage({ token, initial, changesLeft, preview = false }: Unl
 interface OfferProps {
   view: FreeVideoView;
   token: string;
+  price: UnlockPrice;
   clicked: boolean;
   onCheckout: () => void;
 }
 
-function Offer({ view, token, clicked, onCheckout }: OfferProps) {
+function Offer({ view, token, price, clicked, onCheckout }: OfferProps) {
   const F = UNLOCK_PAGE;
   const beacon = useFreeVideoBeacon(token);
   const topBuy = useRef<HTMLDivElement>(null);
   const bottomBuy = useRef<HTMLDivElement>(null);
   const [barOn, setBarOn] = useState(false);
   const checkout = unlockGoUrl(token);
+  const left = useTimeLeft(price.endsAt);
 
   // Phone bar: shows once the top button has scrolled away, hides again when the bottom button is on screen.
   useEffect(() => {
@@ -108,7 +113,8 @@ function Offer({ view, token, clicked, onCheckout }: OfferProps) {
     };
   }, []);
 
-  const buy = <BuyBox href={checkout} clicked={clicked} onCheckout={onCheckout} />;
+  const buy = <BuyBox href={checkout} price={price} left={left} clicked={clicked} onCheckout={onCheckout} />;
+  const us = F.compare.us(price.price);
   return (
     <>
       <section className={s.top} aria-labelledby="unlock-title">
@@ -136,19 +142,82 @@ function Offer({ view, token, clicked, onCheckout }: OfferProps) {
         </div>
       </section>
 
+      <section className={s.proofStrip} aria-label={F.proof.line}>
+        <div className={s.faces}>
+          {F.reviews.map((r) => (
+            <Image key={r.name} src={r.photo} alt="" width={80} height={80} sizes="40px" />
+          ))}
+        </div>
+        <div>
+          <Stars size={14} label={F.proof.stars} />
+          <p>{F.proof.line}</p>
+        </div>
+      </section>
+
       <section className={s.section}>
         <div className={s.narrow}>
+          <h2 className={s.h2}>{F.compare.title(price.price)}</h2>
+          <div className={s.compare}>
+            <div className={s.compareCol}>
+              <p className={s.compareName}>{F.compare.them.name}</p>
+              <ul>
+                {F.compare.them.rows.map((row, i) => (
+                  <li key={row}>
+                    <span className={s.compareLabel}>{F.compare.labels[i]}</span>
+                    {i === 0 ? <b className={s.compareBad}>{row}</b> : row}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className={cn(s.compareCol, s.compareUs)}>
+              <p className={s.compareName}>{us.name}</p>
+              <ul>
+                {us.rows.map((row, i) => (
+                  <li key={row}>
+                    <span className={s.compareLabel}>{F.compare.labels[i]}</span>
+                    {i === 0 ? <b className={s.compareGood}>{row}</b> : row}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <p className={s.small}>{F.compare.note}</p>
+        </div>
+      </section>
+
+      <section className={cn(s.section, s.sectionSoft)}>
+        <div className={s.narrow}>
           <h2 className={s.h2}>{F.getTitle}</h2>
-          <ul className={s.ticks}>
-            {F.get.map((line) => (
-              <li key={line}>
+          <ul className={s.stack}>
+            {F.get.map((item) => (
+              <li key={item.title}>
                 <span className={s.tick}>
                   <Tick size={14} stroke={3} />
                 </span>
-                {line}
+                <div>
+                  <h3>{item.title}</h3>
+                  <p>{item.text}</p>
+                </div>
               </li>
             ))}
           </ul>
+        </div>
+      </section>
+
+      <section className={s.section}>
+        <div className={s.narrow}>
+          <h2 className={s.h2}>{F.stepsTitle}</h2>
+          <ol className={s.steps}>
+            {F.steps.map((step, i) => (
+              <li key={step.title}>
+                <span className={s.stepNum}>{i + 1}</span>
+                <div>
+                  <h3>{step.title}</h3>
+                  <p>{step.text}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
@@ -169,16 +238,54 @@ function Offer({ view, token, clicked, onCheckout }: OfferProps) {
 
       <section className={s.section}>
         <div className={s.narrow}>
+          <h2 className={s.h2}>{F.reviewsTitle}</h2>
+          <div className={s.reviews}>
+            {F.reviews.map((r) => (
+              <figure key={r.name} className={s.review}>
+                <Image className={s.reviewFace} src={r.photo} alt={r.name} width={112} height={112} sizes="56px" />
+                <div>
+                  <Stars size={13} label={F.proof.stars} />
+                  <blockquote>&ldquo;{r.quote}&rdquo;</blockquote>
+                  <figcaption>
+                    <b>{r.name}</b>, {r.role}
+                  </figcaption>
+                </div>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className={cn(s.section, s.sectionSoft)}>
+        <div className={s.narrow}>
+          <div className={s.founder}>
+            <Image className={s.founderFace} src={F.founder.photo} alt={F.founder.name} width={240} height={240} sizes="96px" />
+            <div className={s.founderText}>
+              <h2 className={s.h3}>{F.founder.title}</h2>
+              {F.founder.text(view.domain, price.price).map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+              <p className={s.sign}>{F.founder.sign}</p>
+              <p className={s.small}>
+                {F.founder.name}, {F.founder.role}
+              </p>
+            </div>
+          </div>
           <div className={s.guarantee}>
             <Shield />
             <div>
               <h2>{F.guaranteeTitle}</h2>
-              <p>{F.guarantee}</p>
+              <p>{F.guarantee(price.price)}</p>
             </div>
           </div>
-          <h2 className={cn(s.h2, s.h2Gap)}>{F.faqTitle}</h2>
+        </div>
+      </section>
+
+      <section className={s.section}>
+        <div className={s.narrow}>
+          <h2 className={s.h2}>{F.faqTitle}</h2>
           <dl className={s.faq}>
-            {F.faq.map((item) => (
+            {F.faq(price.price, price.regular, price.launch).map((item) => (
               <div key={item.q}>
                 <dt>{item.q}</dt>
                 <dd>{item.a}</dd>
@@ -188,15 +295,20 @@ function Offer({ view, token, clicked, onCheckout }: OfferProps) {
         </div>
       </section>
 
-      <section className={cn(s.section, s.sectionSoft)}>
+      <section className={cn(s.section, s.sectionFinal)}>
         <div ref={bottomBuy} className={s.narrow}>
           <h2 className={cn(s.h2, s.center)}>{F.bottomTitle(view.domain)}</h2>
           {buy}
+          <p className={s.ps}>{F.ps(price.price, price.launch, price.regular)}</p>
         </div>
       </section>
 
       <div className={cn(s.bar, barOn && s.barOn)} aria-hidden={!barOn}>
-        <b>{F.price}</b>
+        <div className={s.barPrice}>
+          {price.launch && <s>{price.regular}</s>}
+          <b>{price.price}</b>
+          {left && <small>{left}</small>}
+        </div>
         <a href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout} tabIndex={barOn ? 0 : -1}>
           {F.bar}
         </a>
@@ -205,22 +317,59 @@ function Offer({ view, token, clicked, onCheckout }: OfferProps) {
   );
 }
 
-function BuyBox({ href, clicked, onCheckout }: { href: string; clicked: boolean; onCheckout: () => void }) {
+/** "2 days 5 h left" until the launch price ends, updated every minute; null without a deadline. */
+function useTimeLeft(endsAt: string | null): string | null {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    if (!endsAt) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, [endsAt]);
+  if (!endsAt || now === null) return null;
+  const ms = Date.parse(endsAt) - now;
+  if (ms <= 0) return null;
+  const hours = Math.max(1, Math.ceil(ms / 3_600_000));
+  return UNLOCK_PAGE.left(Math.floor(hours / 24), hours % 24);
+}
+
+const endLabel = (iso: string) => new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).format(new Date(iso));
+
+interface BuyBoxProps {
+  href: string;
+  price: UnlockPrice;
+  left: string | null;
+  clicked: boolean;
+  onCheckout: () => void;
+}
+
+function BuyBox({ href, price, left, clicked, onCheckout }: BuyBoxProps) {
   const F = UNLOCK_PAGE;
   return (
     <div className={s.buy}>
+      {price.launch && <p className={s.save}>{F.save(price.regular, price.price)}</p>}
       <p className={s.price}>
-        <b>{F.price}</b> <span>{F.priceUnit}</span> <em>{F.priceNote}</em>
+        {price.launch && <s>{price.regular}</s>}
+        <b>{price.price}</b> <span>{F.priceUnit}</span>
       </p>
+      {price.launch && price.endsAt && (
+        <p className={s.deadline}>
+          {F.endsOn(endLabel(price.endsAt), price.regular)}
+          {left && <b> {left}</b>}
+        </p>
+      )}
       {/* A new tab, so this page keeps asking and shows the clean video ad once the payment arrives. */}
       <a className={s.button} href={href} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
-        {F.button}
+        {F.button(price.price)}
       </a>
       {clicked && (
         <p className={s.clicked} role="status">
           {F.afterClick}
         </p>
       )}
+      <p className={s.guaranteeShort}>
+        <Shield /> {F.guaranteeShort}
+      </p>
       <div className={s.trust}>
         <PayCards />
         <p>{F.trust}</p>

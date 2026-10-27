@@ -6,6 +6,7 @@ import { CHANGE_ROUNDS, changesUsed } from '@/lib/free-video/change-requests';
 import { isLive } from '@/lib/free-video/config';
 import { readSettings, toView } from '@/lib/free-video/leads';
 import { UNLOCK_PAGE } from '@/lib/free-video/unlock-page';
+import { unlockPriceOf } from '@/lib/free-video/unlock-price';
 import { displayDomain } from '@/lib/free-video/website';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +40,6 @@ export default async function UnlockRoute({ params, searchParams }: UnlockRouteP
   if (shown) {
     view.unlock = shown === 'ready' ? { state: 'ready', cleanVideoUrl: view.videoUrl, cleanDownloadUrl: view.downloadUrl ?? view.videoUrl } : { state: shown };
   }
-  const used = await changesUsed(lead.id).catch(() => 0);
-  return <UnlockPage token={token} initial={view} changesLeft={Math.max(0, CHANGE_ROUNDS - used)} preview={Boolean(shown)} />;
+  const [used, price] = await Promise.all([changesUsed(lead.id).catch(() => 0), unlockPriceOf(lead.id)]);
+  return <UnlockPage token={token} initial={view} price={price} changesLeft={Math.max(0, CHANGE_ROUNDS - used)} preview={Boolean(shown)} />;
 }

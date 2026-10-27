@@ -33,7 +33,7 @@ import { frameOf, probeFile } from '@/lib/free-video/gate';
 import { asLead, getLead, getLeadByToken, leadsTable, readSettings, transitionUnlock } from '@/lib/free-video/leads';
 import { trackPurchase } from '@/lib/free-video/meta';
 import { deliverUnlock } from '@/lib/free-video/notify';
-import { UNLOCK } from '@/lib/free-video/offer';
+import { UNLOCK, UNLOCK_PRODUCTS } from '@/lib/free-video/offer';
 import { displayDomain, emailKeyOf } from '@/lib/free-video/website';
 import { jobDir, readPlan, upload } from '@/lib/smart-video/jobs';
 import { levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
@@ -163,7 +163,7 @@ export function readUnlockOrder(data: unknown): UnlockOrder {
     (typeof order.account === 'object' ? order.account?.contact?.email : undefined) || order.customer?.email || null;
   const token = tagValue(order.tags, UNLOCK.tagKey);
   // What the owner is paid for the unlock: the item's own subtotal in the payout currency when FastSpring sends it.
-  const item = (order.items ?? []).find((i) => i.product?.toLowerCase() === UNLOCK.product);
+  const item = (order.items ?? []).find((i) => UNLOCK_PRODUCTS.includes(i.product?.toLowerCase() ?? ''));
   const payout = num(item?.subtotalInPayoutCurrency) ?? num(order.subtotalInPayoutCurrency) ?? num(order.totalInPayoutCurrency);
   const local = num(item?.subtotal) ?? num(order.subtotal) ?? num(order.total);
   return {
@@ -186,8 +186,8 @@ export function readUnlockOrder(data: unknown): UnlockOrder {
  */
 export function freeVideoUnlockIn(data: unknown): 'only' | 'mixed' | null {
   const { products } = readUnlockOrder(data);
-  if (!products.includes(UNLOCK.product)) return null;
-  return products.every((product) => product === UNLOCK.product) ? 'only' : 'mixed';
+  if (!products.some((product) => UNLOCK_PRODUCTS.includes(product))) return null;
+  return products.every((product) => UNLOCK_PRODUCTS.includes(product)) ? 'only' : 'mixed';
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -245,7 +245,7 @@ async function confirmOrder(orderId: string): Promise<{ verdict: 'confirmed' | '
     const match = list.map((entry) => FastSpringOrderSchema.safeParse(entry ?? {})).find((r) => r.success && (r.data.id === orderId || r.data.order === orderId));
     if (!match?.success) return { verdict: 'rejected', note: `the FastSpring API returned no order ${orderId}` };
     if (match.data.completed === false) return { verdict: 'rejected', note: `order ${orderId} is not completed` };
-    if (!productsOf(match.data).includes(UNLOCK.product)) return { verdict: 'rejected', note: `order ${orderId} does not contain ${UNLOCK.product}` };
+    if (!productsOf(match.data).some((product) => UNLOCK_PRODUCTS.includes(product))) return { verdict: 'rejected', note: `order ${orderId} does not contain ${UNLOCK_PRODUCTS.join(' or ')}` };
     if (match.data.live === false && isLive()) return { verdict: 'rejected', note: `order ${orderId} is a FastSpring test order` };
     return { verdict: 'confirmed' };
   } catch (error) {

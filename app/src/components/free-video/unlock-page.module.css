@@ -19,7 +19,7 @@
 }
 
 .video {
-  width: min(214px, 58vw);
+  width: min(176px, 47vw);
   order: 2;
 }
 
@@ -746,4 +746,302 @@
 .buttonQuiet:disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+/* ---- Sales page parts (2026-10-27, "it has to be strong") ---- */
+
+.price s {
+  font-size: 22px;
+  font-weight: 700;
+  color: #b42318;
+}
+
+.save {
+  align-self: center;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #fde8e7;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.deadline {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fff7d6;
+  color: #6b5200;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.deadline b {
+  white-space: nowrap;
+}
+
+.guaranteeShort {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.guaranteeShort svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.proofStrip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f6f8fb;
+  border-block: 1px solid var(--line);
+}
+
+.proofStrip p {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.faces {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.faces img {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  object-fit: cover;
+}
+
+.faces img + img {
+  margin-left: -10px;
+}
+
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.compareCol {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.compareUs {
+  border: 3px solid var(--green);
+  background: #f5faef;
+}
+
+.compareName {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.compareCol ul {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.compareCol li {
+  display: flex;
+  flex-direction: column;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.compareLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.compareBad,
+.compareGood {
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.compareBad {
+  color: #b42318;
+}
+
+.compareGood {
+  color: var(--green-dark);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stack li {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.stack h3,
+.h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.stack p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--body);
+}
+
+.reviews {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.founder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.founderFace {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.founderText {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.founderText p {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--body);
+}
+
+.founderText .sign {
+  font-size: 26px;
+  font-style: italic;
+  font-weight: 700;
+  color: var(--navy);
+  font-family: 'Brush Script MT', 'Segoe Script', cursive;
+}
+
+.sectionFinal {
+  background: #eef6e6;
+}
+
+.ps {
+  margin: 4px 0 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--body);
+}
+
+.barPrice {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.barPrice s {
+  font-size: 13px;
+  font-weight: 700;
+  color: #b42318;
+}
+
+.barPrice small {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9a6b00;
+  white-space: nowrap;
+}
+
+@media (min-width: 860px) {
+  .compare {
+    gap: 16px;
+  }
+
+  .compareCol {
+    padding: 20px;
+  }
+
+  .reviews {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .founder {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 24px;
+  }
+
+  .founderFace {
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+  }
+
+  .save {
+    align-self: flex-start;
+  }
+
+  .deadline {
+    text-align: left;
+  }
+
+  .guaranteeShort {
+    justify-content: flex-start;
+  }
 }
