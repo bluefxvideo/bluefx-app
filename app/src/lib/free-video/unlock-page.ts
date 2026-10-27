@@ -45,7 +45,10 @@ export const UNLOCK_PAGE = {
   chips: ['Your wording', 'A different person', 'Your phone number'] as const,
   priceUnit: 'one time',
   save: (regular: string, price: string) => `Your free video ad price: save $${Number(regular.slice(1)) - Number(price.slice(1))}`,
-  ends: (iso: string, regular: string) => `Ends ${shortDate(iso)}, then ${regular}`,
+  ends: (iso: string, regular: string) =>
+    `Ends ${new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(iso))}, then ${regular}`,
+  timerLabel: (price: string) => `Your ${price} price ends in`,
+  priceUpIn: 'Price goes up in',
   left: (ms: number) => {
     const minutes = Math.max(1, Math.ceil(ms / 60_000));
     const days = Math.floor(minutes / 1440);

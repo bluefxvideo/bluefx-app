@@ -101,18 +101,54 @@ interface OfferProps {
   onCheck: () => void;
 }
 
-/** "7 days 4 h left" until the launch price ends, updated every minute; null without a deadline or before the page runs. */
-function useTimeLeft(endsAt: string | null): string | null {
+/** The milliseconds until the launch price ends, ticking every second; null without a deadline, before the page runs or after it ends. */
+function useTimeLeft(endsAt: string | null): number | null {
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     if (!endsAt) return;
     setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [endsAt]);
   if (!endsAt || now === null) return null;
   const ms = Date.parse(endsAt) - now;
-  return ms > 0 ? UNLOCK_PAGE.left(ms) : null;
+  return ms > 0 ? ms : null;
+}
+
+/** The time left split into days, hours, minutes and seconds. */
+function parts(ms: number | null) {
+  const total = ms === null ? null : Math.floor(ms / 1000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  if (total === null) return { d: '--', h: '--', m: '--', s: '--' };
+  return { d: pad(Math.floor(total / 86400)), h: pad(Math.floor((total % 86400) / 3600)), m: pad(Math.floor((total % 3600) / 60)), s: pad(total % 60) };
+}
+
+/** "2d 23:59:12", for the small spots (the phone bar, the short buy boxes). */
+function shortClock(ms: number | null): string | null {
+  if (ms === null) return null;
+  const p = parts(ms);
+  return `${Number(p.d) > 0 ? `${Number(p.d)}d ` : ''}${p.h}:${p.m}:${p.s}`;
+}
+
+/** The ticking timer: 4 boxes, days, hours, minutes, seconds. */
+function Timer({ ms, label }: { ms: number | null; label: string }) {
+  const p = parts(ms);
+  const boxes: Array<[string, string]> = [
+    [p.d, 'days'],
+    [p.h, 'hours'],
+    [p.m, 'min'],
+    [p.s, 'sec'],
+  ];
+  return (
+    <div className={s.timer} role="timer" aria-label={label}>
+      {boxes.map(([value, label]) => (
+        <span key={label} className={s.timerBox}>
+          <b>{value}</b>
+          <small>{label}</small>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 /** Phone bar: on once the first buy box has scrolled away, off while any buy box is on screen. */
@@ -398,7 +434,7 @@ function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }:
             <div className={s.barPrice}>
               {price.launch && <s>{price.regular}</s>}
               <b>{price.price}</b>
-              {left && <small>{left}</small>}
+              {left !== null && <small>{shortClock(left)}</small>}
             </div>
             <a href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout} tabIndex={barOn ? 0 : -1}>
               {F.bar}
@@ -411,7 +447,7 @@ function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }:
 }
 
 /** The price, the saving and the deadline. */
-function PriceBlock({ price, left }: { price: UnlockPrice; left: string | null }) {
+function PriceBlock({ price, left }: { price: UnlockPrice; left: number | null }) {
   const F = UNLOCK_PAGE;
   return (
     <div className={s.priceBlock}>
@@ -421,12 +457,14 @@ function PriceBlock({ price, left }: { price: UnlockPrice; left: string | null }
         <b>{price.price}</b> <span>{F.priceUnit}</span>
       </p>
       {price.launch && price.endsAt && (
-        <p className={s.deadline}>
+        <div className={s.deadline}>
           <b>
-            <Clock /> {left ?? ' '}
+            <Clock /> {F.timerLabel(price.price)}
           </b>
-          <span>{F.ends(price.endsAt, price.regular)}</span>
-        </p>
+          <Timer ms={left} label={F.timerLabel(price.price)} />
+          {/* In the visitor's own time zone, so only once the page runs in the browser (left is null before that). */}
+          <span>{left !== null ? F.ends(price.endsAt, price.regular) : '\u00a0'}</span>
+        </div>
       )}
     </div>
   );
@@ -465,13 +503,13 @@ function Action({ href, price, clicked, onCheckout }: ActionProps) {
 }
 
 /** A short buy box between sections: the price line and the button. */
-function CompactBuy({ price, left, action }: { price: UnlockPrice; left: string | null; action: ReactNode }) {
+function CompactBuy({ price, left, action }: { price: UnlockPrice; left: number | null; action: ReactNode }) {
   const F = UNLOCK_PAGE;
   return (
     <div className={s.compactBuy}>
       <p className={s.compactPrice}>
         {price.launch && <s>{price.regular}</s>} <b>{price.price}</b> <span>{F.priceUnit}</span>
-        {price.launch && left && <em>{left}</em>}
+        {price.launch && left !== null && <em>{UNLOCK_PAGE.priceUpIn} {shortClock(left)}</em>}
       </p>
       {action}
     </div>

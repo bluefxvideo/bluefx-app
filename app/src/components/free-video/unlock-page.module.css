@@ -1604,3 +1604,72 @@
     line-height: 1.4;
   }
 }
+
+/* The ticking timer (owner 2026-10-27: "add a timer, the date and the timer"). */
+.deadline {
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff7d6;
+}
+
+.timer {
+  display: flex;
+  gap: 5px;
+}
+
+.timerBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 40px;
+  padding: 4px 3px 3px;
+  border-radius: 8px;
+  background: #1f2a44;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.timerBox b {
+  font-size: 20px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+}
+
+.timerBox small {
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #cbd5e1;
+}
+
+.deadline > span {
+  font-size: 13px;
+}
+
+.finalBuy .deadline {
+  align-items: center;
+}
+
+.compactPrice em,
+.barPrice small {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 859px) {
+  .heroPrice .timerBox {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .heroPrice .timerBox b {
+    font-size: 17px;
+  }
+
+  .heroPrice .deadline b {
+    font-size: 14px;
+  }
+}
