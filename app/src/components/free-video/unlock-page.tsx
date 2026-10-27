@@ -193,19 +193,17 @@ function Offer({ view, token, price, filesUntil, clicked, onCheckout, onCheck }:
           <h1 id="unlock-title" className={s.title}>
             {F.title} <span className={s.titleRed}>{F.titleRed}</span>
           </h1>
-          <div className={s.subWrap}>
-            <p className={s.sub}>{F.sub}</p>
-            <ul className={s.changeChips} aria-label="Changes people ask for">
-              {F.chips.map((chip, i) => {
-                const Icon = [Pencil, User, Phone][i];
-                return (
-                  <li key={chip}>
-                    <Icon size={13} strokeWidth={2.5} aria-hidden="true" /> {chip}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+          <ul className={s.changeChips} aria-label="Changes people ask for">
+            {F.chips.map((chip, i) => {
+              const Icon = [Pencil, User, Phone][i];
+              return (
+                <li key={chip}>
+                  <Icon size={13} strokeWidth={2.5} aria-hidden="true" /> {chip}
+                </li>
+              );
+            })}
+          </ul>
+          <p className={cn(s.sub, s.heroSub)}>{F.sub}</p>
           <div className={s.video}>
             <VideoAdPlayer
               src={view.videoUrl as string}

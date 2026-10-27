@@ -1673,3 +1673,131 @@
     font-size: 14px;
   }
 }
+
+/* v6 (owner 2026-10-27: "shouldn't the video be bigger" on the phone): chips under the headline, a bigger video beside
+   the price, then the sample line, then the button. The computer keeps the text column with the video on the right. */
+.hero .changeChips {
+  grid-area: chips;
+}
+
+.hero .heroSub {
+  grid-area: sub;
+  order: 0;
+  margin: 0;
+}
+
+.hero {
+  grid-template-areas:
+    'kicker kicker'
+    'title title'
+    'chips chips'
+    'video price'
+    'sub sub'
+    'action action';
+}
+
+@media (max-width: 859px) {
+  .hero {
+    grid-template-columns: min(172px, 46vw) minmax(0, 1fr);
+  }
+
+  .hero .heroSub {
+    font-size: 14.5px;
+  }
+}
+
+@media (min-width: 860px) {
+  .hero {
+    grid-template-areas:
+      'kicker video'
+      'title video'
+      'chips video'
+      'sub video'
+      'price video'
+      'action video';
+    grid-template-rows: auto auto auto auto auto 1fr;
+  }
+}
+
+@media (max-width: 859px) {
+  .hero {
+    grid-template-columns: min(160px, 42vw) minmax(0, 1fr);
+    grid-template-areas:
+      'kicker kicker'
+      'title title'
+      'chips chips'
+      'video price'
+      'action action'
+      'sub sub';
+  }
+
+  .heroPrice .deadline {
+    padding: 8px;
+  }
+
+  .heroPrice .deadline b {
+    font-size: 13px;
+    gap: 4px;
+  }
+
+  .heroPrice .timer {
+    gap: 3px;
+  }
+
+  .heroPrice .timerBox {
+    padding: 3px 1px 2px;
+    border-radius: 6px;
+  }
+
+  .heroPrice .timerBox b {
+    font-size: 15px;
+  }
+
+  .heroPrice .timerBox small {
+    font-size: 8px;
+    letter-spacing: 0;
+  }
+
+  .heroPrice .deadline > span {
+    font-size: 12px;
+  }
+
+  .heroPrice .price b {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 380px) {
+  .hero {
+    grid-template-columns: min(118px, 37vw) minmax(0, 1fr);
+    column-gap: 10px;
+  }
+
+  .heroPrice .price b {
+    font-size: 30px;
+  }
+
+  .heroPrice .price s {
+    font-size: 18px;
+  }
+
+  .heroPrice .deadline {
+    padding: 6px;
+  }
+
+  .heroPrice .deadline b {
+    font-size: 11.5px;
+  }
+
+  .heroPrice .timerBox b {
+    font-size: 13px;
+  }
+
+  .heroPrice .timerBox small {
+    font-size: 7px;
+  }
+
+  .heroPrice .deadline > span {
+    font-size: 11px;
+  }
+}
