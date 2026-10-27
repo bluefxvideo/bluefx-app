@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { Caveat } from 'next/font/google';
-import { ArrowUp, Maximize2, Pencil, Phone, User, X } from 'lucide-react';
+import { ArrowUp, Download, Maximize2, Pencil, Phone, User, X } from 'lucide-react';
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
@@ -96,8 +96,8 @@ export function UnlockPage({ token, initial, price, filesUntil, plan, requested,
       {unlock.state === 'available' && (
         <Offer view={view} token={token} price={price} filesUntil={filesUntil} initialPlan={plan} clicked={clickedAt !== null} onCheckout={onCheckout} onCheck={ask} />
       )}
-      {working && <Unlocking view={view} token={token} requested={requested} trial={trial} />}
-      {unlock.state === 'ready' && <Ready view={view} token={token} requested={requested} trial={trial} changesLeft={changesLeft} onDownload={() => beacon('download')} />}
+      {working && <Unlocking view={view} token={token} requested={requested} trial={trial} preview={preview} />}
+      {unlock.state === 'ready' && <Ready view={view} token={token} requested={requested} trial={trial} preview={preview} changesLeft={changesLeft} onDownload={() => beacon('download')} />}
       {unlock.state === 'failed' && <Note title={UNLOCK_PAGE.failed.title} text={UNLOCK_PAGE.failed.text} />}
       {unlock.state === 'unavailable' && <Note title={UNLOCK_PAGE.closed.title} text={UNLOCK_PAGE.closed.text} link={{ href: `/v/${token}`, label: UNLOCK_PAGE.closed.button }} />}
     </div>
@@ -793,7 +793,7 @@ function Clock() {
   );
 }
 
-function Unlocking({ view, token, requested, trial }: { view: FreeVideoView; token: string; requested: string[]; trial: boolean }) {
+function Unlocking({ view, token, requested, trial, preview }: { view: FreeVideoView; token: string; requested: string[]; trial: boolean; preview: boolean }) {
   const F = UNLOCK_PAGE.thanks;
   return (
     <>
@@ -819,7 +819,7 @@ function Unlocking({ view, token, requested, trial }: { view: FreeVideoView; tok
         </div>
       </section>
       {trial ? (
-        <ThanksOffer view={view} token={token} kicker={F.kickerPaid} />
+        <ThanksOffer view={view} token={token} kicker={F.kickerPaid} preview={preview} />
       ) : (
         <section className={s.section}>
           <div className={s.narrow}>
@@ -832,7 +832,7 @@ function Unlocking({ view, token, requested, trial }: { view: FreeVideoView; tok
 }
 
 /** The Weekly Video Plan offer after the $49 payment (owner 2026-10-27, rebuilt after the 3-expert review): the offer names itself first. */
-function ThanksOffer({ view, token, kicker }: { view: FreeVideoView; token: string; kicker: string }) {
+function ThanksOffer({ view, token, kicker, preview = false }: { view: FreeVideoView; token: string; kicker: string; preview?: boolean }) {
   const F = UNLOCK_PAGE.thanks;
   const [declined, setDeclined] = useState(false);
   const planned = (view.nextAds ?? []).slice(0, 3);
@@ -866,6 +866,13 @@ function ThanksOffer({ view, token, kicker }: { view: FreeVideoView; token: stri
           <h2 className={s.h2}>{F.title(view.domain)}</h2>
           <p className={s.p}>{F.sub}</p>
         </div>
+        {F.salesVideo ? (
+          <div className={s.salesVideo}>
+            <VideoAdPlayer src={F.salesVideo} label={F.title(view.domain)} className={rp.heroPlayerFrame} tapToPlay />
+          </div>
+        ) : preview ? (
+          <div className={s.salesVideoSpot}>{F.salesVideoSpot}</div>
+        ) : null}
         {buy}
         <div className={s.thanksBlock}>
           <p className={s.h3}>{F.plannedTitle}</p>
@@ -964,11 +971,12 @@ interface ReadyProps {
   token: string;
   requested: string[];
   trial: boolean;
+  preview: boolean;
   changesLeft: number;
   onDownload: () => void;
 }
 
-function Ready({ view, token, requested, trial, changesLeft, onDownload }: ReadyProps) {
+function Ready({ view, token, requested, trial, preview, changesLeft, onDownload }: ReadyProps) {
   const F = UNLOCK_PAGE.ready;
   const clean = view.unlock.cleanVideoUrl as string;
   const download = view.unlock.cleanDownloadUrl ?? clean;
@@ -980,8 +988,8 @@ function Ready({ view, token, requested, trial, changesLeft, onDownload }: Ready
         <div className={cn(s.readyVideo, trial && s.readyVideoSmall)}>
           <VideoAdPlayer key={clean} src={clean} label={PLAYER.label(view.domain)} className={rp.heroPlayerFrame} tapToPlay />
         </div>
-        <a className={s.button} href={download} onClick={onDownload}>
-          {F.button}
+        <a className={trial ? s.downloadQuiet : s.button} href={download} onClick={onDownload}>
+          {trial && <Download size={17} strokeWidth={2.5} aria-hidden="true" />} {F.button}
         </a>
         <SaveToPhotos url={clean} fileName={DOWNLOAD.cleanFileName(view.domain)} onSaved={onDownload} variant="link" />
         {requested.length > 0 && (
@@ -1001,7 +1009,7 @@ function Ready({ view, token, requested, trial, changesLeft, onDownload }: Ready
         {!trial && <PlanCard view={view} token={token} />}
       </div>
     </section>
-    {trial && <ThanksOffer view={view} token={token} kicker={UNLOCK_PAGE.thanks.kickerReady} />}
+    {trial && <ThanksOffer view={view} token={token} kicker={UNLOCK_PAGE.thanks.kickerReady} preview={preview} />}
     </>
   );
 }

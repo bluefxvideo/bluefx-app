@@ -255,8 +255,16 @@ export const UNLOCK_PAGE = {
     kickerReady: 'Now, your next 4 videos',
     title: (domain: string) => `Want a new social media video for ${domain} every week? Your first month is free.`,
     sub: 'My team makes you 4 social media videos a month, one a week, from your website and your ideas. $0 today, then $99 a month. Cancel any time.',
-    button: 'Yes! Start My Free Month',
+    /** The benefit on the button (owner 2026-10-27: "there should be a clear benefit on the green button"). */
+    button: 'Yes! Get My First 4 Videos Free',
     today: '$0 today, then $99 per month after 30 days. Cancel any time with one email.',
+    /**
+     * The owner's sales video for this offer (he records it: thank you, the math, the free month, the guarantee), shown
+     * between the headline and the first button. Empty until it exists: a local preview shows where it goes.
+     */
+    salesVideo: '' as string,
+    salesVideoPoster: '' as string,
+    salesVideoSpot: 'Your sales video goes here (between the headline and the first button)',
     plannedTitle: 'Here are your first 4, already planned from your website',
     plannedNote: 'My team wrote these ideas from your website. Start your free month, and we make them for you, one a week.',
     week: (n: number) => `Week ${n}`,

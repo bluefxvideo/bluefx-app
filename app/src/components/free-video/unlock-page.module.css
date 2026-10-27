@@ -3285,3 +3285,52 @@
 .thanksTop .askLink {
   align-self: center;
 }
+
+/* Owner 2026-10-27: the download must not compete with the free-month button: an outlined navy button. */
+.downloadQuiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  align-self: center;
+  padding: 11px 22px;
+  border: 2px solid var(--navy);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--navy);
+  font-size: 16px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.downloadQuiet:hover {
+  background: #f1f5f9;
+}
+
+.salesVideo {
+  width: min(320px, 82vw);
+  margin: 0 auto;
+}
+
+.salesVideoSpot {
+  display: grid;
+  place-items: center;
+  width: min(320px, 82vw);
+  aspect-ratio: 16 / 9;
+  margin: 0 auto;
+  padding: 12px;
+  border: 2px dashed #94a3b8;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+@media (min-width: 860px) {
+  .salesVideo,
+  .salesVideoSpot {
+    width: 560px;
+  }
+}
