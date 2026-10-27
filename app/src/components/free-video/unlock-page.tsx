@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { Caveat } from 'next/font/google';
-import { ArrowUp, Download, Maximize2, Pencil, Phone, User, X } from 'lucide-react';
+import { ArrowUp, Download, Maximize2, Pencil, Phone, Sparkles, User, X } from 'lucide-react';
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
@@ -795,6 +795,8 @@ function Clock() {
 
 function Unlocking({ view, token, requested, trial, preview }: { view: FreeVideoView; token: string; requested: string[]; trial: boolean; preview: boolean }) {
   const F = UNLOCK_PAGE.thanks;
+  const ai = useAiChanges(token, !preview);
+  const running = ai.changes.find((c) => c.status === 'working');
   return (
     <>
       <section className={cn(s.section, s.thanksTop)}>
@@ -806,6 +808,14 @@ function Unlocking({ view, token, requested, trial, preview }: { view: FreeVideo
             <div>
               <h1>{F.paidTitle(view.firstName)}</h1>
               <p>{F.paidNote}</p>
+              {running && (
+                <div className={s.makingChanges}>
+                  <b>{UNLOCK_PAGE.changes.working(running.text)}</b>
+                  <div className={s.progressTrack}>
+                    <span style={{ width: `${Math.max(12, running.progress)}%` }} />
+                  </div>
+                </div>
+              )}
               {requested.length > 0 && (
                 <div className={s.makingChanges}>
                   <b>{F.makingChanges}</b>
@@ -991,39 +1001,191 @@ interface ReadyProps {
 
 function Ready({ view, token, requested, trial, preview, changesLeft, onDownload }: ReadyProps) {
   const F = UNLOCK_PAGE.ready;
-  const clean = view.unlock.cleanVideoUrl as string;
-  const download = view.unlock.cleanDownloadUrl ?? clean;
+  const ai = useAiChanges(token, !preview);
+  const newest = [...ai.changes].reverse().find((c) => c.status === 'done' && c.videoUrl);
+  const [picked, setPicked] = useState<string | null>(null);
+  const original = view.unlock.cleanVideoUrl as string;
+  const clean = picked ?? newest?.videoUrl ?? original;
+  const download = clean === original ? view.unlock.cleanDownloadUrl ?? clean : clean;
+  const versions = [{ label: UNLOCK_PAGE.changes.original, url: original }, ...ai.changes.filter((c) => c.status === 'done' && c.videoUrl).map((c) => ({ label: UNLOCK_PAGE.changes.version(c.round), url: c.videoUrl as string }))];
   return (
     <>
-    <section className={cn(s.section, s.thanksTop)}>
-      <div className={s.narrow}>
-        <h1 className={cn(s.title, s.center, s.readyTitle)}>{F.title}</h1>
-        <div className={cn(s.readyVideo, trial && s.readyVideoSmall)}>
-          <VideoAdPlayer key={clean} src={clean} label={PLAYER.label(view.domain)} className={rp.heroPlayerFrame} tapToPlay />
-        </div>
-        <a className={trial ? s.downloadQuiet : s.button} href={download} onClick={onDownload}>
-          {trial && <Download size={17} strokeWidth={2.5} aria-hidden="true" />} {F.button}
-        </a>
-        <SaveToPhotos url={clean} fileName={DOWNLOAD.cleanFileName(view.domain)} onSaved={onDownload} variant="link" />
-        {requested.length > 0 && (
-          <div className={s.chatPlan}>
-            <p>
-              <b>{F.requestedTitle}</b>
-            </p>
-            {requested.map((r) => (
-              <p key={r} className={s.requestedText}>
-                {r}
-              </p>
-            ))}
-            <p className={s.chatNote}>{F.requestedNote}</p>
+      <section className={cn(s.section, s.thanksTop)}>
+        <div className={s.narrow}>
+          <h1 className={cn(s.title, s.center, s.readyTitle)}>{F.title}</h1>
+          <div className={cn(s.readyVideo, trial && s.readyVideoSmall)}>
+            <VideoAdPlayer key={clean} src={clean} label={PLAYER.label(view.domain)} className={rp.heroPlayerFrame} tapToPlay />
           </div>
-        )}
-        <ChangeBox token={token} initialLeft={changesLeft} collapsible={trial} />
-        {!trial && <PlanCard view={view} token={token} />}
-      </div>
-    </section>
-    {trial && <ThanksOffer view={view} token={token} kicker={UNLOCK_PAGE.thanks.kickerReady} preview={preview} />}
+          {versions.length > 1 && (
+            <p className={s.versions}>
+              {UNLOCK_PAGE.changes.versions}{' '}
+              {versions.map((v) => (
+                <button key={v.url} type="button" className={cn(s.versionLink, v.url === clean && s.versionOn)} onClick={() => setPicked(v.url)}>
+                  {v.label}
+                </button>
+              ))}
+            </p>
+          )}
+          <a className={trial ? s.downloadQuiet : s.button} href={download} onClick={onDownload} download>
+            {trial && <Download size={17} strokeWidth={2.5} aria-hidden="true" />} {F.button}
+          </a>
+          <SaveToPhotos url={clean} fileName={DOWNLOAD.cleanFileName(view.domain)} onSaved={onDownload} variant="link" />
+          {requested.length > 0 && (
+            <div className={s.chatPlan}>
+              <p>
+                <b>{F.requestedTitle}</b>
+              </p>
+              {requested.map((r) => (
+                <p key={r} className={s.requestedText}>
+                  {r}
+                </p>
+              ))}
+              <p className={s.chatNote}>{F.requestedNote}</p>
+            </div>
+          )}
+          <ChangesPanel token={token} ai={ai} changesLeft={changesLeft} startOpen={!trial} justDone={Boolean(newest) && !picked} />
+          {!trial && <PlanCard view={view} token={token} />}
+        </div>
+      </section>
+      {trial && <ThanksOffer view={view} token={token} kicker={UNLOCK_PAGE.thanks.kickerReady} preview={preview} />}
     </>
+  );
+}
+
+interface AiChangeRow {
+  round: number;
+  text: string;
+  jobId: string;
+  status: 'working' | 'done' | 'failed';
+  progress: number;
+  videoUrl: string | null;
+}
+
+/** The lead's instant changes (instant-change.ts), asked again every 5 seconds while one is being made. */
+function useAiChanges(token: string, enabled: boolean) {
+  const [state, setState] = useState<{ changes: AiChangeRow[]; left: number; loaded: boolean }>({ changes: [], left: 3, loaded: false });
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/ai-change`, { cache: 'no-store' });
+      const answer = await res.json().catch(() => null);
+      if (res.ok && answer?.success) setState({ changes: answer.data.changes, left: answer.data.left, loaded: true });
+    } catch {
+      /* the next round asks again */
+    }
+  }, [token]);
+  useEffect(() => {
+    if (enabled) void load();
+  }, [enabled, load]);
+  const working = state.changes.some((c) => c.status === 'working');
+  useEffect(() => {
+    if (!enabled || !working) return;
+    const timer = window.setInterval(() => void load(), 5000);
+    return () => window.clearInterval(timer);
+  }, [enabled, working, load]);
+  return { ...state, working, reload: load, set: setState };
+}
+
+type AiState = ReturnType<typeof useAiChanges>;
+
+/** The two ways to change a paid video ad: 3 instant AI changes, and the team for anything else (owner 2026-10-27). */
+function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: string; ai: AiState; changesLeft: number; startOpen: boolean; justDone: boolean }) {
+  const F = UNLOCK_PAGE.changes;
+  const [open, setOpen] = useState(startOpen);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [human, setHuman] = useState(false);
+  const running = ai.changes.find((c) => c.status === 'working');
+  const last = ai.changes[ai.changes.length - 1];
+
+  const start = async () => {
+    const said = text.trim();
+    if (said.length < 3 || busy) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/ai-change`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: said }),
+      });
+      const answer = await res.json().catch(() => null);
+      if (res.ok && answer?.success) {
+        ai.set({ changes: answer.data.changes, left: answer.data.left, loaded: true });
+        setText('');
+      } else {
+        const code = answer?.details?.code as keyof typeof F.refusals | undefined;
+        setMessage(code && code in F.refusals ? F.refusals[code] : F.refusals.generic);
+        if (code === 'style') setHuman(true);
+      }
+    } catch {
+      setMessage(F.refusals.generic);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (running) {
+    return (
+      <div className={s.aiWorking} role="status">
+        <b>{F.working(running.text)}</b>
+        <div className={s.progressTrack}>
+          <span style={{ width: `${Math.max(12, running.progress)}%` }} />
+        </div>
+        <p>{F.workingNote}</p>
+      </div>
+    );
+  }
+  if (!open) {
+    return (
+      <>
+        {justDone && <p className={s.aiDone}>{F.doneNote}</p>}
+        {last?.status === 'failed' && <p className={s.aiDone}>{F.failed}</p>}
+        <button type="button" className={s.askLink} onClick={() => setOpen(true)}>
+          {F.open}
+        </button>
+      </>
+    );
+  }
+  return (
+    <div className={s.changesPanel}>
+      {justDone && <p className={s.aiDone}>{F.doneNote}</p>}
+      {last?.status === 'failed' && <p className={s.aiDone}>{F.failed}</p>}
+      <div className={s.changeWay}>
+        <p className={s.changeWayTitle}>
+          <Sparkles size={16} strokeWidth={2.5} aria-hidden="true" /> {F.instantTitle}
+        </p>
+        {ai.left > 0 ? (
+          <>
+            <p className={s.small}>{F.instantNote(ai.left)}</p>
+            <textarea className={s.box} rows={3} maxLength={1500} placeholder={F.placeholder} value={text} onChange={(e) => setText(e.target.value)} />
+            <button type="button" className={s.instantButton} onClick={start} disabled={busy || text.trim().length < 3}>
+              {busy ? F.starting : F.instantButton}
+            </button>
+          </>
+        ) : (
+          <p className={s.small}>{F.instantNone}</p>
+        )}
+        {message && (
+          <p className={s.sent} role="status">
+            {message}
+          </p>
+        )}
+      </div>
+      <div className={s.changeWay}>
+        <p className={s.changeWayTitle}>
+          <User size={16} strokeWidth={2.5} aria-hidden="true" /> {F.humanTitle}
+        </p>
+        <p className={s.small}>{F.humanNote}</p>
+        {human || ai.left === 0 ? (
+          <ChangeBox token={token} initialLeft={changesLeft} />
+        ) : (
+          <button type="button" className={s.buttonQuiet} onClick={() => setHuman(true)}>
+            {F.humanButton}
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 

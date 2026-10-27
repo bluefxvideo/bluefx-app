@@ -34,6 +34,7 @@ import { asLead, getLead, getLeadByToken, leadsTable, readSettings, transitionUn
 import { trackPurchase } from '@/lib/free-video/meta';
 import { deliverUnlock } from '@/lib/free-video/notify';
 import { latestChangePlan } from '@/lib/free-video/change-chat';
+import { aiChangesOf, startAiChange, wantsNewStyle } from '@/lib/free-video/instant-change';
 import { changesUsed, requestChange } from '@/lib/free-video/change-requests';
 import { UNLOCK, UNLOCK_PRODUCTS } from '@/lib/free-video/offer';
 import { displayDomain, emailKeyOf } from '@/lib/free-video/website';
@@ -377,7 +378,18 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
     'Change plan',
     async () => {
       const plan = await latestChangePlan(paidLead.id);
-      if (plan && (await changesUsed(paidLead.id)) === 0) await requestChange(paidLead, plan.map((c, i) => `${i + 1}. ${c}`).join('\n'), 0);
+      if (!plan) return;
+      const text = plan.map((c, i) => `${i + 1}. ${c}`).join('\n');
+      // Owner 2026-10-27: the chat's list starts at once as instant change 1; a new style goes to the team.
+      if (!wantsNewStyle(text)) {
+        const changes = await aiChangesOf(paidLead);
+        if (!changes.length) {
+          const started = await startAiChange(paidLead, text, changes);
+          await started.run();
+          return;
+        }
+      }
+      if ((await changesUsed(paidLead.id)) === 0) await requestChange(paidLead, text, 0);
     },
     true
   );

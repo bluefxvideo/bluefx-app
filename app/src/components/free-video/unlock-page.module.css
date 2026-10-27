@@ -3334,3 +3334,118 @@
     width: 560px;
   }
 }
+
+/* ---- The two ways to change a paid video ad (owner 2026-10-27) ---- */
+.changesPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.changeWay {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.changeWay:first-child {
+  border: 2px solid #47801c;
+  background: #f5faef;
+}
+
+.changeWayTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.instantButton {
+  align-self: flex-start;
+  padding: 11px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: #47801c;
+  color: #ffffff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.instantButton:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.aiWorking {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 2px solid #47801c;
+  background: #f5faef;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.aiWorking p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.aiWorking .progressTrack span {
+  transition: width 1s ease;
+}
+
+.aiDone {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #3f6a1c;
+  text-align: center;
+}
+
+.versions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.versionLink {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.versionOn {
+  border-color: #47801c;
+  background: #eef5e6;
+  color: #3f6a1c;
+}
+
+.changeWayTitle svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}

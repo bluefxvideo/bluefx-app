@@ -99,20 +99,6 @@ export const UNLOCK_PAGE = {
     faces: clients(['Alex Goad', 'Steve Kane', 'Tony Monaco', 'Gregory Green']),
   },
 
-  changes: {
-    title: 'Want something changed? Just tell us.',
-    text: 'Type what you want in plain words, and a real person on my team makes the change. You get as many revisions as you need, within reason, until your video ad is just right.',
-    examplesTitle: 'What people usually ask for:',
-    examples: [
-      'Your phone number on the last screen',
-      'A different voice, a man or a woman',
-      'Other music',
-      'Your own photos or your logo',
-      'A different person on camera, or no person',
-      'A word or a line in the script',
-      'Your offer or your prices',
-    ],
-  },
 
   /** The 8 looks the Phantom can remake a video ad in (RESULT_SALES.styles, the same loops as its style gallery). */
   styles: {
@@ -315,6 +301,33 @@ export const UNLOCK_PAGE = {
     sign: 'I\u2019m looking forward to making your next videos and getting you more customers from social media.',
     signName: 'Szilard',
     declined: 'No problem. Your video ad is all yours.',
+  },
+  /** The two ways to change a paid video ad (owner 2026-10-27): 3 instant AI changes, the team always available. */
+  changes: {
+    open: 'Want something changed? Tap here',
+    instantTitle: 'Instant: our AI engine makes your change right here',
+    instantNote: (left: number) => `About 5 to 10 minutes. You have ${left} of 3 instant changes left.`,
+    instantNone: 'You used your 3 instant changes. My team makes any other change for you.',
+    placeholder: 'Example: Put 555-123-4567 on the last screen, and use a man\u2019s voice.',
+    instantButton: 'Make My Change Now',
+    starting: 'Starting...',
+    humanTitle: 'Need human help? A team member makes the changes for you',
+    humanNote: 'Up to 24 hours. Your changed video ad comes back by email.',
+    humanButton: 'Ask My Team Instead',
+    working: (text: string) => `Making your change: \u201c${text}\u201d`,
+    workingNote: 'This takes about 5 to 10 minutes. You can stay on this page or come back later.',
+    doneNote: 'Here\u2019s your changed video ad. Not quite right? Make another change, or ask my team.',
+    failed: 'That change did not work, and it does not count. Try again with other words, or ask my team.',
+    versions: 'Your versions:',
+    original: 'Original',
+    version: (n: number) => `Change ${n}`,
+    refusals: {
+      style: 'A completely new style is made by my team. Tap \u201cAsk My Team Instead\u201d and tell us which style you want.',
+      busy: 'Your last change is still being made. Give it a few minutes.',
+      noneLeft: 'You used your 3 instant changes. My team makes any other change for you.',
+      notPaid: 'Changes open once your payment is in.',
+      generic: 'Your change did not start. Please try again, or ask my team.',
+    },
   },
   plan: {
     kicker: 'For more customers every week',
