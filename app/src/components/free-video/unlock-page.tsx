@@ -925,6 +925,19 @@ function ThanksOffer({ view, token, kicker, preview = false }: { view: FreeVideo
           </div>
           {buy}
         </div>
+        {F.quote && (
+          <figure className={s.review}>
+            <figcaption className={s.reviewHead}>
+              <Image className={s.reviewFace} src={F.quote.photo} alt={F.quote.name} width={80} height={80} sizes="40px" />
+              <span>
+                <b>{F.quote.name}</b>
+                <small>{F.quote.role}</small>
+              </span>
+              <Stars size={12} label={UNLOCK_PAGE.proof.stars} />
+            </figcaption>
+            <blockquote>&ldquo;{F.quote.quote}&rdquo;</blockquote>
+          </figure>
+        )}
         <div className={s.thanksBlock}>
           <p className={s.h3}>{F.riskTitle}</p>
           <ul className={s.checklist}>

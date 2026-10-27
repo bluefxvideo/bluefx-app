@@ -304,7 +304,13 @@ export const UNLOCK_PAGE = {
       { q: 'Are the 4 pictures my videos?', a: 'Not yet. They\u2019re the ideas my team planned from your website. Your real videos get made once you start your free month.' },
       { q: 'Do I have to do anything?', a: 'No. My team plans and makes your videos. Tell us about a sale or a new product whenever you have one.' },
       { q: 'How do I cancel?', a: 'Send one email to support@bluefx.net, any time. You keep every video we made for you.' },
+      {
+        q: 'Can I get social media videos for more than 1 business?',
+        a: 'Yes. Each business gets its own Weekly Video Plan, so every business gets its own new social media video every week. Start your free month now, then email support@bluefx.net and my team sets up your next business.',
+      },
     ],
+    /** One real client quote next to the price box (offer review 2026-10-27: one, with a face, where doubt peaks). */
+    quote: clients(['Steve Kane'])[0],
     noThanks: 'No thanks, just my video ad',
     sign: 'I\u2019m looking forward to making your next videos and getting you more customers from social media.',
     signName: 'Szilard',
