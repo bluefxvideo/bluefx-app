@@ -40,7 +40,7 @@ export const UNLOCK_PAGE = {
   /** Owner 2026-10-27: "our biggest challenge, clients always want something changed", so the changes go in the headline, in red. */
   title: 'Get your video ad without the watermark,',
   titleRed: 'plus any changes you want.',
-  sub: 'This video is a sample of how your video ad would look, and it may contain mistakes. Tell us what to fix, and a real person on my team makes the changes until your video ad is so good it can proudly represent your business.',
+  sub: 'This video is a sample we made from your website alone, so a few details may not be quite right yet. Tell us what to fix, and a real person on my team makes the changes until your video ad proudly represents your business.',
   /** Real requests from leads who replied, as small chips under the sub. */
   chips: ['Your wording', 'A different person', 'Your phone number'] as const,
   priceUnit: 'one time',
