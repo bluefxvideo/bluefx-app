@@ -313,6 +313,8 @@ export interface FreeVideoView {
   isCustomer: boolean;
   /** A lead of the service funnel (funnel.ts): once ready, the page is the Unlimited Video Ads page (/v/<token>/unlimited). */
   service?: boolean;
+  /** Funnel 2 (or a lead switched to it): the finished video ad opens on the $49 page, /v/<token>/unlock. */
+  videoOffer?: boolean;
   /** Offer 1, the $99 unlock. */
   unlock: FreeVideoUnlockView;
   /** P1 */

@@ -134,6 +134,8 @@ export const ML_GROUP_UNLOCKED: string = '200567993198970571';
  * the AI Media Machine ones. A service buyer joins 'Unlimited Video Ads - Joined', the follow-up's exit.
  */
 export const ML_GROUP_SERVICE_READY: string = '202278614287254624';
+/** Funnel 2 since 2026-10-27 (the $49 video ad offer, /v/<token>/unlock): its own Ready group starts its own emails. Empty = leads wait for their email. */
+export const ML_GROUP_VIDEO_READY: string = '202491974290245432';
 export const ML_GROUP_SERVICE_JOINED: string = '202278615316956617';
 
 /** True once all four group ids are filled in. */

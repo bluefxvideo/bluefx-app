@@ -1,5 +1,6 @@
 import { eventsTable } from '@/lib/free-video/leads';
 import { UNLOCK } from '@/lib/free-video/offer';
+import { offerSwitchOf } from '@/lib/free-video/offer-switch';
 
 /** The unlock price one lead sees now: the launch price until its clock runs out, then the regular price. */
 export interface UnlockPrice {
@@ -23,7 +24,11 @@ const DAY_MS = 24 * 3600 * 1000;
 export async function unlockPriceOf(leadId: string, now = Date.now()): Promise<UnlockPrice> {
   let firstView = now;
   try {
-    const { data, error } = await eventsTable().select('at').eq('lead_id', leadId).eq('event', 'unlock_view').order('at', { ascending: true }).limit(1);
+    // A lead the owner switched to the $49 offer gets a fresh clock: only visits after the switch count.
+    const sw = await offerSwitchOf(leadId).catch(() => null);
+    let query = eventsTable().select('at').eq('lead_id', leadId).eq('event', 'unlock_view');
+    if (sw?.offer === 'video') query = query.gte('at', sw.at.toISOString());
+    const { data, error } = await query.order('at', { ascending: true }).limit(1);
     if (error) throw new Error(error.message);
     const at = data?.[0]?.at ? Date.parse(data[0].at) : NaN;
     if (Number.isFinite(at)) firstView = at;

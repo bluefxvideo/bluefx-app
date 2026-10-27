@@ -14,14 +14,15 @@
  * subscriber (not repeatable): a lead switched back to the AI Media Machine after an earlier run gets no new emails.
  */
 import { createAdminClient } from '@/app/supabase/server';
-import { ML_FIELDS, ML_GROUP_READY, ML_GROUP_SERVICE_READY, SITE_URL } from '@/lib/free-video/config';
+import { ML_FIELDS, ML_GROUP_READY, ML_GROUP_SERVICE_READY, ML_GROUP_VIDEO_READY, SITE_URL } from '@/lib/free-video/config';
 import { isServiceRef } from '@/lib/free-video/funnel';
 import { cleanCopyEarned } from '@/lib/free-video/offer';
 import { displayDomain } from '@/lib/free-video/website';
 import { subscribeToMailerLite } from '@/lib/mailerlite/subscribe';
 import type { FreeVideoLead } from '@/types/free-video';
 
-export const OFFERS = ['machine', 'service'] as const;
+/** machine = the AI Media Machine page; service = the $99/month page (by hand only since 2026-10-27); video = the $49 video ad page. */
+export const OFFERS = ['machine', 'service', 'video'] as const;
 export type FreeVideoOffer = (typeof OFFERS)[number];
 
 export const OFFER_SWITCH_EVENT = 'offer_switch';
@@ -67,11 +68,17 @@ export async function offerSwitchesOf(leadIds: string[]): Promise<Map<string, Of
   return out;
 }
 
-/** The offer a lead sees: the owner's newest switch, else the funnel it came from. */
+/**
+ * The offer a lead sees: the owner's newest switch, else the funnel it came from. Funnel 2 (the 'svc-' tags, /free-ad)
+ * sells the $49 video ad since 2026-10-27 (owner: "turn funnel 2 into the $49 funnel"; the $99 a month plan is sold
+ * only after the $49).
+ */
 export const offerOf = (lead: Pick<FreeVideoLead, 'ref'>, sw: OfferSwitch | null | undefined): FreeVideoOffer =>
-  sw ? sw.offer : isServiceRef(lead.ref) ? 'service' : 'machine';
+  sw ? sw.offer : isServiceRef(lead.ref) ? 'video' : 'machine';
 
-const readyGroupOf = (offer: FreeVideoOffer) => (offer === 'service' ? ML_GROUP_SERVICE_READY : ML_GROUP_READY);
+export const OFFER_NAMES: Record<FreeVideoOffer, string> = { machine: 'AI Media Machine', service: 'Unlimited Video Ads', video: '$49 video ad' };
+
+const readyGroupOf = (offer: FreeVideoOffer) => (offer === 'service' ? ML_GROUP_SERVICE_READY : offer === 'video' ? ML_GROUP_VIDEO_READY : ML_GROUP_READY);
 
 const ML_API = 'https://connect.mailerlite.com/api';
 
@@ -140,10 +147,12 @@ export async function switchOffer(
   const notes: string[] = [];
   // A second click on the same offer restarts its clock; the lead leaves and (with followUp) rejoins that group.
   const oldGroup = readyGroupOf(current);
-  const left = await leaveGroup(lead.email, oldGroup);
-  notes.push(left.ok ? `old ${current === 'service' ? 'Unlimited Video Ads' : 'AI Media Machine'} emails stopped` : `old emails NOT stopped (${left.reason})`);
+  const left = oldGroup ? await leaveGroup(lead.email, oldGroup) : { ok: true };
+  notes.push(left.ok ? `old ${OFFER_NAMES[current]} emails stopped` : `old emails NOT stopped (${(left as { reason?: string }).reason})`);
 
-  if (options.followUp) {
+  if (options.followUp && !readyGroupOf(to)) {
+    notes.push(`no ${OFFER_NAMES[to]} follow-up yet (its MailerLite group is not set up)`);
+  } else if (options.followUp) {
     const joined = await subscribeToMailerLite({
       email: lead.email,
       groups: [readyGroupOf(to)],
@@ -155,7 +164,7 @@ export async function switchOffer(
     });
     if (!joined.ok) notes.push(`new follow-up NOT started (${joined.reason || joined.status})`);
     else if (joined.subscriber?.status !== 'active') notes.push(`new follow-up not sent: MailerLite status ${joined.subscriber?.status ?? 'unknown'}`);
-    else notes.push(`${to === 'service' ? 'Unlimited Video Ads' : 'AI Media Machine'} follow-up started`);
+    else notes.push(`${OFFER_NAMES[to]} follow-up started`);
   } else {
     notes.push('no new follow-up');
   }

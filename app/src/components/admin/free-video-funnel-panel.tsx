@@ -138,7 +138,7 @@ interface FreeVideoFunnelPanelProps {
 const FUNNELS: { value: FunnelChoice; label: string; hint: string }[] = [
   { value: 'all', label: 'Both funnels', hint: 'Everyone' },
   { value: 'app', label: 'App offer', hint: 'The AI Media Machine offer: app.bluefx.net/free-video-ad' },
-  { value: 'service', label: 'Service $99', hint: 'Unlimited Video Ads: app.bluefx.net/free-ad' },
+  { value: 'service', label: '$49 video ad', hint: 'Funnel 2, the $49 video ad: app.bluefx.net/free-ad' },
 ];
 
 export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {

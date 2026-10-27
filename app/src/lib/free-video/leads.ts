@@ -662,6 +662,7 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
     unlock: unlockViewOf(lead),
     // The service funnel (funnel.ts), or a lead the owner switched to it: its finished video ad lives on the Unlimited Video Ads page.
     ...(offerOf(lead, sw) === 'service' ? { service: true } : {}),
+    ...(offerOf(lead, sw) === 'video' ? { videoOffer: true } : {}),
   };
   switch (lead.status) {
     case 'queued': {

@@ -22,7 +22,7 @@ import {
   ML_GROUP_BOUGHT,
   ML_GROUP_LEADS,
   ML_GROUP_READY,
-  ML_GROUP_SERVICE_READY,
+  ML_GROUP_VIDEO_READY,
   ML_GROUP_UNLOCKED,
   SITE_URL,
   testInbox,
@@ -129,13 +129,13 @@ export async function deliverLead(leadId: string): Promise<DeliverResult> {
     if (!claimable) return 'none';
 
     const allowed = mailAllowed(lead.email);
-    // The service funnel's leads (funnel.ts) join its own Ready group, never the AI Media Machine one.
+    // Funnel 2's leads (funnel.ts, the $49 video ad since 2026-10-27) join its own Ready group, never the AI Media Machine one.
     const service = isServiceRef(lead.ref);
-    const readyGroup = service ? ML_GROUP_SERVICE_READY : ML_GROUP_READY;
+    const readyGroup = service ? ML_GROUP_VIDEO_READY : ML_GROUP_READY;
     // The Ready group is what sends the email: without its id there is nothing to deliver yet.
     // Not claiming keeps the attempts for when the id is in config.ts (the sweep raises an alert).
     if (allowed && !readyGroup) {
-      console.error(`❌ [free-video] ${service ? 'ML_GROUP_SERVICE_READY' : 'ML_GROUP_READY'} is not set: lead ${lead.id} waits for its email`);
+      console.error(`❌ [free-video] ${service ? 'ML_GROUP_VIDEO_READY' : 'ML_GROUP_READY'} is not set: lead ${lead.id} waits for its email`);
       return 'none';
     }
 
