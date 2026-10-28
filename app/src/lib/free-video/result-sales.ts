@@ -602,7 +602,8 @@ export const RESULT_SALES = {
   afterUnlock: {
     /** Owner 2026-10-28 ("10 is much more palatable" than 120 a year); the price moved to the line under it on the copy expert's advice. */
     title: (name: string) => `${name}, what if you had the same software my team used to make your video ad, and you could make ${MONTH} new video ads every month for life?`,
-    sub: `One payment of ${OFFER.now}. No monthly fee.`,
+    /** Owner 2026-10-28: "One payment of $997 crossed out, only $297. No monthly fee." */
+    sub: { start: 'One payment of', was: OFFER.was, only: 'only', now: OFFER.now, end: '. No monthly fee.' },
     /** The P.S. lines that talk about a free sample with a SAMPLE stamp, said right for someone who just bought the clean video ad. */
     ps1: (name: string, domain: string) => `${name}, your video ad for ${domain} is done. Your next video ad doesn't have to cost $49.`,
     ps2: `With the AI Media Machine, you make your own video ads, type any change and get the new version in about 3 minutes. You also get all 12 tools and ${MONTH} complete video ads every month, for life.`,
