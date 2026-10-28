@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/app/supabase/server'
 import { cancelFastSpringSubscription } from '@/lib/credits/subscription-entitlement'
+import { insertBuyerProfile } from '@/lib/credits/buyer-profile'
 import type { Json } from '@/types/database'
 import crypto from 'crypto'
 import { findAuthUser, findAuthUserByEmail } from '@/lib/auth-user-lookup'
@@ -721,15 +722,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
     
     if (!profileData) {
       console.log(`Creating missing profile for existing user ${userId}`)
-      const cleanUsername = customerEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-      await supabase.from('profiles').insert({
-        id: userId,
-        email: customerEmail,  // Add email field to profiles
-        username: cleanUsername,
-        full_name: `${customerFirstName} ${customerLastName}`.trim(),
-        bio: null,
-        avatar_url: null
-      })
+      await insertBuyerProfile(supabase, { userId, email: customerEmail, fullName: `${customerFirstName} ${customerLastName}` })
     }
 
     // Check for existing subscription to decide upgrade vs new subscription
@@ -950,15 +943,7 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
     console.log(`Created new FastSpring user: ${userId}`)
 
     // Create profile with clean username
-    const cleanUsername = customerEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-    await supabase.from('profiles').insert({
-      id: userId,
-      email: customerEmail,  // Add email field to profiles
-      username: cleanUsername,
-      full_name: `${customerFirstName} ${customerLastName}`.trim(),
-      bio: null,
-      avatar_url: null
-    })
+    await insertBuyerProfile(supabase, { userId, email: customerEmail, fullName: `${customerFirstName} ${customerLastName}` })
 
     // Send password reset email via Supabase (uses Brevo SMTP)
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(customerEmail, {

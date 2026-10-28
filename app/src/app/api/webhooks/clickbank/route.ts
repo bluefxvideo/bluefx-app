@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/app/supabase/server'
 import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
 import { liftSuspensionAfterPurchase } from '@/lib/credits/subscription-entitlement'
+import { insertBuyerProfile } from '@/lib/credits/buyer-profile'
 
 // Credit allocation constants - match FastSpring trial handling
 const TRIAL_CREDITS = 100;  // Trial users get limited credits (~$3-5 cost if fully used)
@@ -273,17 +274,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
     
     if (!profileData) {
       console.log(`Creating missing profile for existing user ${userId}`)
-      const cleanUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-      await supabase.from('profiles').insert({
-        id: userId,
-        email: email,
-        username: cleanUsername,
-        full_name: `${firstName} ${lastName}`.trim(),
-        bio: null,
-        avatar_url: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      await insertBuyerProfile(supabase, { userId, email: email, fullName: `${firstName} ${lastName}` })
     }
 
     // One subscription row per user (unique on user_id), whatever its status. A
@@ -371,17 +362,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
     console.log(`Created new ClickBank user: ${userId}`)
 
     // Create profile with a clean username (remove hyphens/special chars)
-    const cleanUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-    await supabase.from('profiles').insert({
-      id: userId,
-      email: email,
-      username: cleanUsername,
-      full_name: `${firstName} ${lastName}`.trim(),
-      bio: null,
-      avatar_url: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
+    await insertBuyerProfile(supabase, { userId, email: email, fullName: `${firstName} ${lastName}` })
 
     // Send password reset email via Supabase (uses Brevo SMTP)
     // redirectTo must point to auth-callback which verifies the token and redirects to setup-password
