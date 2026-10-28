@@ -922,6 +922,8 @@ function Unlocking({ view, token, requested, preview }: { view: FreeVideoView; t
  */
 function AimmUpsell({ view, token }: { view: FreeVideoView; token: string }) {
   const none = useCallback(() => undefined, []);
+  // A buyer who already owns the AI Media Machine (Tim, Lucky) sees no offer for it.
+  if (view.isCustomer) return null;
   return <ResultSalesPage view={view} token={token} bonus={false} deadline={null} onPlayWithSound={none} onComplete={none} afterUnlock />;
 }
 
