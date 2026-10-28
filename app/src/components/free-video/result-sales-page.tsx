@@ -79,6 +79,11 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
     setTutorialAt(at);
   };
   const closeTutorial = useCallback(() => setTutorialAt(null), []);
+  // The $49 thank-you page: one sale clock per browser that never restarts; once it ends, the lines about it change.
+  const thanksClock = useThanksDeadline(afterUnlock);
+  const noTimer = afterUnlock && thanksClock.expired;
+  const T = RESULT_SALES.afterUnlock.noTimer;
+  const timerUntil = afterUnlock ? thanksClock.until : bonus ? view.cleanUntil : undefined;
   const change = RESULT_SALES.top.change;
   const { banner, top, hero, salesVideo, price, button, how, tools, oldWay, customers, founder, lifetime, own, guarantee, still, faq, ps } = RESULT_SALES;
   const dov = RESULT_PAGE.stack.proof[0];
@@ -198,7 +203,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         </h2>
         <div className={s.priceBox}>
           <p className={s.priceReason}>{afterUnlock ? RESULT_SALES.afterUnlock.priceReason : price.reason}</p>
-          <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={bonus ? view.cleanUntil : undefined} />
+          <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={timerUntil} external={afterUnlock} />
           <div className={s.prices}>
             <p className={s.priceRegular}>
               {price.regular} <s className={s.slash}>{OFFER.was}</s>
@@ -413,10 +418,10 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <h2 id="fv-sales-lifetime" className={cn(rp.h2, s.leftHead)}>
           {lifetime.title}
         </h2>
-        {lifetime.paragraphs.map((paragraph) => (
+        {lifetime.paragraphs.map((paragraph, index) => (
           <p key={paragraph.text.slice(0, 30)} className={s.body}>
             {paragraph.lead && <strong>{paragraph.lead}</strong>}
-            {paragraph.text}
+            {noTimer && index === lifetime.paragraphs.length - 2 ? T.why : noTimer && index === lifetime.paragraphs.length - 1 ? T.catch : paragraph.text}
           </p>
         ))}
       </section>
@@ -492,12 +497,12 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <h2 id="fv-sales-still" className={cn(rp.h2, s.leftHead)}>
           {still.title}
         </h2>
-        {still.text.map((line) => (
+        {still.text.map((line, index) => (
           <p key={line.slice(0, 30)} className={s.body}>
-            {line}
+            {noTimer && index === still.text.length - 1 ? T.still : line}
           </p>
         ))}
-        <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={bonus ? view.cleanUntil : undefined} />
+        <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={timerUntil} external={afterUnlock} />
         <SalesBuy token={token} placement="fvres6" note={button.guarantee} />
       </section>
 
@@ -534,7 +539,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           <Bold text={afterUnlock ? RESULT_SALES.afterUnlock.ps2 : ps.p2} words={ps.bold} />
         </p>
         <p className={s.body}>
-          <Bold text={ps.p3} words={ps.bold} />
+          <Bold text={noTimer ? T.ps3 : ps.p3} words={ps.bold} />
         </p>
         {written && (
           <p className={s.body}>
@@ -826,9 +831,51 @@ const BIRTHDAY_COOLDOWN_MS = 5 * 60 * 1000;
  * The birthday price's clock. While their 3-day bonus runs it ends with the bonus (owner 2026-10-22: "maybe we need to
  * go with the 3 days"), so the page has 1 deadline; after that, the sales page's per-visitor 1:57:23 window.
  */
-function BirthdayTimer({ label, until }: { label: string; until?: string }) {
+const THANKS_KEY = 'amm_thanks_deadline';
+
+/**
+ * The $49 thank-you page's sale clock: the same 1:57:23 as the sales page, but it starts once per browser and never
+ * restarts (owner 2026-10-28), so a returning buyer sees no clock and the lines say "a limited-time offer" instead.
+ */
+function useThanksDeadline(enabled: boolean): { until?: string; expired: boolean } {
+  const [end, setEnd] = useState<number | null>(null);
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    if (!enabled) return;
+    let deadline = 0;
+    try {
+      deadline = Number(window.localStorage.getItem(THANKS_KEY) || 0);
+    } catch {
+      deadline = 0;
+    }
+    if (!deadline) {
+      deadline = Date.now() + BIRTHDAY_WINDOW_MS;
+      try {
+        window.localStorage.setItem(THANKS_KEY, String(deadline));
+      } catch {
+        // A private window: the clock still runs for this visit.
+      }
+    }
+    setEnd(deadline);
+    const left = deadline - Date.now();
+    if (left <= 0) {
+      setExpired(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setExpired(true), left + 500);
+    return () => window.clearTimeout(timer);
+  }, [enabled]);
+  return { until: end ? new Date(end).toISOString() : undefined, expired };
+}
+
+function BirthdayTimer({ label, until, external = false }: { label: string; until?: string; external?: boolean }) {
   const [end, setEnd] = useState<number | null>(null);
   useEffect(() => {
+    // The $49 thank-you page brings its own clock (useThanksDeadline): never touch the sales page's.
+    if (external) {
+      setEnd(until ? Date.parse(until) : null);
+      return;
+    }
     if (until) {
       setEnd(Date.parse(until));
       return;
@@ -849,7 +896,7 @@ function BirthdayTimer({ label, until }: { label: string; until?: string }) {
       }
     }
     setEnd(deadline);
-  }, [until]);
+  }, [until, external]);
   return <Clock label={label} until={end} />;
 }
 

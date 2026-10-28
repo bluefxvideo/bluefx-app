@@ -612,6 +612,16 @@ export const RESULT_SALES = {
     scrollText:
       'How did you find me? Probably through a video on Facebook or YouTube. Your customers are there too, over 2½ hours a day. When your business posts a new video every 3 days, your customers see your business, your products and your website, again and again.',
     /** The P.S. lines that talk about a free sample with a SAMPLE stamp, said right for someone who just bought the clean video ad. */
+    /**
+     * Once their timer has run out (owner 2026-10-28: "the timer gone, and just say your sale price or limited-time
+     * offer"): the lines that point at the timer, said without it. The timer here runs once per browser, it never restarts.
+     */
+    noTimer: {
+      why: ` ${OFFER.now} is your sale price, a limited-time offer.`,
+      catch: ` None. ${OFFER.now} is a limited-time offer. The regular price of lifetime access is ${OFFER.was}.`,
+      still: `Your sale price of ${OFFER.now} is a limited-time offer. Lifetime access regularly sells for ${OFFER.was}.`,
+      ps3: `Your sale price is ${OFFER.now} instead of ${OFFER.was}, a limited-time offer, and you have 30 days to get every cent back.`,
+    },
     /** Hormozi's P.S., refined (owner 2026-10-28). */
     ps1: (name: string, domain: string) => `${name}, your $49 video ad for ${domain} is yours to keep. With the AI Media Machine, your next ${MONTH} video ads are included every month, for life.`,
     ps2: 'You make them yourself, type any change and get the new version in about 3 minutes, and all 12 tools are yours.',
