@@ -22,13 +22,14 @@ import {
   ML_GROUP_BOUGHT,
   ML_GROUP_LEADS,
   ML_GROUP_READY,
-  ML_GROUP_SERVICE_READY,
+  ML_GROUP_VIDEO_READY,
   ML_GROUP_UNLOCKED,
   SITE_URL,
   testInbox,
 } from '@/lib/free-video/config';
 import { alertOwner } from '@/lib/free-video/alerts';
 import { isServiceRef } from '@/lib/free-video/funnel';
+import { unlockPagePath } from '@/lib/free-video/offer';
 import { offerOf, offerSwitchOf } from '@/lib/free-video/offer-switch';
 import { eventsTable, getLead, leadsTable } from '@/lib/free-video/leads';
 import { displayDomain, emailKeyOf } from '@/lib/free-video/website';
@@ -128,13 +129,13 @@ export async function deliverLead(leadId: string): Promise<DeliverResult> {
     if (!claimable) return 'none';
 
     const allowed = mailAllowed(lead.email);
-    // The service funnel's leads (funnel.ts) join its own Ready group, never the AI Media Machine one.
+    // Funnel 2's leads (funnel.ts, the $49 video ad since 2026-10-27) join its own Ready group, never the AI Media Machine one.
     const service = isServiceRef(lead.ref);
-    const readyGroup = service ? ML_GROUP_SERVICE_READY : ML_GROUP_READY;
+    const readyGroup = service ? ML_GROUP_VIDEO_READY : ML_GROUP_READY;
     // The Ready group is what sends the email: without its id there is nothing to deliver yet.
     // Not claiming keeps the attempts for when the id is in config.ts (the sweep raises an alert).
     if (allowed && !readyGroup) {
-      console.error(`❌ [free-video] ${service ? 'ML_GROUP_SERVICE_READY' : 'ML_GROUP_READY'} is not set: lead ${lead.id} waits for its email`);
+      console.error(`❌ [free-video] ${service ? 'ML_GROUP_VIDEO_READY' : 'ML_GROUP_READY'} is not set: lead ${lead.id} waits for its email`);
       return 'none';
     }
 
@@ -262,13 +263,15 @@ export async function deliverUnlock(leadId: string): Promise<DeliverResult> {
       console.error(`❌ [free-video] ML_GROUP_UNLOCKED is not set: the clean video of lead ${lead.id} waits for its email (the page shows it)`);
       return 'none';
     }
+    // The buyer also joins 'Free Video - Bought': the AI Media Machine follow-ups exit on it (owner 2026-10-27: an unlock
+    // buyer only wanted the video ad). The page link becomes the unlock page: download, change box, Weekly Video Plan.
     const result = await subscribeToMailerLite({
       email: lead.email,
       fullName: await nameFor(lead),
-      groups: [ML_GROUP_UNLOCKED],
+      groups: [ML_GROUP_UNLOCKED, ...(ML_GROUP_BOUGHT ? [ML_GROUP_BOUGHT] : [])],
       fields: {
         [ML_FIELDS.cleanUrl]: lead.clean_video_url,
-        [ML_FIELDS.url]: viewUrl(lead.view_token),
+        [ML_FIELDS.url]: `${SITE_URL}${unlockPagePath(lead.view_token)}`,
         [ML_FIELDS.site]: displayDomain(lead.website_domain),
         [ML_FIELDS.token]: lead.view_token,
       },

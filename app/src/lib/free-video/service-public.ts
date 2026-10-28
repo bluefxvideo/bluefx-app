@@ -119,9 +119,14 @@ function publicTemplate(): string {
   return cached;
 }
 
-/** The whole public page, at the public (last phase) price. */
-export function renderPublicServicePage(): string {
-  const phase = SERVICE.phases[SERVICE.phases.length - 1];
+/**
+ * The whole public page, at the public (last phase) price. With `price` (a phase price, the evergreen $99 page of
+ * owner 2026-10-27, /weekly-video-plan-99): the same page at that price with no deadline, the public price struck out
+ * as the regular price.
+ */
+export function renderPublicServicePage(price?: number): string {
+  const publicPhase = SERVICE.phases[SERVICE.phases.length - 1];
+  const phase = (price !== undefined && SERVICE.phases.find((p) => p.price === price)) || publicPhase;
   const checkout = phase.product ? `${SERVICE.storefront}/${phase.product}` : 'mailto:support@bluefx.net';
   return renderServicePage({
     token: '',
@@ -129,7 +134,7 @@ export function renderPublicServicePage(): string {
     videoUrl: `${SERVICE_MEDIA_BASE}/full-hauling.mp4`,
     poster: `${SERVICE_MEDIA_BASE}/full-hauling.jpg`,
     nextAds: null,
-    now: { phase, nextPrice: null, endsAt: null },
+    now: { phase, nextPrice: null, endsAt: null, regularPrice: phase === publicPhase ? null : publicPhase.price },
     internal: true,
     template: publicTemplate(),
     checkoutUrl: checkout,

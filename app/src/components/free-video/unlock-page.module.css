@@ -1,0 +1,3565 @@
+/* The unlock page (unlock-page.tsx, owner 2026-10-27). Colors come from result-page.module.css .page. */
+
+.page {
+  padding-bottom: 0;
+}
+
+.top {
+  background: #ffffff;
+  padding: 16px 16px 28px;
+}
+
+.topIn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.video {
+  width: min(176px, 47vw);
+  order: 2;
+}
+
+.text {
+  display: contents;
+}
+
+.kicker {
+  order: 0;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--green-dark);
+  text-align: center;
+}
+
+.title {
+  order: 1;
+  margin: -10px 0 0;
+  max-width: 560px;
+  font-size: 25px;
+  line-height: 1.18;
+  font-weight: 900;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.sub {
+  order: 4;
+  margin: 0;
+  max-width: 560px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--body);
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.buyWrap {
+  order: 3;
+  width: 100%;
+}
+
+.buy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.boxLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.box {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 112px;
+  padding: 12px 14px;
+  border: 2px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--ink);
+  resize: vertical;
+}
+
+.box:focus {
+  outline: none;
+  border-color: var(--navy);
+}
+
+.box::placeholder {
+  color: #94a3b8;
+}
+
+.small {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.price b {
+  font-size: 34px;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.price span {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--body);
+}
+
+.price em {
+  font-style: normal;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--green-dark);
+  background: var(--green-soft);
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
+.button {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 17px 18px;
+  border-radius: 12px;
+  background: #47801c;
+  box-shadow: 0 3px 0 #2f5214;
+  color: #ffffff;
+  font-size: clamp(17px, 5vw, 19px);
+  font-weight: 900;
+  text-align: center;
+  text-decoration: none;
+}
+
+.button:hover {
+  background: #3f6a1c;
+}
+
+.trust {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.trust p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.section {
+  background: #ffffff;
+  padding: 36px 16px;
+}
+
+.sectionSoft {
+  background: #f6f8fb;
+}
+
+.narrow {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.22;
+  font-weight: 900;
+  text-wrap: balance;
+}
+
+.h2Gap {
+  margin-top: 16px;
+}
+
+.center {
+  text-align: center;
+}
+
+.ticks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ticks li {
+  display: flex;
+  gap: 12px;
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--body);
+}
+
+.tick,
+.statusTick {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border-radius: 999px;
+  background: var(--green);
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.steps li {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.stepNum {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.steps h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.steps p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--body);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chips li {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.guarantee {
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--soft);
+}
+
+.guarantee h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.guarantee p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--body);
+}
+
+.faq {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+}
+
+.faq dt {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.faq dd {
+  margin: 4px 0 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--body);
+}
+
+.status {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.statusTick {
+  width: 36px;
+  height: 36px;
+}
+
+.statusTitle {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.status p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--body);
+}
+
+.typed {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f6f8fb;
+  border: 1px solid var(--line);
+}
+
+.typed p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--body);
+  white-space: pre-wrap;
+}
+
+.typed .typedLabel {
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.upsell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 20px;
+  border: 3px dashed #f2c14e;
+  border-radius: 16px;
+  background: #fffdf5;
+}
+
+.upsellKicker {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #9a6b00;
+}
+
+.upsellText {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--body);
+}
+
+.nextAds {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nextAds li {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.nextAds img,
+.nextAdBlank {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--soft);
+}
+
+.nextAds h3 {
+  margin: 0 0 2px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.nextAds p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--body);
+}
+
+.upsellPrice {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.upsellPrice s {
+  font-size: 24px;
+  font-weight: 700;
+  color: #b42318;
+}
+
+.upsellPrice b {
+  font-size: 38px;
+  font-weight: 900;
+}
+
+.upsellPrice span {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--body);
+}
+
+.noThanks {
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.readyVideo {
+  width: min(300px, 76vw);
+  margin: 0 auto;
+}
+
+@media (min-width: 860px) {
+  .top {
+    padding: 40px 24px 48px;
+  }
+
+  .topIn {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 48px;
+  }
+
+  .video {
+    width: 300px;
+    flex-shrink: 0;
+  }
+
+  .text {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 560px;
+    min-width: 0;
+  }
+
+  .kicker,
+  .title,
+  .sub {
+    text-align: left;
+  }
+
+  .title {
+    margin: 0;
+    font-size: 40px;
+  }
+
+  .sub {
+    font-size: 19px;
+  }
+
+  .text > * {
+    order: 0;
+  }
+
+  .buy {
+    margin: 4px 0 0;
+    max-width: 480px;
+  }
+
+  .trust {
+    align-items: flex-start;
+  }
+
+  .trust p {
+    text-align: left;
+  }
+
+  .bar {
+    display: none;
+  }
+
+  .price {
+    justify-content: flex-start;
+  }
+
+  .section {
+    padding: 56px 24px;
+  }
+
+  .h2 {
+    font-size: 30px;
+  }
+}
+
+.readyStack > * {
+  order: 0;
+}
+
+.p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--body);
+}
+
+.changes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.changes li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.review {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.reviewFace {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.review blockquote {
+  margin: 0 0 6px;
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.review figcaption {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px max(16px, env(safe-area-inset-left, 0px)) calc(10px + env(safe-area-inset-bottom, 0px));
+  background: #ffffff;
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.08);
+  transform: translateY(110%);
+  transition: transform 0.2s ease;
+}
+
+.barOn {
+  transform: none;
+}
+
+.bar b {
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.bar a {
+  flex: 1;
+  font-size: clamp(15px, 4.4vw, 17px) !important;
+  padding: 13px 12px;
+  border-radius: 10px;
+  background: #47801c;
+  white-space: nowrap;
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 900;
+  text-align: center;
+  text-decoration: none;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progressTrack {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.progressTrack span {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--green);
+}
+
+.progress p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.readyTitle {
+  order: -1;
+  margin: 0;
+}
+
+.changeBox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #f6f8fb;
+  border: 1px solid var(--line);
+}
+
+.buttonQuiet {
+  align-self: flex-start;
+  padding: 11px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--navy);
+  color: #ffffff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.clicked {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff7d6;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #6b5200;
+  text-align: center;
+}
+
+.sent {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: var(--green-dark);
+}
+
+.buttonQuiet:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* ---- Sales page parts (2026-10-27, "it has to be strong") ---- */
+
+.price s {
+  font-size: 22px;
+  font-weight: 700;
+  color: #b42318;
+}
+
+.save {
+  align-self: center;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #fde8e7;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.deadline {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #fff7d6;
+  color: #6b5200;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.deadline b {
+  white-space: nowrap;
+}
+
+.guaranteeShort {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.guaranteeShort svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.proofStrip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f6f8fb;
+  border-block: 1px solid var(--line);
+}
+
+.proofStrip p {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.faces {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.faces img {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  object-fit: cover;
+}
+
+.faces img + img {
+  margin-left: -10px;
+}
+
+.compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.compareCol {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.compareUs {
+  border: 3px solid var(--green);
+  background: #f5faef;
+}
+
+.compareName {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.compareCol ul {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.compareCol li {
+  display: flex;
+  flex-direction: column;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.compareLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.compareBad,
+.compareGood {
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.compareBad {
+  color: #b42318;
+}
+
+.compareGood {
+  color: var(--green-dark);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stack li {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.stack h3,
+.h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.stack p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--body);
+}
+
+.reviews {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.founder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.founderFace {
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.founderText {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.founderText p {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--body);
+}
+
+.founderText .sign {
+  font-size: 26px;
+  font-style: italic;
+  font-weight: 700;
+  color: var(--navy);
+  font-family: 'Brush Script MT', 'Segoe Script', cursive;
+}
+
+.sectionFinal {
+  background: #eef6e6;
+}
+
+.ps {
+  margin: 4px 0 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--body);
+}
+
+.barPrice {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.barPrice s {
+  font-size: 13px;
+  font-weight: 700;
+  color: #b42318;
+}
+
+.barPrice small {
+  font-size: 13px;
+  font-weight: 700;
+  color: #9a6b00;
+  white-space: nowrap;
+}
+
+@media (min-width: 860px) {
+  .compare {
+    gap: 16px;
+  }
+
+  .compareCol {
+    padding: 20px;
+  }
+
+  .reviews {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .founder {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 24px;
+  }
+
+  .founderFace {
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+  }
+
+  .save {
+    align-self: flex-start;
+  }
+
+  .deadline {
+    text-align: left;
+  }
+
+  .guaranteeShort {
+    justify-content: flex-start;
+  }
+}
+
+/* ---- v3 after the 4-expert review (2026-10-27) ---- */
+
+/* The hero: on phones the video sits beside the price, so the button is on the first screen. */
+.hero {
+  display: grid;
+  grid-template-columns: min(150px, 40vw) minmax(0, 1fr);
+  grid-template-areas:
+    'kicker kicker'
+    'title title'
+    'sub sub'
+    'video price'
+    'action action';
+  column-gap: 14px;
+  row-gap: 12px;
+  align-items: center;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.hero .kicker {
+  grid-area: kicker;
+  margin: 0;
+  letter-spacing: 0.4px;
+}
+
+.hero .title {
+  grid-area: title;
+  margin: 0;
+}
+
+.subWrap {
+  grid-area: sub;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hero .sub {
+  font-size: 15px;
+}
+
+.hero .video {
+  grid-area: video;
+  width: 100%;
+  align-self: start;
+}
+
+.heroPrice {
+  grid-area: price;
+  min-width: 0;
+}
+
+.heroAction {
+  grid-area: action;
+  min-width: 0;
+}
+
+.kicker,
+.title,
+.h2,
+.sub {
+  overflow-wrap: anywhere;
+}
+
+.priceBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.priceBlock .price {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.priceBlock .price b {
+  font-size: 38px;
+  line-height: 1;
+}
+
+.priceBlock .price span {
+  font-size: 15px;
+}
+
+.priceBlock .save {
+  align-self: flex-start;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+
+.deadline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 15px;
+  text-align: left;
+}
+
+.deadline b {
+  font-size: 16px;
+  color: #6b4a00;
+}
+
+.trust {
+  gap: 8px;
+}
+
+.finalBuy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.finalBuy .priceBlock {
+  align-items: center;
+}
+
+.finalBuy .save {
+  align-self: center;
+}
+
+.finalBuy .deadline {
+  text-align: center;
+}
+
+.finalBuy .buy {
+  width: 100%;
+}
+
+.compactBuy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #f5faef;
+  border: 1px solid #cfe3bb;
+}
+
+.compactPrice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.compactPrice s {
+  font-size: 18px;
+  font-weight: 700;
+  color: #b42318;
+}
+
+.compactPrice b {
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.compactPrice span {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--body);
+}
+
+.compactPrice em {
+  flex-basis: 100%;
+  font-style: normal;
+  font-size: 14px;
+  font-weight: 800;
+  color: #6b4a00;
+  text-align: center;
+}
+
+/* The comparison: one grid, so each row lines up across both columns. */
+.compare {
+  grid-template-rows: auto repeat(4, auto);
+  column-gap: 10px;
+  row-gap: 0;
+}
+
+.compareCol {
+  display: grid;
+  grid-row: span 5;
+  grid-template-rows: subgrid;
+  row-gap: 10px;
+}
+
+.compareCell {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.compareName {
+  margin: 0;
+}
+
+/* Reviews: a header row, then the quote full width. */
+.review {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reviewHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.reviewHead span {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.reviewHead small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.review .reviewFace {
+  width: 40px;
+  height: 40px;
+}
+
+.review blockquote {
+  font-size: 16px;
+}
+
+.barWaiting {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.barCheck {
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--navy);
+  color: #ffffff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+@media (min-width: 860px) {
+  .hero {
+    grid-template-columns: minmax(0, 560px) 300px;
+    grid-template-areas:
+      'kicker video'
+      'title video'
+      'sub video'
+      'price video'
+      'action video';
+    grid-template-rows: auto auto auto auto 1fr;
+    column-gap: 48px;
+    row-gap: 16px;
+    align-items: start;
+    justify-content: center;
+  }
+
+  .hero .sub {
+    font-size: 19px;
+  }
+
+  .hero .video {
+    width: 300px;
+  }
+
+  .heroAction .buy {
+    margin: 0;
+  }
+
+  .priceBlock .price b {
+    font-size: 44px;
+  }
+
+  .compactBuy {
+    max-width: 480px;
+    margin-inline: auto;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .reviews {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.deadline b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Smallest phones (iPhone SE): the struck $99 already shows the saving, so the pill goes and the button stays on the first screen. */
+@media (max-width: 380px) {
+  .heroPrice .save {
+    display: none;
+  }
+
+  .hero .title {
+    font-size: 23px;
+  }
+
+  .hero .sub {
+    font-size: 14px;
+  }
+}
+
+/* ---- v4 rewrite (owner notes 2026-10-27) ---- */
+
+.label {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--green-dark);
+}
+
+.chipsSmall {
+  margin-top: 10px;
+}
+
+.chipsSmall li {
+  padding: 5px 11px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--soft);
+}
+
+.leads {
+  margin: 0;
+}
+
+.leads img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+
+.leads figcaption {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.bill,
+.billUs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.billUs {
+  gap: 6px;
+  padding: 14px 16px;
+  border: 3px solid var(--green);
+  background: #f5faef;
+}
+
+.billRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 9px 0;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.bill .billRow + .billRow {
+  border-top: 1px dashed var(--line);
+}
+
+.billRow span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.billRow small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.billRow > b {
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.billTotal {
+  font-weight: 800;
+}
+
+.billTotal > b,
+.billUs .billRow > b {
+  font-size: 28px;
+}
+
+.billUs .billRow {
+  padding: 0;
+  font-weight: 800;
+}
+
+.lessons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--body);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stats li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 8px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+.stats b {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--navy);
+}
+
+.stats span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.guarantee .guaranteeSub {
+  margin: -2px 0 6px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--green-dark);
+}
+
+.founderText .h2 {
+  font-size: 24px;
+}
+
+@media (min-width: 860px) {
+  .stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .founderText .h2 {
+    font-size: 28px;
+  }
+}
+
+.lessons li {
+  list-style: decimal;
+}
+
+/* The red "plus any changes you want." on its own line (owner 2026-10-27). */
+.titleRed {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.86em;
+  color: #c0271c;
+}
+
+.changeChips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.changeChips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fdecea;
+  color: #9b1c13;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* The struck $99 already shows the saving; on phones the pill goes so the button stays on the first screen. */
+@media (max-width: 859px) {
+  .heroPrice .save {
+    display: none;
+  }
+}
+
+@media (min-width: 860px) {
+  .changeChips {
+    justify-content: flex-start;
+  }
+}
+
+/* Phones: a narrower video and tighter gaps, so the button stays on the first screen under the red line and the chips. */
+@media (max-width: 859px) {
+  .hero {
+    grid-template-columns: min(124px, 33vw) minmax(0, 1fr);
+    row-gap: 10px;
+  }
+
+  .changeChips li {
+    padding: 3px 9px;
+    font-size: 12px;
+  }
+
+  .hero .sub {
+    line-height: 1.4;
+  }
+}
+
+/* The ticking timer (owner 2026-10-27: "add a timer, the date and the timer"). */
+.deadline {
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff7d6;
+}
+
+.timer {
+  display: flex;
+  gap: 5px;
+}
+
+.timerBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 40px;
+  padding: 4px 3px 3px;
+  border-radius: 8px;
+  background: #1f2a44;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.timerBox b {
+  font-size: 20px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+}
+
+.timerBox small {
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #cbd5e1;
+}
+
+.deadline > span {
+  font-size: 13px;
+}
+
+.finalBuy .deadline {
+  align-items: center;
+}
+
+.compactPrice em,
+.barPrice small {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 859px) {
+  .heroPrice .timerBox {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .heroPrice .timerBox b {
+    font-size: 17px;
+  }
+
+  .heroPrice .deadline b {
+    font-size: 14px;
+  }
+}
+
+/* v6 (owner 2026-10-27: "shouldn't the video be bigger" on the phone): chips under the headline, a bigger video beside
+   the price, then the sample line, then the button. The computer keeps the text column with the video on the right. */
+.hero .changeChips {
+  grid-area: chips;
+}
+
+.hero .heroSub {
+  grid-area: sub;
+  order: 0;
+  margin: 0;
+}
+
+.hero {
+  grid-template-areas:
+    'kicker kicker'
+    'title title'
+    'chips chips'
+    'video price'
+    'sub sub'
+    'action action';
+}
+
+@media (max-width: 859px) {
+  .hero {
+    grid-template-columns: min(172px, 46vw) minmax(0, 1fr);
+  }
+
+  .hero .heroSub {
+    font-size: 14.5px;
+  }
+}
+
+@media (min-width: 860px) {
+  .hero {
+    grid-template-areas:
+      'kicker video'
+      'title video'
+      'chips video'
+      'sub video'
+      'price video'
+      'action video';
+    grid-template-rows: auto auto auto auto auto 1fr;
+  }
+}
+
+@media (max-width: 859px) {
+  .hero {
+    grid-template-columns: min(160px, 42vw) minmax(0, 1fr);
+    grid-template-areas:
+      'kicker kicker'
+      'title title'
+      'chips chips'
+      'video price'
+      'action action'
+      'sub sub';
+  }
+
+  .heroPrice .deadline {
+    padding: 8px;
+  }
+
+  .heroPrice .deadline b {
+    font-size: 13px;
+    gap: 4px;
+  }
+
+  .heroPrice .timer {
+    gap: 3px;
+  }
+
+  .heroPrice .timerBox {
+    padding: 3px 1px 2px;
+    border-radius: 6px;
+  }
+
+  .heroPrice .timerBox b {
+    font-size: 15px;
+  }
+
+  .heroPrice .timerBox small {
+    font-size: 8px;
+    letter-spacing: 0;
+  }
+
+  .heroPrice .deadline > span {
+    font-size: 12px;
+  }
+
+  .heroPrice .price b {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 380px) {
+  .hero {
+    grid-template-columns: min(118px, 37vw) minmax(0, 1fr);
+    column-gap: 10px;
+  }
+
+  .heroPrice .price b {
+    font-size: 30px;
+  }
+
+  .heroPrice .price s {
+    font-size: 18px;
+  }
+
+  .heroPrice .deadline {
+    padding: 6px;
+  }
+
+  .heroPrice .deadline b {
+    font-size: 11.5px;
+  }
+
+  .heroPrice .timerBox b {
+    font-size: 13px;
+  }
+
+  .heroPrice .timerBox small {
+    font-size: 7px;
+  }
+
+  .heroPrice .deadline > span {
+    font-size: 11px;
+  }
+}
+
+/* ---- The change chat (owner 2026-10-27) ---- */
+.heroChat {
+  grid-area: chat;
+  min-width: 0;
+}
+
+.hero {
+  grid-template-areas:
+    'kicker kicker'
+    'title title'
+    'chips chips'
+    'video price'
+    'action action'
+    'chat chat'
+    'sub sub';
+}
+
+@media (max-width: 859px) {
+  .hero {
+    grid-template-areas:
+      'kicker kicker'
+      'title title'
+      'chips chips'
+      'video price'
+      'action action'
+      'chat chat'
+      'sub sub';
+  }
+}
+
+@media (min-width: 860px) {
+  .hero {
+    grid-template-areas:
+      'kicker video'
+      'title video'
+      'chips video'
+      'sub video'
+      'price video'
+      'action video'
+      'chat video';
+    grid-template-rows: auto auto auto auto auto auto 1fr;
+  }
+
+  .heroChat {
+    max-width: 480px;
+  }
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 2px solid #f3c4bf;
+  background: #fff8f7;
+}
+
+.chatTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 900;
+  color: #9b1c13;
+}
+
+.chatNote {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.chatList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.chatThem,
+.chatMe {
+  margin: 0;
+  max-width: 88%;
+  padding: 9px 12px;
+  border-radius: 14px;
+  font-size: 15px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.chatThem {
+  align-self: flex-start;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-bottom-left-radius: 4px;
+}
+
+.chatMe {
+  align-self: flex-end;
+  background: #1f2a44;
+  color: #ffffff;
+  border-bottom-right-radius: 4px;
+}
+
+.chatBusy {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.chatPlan {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #eef6e6;
+  border: 1px solid #cfe3bb;
+}
+
+.chatPlan p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.chatPlan ol {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.chatPlan li {
+  list-style: decimal;
+}
+
+.requestedText {
+  white-space: pre-wrap;
+}
+
+.chatForm {
+  display: flex;
+  gap: 8px;
+}
+
+.chatForm input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 2px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.chatForm input:focus {
+  outline: none;
+  border-color: #9b1c13;
+}
+
+.chatForm button {
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #9b1c13;
+  color: #ffffff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.chatForm button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* The change chat, ChatGPT style (owner 2026-10-27: "people are used to the way chatgpt chats look"): the team's
+   answers as plain text with a small round avatar, the visitor's messages in a light grey bubble, a rounded composer. */
+.chat {
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+
+.chatTitle {
+  color: var(--ink);
+}
+
+.chatList {
+  gap: 14px;
+  max-height: 340px;
+  padding: 4px 2px;
+}
+
+.chatRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.chatAvatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-top: 1px;
+  border-radius: 999px;
+  background: #1f2a44;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.chatThem {
+  max-width: none;
+  padding: 3px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: #1f2937;
+}
+
+.chatMe {
+  max-width: 80%;
+  padding: 9px 14px;
+  border-radius: 18px;
+  background: #f1f1f1;
+  color: #111827;
+  font-size: 15.5px;
+}
+
+.chatBusy {
+  font-style: normal;
+}
+
+.dots {
+  display: inline-flex;
+  gap: 4px;
+  padding-top: 8px;
+}
+
+.dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #9ca3af;
+  animation: chatDot 1.2s infinite ease-in-out;
+}
+
+.dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes chatDot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+.chatForm {
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 6px rgba(15, 23, 42, 0.06);
+}
+
+.chatForm:focus-within {
+  border-color: #9ca3af;
+}
+
+.chatForm input {
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.chatForm input:focus {
+  border: 0;
+}
+
+.chatForm button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 999px;
+  background: #111827;
+}
+
+.chatForm button:disabled {
+  background: #d1d5db;
+  opacity: 1;
+}
+
+/* Owner 2026-10-27: "it is hard to see, barely noticeable": a strong red frame and a header strip around the chat. */
+.chat {
+  padding: 0 14px 14px;
+  border: 3px solid #c0271c;
+  border-radius: 20px;
+  box-shadow: 0 6px 24px rgba(192, 39, 28, 0.18);
+  overflow: hidden;
+}
+
+.chatHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 -14px 4px;
+  padding: 12px 14px;
+  background: #c0271c;
+  color: #ffffff;
+}
+
+.chatHeadIcon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #c0271c;
+}
+
+.chatHead .chatTitle {
+  font-size: 19px;
+  color: #ffffff;
+}
+
+.chatHead .chatNote {
+  color: #fde3df;
+}
+
+/* ---- v8: the change chat after the UX review (2026-10-27) ----
+   Phone: headline, chips, video + price, button, "Want changes first?", the sample line, the arrow + chat, then the
+   trust lines. Computer: the text and the buy button on the left, the video and the chat under it on the right. */
+.side {
+  display: contents;
+}
+
+.hero {
+  grid-template-areas:
+    'kicker kicker'
+    'title title'
+    'chips chips'
+    'video price'
+    'action action'
+    'sub sub'
+    'chat chat'
+    'trust trust';
+}
+
+@media (max-width: 859px) {
+  .hero {
+    grid-template-areas:
+      'kicker kicker'
+      'title title'
+      'chips chips'
+      'video price'
+      'action action'
+      'sub sub'
+      'chat chat'
+      'trust trust';
+  }
+}
+
+.heroTrust {
+  grid-area: trust;
+  min-width: 0;
+}
+
+.heroAction {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.askLink {
+  align-self: center;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: var(--navy);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.onComputer {
+  display: none;
+}
+
+@media (min-width: 860px) {
+  .onPhone {
+    display: none;
+  }
+
+  .onComputer {
+    display: inline;
+  }
+
+  .askLink {
+    align-self: flex-start;
+  }
+
+  .hero {
+    grid-template-columns: minmax(0, 560px) 440px;
+    grid-template-areas:
+      'kicker side'
+      'title side'
+      'chips side'
+      'sub side'
+      'price side'
+      'action side'
+      'trust side';
+    grid-template-rows: auto auto auto auto auto auto 1fr;
+  }
+
+  .side {
+    grid-area: side;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .hero .video {
+    width: 236px;
+  }
+
+  .heroChat {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* The chips under the headline are buttons now: a tap sends that change to the chat. */
+.changeChips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Friendly, not a warning: a white card with the page's green, the founder's face in a pale green header. */
+.chat {
+  padding: 0 14px 14px;
+  border: 2px solid #47801c;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(31, 42, 68, 0.14);
+  overflow: hidden;
+}
+
+.chatHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 -14px 6px;
+  padding: 12px 14px;
+  background: #eef5e6;
+  color: #1f2a44;
+}
+
+.chatHead .chatTitle {
+  font-size: 17px;
+  line-height: 1.25;
+  color: #1f2a44;
+}
+
+.chatHead .chatNote {
+  margin-top: 2px;
+  color: #64748b;
+}
+
+.chatFace {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+}
+
+.chatFace img {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.chatFace i {
+  position: absolute;
+  right: 0;
+  bottom: 1px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #eef5e6;
+  border-radius: 999px;
+  background: #22c55e;
+}
+
+.chatAvatar {
+  background: #1f2a44;
+}
+
+.chatIdeas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-left: 38px;
+}
+
+.chatIdeas button {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1.5px solid #47801c;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #3f6a1c;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chatIdeas button:hover {
+  background: #f5faef;
+}
+
+.chatPlan {
+  background: #f5faef;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 2px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.checklist .tick {
+  width: 20px;
+  height: 20px;
+}
+
+.chatForm.chatReady button:not(:disabled) {
+  background: #47801c;
+}
+
+.chatGlow {
+  animation: chatGlow 2s ease-in-out 2;
+}
+
+@keyframes chatGlow {
+  0%,
+  100% {
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.06);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(71, 128, 28, 0.35);
+  }
+}
+
+.buttonPulse {
+  animation: buttonPulse 0.9s ease-in-out 1;
+}
+
+@keyframes buttonPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.04);
+  }
+}
+
+/* The hand-drawn arrow with its handwritten note, above the chat, pointing down into the header. */
+.arrowNote {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 2px 0 0 6px;
+  margin-bottom: -6px;
+}
+
+.arrowText {
+  font-size: 23px;
+  line-height: 1.05;
+  color: #c0271c;
+  transform: rotate(-4deg);
+  transform-origin: left bottom;
+  padding-bottom: 14px;
+}
+
+.arrowSvg {
+  width: 62px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.arrowSvg path {
+  stroke-dasharray: 140;
+  stroke-dashoffset: 140;
+}
+
+.arrowShown .arrowSvg path {
+  transition: stroke-dashoffset 0.8s ease-out;
+  stroke-dashoffset: 0;
+}
+
+.arrowShown .arrowSvg path + path {
+  transition-delay: 0.6s;
+  transition-duration: 0.3s;
+}
+
+@media (min-width: 860px) {
+  .arrowText {
+    font-size: 27px;
+  }
+
+  .arrowSvg {
+    width: 78px;
+    height: 60px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arrowSvg path {
+    stroke-dashoffset: 0;
+  }
+
+  .chatGlow,
+  .buttonPulse {
+    animation: none;
+  }
+}
+
+.side .video {
+  order: 0;
+}
+
+.side .heroChat {
+  order: 1;
+}
+
+/* ---- v12 after the second review (2026-10-27) ---- */
+.chatThem {
+  padding: 0;
+}
+
+.chatIdeas {
+  padding-left: 0;
+}
+
+.chatIdeas button {
+  padding: 8px 14px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.hero .heroSub {
+  font-size: 16px;
+  line-height: 1.45;
+  color: #475569;
+  text-align: left;
+}
+
+@media (max-width: 859px) {
+  .chatHead .chatTitle {
+    font-size: 20px;
+  }
+
+  .chatHead .chatNote {
+    font-size: 14px;
+  }
+
+  .arrowText {
+    font-size: 21px;
+  }
+
+  .arrowSvg {
+    width: 54px;
+    height: 42px;
+  }
+}
+
+@media (min-width: 860px) {
+  .hero .video {
+    width: 203px;
+  }
+
+  .side {
+    gap: 2px;
+  }
+
+  .arrowNote {
+    margin-left: -20px;
+    margin-bottom: -2px;
+  }
+
+  .chatHead {
+    padding: 10px 16px;
+  }
+
+  .chatHead .chatNote {
+    font-size: 13px;
+  }
+
+  .chatList {
+    gap: 10px;
+  }
+}
+
+@media (min-width: 860px) {
+  .chatIdeas button {
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: 14px;
+  }
+}
+
+/* "Watch your video ad full size" and the big player (UX review 2026-10-27). */
+.watchBig {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--navy);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.bigBack {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) 16px max(16px, env(safe-area-inset-bottom, 0px));
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.bigBox {
+  position: relative;
+  height: min(85vh, 760px);
+  aspect-ratio: 9 / 16;
+  max-width: calc(100vw - 32px);
+}
+
+.bigVideo {
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  background: #000000;
+  object-fit: contain;
+}
+
+.bigClose {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+
+@media (min-width: 860px) {
+  .side .arrowNote {
+    margin-top: -8px;
+  }
+}
+
+/* The "full size" link sits on the video as a small pill, so the first screen keeps its height. */
+.side .video {
+  position: relative;
+}
+
+.watchBig {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 3;
+  width: auto;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  text-decoration: none;
+  font-size: 12px;
+}
+
+@media (max-width: 859px) {
+  .watchBig {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+}
+
+@media (min-width: 860px) {
+  .side .arrowNote {
+    margin-top: 0;
+  }
+}
+
+/* Owner 2026-10-27: "what if it is bigger and pushing the box a bit down?": a bigger video on a computer; the arrow and
+   the chat header stay on the first screen, the message box just under it. */
+@media (min-width: 860px) {
+  .hero .video {
+    width: 270px;
+  }
+}
+
+@media (min-width: 860px) {
+  .hero .video {
+    width: 320px;
+  }
+}
+
+/* The walking customers in this page's narrow column: the picture on top, the text under it (the result page lays
+   them side by side on a computer, which leaves a tall empty box here). */
+.sceneWrap > div {
+  display: block !important;
+  width: 100%;
+}
+
+/* The 3 video testimonials: a tidy grid of equal cards on a computer, a list on a phone. */
+@media (min-width: 860px) {
+  .videoReviews {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    max-width: none !important;
+  }
+
+  .videoReviews > li {
+    display: flex !important;
+    flex-direction: column;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  .videoReviews > li > button,
+  .videoReviews > li > iframe {
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+  }
+
+  .videoReviews > li > button img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover;
+  }
+}
+
+/* A slow pulse on the chat's message box until the visitor starts typing (owner 2026-10-27). */
+.chatForm:not(.chatReady):not(:focus-within) {
+  animation: composerPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes composerPulse {
+  0%,
+  100% {
+    border-color: #d1d5db;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.06);
+  }
+  50% {
+    border-color: #47801c;
+    box-shadow: 0 0 0 4px rgba(71, 128, 28, 0.18);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chatForm {
+    animation: none !important;
+  }
+}
+
+/* Card logos: bigger and centered everywhere on this page (owner 2026-10-27). */
+.trust {
+  align-items: center !important;
+}
+
+.trust p {
+  text-align: center !important;
+}
+
+.trust > div {
+  justify-content: center;
+  gap: 8px;
+}
+
+.trust > div svg {
+  width: 58px;
+  height: 36px;
+}
+
+.trust > div svg[width='49'] {
+  width: 68px;
+}
+
+/* The sticky bar is for phones only (its base rule above came after the old computer rule that hid it). */
+@media (min-width: 860px) {
+  .bar {
+    display: none;
+  }
+}
+
+/* ---- v14 (owner 2026-10-27) ----
+   Phone: the promise, the checkout line and the card logos right under the first button, then the sample line and
+   the chat. */
+@media (max-width: 859px) {
+  .hero {
+    grid-template-areas:
+      'kicker kicker'
+      'title title'
+      'chips chips'
+      'video price'
+      'action action'
+      'trust trust'
+      'sub sub'
+      'chat chat';
+  }
+}
+
+/* The 8 video styles: small looping tiles, 4 a row. */
+.styleGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.styleGrid li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.styleTile {
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+}
+
+.styleTile video,
+.styleTile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.styleName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: center;
+}
+
+/* Owner 2026-10-27 trial: the 8 video styles just below the first green button. */
+.heroStyles {
+  grid-area: styles;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f6f8fb;
+  border: 1px solid var(--line);
+}
+
+.heroStylesTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.heroStylesText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--body);
+}
+
+.heroStyles .styleName {
+  font-size: 12px;
+}
+
+@media (max-width: 859px) {
+  .hero {
+    grid-template-areas:
+      'kicker kicker'
+      'title title'
+      'chips chips'
+      'video price'
+      'action action'
+      'styles styles'
+      'trust trust'
+      'sub sub'
+      'chat chat';
+  }
+}
+
+@media (min-width: 860px) {
+  .hero {
+    grid-template-areas:
+      'kicker side'
+      'title side'
+      'chips side'
+      'sub side'
+      'price side'
+      'action side'
+      'styles side'
+      'trust side';
+    grid-template-rows: auto auto auto auto auto auto auto 1fr;
+  }
+
+  .heroStyles .styleGrid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .heroStyles .styleName {
+    font-size: 11px;
+  }
+}
+
+/* Owner 2026-10-27: the styles go under the button AND the card logos, big, 4 a row on every screen. */
+@media (max-width: 859px) {
+  .hero {
+    grid-template-areas:
+      'kicker kicker'
+      'title title'
+      'chips chips'
+      'video price'
+      'action action'
+      'trust trust'
+      'styles styles'
+      'sub sub'
+      'chat chat';
+  }
+}
+
+@media (min-width: 860px) {
+  .hero {
+    grid-template-areas:
+      'kicker side'
+      'title side'
+      'chips side'
+      'sub side'
+      'price side'
+      'action side'
+      'trust side'
+      'styles side';
+    grid-template-rows: auto auto auto auto auto auto auto 1fr;
+  }
+
+  .heroStyles {
+    align-self: start;
+  }
+
+  .heroStyles .styleGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .heroStyles .styleName {
+    font-size: 13px;
+  }
+}
+
+/* ---- The thank-you offer after the $49 payment (owner 2026-10-27) ----
+   A compact "being made" card on top, then the full Weekly Video Plan offer. */
+.thanksTop {
+  padding-block: 20px;
+}
+
+.making {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #f6f8fb;
+}
+
+.makingThumb {
+  flex-shrink: 0;
+  width: 60px;
+  height: 75px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.makingText {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.makingText h1 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.25;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.makingText p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--body);
+}
+
+.makingText .progressTrack {
+  height: 8px;
+}
+
+.makingText .progressTrack span {
+  animation: makingBar 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes makingBar {
+  from {
+    width: 18%;
+  }
+  to {
+    width: 72%;
+  }
+}
+
+.makingChanges {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.makingChanges p {
+  white-space: pre-wrap;
+  font-size: 13px;
+}
+
+.thanks {
+  padding-top: 8px;
+}
+
+.thanks .narrow {
+  gap: 18px;
+}
+
+.plannedGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plannedGrid li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--body);
+}
+
+.plannedGrid b {
+  font-size: 15px;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.plannedImage {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #e2e8f0;
+}
+
+.plannedImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.plannedImage em {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.82);
+  color: #ffffff;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mathBox,
+.freeBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 14px;
+}
+
+.mathBox {
+  background: #ffffff;
+  border: 1px solid var(--line);
+}
+
+.freeBox {
+  background: #eef5e6;
+  border: 2px solid #47801c;
+}
+
+.mathBox p,
+.freeBox p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--body);
+}
+
+.mathBox .mathPunch {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.thanksBuy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+.thanks button.noThanks {
+  align-self: center;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+  font-size: 14px;
+}
+
+.thanksSign {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.thanksSign p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--body);
+}
+
+.chatFaceImg {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+@media (min-width: 860px) {
+  .plannedGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.thanks .guarantee > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* The price line under every free-month button: as readable as the button's own promise, never small print. */
+.thanksBuy .small {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* ---- Thank-you offer v2 (3-expert review 2026-10-27) ---- */
+.paidStrip {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #eef5e6;
+  border: 1px solid #cfe3bb;
+}
+
+.paidStrip .statusTick {
+  width: 26px;
+  height: 26px;
+}
+
+.paidStrip h1 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.paidStrip p {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--body);
+}
+
+.thanksHead {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+}
+
+.thanksHead .h2 {
+  font-size: 25px;
+}
+
+.thanksBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.getBox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 3px solid #47801c;
+  background: #f5faef;
+}
+
+.getPrices {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px dashed #cfe3bb;
+  text-align: center;
+}
+
+.getPrices p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.getPrices .strikeLine {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.getPrices .firstMonth {
+  font-size: 22px;
+  font-weight: 900;
+  color: #3f6a1c;
+}
+
+.readyVideoSmall {
+  width: min(190px, 50vw);
+}
+
+@media (min-width: 860px) {
+  .thanksHead .h2 {
+    font-size: 32px;
+  }
+}
+
+/* The ready title sits centred above the video on every screen. */
+.thanksTop .readyTitle {
+  text-align: center !important;
+  align-self: center;
+}
+
+.thanksTop .askLink {
+  align-self: center;
+}
+
+/* Owner 2026-10-27: the download must not compete with the free-month button: an outlined navy button. */
+.downloadQuiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  align-self: center;
+  padding: 11px 22px;
+  border: 2px solid var(--navy);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--navy);
+  font-size: 16px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.downloadQuiet:hover {
+  background: #f1f5f9;
+}
+
+.salesVideo {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.salesVideoEl {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  background: #0b0b0d;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.22);
+}
+
+.salesVideoSpot {
+  display: grid;
+  place-items: center;
+  width: min(320px, 82vw);
+  aspect-ratio: 16 / 9;
+  margin: 0 auto;
+  padding: 12px;
+  border: 2px dashed #94a3b8;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+@media (min-width: 860px) {
+  .salesVideo,
+  .salesVideoSpot {
+    width: 560px;
+  }
+}
+
+/* ---- The two ways to change a paid video ad (owner 2026-10-27) ---- */
+.changesPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.changeWay {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.changeWay:first-child {
+  border: 2px solid #47801c;
+  background: #f5faef;
+}
+
+.changeWayTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.instantButton {
+  align-self: flex-start;
+  padding: 11px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: #47801c;
+  color: #ffffff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.instantButton:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.aiWorking {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 2px solid #47801c;
+  background: #f5faef;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.aiWorking p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.aiWorking .progressTrack span {
+  transition: width 1s ease;
+}
+
+.aiDone {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #3f6a1c;
+  text-align: center;
+}
+
+.versions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.versionLink {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.versionOn {
+  border-color: #47801c;
+  background: #eef5e6;
+  color: #3f6a1c;
+}
+
+.changeWayTitle svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+/* The file picker of a change (owner 2026-10-27: photos, logos, videos, with the limits shown). */
+.filePicker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fileButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 8px 14px;
+  border: 1.5px dashed #64748b;
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fileButton:disabled {
+  opacity: 0.55;
+}
+
+.fileLimit {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.fileList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fileList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.fileList li span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileList button {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  cursor: pointer;
+}
+
+.fileWarning {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #b42318;
+}
+
+/* Owner 2026-10-27: his face on the human help option. */
+.humanHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.humanFace {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+/* Owner 2026-10-27: the video ad a little bigger on a computer once it is ready. */
+@media (min-width: 860px) {
+  .readyVideoSmall {
+    width: 280px;
+  }
+}

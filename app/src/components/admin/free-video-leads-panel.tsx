@@ -37,7 +37,7 @@ interface FreeVideoLeadRow {
   /** A paid Unlimited Video Ads order of this lead (amount in dollars when known); null without one. */
   servicePaid: { amount: number | null } | null;
   /** The offer the lead's page shows now: the funnel it came from, or the owner's switch (offer-switch.ts). */
-  offer: 'machine' | 'service';
+  offer: 'machine' | 'service' | 'video';
   /** When the owner last switched the offer; null when never. */
   switchedAt: string | null;
 }
@@ -220,7 +220,7 @@ export function FreeVideoLeadsPanel() {
                         </td>
                         <td className="py-2 pr-2 max-w-[130px] break-all text-xs text-muted-foreground">
                           <Badge variant="outline" className={cn('mb-1', lead.funnel === 'service' ? 'border-indigo-500 text-indigo-600' : 'text-muted-foreground')}>
-                            {lead.funnel === 'service' ? 'Service funnel' : 'App funnel'}
+                            {lead.funnel === 'service' ? '$49 funnel' : 'App funnel'}
                           </Badge>
                           <div>{lead.affiliate ? <Badge variant="outline">Affiliate {lead.affiliate}</Badge> : lead.ref || lead.source}</div>
                         </td>
@@ -291,7 +291,7 @@ function SummaryCard({ title, summary }: { title: string; summary: Summary }) {
   );
 }
 
-const OFFER_NAME = { machine: 'AI Media Machine', service: 'Unlimited Video Ads' } as const;
+const OFFER_NAME = { machine: 'AI Media Machine', service: 'Unlimited Video Ads', video: '$49 video ad' } as const;
 
 /**
  * Switch offer (owner 2026-10-26): moves one lead's page to the other offer. Their link stays the same, the new
@@ -302,7 +302,9 @@ function SwitchOffer({ lead, onSwitched }: { lead: FreeVideoLeadRow; onSwitched:
   const [followUp, setFollowUp] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const to = lead.offer === 'service' ? 'machine' : 'service';
+  // The other offers, the $49 video ad first (the $99 a month plan is offered by hand only since 2026-10-27).
+  const targets = (['video', 'machine', 'service'] as const).filter((o) => o !== lead.offer);
+  const [to, setTo] = useState<(typeof targets)[number]>(targets[0]);
 
   const run = async () => {
     setBusy(true);
@@ -335,9 +337,21 @@ function SwitchOffer({ lead, onSwitched }: { lead: FreeVideoLeadRow; onSwitched:
         {lead.switchedAt && <div>switched {when(lead.switchedAt)}</div>}
       </div>
       {!open ? (
-        <button type="button" onClick={() => setOpen(true)} className="mt-1 font-semibold text-primary hover:underline">
-          Switch to {OFFER_NAME[to]}
-        </button>
+        <div className="mt-1 flex flex-col items-start gap-0.5">
+          {targets.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => {
+                setTo(t);
+                setOpen(true);
+              }}
+              className="font-semibold text-primary hover:underline"
+            >
+              Switch to {OFFER_NAME[t]}
+            </button>
+          ))}
+        </div>
       ) : (
         <div className="mt-1 space-y-1 rounded border p-2">
           <div>

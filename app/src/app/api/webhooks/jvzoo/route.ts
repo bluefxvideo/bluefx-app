@@ -4,6 +4,7 @@ import { createAdminClient } from '@/app/supabase/server'
 import { subscribeToMailerLite, mailerLiteGroupsForJvzooProduct } from '@/lib/mailerlite/subscribe'
 import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
 import { liftSuspensionAfterPurchase } from '@/lib/credits/subscription-entitlement'
+import { insertBuyerProfile } from '@/lib/credits/buyer-profile'
 
 // JVZoo IPN handler for the AI Media Machine funnel on aimediamachine.com.
 // JVZoo posts one form-encoded IPN per product transaction; cverify is the
@@ -218,17 +219,7 @@ async function provisionLifetime(sale: { email: string; custName: string; receip
       .maybeSingle()
 
     if (!profileData) {
-      const cleanUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-      await supabase.from('profiles').insert({
-        id: userId,
-        email,
-        username: cleanUsername,
-        full_name: custName,
-        bio: null,
-        avatar_url: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      await insertBuyerProfile(supabase, { userId, email: email, fullName: custName })
     }
 
     const currentPeriodStart = new Date()
@@ -319,17 +310,7 @@ async function provisionLifetime(sale: { email: string; custName: string; receip
   userId = authUser.user.id
   console.log(`Created new JVZoo user: ${userId}`)
 
-  const cleanUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-  await supabase.from('profiles').insert({
-    id: userId,
-    email,
-    username: cleanUsername,
-    full_name: custName,
-    bio: null,
-    avatar_url: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  })
+  await insertBuyerProfile(supabase, { userId, email: email, fullName: custName })
 
   const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth-callback`,

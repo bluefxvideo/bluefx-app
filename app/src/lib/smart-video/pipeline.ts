@@ -1075,7 +1075,7 @@ const listingFit = (listing: ListingOptions, lines: number) => ({
  * photos can add. A recording that runs long is sped up; one that runs short is slowed down only
  * by what the pauses cannot cover. Both stay within LISTING_TEMPO.
  */
-async function recordVoice(narration: string[], languageName: string, plan: DirectorPlan, store: StoreFile, fit?: { endAt: number; pauses: number }) {
+export async function recordVoice(narration: string[], languageName: string, plan: DirectorPlan, store: StoreFile, fit?: { endAt: number; pauses: number }) {
   const parts: string[][] = [[]];
   let count = 0;
   for (const line of narration) {

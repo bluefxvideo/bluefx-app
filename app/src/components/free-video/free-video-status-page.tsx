@@ -5,7 +5,7 @@ import { cache } from 'react';
 import { STATUS } from '@/lib/free-video/copy';
 import { hasInternalCookie } from '@/lib/free-video/internal-visit';
 import { getLeadByToken, markViewed, readSettings, toView } from '@/lib/free-video/leads';
-import { servicePagePath, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
+import { servicePagePath, unlockPagePath, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
 import { FREE_VIDEO_TOKEN_PATTERN, type FreeVideoView } from '@/types/free-video';
 import { FreeVideoStatus } from './free-video-status';
@@ -54,6 +54,8 @@ export async function FreeVideoStatusPage({ token, placement, internal = false }
   }
   // The service funnel (funnel.ts): a finished video ad is shown on the Unlimited Video Ads page.
   if (view.service && view.state === 'ready' && view.videoUrl) redirect(`${servicePagePath(token)}${internal ? '?internal=1' : ''}`);
+  // Funnel 2 since 2026-10-27: a finished video ad opens on the $49 page.
+  if (view.videoOffer && view.state === 'ready' && view.videoUrl) redirect(`${unlockPagePath(token)}${internal ? '?internal=1' : ''}`);
   return <FreeVideoStatus token={token} initial={view} placement={placement} />;
 }
 

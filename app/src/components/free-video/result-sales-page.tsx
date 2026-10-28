@@ -41,6 +41,8 @@ interface ResultSalesPageProps {
   deadline: { day: string; when: string } | null;
   onPlayWithSound: () => void;
   onComplete: () => void;
+  /** On the $49 thank-you page (owner 2026-10-28): their clean video ad is already above, so the video ad block becomes a headline and the P.S. drops the free-sample lines. */
+  afterUnlock?: boolean;
 }
 
 /**
@@ -48,7 +50,7 @@ interface ResultSalesPageProps {
  * Every button opens ClickBank's checkout through /go (fvres1 price box, fvresads bonus, fvres2 how, fvrestools the 4
  * tool groups, fvres4 old way, fvres5 value table, fvres6 still thinking, fvres3 walkthrough, fvresbar the phone bar).
  */
-export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound, onComplete }: ResultSalesPageProps) {
+export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound, onComplete, afterUnlock = false }: ResultSalesPageProps) {
   const { domain, firstName } = view;
   const videoUrl = view.videoUrl as string;
   const cards = view.nextAds ?? null;
@@ -77,16 +79,32 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
     setTutorialAt(at);
   };
   const closeTutorial = useCallback(() => setTutorialAt(null), []);
+  // The $49 thank-you page: one sale clock per browser that never restarts; once it ends, the lines about it change.
+  const thanksClock = useThanksDeadline(afterUnlock);
+  const noTimer = afterUnlock && thanksClock.expired;
+  const T = RESULT_SALES.afterUnlock.noTimer;
+  const timerUntil = afterUnlock ? thanksClock.until : bonus ? view.cleanUntil : undefined;
   const change = RESULT_SALES.top.change;
   const { banner, top, hero, salesVideo, price, button, how, tools, oldWay, customers, founder, lifetime, own, guarantee, still, faq, ps } = RESULT_SALES;
   const dov = RESULT_PAGE.stack.proof[0];
 
   return (
     <div className={cn(rp.page, s.page)}>
-      <p className={s.banner}>
-        <strong>{banner.strong}</strong> {banner.text} <u>{banner.off}</u> {banner.end}
-      </p>
+      {/* No red banner on the $49 thank-you page (owner 2026-10-28). */}
+      {!afterUnlock && (
+        <p className={s.banner}>
+          <strong>{banner.strong}</strong> {banner.text} <u>{banner.off}</u> {banner.end}
+        </p>
+      )}
 
+      {afterUnlock ? (
+        <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-title">
+          <h1 id="fv-sales-title" className={cn(s.topTitle, s.afterUnlockTitle)}>
+            {RESULT_SALES.afterUnlock.title(firstName)}
+          </h1>
+          <p className={s.afterUnlockSub}>{RESULT_SALES.afterUnlock.sub}</p>
+        </section>
+      ) : (
       <section className={cn(rp.wrap, s.top)} aria-labelledby="fv-sales-title">
         <div className={s.topVideo}>
           <VideoAdPlayer src={videoUrl} label={PLAYER.label(domain)} onPlayWithSound={onPlayWithSound} onComplete={onComplete} className={rp.heroPlayerFrame} tapToPlay />
@@ -119,23 +137,29 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         {/* Computer: the styles across the full width under the video ad and the words (owner 2026-10-27). */}
         <StyleStrip className={s.styleStripWide} />
       </section>
+      )}
 
-      <section className={s.hero} aria-labelledby="fv-sales-hero">
+      <section className={s.hero} aria-labelledby={afterUnlock ? undefined : 'fv-sales-hero'}>
         <div className={cn(rp.wrap, s.heroText)}>
-          <p className={cn(s.heroKicker, s.phoneOnly)}>{hero.kicker}</p>
-          <span className={s.heroPill}>{hero.pill}</span>
-          <h2 id="fv-sales-hero" className={s.heroTitle}>
-            {hero.titleLine1}
-            <br />
-            {hero.titleStart}
-            <span className={s.heroMark}>{hero.titleMark}</span>
-            {hero.titleEnd}
-          </h2>
-          <p className={s.heroSub}>
-            {hero.subStart}
-            <strong>{hero.subStrong}</strong>
-            {hero.subEnd}
-          </p>
+          <p className={cn(s.heroKicker, !afterUnlock && s.phoneOnly)}>{hero.kicker}</p>
+          {/* The $49 thank-you page goes straight from the kicker to the video ads (all 3 experts: a second headline fights the first). */}
+          {!afterUnlock && (
+            <>
+              <span className={s.heroPill}>{hero.pill}</span>
+              <h2 id="fv-sales-hero" className={s.heroTitle}>
+                {hero.titleLine1}
+                <br />
+                {hero.titleStart}
+                <span className={s.heroMark}>{hero.titleMark}</span>
+                {hero.titleEnd}
+              </h2>
+              <p className={s.heroSub}>
+                {hero.subStart}
+                <strong>{hero.subStrong}</strong>
+                {hero.subEnd}
+              </p>
+            </>
+          )}
         </div>
         {/* Like the sales page's carousel: a fixed width, the edges fade, arrows on a computer, swipe on a phone. */}
         <div id="fv-sales-reel" className={s.reelWrap}>
@@ -167,7 +191,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-video">
         <h2 id="fv-sales-video" className={rp.h2}>
-          {salesVideo.title}
+          {afterUnlock ? RESULT_SALES.afterUnlock.salesVideoTitle : salesVideo.title}
         </h2>
         <SalesVideo />
         <p className={s.caption}>{salesVideo.caption}</p>
@@ -178,8 +202,8 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           {price.title}
         </h2>
         <div className={s.priceBox}>
-          <p className={s.priceReason}>{price.reason}</p>
-          <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={bonus ? view.cleanUntil : undefined} />
+          <p className={s.priceReason}>{afterUnlock ? RESULT_SALES.afterUnlock.priceReason : price.reason}</p>
+          <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={timerUntil} external={afterUnlock} />
           <div className={s.prices}>
             <p className={s.priceRegular}>
               {price.regular} <s className={s.slash}>{OFFER.was}</s>
@@ -257,7 +281,9 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           {how.title}
         </h2>
         <ol className={rp.steps}>
-          {RESULT_PAGE.how.steps.map((step, index) => (
+          {RESULT_PAGE.how.steps.map((base, index) => {
+            const step = afterUnlock && index === 2 ? { ...base, title: RESULT_SALES.afterUnlock.step3.title, text: () => RESULT_SALES.afterUnlock.step3.text } : base;
+            return (
             <li key={step.title} className={cn(rp.step, step.done && rp.stepDone)}>
               <span className={cn(rp.stepIcon, !step.done && rp.stepIconNext)} aria-hidden="true">
                 {step.done ? <Tick size={18} stroke={3.2} /> : index + 1}
@@ -269,13 +295,14 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
                 <p className={cn(rp.stepNote, step.done && rp.stepNoteDone)}>{step.text(domain)}</p>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ol>
         <div className={s.sceneWrap}>
           <ResultScene domain={domain} />
         </div>
         <h3 className={cn(s.h3, s.subSection, s.leftHead)}>{how.scrollTitle}</h3>
-        <p className={rp.text}>{how.scrollText}</p>
+        <p className={rp.text}>{afterUnlock ? RESULT_SALES.afterUnlock.scrollText : how.scrollText}</p>
         <figure className={s.leads}>
           <Image src={how.leadsImage} alt={how.leadsAlt} width={1320} height={192} sizes="(min-width: 760px) 712px, 100vw" />
           <figcaption>{how.leads}</figcaption>
@@ -391,10 +418,10 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <h2 id="fv-sales-lifetime" className={cn(rp.h2, s.leftHead)}>
           {lifetime.title}
         </h2>
-        {lifetime.paragraphs.map((paragraph) => (
+        {lifetime.paragraphs.map((paragraph, index) => (
           <p key={paragraph.text.slice(0, 30)} className={s.body}>
             {paragraph.lead && <strong>{paragraph.lead}</strong>}
-            {paragraph.text}
+            {noTimer && index === lifetime.paragraphs.length - 2 ? T.why : noTimer && index === lifetime.paragraphs.length - 1 ? T.catch : paragraph.text}
           </p>
         ))}
       </section>
@@ -470,12 +497,12 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <h2 id="fv-sales-still" className={cn(rp.h2, s.leftHead)}>
           {still.title}
         </h2>
-        {still.text.map((line) => (
+        {still.text.map((line, index) => (
           <p key={line.slice(0, 30)} className={s.body}>
-            {line}
+            {noTimer && index === still.text.length - 1 ? T.still : line}
           </p>
         ))}
-        <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={bonus ? view.cleanUntil : undefined} />
+        <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={timerUntil} external={afterUnlock} />
         <SalesBuy token={token} placement="fvres6" note={button.guarantee} />
       </section>
 
@@ -506,13 +533,13 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-label="P.S.">
         <p className={s.body}>
-          <strong>P.S.</strong> <Bold text={ps.p1(firstName, domain)} words={ps.bold} />
+          <strong>P.S.</strong> <Bold text={afterUnlock ? RESULT_SALES.afterUnlock.ps1(firstName, domain) : ps.p1(firstName, domain)} words={ps.bold} />
         </p>
         <p className={s.body}>
-          <Bold text={ps.p2} words={ps.bold} />
+          <Bold text={afterUnlock ? RESULT_SALES.afterUnlock.ps2 : ps.p2} words={ps.bold} />
         </p>
         <p className={s.body}>
-          <Bold text={ps.p3} words={ps.bold} />
+          <Bold text={noTimer ? T.ps3 : afterUnlock ? RESULT_SALES.afterUnlock.ps3 : ps.p3} words={ps.bold} />
         </p>
         {written && (
           <p className={s.body}>
@@ -804,9 +831,51 @@ const BIRTHDAY_COOLDOWN_MS = 5 * 60 * 1000;
  * The birthday price's clock. While their 3-day bonus runs it ends with the bonus (owner 2026-10-22: "maybe we need to
  * go with the 3 days"), so the page has 1 deadline; after that, the sales page's per-visitor 1:57:23 window.
  */
-function BirthdayTimer({ label, until }: { label: string; until?: string }) {
+const THANKS_KEY = 'amm_thanks_deadline';
+
+/**
+ * The $49 thank-you page's sale clock: the same 1:57:23 as the sales page, but it starts once per browser and never
+ * restarts (owner 2026-10-28), so a returning buyer sees no clock and the lines say "a limited-time offer" instead.
+ */
+function useThanksDeadline(enabled: boolean): { until?: string; expired: boolean } {
+  const [end, setEnd] = useState<number | null>(null);
+  const [expired, setExpired] = useState(false);
+  useEffect(() => {
+    if (!enabled) return;
+    let deadline = 0;
+    try {
+      deadline = Number(window.localStorage.getItem(THANKS_KEY) || 0);
+    } catch {
+      deadline = 0;
+    }
+    if (!deadline) {
+      deadline = Date.now() + BIRTHDAY_WINDOW_MS;
+      try {
+        window.localStorage.setItem(THANKS_KEY, String(deadline));
+      } catch {
+        // A private window: the clock still runs for this visit.
+      }
+    }
+    setEnd(deadline);
+    const left = deadline - Date.now();
+    if (left <= 0) {
+      setExpired(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setExpired(true), left + 500);
+    return () => window.clearTimeout(timer);
+  }, [enabled]);
+  return { until: end ? new Date(end).toISOString() : undefined, expired };
+}
+
+function BirthdayTimer({ label, until, external = false }: { label: string; until?: string; external?: boolean }) {
   const [end, setEnd] = useState<number | null>(null);
   useEffect(() => {
+    // The $49 thank-you page brings its own clock (useThanksDeadline): never touch the sales page's.
+    if (external) {
+      setEnd(until ? Date.parse(until) : null);
+      return;
+    }
     if (until) {
       setEnd(Date.parse(until));
       return;
@@ -827,7 +896,7 @@ function BirthdayTimer({ label, until }: { label: string; until?: string }) {
       }
     }
     setEnd(deadline);
-  }, [until]);
+  }, [until, external]);
   return <Clock label={label} until={end} />;
 }
 

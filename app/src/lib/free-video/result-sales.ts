@@ -594,6 +594,41 @@ export const RESULT_SALES = {
     ],
   },
 
+  /**
+   * The same sales page on the $49 thank-you page (owner 2026-10-28: "the upsell for the $49 offer should be the AI
+   * Media Machine", replacing the Weekly Video Plan). Their video ad is already above, so the page starts with this
+   * headline instead of the video ad block. The headline is a placeholder: the owner will write the final one.
+   */
+  afterUnlock: {
+    /** Owner 2026-10-28 ("10 is much more palatable" than 120 a year); the price moved to the line under it on the copy expert's advice. */
+    /** Owner 2026-10-28 picked the shorter version (10 a month, not 120 a year; the price on the line under it). */
+    title: (name: string) => `${name}, the AI Media Machine made your video ad. What if you could make ${MONTH} more every month, for life?`,
+    /** All 3 experts (Ogilvy, Hormozi, Kennedy, 2026-10-28): no $297 at the top, someone who just paid $49 compares the two first. */
+    sub: 'One payment. No monthly fee.',
+    /** Owner OK'd the panel's changes for THIS page only (2026-10-28): lines written for a stranger, said for a buyer. */
+    salesVideoTitle: 'Watch me open all 12 tools:',
+    priceReason: 'Why $297? Because you already bought from me today.',
+    step3: { title: 'You post your video ad where your customers scroll', text: 'On Facebook, Instagram, YouTube and TikTok.' },
+    scrollText:
+      'How did you find me? Probably through a video on Facebook or YouTube. Your customers are there too, over 2½ hours a day. When your business posts a new video every 3 days, your customers see your business, your products and your website, again and again.',
+    /** The P.S. lines that talk about a free sample with a SAMPLE stamp, said right for someone who just bought the clean video ad. */
+    /**
+     * Once their timer has run out (owner 2026-10-28: "the timer gone, and just say your sale price or limited-time
+     * offer"): the lines that point at the timer, said without it. The timer here runs once per browser, it never restarts.
+     */
+    noTimer: {
+      why: ` ${OFFER.now} is your sale price, a limited-time offer.`,
+      catch: ` None. ${OFFER.now} is a limited-time offer. The regular price of lifetime access is ${OFFER.was}.`,
+      still: `Your sale price of ${OFFER.now} is a limited-time offer. Lifetime access regularly sells for ${OFFER.was}.`,
+      ps3: `Your sale price is ${OFFER.now} instead of ${OFFER.was}, a limited-time offer, with a 30-day money-back guarantee. Get the AI Media Machine before the offer expires.`,
+    },
+    /** P.S. line 3 while the timer runs (owner 2026-10-28: "every cent back" reads like an invite to refund; say "money-back guarantee"). */
+    ps3: `Your sale price is ${OFFER.now} instead of ${OFFER.was}, with a 30-day money-back guarantee. Get the AI Media Machine before the offer expires.`,
+    /** Hormozi's P.S., refined (owner 2026-10-28). */
+    ps1: (name: string, domain: string) => `${name}, your $49 video ad for ${domain} is yours to keep. With the AI Media Machine, your next ${MONTH} video ads are included every month, for life.`,
+    ps2: 'You make them yourself, type any change and get the new version in about 3 minutes, and all 12 tools are yours.',
+  },
+
   ps: {
     p1: (name: string, domain: string) =>
       `${name}, your video ad for ${domain} is a free sample. Your free sample might not be perfect, might need a few changes, and carries a SAMPLE stamp with bluefx.net.`,
