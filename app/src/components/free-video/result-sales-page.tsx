@@ -97,10 +97,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           <h1 id="fv-sales-title" className={cn(s.topTitle, s.afterUnlockTitle)}>
             {RESULT_SALES.afterUnlock.title(firstName)}
           </h1>
-          <p className={s.afterUnlockSub}>
-            {RESULT_SALES.afterUnlock.sub.start} <s className={s.slash}>{RESULT_SALES.afterUnlock.sub.was}</s> {RESULT_SALES.afterUnlock.sub.only} {RESULT_SALES.afterUnlock.sub.now}
-            {RESULT_SALES.afterUnlock.sub.end}
-          </p>
+          <p className={s.afterUnlockSub}>{RESULT_SALES.afterUnlock.sub}</p>
         </section>
       ) : (
       <section className={cn(rp.wrap, s.top)} aria-labelledby="fv-sales-title">
@@ -137,22 +134,27 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </section>
       )}
 
-      <section className={s.hero} aria-labelledby="fv-sales-hero">
+      <section className={s.hero} aria-labelledby={afterUnlock ? undefined : 'fv-sales-hero'}>
         <div className={cn(rp.wrap, s.heroText)}>
-          <p className={cn(s.heroKicker, s.phoneOnly)}>{hero.kicker}</p>
-          <span className={s.heroPill}>{hero.pill}</span>
-          <h2 id="fv-sales-hero" className={s.heroTitle}>
-            {hero.titleLine1}
-            <br />
-            {hero.titleStart}
-            <span className={s.heroMark}>{hero.titleMark}</span>
-            {hero.titleEnd}
-          </h2>
-          <p className={s.heroSub}>
-            {hero.subStart}
-            <strong>{hero.subStrong}</strong>
-            {hero.subEnd}
-          </p>
+          <p className={cn(s.heroKicker, !afterUnlock && s.phoneOnly)}>{hero.kicker}</p>
+          {/* The $49 thank-you page goes straight from the kicker to the video ads (all 3 experts: a second headline fights the first). */}
+          {!afterUnlock && (
+            <>
+              <span className={s.heroPill}>{hero.pill}</span>
+              <h2 id="fv-sales-hero" className={s.heroTitle}>
+                {hero.titleLine1}
+                <br />
+                {hero.titleStart}
+                <span className={s.heroMark}>{hero.titleMark}</span>
+                {hero.titleEnd}
+              </h2>
+              <p className={s.heroSub}>
+                {hero.subStart}
+                <strong>{hero.subStrong}</strong>
+                {hero.subEnd}
+              </p>
+            </>
+          )}
         </div>
         {/* Like the sales page's carousel: a fixed width, the edges fade, arrows on a computer, swipe on a phone. */}
         <div id="fv-sales-reel" className={s.reelWrap}>
@@ -184,7 +186,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-video">
         <h2 id="fv-sales-video" className={rp.h2}>
-          {salesVideo.title}
+          {afterUnlock ? RESULT_SALES.afterUnlock.salesVideoTitle : salesVideo.title}
         </h2>
         <SalesVideo />
         <p className={s.caption}>{salesVideo.caption}</p>
@@ -195,7 +197,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           {price.title}
         </h2>
         <div className={s.priceBox}>
-          <p className={s.priceReason}>{price.reason}</p>
+          <p className={s.priceReason}>{afterUnlock ? RESULT_SALES.afterUnlock.priceReason : price.reason}</p>
           <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={bonus ? view.cleanUntil : undefined} />
           <div className={s.prices}>
             <p className={s.priceRegular}>
@@ -274,7 +276,9 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           {how.title}
         </h2>
         <ol className={rp.steps}>
-          {RESULT_PAGE.how.steps.map((step, index) => (
+          {RESULT_PAGE.how.steps.map((base, index) => {
+            const step = afterUnlock && index === 2 ? { ...base, title: RESULT_SALES.afterUnlock.step3.title, text: () => RESULT_SALES.afterUnlock.step3.text } : base;
+            return (
             <li key={step.title} className={cn(rp.step, step.done && rp.stepDone)}>
               <span className={cn(rp.stepIcon, !step.done && rp.stepIconNext)} aria-hidden="true">
                 {step.done ? <Tick size={18} stroke={3.2} /> : index + 1}
@@ -286,13 +290,14 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
                 <p className={cn(rp.stepNote, step.done && rp.stepNoteDone)}>{step.text(domain)}</p>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ol>
         <div className={s.sceneWrap}>
           <ResultScene domain={domain} />
         </div>
         <h3 className={cn(s.h3, s.subSection, s.leftHead)}>{how.scrollTitle}</h3>
-        <p className={rp.text}>{how.scrollText}</p>
+        <p className={rp.text}>{afterUnlock ? RESULT_SALES.afterUnlock.scrollText : how.scrollText}</p>
         <figure className={s.leads}>
           <Image src={how.leadsImage} alt={how.leadsAlt} width={1320} height={192} sizes="(min-width: 760px) 712px, 100vw" />
           <figcaption>{how.leads}</figcaption>
