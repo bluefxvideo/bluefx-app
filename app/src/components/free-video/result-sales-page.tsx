@@ -85,15 +85,19 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
 
   return (
     <div className={cn(rp.page, s.page)}>
-      <p className={s.banner}>
-        <strong>{banner.strong}</strong> {banner.text} <u>{banner.off}</u> {banner.end}
-      </p>
+      {/* No red banner on the $49 thank-you page (owner 2026-10-28). */}
+      {!afterUnlock && (
+        <p className={s.banner}>
+          <strong>{banner.strong}</strong> {banner.text} <u>{banner.off}</u> {banner.end}
+        </p>
+      )}
 
       {afterUnlock ? (
         <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-title">
           <h1 id="fv-sales-title" className={cn(s.topTitle, s.afterUnlockTitle)}>
             {RESULT_SALES.afterUnlock.title(firstName)}
           </h1>
+          <p className={s.afterUnlockSub}>{RESULT_SALES.afterUnlock.sub}</p>
         </section>
       ) : (
       <section className={cn(rp.wrap, s.top)} aria-labelledby="fv-sales-title">

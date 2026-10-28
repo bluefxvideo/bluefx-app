@@ -217,6 +217,14 @@
   color: var(--ink);
 }
 
+.afterUnlockSub {
+  margin: 12px auto 0;
+  text-align: center;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--green-dark);
+}
+
 .topVideo {
   width: min(300px, 76vw);
 }
