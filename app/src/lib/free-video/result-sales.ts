@@ -620,8 +620,10 @@ export const RESULT_SALES = {
       why: ` ${OFFER.now} is your sale price, a limited-time offer.`,
       catch: ` None. ${OFFER.now} is a limited-time offer. The regular price of lifetime access is ${OFFER.was}.`,
       still: `Your sale price of ${OFFER.now} is a limited-time offer. Lifetime access regularly sells for ${OFFER.was}.`,
-      ps3: `Your sale price is ${OFFER.now} instead of ${OFFER.was}, a limited-time offer, and you have 30 days to get every cent back.`,
+      ps3: `Your sale price is ${OFFER.now} instead of ${OFFER.was}, a limited-time offer, with a 30-day money-back guarantee.`,
     },
+    /** P.S. line 3 while the timer runs (owner 2026-10-28: "every cent back" reads like an invite to refund; say "money-back guarantee"). */
+    ps3: `Your sale price is ${OFFER.now} instead of ${OFFER.was}, with a 30-day money-back guarantee. Get the AI Media Machine before the timer hits zero.`,
     /** Hormozi's P.S., refined (owner 2026-10-28). */
     ps1: (name: string, domain: string) => `${name}, your $49 video ad for ${domain} is yours to keep. With the AI Media Machine, your next ${MONTH} video ads are included every month, for life.`,
     ps2: 'You make them yourself, type any change and get the new version in about 3 minutes, and all 12 tools are yours.',

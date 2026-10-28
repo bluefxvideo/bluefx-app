@@ -539,7 +539,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           <Bold text={afterUnlock ? RESULT_SALES.afterUnlock.ps2 : ps.p2} words={ps.bold} />
         </p>
         <p className={s.body}>
-          <Bold text={noTimer ? T.ps3 : ps.p3} words={ps.bold} />
+          <Bold text={noTimer ? T.ps3 : afterUnlock ? RESULT_SALES.afterUnlock.ps3 : ps.p3} words={ps.bold} />
         </p>
         {written && (
           <p className={s.body}>
