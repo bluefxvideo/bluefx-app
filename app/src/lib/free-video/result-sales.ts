@@ -594,6 +594,18 @@ export const RESULT_SALES = {
     ],
   },
 
+  /**
+   * The same sales page on the $49 thank-you page (owner 2026-10-28: "the upsell for the $49 offer should be the AI
+   * Media Machine", replacing the Weekly Video Plan). Their video ad is already above, so the page starts with this
+   * headline instead of the video ad block. The headline is a placeholder: the owner will write the final one.
+   */
+  afterUnlock: {
+    title: (name: string) => `${name}, what if you had the same software my team used to make your video ad, so you can make ${YEAR} video ads a year yourself?`,
+    /** The P.S. lines that talk about a free sample with a SAMPLE stamp, said right for someone who just bought the clean video ad. */
+    ps1: (name: string, domain: string) => `${name}, your video ad for ${domain} is done. Your next video ad doesn't have to cost $49.`,
+    ps2: `With the AI Media Machine, you make your own video ads, type any change and get the new version in about 3 minutes. You also get all 12 tools and ${MONTH} complete video ads every month, for life.`,
+  },
+
   ps: {
     p1: (name: string, domain: string) =>
       `${name}, your video ad for ${domain} is a free sample. Your free sample might not be perfect, might need a few changes, and carries a SAMPLE stamp with bluefx.net.`,

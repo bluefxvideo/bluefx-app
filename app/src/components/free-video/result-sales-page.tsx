@@ -41,6 +41,8 @@ interface ResultSalesPageProps {
   deadline: { day: string; when: string } | null;
   onPlayWithSound: () => void;
   onComplete: () => void;
+  /** On the $49 thank-you page (owner 2026-10-28): their clean video ad is already above, so the video ad block becomes a headline and the P.S. drops the free-sample lines. */
+  afterUnlock?: boolean;
 }
 
 /**
@@ -48,7 +50,7 @@ interface ResultSalesPageProps {
  * Every button opens ClickBank's checkout through /go (fvres1 price box, fvresads bonus, fvres2 how, fvrestools the 4
  * tool groups, fvres4 old way, fvres5 value table, fvres6 still thinking, fvres3 walkthrough, fvresbar the phone bar).
  */
-export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound, onComplete }: ResultSalesPageProps) {
+export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound, onComplete, afterUnlock = false }: ResultSalesPageProps) {
   const { domain, firstName } = view;
   const videoUrl = view.videoUrl as string;
   const cards = view.nextAds ?? null;
@@ -87,6 +89,13 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         <strong>{banner.strong}</strong> {banner.text} <u>{banner.off}</u> {banner.end}
       </p>
 
+      {afterUnlock ? (
+        <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-title">
+          <h1 id="fv-sales-title" className={cn(s.topTitle, s.afterUnlockTitle)}>
+            {RESULT_SALES.afterUnlock.title(firstName)}
+          </h1>
+        </section>
+      ) : (
       <section className={cn(rp.wrap, s.top)} aria-labelledby="fv-sales-title">
         <div className={s.topVideo}>
           <VideoAdPlayer src={videoUrl} label={PLAYER.label(domain)} onPlayWithSound={onPlayWithSound} onComplete={onComplete} className={rp.heroPlayerFrame} tapToPlay />
@@ -119,6 +128,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         {/* Computer: the styles across the full width under the video ad and the words (owner 2026-10-27). */}
         <StyleStrip className={s.styleStripWide} />
       </section>
+      )}
 
       <section className={s.hero} aria-labelledby="fv-sales-hero">
         <div className={cn(rp.wrap, s.heroText)}>
@@ -506,10 +516,10 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-label="P.S.">
         <p className={s.body}>
-          <strong>P.S.</strong> <Bold text={ps.p1(firstName, domain)} words={ps.bold} />
+          <strong>P.S.</strong> <Bold text={afterUnlock ? RESULT_SALES.afterUnlock.ps1(firstName, domain) : ps.p1(firstName, domain)} words={ps.bold} />
         </p>
         <p className={s.body}>
-          <Bold text={ps.p2} words={ps.bold} />
+          <Bold text={afterUnlock ? RESULT_SALES.afterUnlock.ps2 : ps.p2} words={ps.bold} />
         </p>
         <p className={s.body}>
           <Bold text={ps.p3} words={ps.bold} />

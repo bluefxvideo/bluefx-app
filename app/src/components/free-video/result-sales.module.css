@@ -209,6 +209,14 @@
   text-wrap: balance;
 }
 
+/* The $49 thank-you page: the headline that opens the sales page (their video ad is already above it). */
+.afterUnlockTitle {
+  max-width: 680px;
+  margin: 0 auto;
+  font-size: clamp(24px, 3.4vw, 34px);
+  color: var(--ink);
+}
+
 .topVideo {
   width: min(300px, 76vw);
 }

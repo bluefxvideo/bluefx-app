@@ -14,6 +14,7 @@ import type { UnlockPrice } from '@/lib/free-video/unlock-price';
 import { cn } from '@/lib/utils';
 import type { FreeVideoView } from '@/types/free-video';
 import { LoopVideo, PayCards, ResultScene, Shield, Stars, Tick, VideoReview, videoReviewsOf } from './result-page';
+import { ResultSalesPage } from './result-sales-page';
 import { SaveToPhotos } from './save-to-photos';
 import { VideoAdPlayer } from './video-ad-player';
 import rp from './result-page.module.css';
@@ -114,7 +115,7 @@ export function UnlockPage({ token, initial, price, filesUntil, plan, requested,
       {unlock.state === 'available' && (
         <Offer view={view} token={token} price={price} filesUntil={filesUntil} initialPlan={plan} clicked={clickedAt !== null} onCheckout={onCheckout} onCheck={ask} />
       )}
-      {working && <Unlocking view={view} token={token} requested={requested} trial={trial} preview={preview} />}
+      {working && <Unlocking view={view} token={token} requested={requested} preview={preview} />}
       {unlock.state === 'ready' && <Ready view={view} token={token} requested={requested} trial={trial} preview={preview} changesLeft={changesLeft} onDownload={() => beacon('download')} />}
       {unlock.state === 'failed' && <Note title={UNLOCK_PAGE.failed.title} text={UNLOCK_PAGE.failed.text} />}
       {unlock.state === 'unavailable' && <Note title={UNLOCK_PAGE.closed.title} text={UNLOCK_PAGE.closed.text} link={{ href: `/v/${token}`, label: UNLOCK_PAGE.closed.button }} />}
@@ -873,7 +874,7 @@ function Clock() {
   );
 }
 
-function Unlocking({ view, token, requested, trial, preview }: { view: FreeVideoView; token: string; requested: string[]; trial: boolean; preview: boolean }) {
+function Unlocking({ view, token, requested, preview }: { view: FreeVideoView; token: string; requested: string[]; preview: boolean }) {
   const F = UNLOCK_PAGE.thanks;
   const ai = useAiChanges(token, !preview);
   const running = ai.changes.find((c) => c.status === 'working');
@@ -908,21 +909,24 @@ function Unlocking({ view, token, requested, trial, preview }: { view: FreeVideo
           </div>
         </div>
       </section>
-      {trial ? (
-        <ThanksOffer view={view} token={token} kicker={F.kickerPaid} preview={preview} />
-      ) : (
-        <section className={s.section}>
-          <div className={s.narrow}>
-            <PlanCard view={view} token={token} />
-          </div>
-        </section>
-      )}
+      <AimmUpsell view={view} token={token} />
     </>
   );
 }
 
-/** The Weekly Video Plan offer after the $49 payment (owner 2026-10-27, rebuilt after the 3-expert review): the offer names itself first. */
-function ThanksOffer({ view, token, kicker, preview = false }: { view: FreeVideoView; token: string; kicker: string; preview?: boolean }) {
+/**
+ * The upsell after the $49 payment (owner 2026-10-28): the AI Media Machine's full sales page from the result page,
+ * replacing the Weekly Video Plan ("people buy the $49 easily, and then they easily buy the $297"). No 3-day bonus here
+ * (they already own the clean video ad), so the price clock is the sales page's own. Its buttons carry the lead's id in
+ * ClickBank's tracking id, so a sale from this page shows up on the $49 buyer.
+ */
+function AimmUpsell({ view, token }: { view: FreeVideoView; token: string }) {
+  const none = useCallback(() => undefined, []);
+  return <ResultSalesPage view={view} token={token} bonus={false} deadline={null} onPlayWithSound={none} onComplete={none} afterUnlock />;
+}
+
+/** The Weekly Video Plan offer after the $49 payment (owner 2026-10-27, rebuilt after the 3-expert review): the offer names itself first. Off the page since 2026-10-28 (AimmUpsell); kept to switch back. */
+export function WeeklyPlanOffer({ view, token, kicker, preview = false }: { view: FreeVideoView; token: string; kicker: string; preview?: boolean }) {
   const F = UNLOCK_PAGE.thanks;
   const [declined, setDeclined] = useState(false);
   const planned = (view.nextAds ?? []).slice(0, 3);
@@ -1125,10 +1129,9 @@ function Ready({ view, token, requested, trial, preview, changesLeft, onDownload
             </div>
           )}
           <ChangesPanel token={token} ai={ai} changesLeft={changesLeft} startOpen={!trial} justDone={Boolean(newest) && !picked} />
-          {!trial && <PlanCard view={view} token={token} />}
         </div>
       </section>
-      {trial && <ThanksOffer view={view} token={token} kicker={UNLOCK_PAGE.thanks.kickerReady} preview={preview} />}
+      <AimmUpsell view={view} token={token} />
     </>
   );
 }
@@ -1427,7 +1430,8 @@ function ChangeBox({ token, initialLeft, collapsible = false }: { token: string;
   );
 }
 
-function PlanCard({ view, token }: { view: FreeVideoView; token: string }) {
+/** The small Weekly Video Plan card. Off the page since 2026-10-28 (AimmUpsell); kept to switch back. */
+export function WeeklyPlanCard({ view, token }: { view: FreeVideoView; token: string }) {
   const F = UNLOCK_PAGE.plan;
   return (
     <div className={s.upsell}>
