@@ -620,7 +620,7 @@ export const RESULT_SALES = {
       why: ` ${OFFER.now} is your sale price, a limited-time offer.`,
       catch: ` None. ${OFFER.now} is a limited-time offer. The regular price of lifetime access is ${OFFER.was}.`,
       still: `Your sale price of ${OFFER.now} is a limited-time offer. Lifetime access regularly sells for ${OFFER.was}.`,
-      ps3: `Your sale price is ${OFFER.now} instead of ${OFFER.was}, a limited-time offer, with a 30-day money-back guarantee.`,
+      ps3: `Your sale price is ${OFFER.now} instead of ${OFFER.was}, a limited-time offer, with a 30-day money-back guarantee. Get the AI Media Machine before the offer expires.`,
     },
     /** P.S. line 3 while the timer runs (owner 2026-10-28: "every cent back" reads like an invite to refund; say "money-back guarantee"). */
     ps3: `Your sale price is ${OFFER.now} instead of ${OFFER.was}, with a 30-day money-back guarantee. Get the AI Media Machine before the timer hits zero.`,
