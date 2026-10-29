@@ -223,7 +223,8 @@
 }
 
 @media (min-width: 860px) {
-  .section:has(> .afterUnlockTitle) {
+  /* section.section: stronger than the result page's .narrow width, whichever stylesheet loads last in production. */
+  section.section:has(> .afterUnlockTitle) {
     max-width: 980px;
   }
 
