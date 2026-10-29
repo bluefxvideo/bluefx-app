@@ -1098,46 +1098,47 @@ function Ready({ view, token, requested, trial, preview, changesLeft, onDownload
   return (
     <>
       <section className={cn(s.section, s.thanksTop)}>
-        <div className={s.narrow}>
+        <div className={cn(s.narrow, s.readyWide)}>
           <h1 className={cn(s.title, s.center, s.readyTitle)}>{F.title}</h1>
-          <div className={cn(s.readyVideo, trial && s.readyVideoSmall)}>
-            <VideoAdPlayer key={clean} src={clean} label={PLAYER.label(view.domain)} className={rp.heroPlayerFrame} tapToPlay />
-          </div>
-          {versions.length > 1 && (
-            <p className={s.versions}>
-              {UNLOCK_PAGE.changes.versions}{' '}
-              {versions.map((v) => (
-                <button key={v.url} type="button" className={cn(s.versionLink, v.url === clean && s.versionOn)} onClick={() => setPicked(v.url)}>
-                  {v.label}
-                </button>
-              ))}
-            </p>
-          )}
-          <a className={trial ? s.downloadQuiet : s.button} href={download} onClick={onDownload} download>
-            {trial && <Download size={17} strokeWidth={2.5} aria-hidden="true" />} {F.button}
-          </a>
-          <SaveToPhotos url={clean} fileName={DOWNLOAD.cleanFileName(view.domain)} onSaved={onDownload} variant="link" />
-          {requested.length > 0 && (
-            <div className={s.chatPlan}>
-              <p>
-                <b>{F.requestedTitle}</b>
-              </p>
-              {requested.map((r) => (
-                <p key={r} className={s.requestedText}>
-                  {r}
+          {/* Owner 2026-10-29: on a computer the video and the change tool sit side by side, so the offer below shows sooner. */}
+          <div className={s.readyGrid}>
+            <div className={s.readyLeft}>
+              <div className={cn(s.readyVideo, trial && s.readyVideoSmall)}>
+                <VideoAdPlayer key={clean} src={clean} label={PLAYER.label(view.domain)} className={rp.heroPlayerFrame} tapToPlay />
+              </div>
+              {versions.length > 1 && (
+                <p className={s.versions}>
+                  {UNLOCK_PAGE.changes.versions}{' '}
+                  {versions.map((v) => (
+                    <button key={v.url} type="button" className={cn(s.versionLink, v.url === clean && s.versionOn)} onClick={() => setPicked(v.url)}>
+                      {v.label}
+                    </button>
+                  ))}
                 </p>
-              ))}
-              <p className={s.chatNote}>{F.requestedNote}</p>
+              )}
+              <a className={trial ? s.downloadQuiet : s.button} href={download} onClick={onDownload} download>
+                {trial && <Download size={17} strokeWidth={2.5} aria-hidden="true" />} {F.button}
+              </a>
+              <SaveToPhotos url={clean} fileName={DOWNLOAD.cleanFileName(view.domain)} onSaved={onDownload} variant="link" />
             </div>
-          )}
-          {/* Owner 2026-10-29: buyers all use the change tool, so it is open right under the video, never folded behind a link. */}
-          <ChangesPanel token={token} ai={ai} changesLeft={changesLeft} startOpen justDone={Boolean(newest) && !picked} />
-          {/* Owner 2026-10-29: with the change tool open, buyers must still see the offer below: a red hand-drawn arrow points at it. */}
-          {!view.isCustomer && (
-            <div className={s.offerArrow}>
-              <ArrowNote text="" />
+            <div className={s.readyRight}>
+              {requested.length > 0 && (
+                <div className={s.chatPlan}>
+                  <p>
+                    <b>{F.requestedTitle}</b>
+                  </p>
+                  {requested.map((r) => (
+                    <p key={r} className={s.requestedText}>
+                      {r}
+                    </p>
+                  ))}
+                  <p className={s.chatNote}>{F.requestedNote}</p>
+                </div>
+              )}
+              {/* Owner 2026-10-29: buyers all use the change tool, so it is open right under the video, never folded behind a link. */}
+              <ChangesPanel token={token} ai={ai} changesLeft={changesLeft} startOpen justDone={Boolean(newest) && !picked} />
             </div>
-          )}
+          </div>
         </div>
       </section>
       <AimmUpsell view={view} token={token} />
@@ -1258,6 +1259,8 @@ function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [human, setHuman] = useState(false);
+  /** Phones only (owner 2026-10-29, expert panel): the two ways start as two big buttons, so the offer below comes up sooner. */
+  const [unfolded, setUnfolded] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const running = ai.changes.find((c) => c.status === 'working');
   const last = ai.changes[ai.changes.length - 1];
@@ -1327,6 +1330,17 @@ function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: 
       </p>
       {justDone && <p className={s.aiDone}>{F.doneNote}</p>}
       {last?.status === 'failed' && <p className={s.aiDone}>{F.failed}</p>}
+      {!unfolded && (
+        <div className={s.changeChoices}>
+          <button type="button" className={s.choiceMine} onClick={() => setUnfolded(true)}>
+            {F.choiceMine} <small>{F.choiceMineTime}</small>
+          </button>
+          <button type="button" className={s.choiceTeam} onClick={() => (setHuman(true), setUnfolded(true))}>
+            {F.choiceTeam} <small>{F.choiceTeamTime}</small>
+          </button>
+        </div>
+      )}
+      <div className={cn(s.changeWays, !unfolded && s.changeWaysFolded)}>
       <div className={cn(s.changeWay, s.changeWayMain)}>
         <p className={s.changeWayTitle}>
           <Sparkles size={16} strokeWidth={2.5} aria-hidden="true" /> {F.instantTitle}
@@ -1362,6 +1376,7 @@ function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: 
             {F.humanButton}
           </button>
         )}
+      </div>
       </div>
     </div>
   );

@@ -319,6 +319,11 @@ export const UNLOCK_PAGE = {
     humanTitle: 'Need human help? A team member makes the changes for you',
     humanNote: 'Up to 24 hours. Your changed video ad comes back by email.',
     humanButton: 'Ask My Team Instead',
+    /** Phones: the two ways as two big buttons first (expert panel 2026-10-29). */
+    choiceMine: 'Change It Myself',
+    choiceMineTime: '5 to 10 min',
+    choiceTeam: 'Ask My Team',
+    choiceTeamTime: 'up to 24 hours',
     filesButton: 'Add photos, your logo or video clips',
     filesLimit: 'Up to 5 files, 100 MB each. Photos (JPG, PNG, HEIC) and videos (MP4, MOV).',
     filesTooBig: (names: string) => `Too big (over 100 MB): ${names}`,

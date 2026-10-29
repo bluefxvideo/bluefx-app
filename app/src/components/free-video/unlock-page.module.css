@@ -3368,24 +3368,6 @@
   background: #f5faef;
 }
 
-.offerArrow {
-  display: flex;
-  justify-content: center;
-  margin: 4px 0 -34px;
-  position: relative;
-  z-index: 1;
-}
-
-/* Mirrored so it sweeps from the right and its tip points down-left, at the red words of the headline below. */
-.offerArrow .arrowNote {
-  transform: translateX(34px) scaleX(-1);
-}
-
-.offerArrow .arrowSvg {
-  width: 88px;
-  height: 70px;
-}
-
 .changesHead {
   margin: 14px 0 0;
   text-align: center;
@@ -3591,4 +3573,186 @@
   .readyVideoSmall {
     width: 280px;
   }
+}
+
+/* Paid page (owner 2026-10-29): video and change tool side by side on a computer, so the offer below shows sooner. */
+.readyGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.readyLeft,
+.readyRight {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.readyLeft {
+  align-items: center;
+}
+
+
+@media (min-width: 860px) {
+  .readyWide {
+    max-width: 980px;
+  }
+
+  .readyGrid {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 36px;
+    align-items: start;
+  }
+
+  .readyRight .changesHead {
+    margin-top: 0;
+    text-align: left;
+    font-size: 20px;
+  }
+
+  /* Owner 2026-10-29 ("tidy up the laptop version"): a tighter first screen so the offer headline, red words included,
+     shows on a 13-inch laptop too. */
+  .thanksTop:has(.readyGrid) {
+    padding-top: 10px;
+    padding-bottom: 6px;
+  }
+
+  .readyWide {
+    gap: 12px;
+  }
+
+  .readyLeft .readyVideoSmall {
+    width: 205px;
+  }
+
+  .readyRight .changesPanel {
+    gap: 10px;
+  }
+
+  .readyRight .changeWay {
+    gap: 6px;
+    padding: 12px 14px;
+  }
+
+  .readyRight .box {
+    min-height: 0;
+    height: 76px;
+  }
+
+  /* The team box as one row: face, title and note on the left, the button on the right. */
+  .readyRight .changeWay:not(.changeWayMain) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 14px;
+    row-gap: 2px;
+    align-items: center;
+  }
+
+  .readyRight .changeWay:not(.changeWayMain) > :last-child {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .readyRight .humanFace {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* Phones: the change tool starts as two big buttons (2026-10-29); computers keep both boxes open. */
+.changeChoices {
+  display: none;
+}
+
+.changeWays {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 859px) {
+  .changeChoices {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .thanksTop:has(.changeChoices) {
+    padding-top: 10px;
+    padding-bottom: 8px;
+  }
+
+  /* Owner 2026-10-29: tighter top on the paid page so the offer headline's red words show on a phone's first screen. */
+  .thanksTop:has(.changeChoices) .readyWide,
+  .thanksTop:has(.changeChoices) .readyGrid {
+    gap: 10px;
+  }
+
+  .thanksTop:has(.changeChoices) .readyTitle {
+    font-size: 22px;
+  }
+
+  .thanksTop:has(.changeChoices) .readyVideoSmall {
+    width: min(165px, 44vw);
+  }
+
+  .thanksTop:has(.changeChoices) .downloadQuiet {
+    padding: 8px 18px;
+  }
+
+  .thanksTop:has(.changeChoices) .changesPanel {
+    gap: 8px;
+  }
+
+  .thanksTop:has(.changeChoices) .changesHead {
+    margin-top: 0;
+    font-size: 19px;
+  }
+
+  /* Owner 2026-10-29: slimmer buttons on phones so the offer headline starts to show on the first screen. */
+  .changesHead {
+    margin-top: 6px;
+    font-size: 20px;
+  }
+
+  .changeWaysFolded {
+    display: none;
+  }
+}
+
+.choiceMine,
+.choiceTeam {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.choiceMine small,
+.choiceTeam small {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.choiceMine {
+  border: 0;
+  background: #47801c;
+  color: #ffffff;
+}
+
+.choiceTeam {
+  border: 2px solid #143d70;
+  background: #ffffff;
+  color: #143d70;
 }
