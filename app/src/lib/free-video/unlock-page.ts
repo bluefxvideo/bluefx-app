@@ -307,6 +307,8 @@ export const UNLOCK_PAGE = {
   /** The two ways to change a paid video ad (owner 2026-10-27): 3 instant AI changes, the team always available. */
   changes: {
     open: 'Want something changed? Tap here',
+    /** The heading over the open change tool on the paid page (owner 2026-10-29: "hard to see, easy to miss"). */
+    panelTitle: 'Want something changed? Change it right here',
     instantTitle: 'Instant: our AI engine makes your change right here',
     instantNote: (left: number) => `About 5 to 10 minutes. You have ${left} of 3 instant changes left.`,
     instantNone: 'You used your 3 instant changes. My team makes any other change for you.',

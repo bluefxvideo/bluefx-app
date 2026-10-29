@@ -1130,7 +1130,8 @@ function Ready({ view, token, requested, trial, preview, changesLeft, onDownload
               <p className={s.chatNote}>{F.requestedNote}</p>
             </div>
           )}
-          <ChangesPanel token={token} ai={ai} changesLeft={changesLeft} startOpen={!trial} justDone={Boolean(newest) && !picked} />
+          {/* Owner 2026-10-29: buyers all use the change tool, so it is open right under the video, never folded behind a link. */}
+          <ChangesPanel token={token} ai={ai} changesLeft={changesLeft} startOpen justDone={Boolean(newest) && !picked} />
         </div>
       </section>
       <AimmUpsell view={view} token={token} />
@@ -1315,6 +1316,7 @@ function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: 
   }
   return (
     <div className={s.changesPanel}>
+      <p className={s.changesHead}>{F.panelTitle}</p>
       {justDone && <p className={s.aiDone}>{F.doneNote}</p>}
       {last?.status === 'failed' && <p className={s.aiDone}>{F.failed}</p>}
       <div className={s.changeWay}>

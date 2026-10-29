@@ -3362,9 +3362,19 @@
   background: #ffffff;
 }
 
-.changeWay:first-child {
+.changeWay:first-of-type {
   border: 2px solid #47801c;
   background: #f5faef;
+}
+
+.changesHead {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.2;
+  color: var(--ink);
+  text-wrap: balance;
 }
 
 .changeWayTitle {
@@ -3378,8 +3388,8 @@
 }
 
 .instantButton {
-  align-self: flex-start;
-  padding: 11px 18px;
+  align-self: stretch;
+  padding: 14px 18px;
   border: 0;
   border-radius: 10px;
   background: #47801c;
