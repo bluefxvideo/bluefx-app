@@ -2349,3 +2349,8 @@
     font-size: 15px;
   }
 }
+
+/* Owner 2026-10-29: red words in the $49 thank-you page's offer headline. */
+.titleRed {
+  color: #c0271c;
+}

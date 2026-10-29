@@ -3362,9 +3362,28 @@
   background: #ffffff;
 }
 
-.changeWay:first-of-type {
+.changeWay:first-of-type,
+.changeWayMain {
   border: 2px solid #47801c;
   background: #f5faef;
+}
+
+.offerArrow {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0 -34px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Mirrored so it sweeps from the right and its tip points down-left, at the red words of the headline below. */
+.offerArrow .arrowNote {
+  transform: translateX(34px) scaleX(-1);
+}
+
+.offerArrow .arrowSvg {
+  width: 88px;
+  height: 70px;
 }
 
 .changesHead {

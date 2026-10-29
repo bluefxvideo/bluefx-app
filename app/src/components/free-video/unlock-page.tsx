@@ -680,7 +680,7 @@ function ArrowNote({ text }: { text: string }) {
   }, []);
   return (
     <div ref={ref} className={cn(s.arrowNote, shown && s.arrowShown)} aria-hidden="true">
-      <span className={cn(caveat.className, s.arrowText)}>{text}</span>
+      {text && <span className={cn(caveat.className, s.arrowText)}>{text}</span>}
       <svg className={s.arrowSvg} viewBox="0 0 90 70" fill="none">
         <path d="M6 6 C 40 4, 70 18, 72 52" stroke="#c0271c" strokeWidth="3.5" strokeLinecap="round" />
         <path d="M60 42 L72 56 L82 41" stroke="#c0271c" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -1132,6 +1132,12 @@ function Ready({ view, token, requested, trial, preview, changesLeft, onDownload
           )}
           {/* Owner 2026-10-29: buyers all use the change tool, so it is open right under the video, never folded behind a link. */}
           <ChangesPanel token={token} ai={ai} changesLeft={changesLeft} startOpen justDone={Boolean(newest) && !picked} />
+          {/* Owner 2026-10-29: with the change tool open, buyers must still see the offer below: a red hand-drawn arrow points at it. */}
+          {!view.isCustomer && (
+            <div className={s.offerArrow}>
+              <ArrowNote text="" />
+            </div>
+          )}
         </div>
       </section>
       <AimmUpsell view={view} token={token} />
@@ -1316,10 +1322,12 @@ function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: 
   }
   return (
     <div className={s.changesPanel}>
-      <p className={s.changesHead}>{F.panelTitle}</p>
+      <p className={s.changesHead}>
+        {F.panelTitle} {F.panelTitleRed}
+      </p>
       {justDone && <p className={s.aiDone}>{F.doneNote}</p>}
       {last?.status === 'failed' && <p className={s.aiDone}>{F.failed}</p>}
-      <div className={s.changeWay}>
+      <div className={cn(s.changeWay, s.changeWayMain)}>
         <p className={s.changeWayTitle}>
           <Sparkles size={16} strokeWidth={2.5} aria-hidden="true" /> {F.instantTitle}
         </p>
