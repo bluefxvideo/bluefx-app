@@ -217,6 +217,28 @@
   color: var(--ink);
 }
 
+/* Owner 2026-10-29: the headline starts to show on the first screen of the paid page (phone and laptop). */
+.section:has(> .afterUnlockTitle) {
+  padding-top: 20px;
+}
+
+@media (min-width: 860px) {
+  /* section.section: stronger than the result page's .narrow width, whichever stylesheet loads last in production. */
+  section.section:has(> .afterUnlockTitle) {
+    max-width: 980px;
+  }
+
+  .afterUnlockTitle {
+    max-width: 900px;
+  }
+}
+
+@media (max-width: 859px) {
+  .section:has(> .afterUnlockTitle) {
+    padding-top: 16px;
+  }
+}
+
 .afterUnlockSub {
   margin: 12px auto 0;
   text-align: center;
@@ -2348,4 +2370,9 @@
   .styleStripWide .styleMore {
     font-size: 15px;
   }
+}
+
+/* Owner 2026-10-29: red words in the $49 thank-you page's offer headline. */
+.titleRed {
+  color: #c0271c;
 }

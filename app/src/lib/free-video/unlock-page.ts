@@ -307,6 +307,9 @@ export const UNLOCK_PAGE = {
   /** The two ways to change a paid video ad (owner 2026-10-27): 3 instant AI changes, the team always available. */
   changes: {
     open: 'Want something changed? Tap here',
+    /** The heading over the open change tool on the paid page (owner 2026-10-29: "hard to see, easy to miss"). */
+    panelTitle: 'Want something changed?',
+    panelTitleRed: 'Change it right here',
     instantTitle: 'Instant: our AI engine makes your change right here',
     instantNote: (left: number) => `About 5 to 10 minutes. You have ${left} of 3 instant changes left.`,
     instantNone: 'You used your 3 instant changes. My team makes any other change for you.',
@@ -316,6 +319,11 @@ export const UNLOCK_PAGE = {
     humanTitle: 'Need human help? A team member makes the changes for you',
     humanNote: 'Up to 24 hours. Your changed video ad comes back by email.',
     humanButton: 'Ask My Team Instead',
+    /** Phones: the two ways as two big buttons first (expert panel 2026-10-29). */
+    choiceMine: 'Change It Myself',
+    choiceMineTime: '5 to 10 min',
+    choiceTeam: 'Ask My Team',
+    choiceTeamTime: 'up to 24 hours',
     filesButton: 'Add photos, your logo or video clips',
     filesLimit: 'Up to 5 files, 100 MB each. Photos (JPG, PNG, HEIC) and videos (MP4, MOV).',
     filesTooBig: (names: string) => `Too big (over 100 MB): ${names}`,

@@ -100,7 +100,13 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       {afterUnlock ? (
         <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-title">
           <h1 id="fv-sales-title" className={cn(s.topTitle, s.afterUnlockTitle)}>
-            {RESULT_SALES.afterUnlock.title(firstName)}
+            {(([lead, red, end]) => (
+              <>
+                {lead}
+                <span className={s.titleRed}>{red}</span>
+                {end}
+              </>
+            ))(RESULT_SALES.afterUnlock.titleParts(firstName))}
           </h1>
           <p className={s.afterUnlockSub}>{RESULT_SALES.afterUnlock.sub}</p>
         </section>

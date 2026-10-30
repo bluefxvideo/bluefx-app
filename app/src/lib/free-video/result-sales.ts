@@ -603,6 +603,8 @@ export const RESULT_SALES = {
     /** Owner 2026-10-28 ("10 is much more palatable" than 120 a year); the price moved to the line under it on the copy expert's advice. */
     /** Owner 2026-10-28 picked the shorter version (10 a month, not 120 a year; the price on the line under it). */
     title: (name: string) => `${name}, the AI Media Machine made your video ad. What if you could make ${MONTH} more every month, for life?`,
+    /** Owner 2026-10-29: "the headline needs a bit of red on some words plus an arrow": the same headline in 3 parts, the middle one red. */
+    titleParts: (name: string) => [`${name}, the AI Media Machine made your video ad. What if you could make `, `${MONTH} more every month, for life`, '?'] as const,
     /** All 3 experts (Ogilvy, Hormozi, Kennedy, 2026-10-28): no $297 at the top, someone who just paid $49 compares the two first. */
     sub: 'One payment. No monthly fee.',
     /** Owner OK'd the panel's changes for THIS page only (2026-10-28): lines written for a stranger, said for a buyer. */
