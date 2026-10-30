@@ -5,6 +5,8 @@ import { LISTING_INSTRUCTIONS_MAX, type ListingOptions } from '@/lib/smart-video
 
 export const SMART_VIDEO_MAX_FILES = 15;
 export const SMART_VIDEO_MAX_FILE_MB = 100;
+/** The longest text a client can give the Phantom: the main box, a change, and who should be on camera. */
+export const SMART_VIDEO_TEXT_MAX = 8000;
 
 export const SmartVideoUploadRequestSchema = z.object({
   files: z
@@ -14,7 +16,7 @@ export const SmartVideoUploadRequestSchema = z.object({
 
 export const SmartVideoStartSchema = z.object({
   jobId: z.string().uuid(),
-  brief: z.string().max(8000),
+  brief: z.string().max(SMART_VIDEO_TEXT_MAX),
   length: z.enum(VIDEO_LENGTHS).default('auto'),
   format: z.enum(VIDEO_FORMATS).default('vertical'),
   // 'auto' = The Phantom picks the look (the default); otherwise the client's pick.
@@ -43,7 +45,8 @@ export const SMART_VIDEO_MAX_EDIT_FILES = 5;
 export const SmartVideoReviseSchema = z
   .object({
     jobId: z.string().uuid(),
-    note: z.string().trim().max(1500),
+    // As long as the main box (owner 2026-10-30: a client's 2,200-character change list hit the old limits).
+    note: z.string().trim().max(SMART_VIDEO_TEXT_MAX, `A change can be up to ${SMART_VIDEO_TEXT_MAX.toLocaleString('en-US')} characters`),
     // Voice-over and music as the client wants them in the new version; absent = as they are.
     voiceOver: z.boolean().optional(),
     music: z.boolean().optional(),
@@ -52,7 +55,7 @@ export const SmartVideoReviseSchema = z
     uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_EDIT_FILES).default([]),
     // "Change the presenter" (or "Add a presenter") ticked: who should be on camera, in words, and/or the client's own
     // photo of the person (uploaded like the edit's files). Both absent = not ticked.
-    presenter: z.string().trim().max(300).optional(),
+    presenter: z.string().trim().max(SMART_VIDEO_TEXT_MAX, `A change can be up to ${SMART_VIDEO_TEXT_MAX.toLocaleString('en-US')} characters`).optional(),
     presenterPhoto: z.object({ name: z.string().max(200), path: z.string().max(500) }).optional(),
     // With a photo on a video that has a presenter: true films the photo as it is; absent = the client takes the
     // current presenter's place (same place, clothes and pose; owner 2026-10-23).
