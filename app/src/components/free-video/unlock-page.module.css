@@ -3890,9 +3890,9 @@
   background: transparent;
   padding: 0;
   font: inherit;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
-  color: var(--green, #3f7a1f);
+  color: #2f5f12;
   text-decoration: underline;
   text-underline-offset: 4px;
   cursor: pointer;
