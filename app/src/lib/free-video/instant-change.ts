@@ -19,7 +19,7 @@ import type { SmartVideoJob } from '@/types/smart-video';
  * newest finished version. A full style switch is not an instant change (hit or miss in the engine): the page sends
  * those to the team. Each change is an 'ai_change' event on the lead (meta: the job id, the text, the round).
  */
-export const AI_CHANGES = 3;
+export const AI_CHANGES = 5;
 /** The files a buyer may add to one change: the app's own edit limits (types/smart-video.ts). */
 export const CHANGE_MAX_FILES = 5;
 export const CHANGE_MAX_FILE_MB = 100;
@@ -91,22 +91,88 @@ export async function aiChangesOf(lead: FreeVideoLead): Promise<AiChange[]> {
   const settings = await readSettings(true);
   const userId = settings?.system_user_id;
   const out: AiChange[] = [];
-  for (const row of (data ?? []) as Array<{ meta: { jobId?: string; text?: string; round?: number }; at: string }>) {
-    const jobId = row.meta?.jobId;
-    if (!jobId || !userId) continue;
-    const job = await readJob(userId, jobId).catch(() => null);
-    const failed = !job || job.status === 'failed' || isDead(job);
-    out.push({
-      round: row.meta.round ?? out.length + 1,
-      text: row.meta.text ?? '',
-      jobId,
-      status: job?.status === 'done' ? 'done' : failed ? 'failed' : 'working',
-      progress: job?.status === 'rendering' ? job.renderProgress ?? 0 : job?.status === 'finishing' || job?.status === 'done' ? 100 : 0,
-      videoUrl: job?.status === 'done' ? job.videoUrl ?? null : null,
-      at: row.at,
-    });
+  for (const row of (data ?? []) as ChangeRow[]) {
+    const change = await changeOfRow(userId, row, out.length + 1);
+    if (change) out.push(change);
   }
   return out;
+}
+
+type ChangeRow = { meta: { jobId?: string; text?: string; round?: number }; at: string };
+
+async function changeOfRow(userId: string | null | undefined, row: ChangeRow, round: number): Promise<AiChange | null> {
+  const jobId = row.meta?.jobId;
+  if (!jobId || !userId) return null;
+  const job = await readJob(userId, jobId).catch(() => null);
+  const failed = !job || job.status === 'failed' || isDead(job);
+  return {
+    round: row.meta.round ?? round,
+    text: row.meta.text ?? '',
+    jobId,
+    status: job?.status === 'done' ? 'done' : failed ? 'failed' : 'working',
+    progress: job?.status === 'rendering' ? job.renderProgress ?? 0 : job?.status === 'finishing' || job?.status === 'done' ? 100 : 0,
+    videoUrl: job?.status === 'done' ? job.videoUrl ?? null : null,
+    at: row.at,
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
+// The free change (owner 2026-10-31/11-01): before paying, a visitor sees ONE change of their list made by the same
+// engine, with the SAMPLE watermark kept ("Need a change? Try one for free"). It is an 'ai_preview' event, not an
+// 'ai_change', so it never counts against the paid instant changes. Anything may change except a whole new style
+// (hit or miss in the engine: those go to the team after payment). Paying after it: the clean version is the
+// changed ad without the watermark (unlock.ts renderAndStore), and later changes build on it.
+// ---------------------------------------------------------------------------------------------
+
+/** The lead's free change (the newest one that did not fail, else the newest), or null. Throws on a database error. */
+export async function freeChangeOf(lead: FreeVideoLead): Promise<AiChange | null> {
+  const { data, error } = await eventsTable().select('meta, at').eq('lead_id', lead.id).eq('event', 'ai_preview').order('at', { ascending: false }).limit(5);
+  if (error) throw new Error(`free change not read: ${error.message}`);
+  const settings = await readSettings(true);
+  const all: AiChange[] = [];
+  for (const row of (data ?? []) as ChangeRow[]) {
+    const change = await changeOfRow(settings?.system_user_id, row, 0);
+    if (change) all.push(change);
+  }
+  return all.find((c) => c.status !== 'failed') ?? all[0] ?? null;
+}
+
+export type FreeChangeRefusal = 'paid' | 'used' | 'style' | 'notReady' | 'noList';
+
+/** Why this lead may not start its free change now, or null. A failed free change may be tried again. */
+export function freeChangeRefusal(lead: FreeVideoLead, free: AiChange | null, text: string): FreeChangeRefusal | null {
+  if (lead.unlock_status !== 'none') return 'paid';
+  if (lead.status !== 'done' || !lead.job_id) return 'notReady';
+  if (!text.trim()) return 'noList';
+  if (free && free.status !== 'failed') return 'used';
+  if (wantsNewStyle(text)) return 'style';
+  return null;
+}
+
+/** Starts the free change from the lead's saved change list; `run` goes to the caller's after(). */
+export async function startFreeChange(lead: FreeVideoLead, text: string): Promise<{ jobId: string; run: () => Promise<void> }> {
+  const settings = await readSettings(true);
+  const userId = settings?.system_user_id;
+  if (!userId || !lead.job_id) throw new Error('No system user or job for the free change');
+  const now = new Date().toISOString();
+  const job: SmartVideoJob = { id: randomUUID(), userId, status: 'directing', brief: '', parentId: lead.job_id, note: text, createdAt: now, updatedAt: now, freeLeadId: lead.id };
+  await createJob(job);
+  await recordEvent({ event: 'ai_preview', leadId: lead.id, ref: lead.ref, meta: { jobId: job.id, text } });
+  return { jobId: job.id, run: () => runAiChange(job, lead.job_id as string, lead, text, 0, [], true) };
+}
+
+/** After the free change: the "ready" email, and a clean render that waited for it (the visitor paid meanwhile). */
+async function afterFreeChange(leadId: string): Promise<void> {
+  const { getLead } = await import('@/lib/free-video/leads');
+  const lead = await getLead(leadId);
+  if (!lead) return;
+  if (lead.unlock_status === 'paid') {
+    const { startCleanRender } = await import('@/lib/free-video/unlock');
+    startCleanRender(lead.id);
+    return;
+  }
+  const { sendFreeChangeReady } = await import('@/lib/free-video/notify');
+  await sendFreeChangeReady(lead);
 }
 
 export type AiChangeRefusal = 'notPaid' | 'noneLeft' | 'busy' | 'style';
@@ -133,7 +199,8 @@ export async function startAiChange(
   const settings = await readSettings(true);
   const userId = settings?.system_user_id;
   if (!userId || !lead.job_id) throw new Error('No system user or job for the change');
-  const base = [...changes].reverse().find((c) => c.status === 'done')?.jobId ?? lead.job_id;
+  const free = await freeChangeOf(lead).catch(() => null);
+  const base = [...changes].reverse().find((c) => c.status === 'done')?.jobId ?? (free?.status === 'done' ? free.jobId : null) ?? lead.job_id;
   const now = new Date().toISOString();
   const id = files.uploads.length && files.uploadJobId ? files.uploadJobId : randomUUID();
   const job: SmartVideoJob = { id, userId, status: 'directing', brief: '', parentId: base, note: text, createdAt: now, updatedAt: now, freeLeadId: lead.id };
@@ -143,7 +210,7 @@ export async function startAiChange(
   return { jobId: job.id, run: () => runAiChange(job, base, lead, text, round, files.uploads) };
 }
 
-async function runAiChange(start: SmartVideoJob, baseId: string, lead: FreeVideoLead, text: string, round: number, uploads: ChangeUpload[]): Promise<void> {
+async function runAiChange(start: SmartVideoJob, baseId: string, lead: FreeVideoLead, text: string, round: number, uploads: ChangeUpload[], free = false): Promise<void> {
   let job = start;
   const heartbeat = setInterval(() => touchJob(job.id).catch(() => undefined), 45_000);
   try {
@@ -171,16 +238,29 @@ async function runAiChange(start: SmartVideoJob, baseId: string, lead: FreeVideo
       { presenter: presenterWords(text) || undefined }
     );
     const result = withSubtitleLook(revised, saved, text);
-    // The buyer paid for the clean version: never the SAMPLE watermark or the end card.
+    // The buyer paid for the clean version: never the SAMPLE watermark or the end card. The free change keeps it.
     const props = { ...result.props };
     delete (props as Record<string, unknown>).watermark;
-    await finish(job, { ...result, props }, saved.brief || '', (next) => {
+    // The free change renders exactly like a free video ad: presenter-only subtitles, the SAMPLE watermark, the end
+    // card, at the free size (runner.ts freeRender). Without this it came out clean and in HD (test 2026-11-01).
+    const { freeRender } = await import('@/lib/free-video/runner');
+    const { FREE_RENDER_SCALE } = await import('@/lib/free-video/config');
+    const out = free ? freeRender({ ...result, props }) : { ...result, props };
+    await finish(job, out, saved.brief || '', (next) => {
       job = next;
-    });
-    console.log(`✅ [free-video] Instant change ${round} for lead ${lead.id} (${lead.website_domain}) done`);
+    }, free ? FREE_RENDER_SCALE : 1);
+    console.log(`✅ [free-video] ${free ? 'Free change' : `Instant change ${round}`} for lead ${lead.id} (${lead.website_domain}) done`);
+    if (free) await afterFreeChange(lead.id);
   } catch (error) {
-    console.error(`❌ [free-video] Instant change ${round} for lead ${lead.id} failed:`, error);
+    console.error(`❌ [free-video] ${free ? 'Free change' : `Instant change ${round}`} for lead ${lead.id} failed:`, error);
     await writeJob(job, { status: 'failed', warnings: [String(error).slice(0, 300)] }).catch(() => undefined);
+    if (free) {
+      await alertOwner(
+        [{ key: `free-change-failed:${job.id}`, line: `The free change for ${displayDomain(lead.website_domain)} failed (${lead.first_name}, ${lead.email}): "${text}". The page lets them try again. Their page: ${SITE_URL}${unlockPagePath(lead.view_token)}?internal=1` }],
+        'a free change failed'
+      ).catch(() => undefined);
+      return;
+    }
     await alertOwner(
       [
         {

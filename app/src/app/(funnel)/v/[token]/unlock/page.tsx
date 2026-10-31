@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { UnlockPage } from '@/components/free-video/unlock-page';
 import { loadLead } from '@/components/free-video/free-video-status-page';
 import { latestChangePlan, requestedChanges } from '@/lib/free-video/change-chat';
+import { freeChangeOf } from '@/lib/free-video/instant-change';
 import { CHANGE_ROUNDS, changesUsed } from '@/lib/free-video/change-requests';
 import { UNLOCK_DAYS } from '@/lib/free-video/cleanup';
 import { isLive } from '@/lib/free-video/config';
@@ -43,14 +44,15 @@ export default async function UnlockRoute({ params, searchParams }: UnlockRouteP
   if (shown) {
     view.unlock = shown === 'ready' ? { state: 'ready', cleanVideoUrl: view.videoUrl, cleanDownloadUrl: view.downloadUrl ?? view.videoUrl } : { state: shown };
   }
-  const [used, price, plan, requested] = await Promise.all([
+  const [used, price, plan, requested, freeChange] = await Promise.all([
     changesUsed(lead.id).catch(() => 0),
     unlockPriceOf(lead.id),
     latestChangePlan(lead.id).catch(() => null),
     requestedChanges(lead.id).catch(() => [] as string[]),
+    freeChangeOf(lead).catch(() => null),
   ]);
   // The last day the video ad can be unlocked (cleanup.ts unlockOpen), shown on the offer as a true deadline.
   const finished = lead.finished_at ? Date.parse(lead.finished_at) : NaN;
   const filesUntil = Number.isFinite(finished) ? new Date(finished + UNLOCK_DAYS * 86_400_000).toISOString() : null;
-  return <UnlockPage token={token} initial={view} price={price} filesUntil={filesUntil} plan={plan} requested={requested} trial={Boolean(PLAN_TRIAL_PRODUCT) || !isLive()} storefront={isLive() ? SERVICE.popupStorefront : SERVICE.popupTestStorefront} changesLeft={Math.max(0, CHANGE_ROUNDS - used)} preview={Boolean(shown)} />;
+  return <UnlockPage token={token} initial={view} price={price} filesUntil={filesUntil} plan={plan} freeChange={freeChange} requested={requested} trial={Boolean(PLAN_TRIAL_PRODUCT) || !isLive()} storefront={isLive() ? SERVICE.popupStorefront : SERVICE.popupTestStorefront} changesLeft={Math.max(0, CHANGE_ROUNDS - used)} preview={Boolean(shown)} />;
 }

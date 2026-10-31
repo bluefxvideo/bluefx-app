@@ -34,7 +34,7 @@ import { asLead, getLead, getLeadByToken, leadsTable, readSettings, transitionUn
 import { trackPurchase } from '@/lib/free-video/meta';
 import { deliverUnlock } from '@/lib/free-video/notify';
 import { chatWordsOf, latestChangePlan } from '@/lib/free-video/change-chat';
-import { aiChangesOf, startAiChange, wantsNewStyle } from '@/lib/free-video/instant-change';
+import { aiChangesOf, freeChangeOf, startAiChange, wantsNewStyle } from '@/lib/free-video/instant-change';
 import { changesUsed, requestChange } from '@/lib/free-video/change-requests';
 import { UNLOCK, UNLOCK_PRODUCTS } from '@/lib/free-video/offer';
 import { displayDomain, emailKeyOf } from '@/lib/free-video/website';
@@ -390,6 +390,9 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
         return;
       }
       const text = plan.map((c, i) => `${i + 1}. ${c}`).join('\n');
+      // The free change already made this list (the clean version is that change): nothing more to start.
+      const free = await freeChangeOf(paidLead).catch(() => null);
+      if (free && free.status !== 'failed' && free.text.trim() === text.trim()) return;
       // Owner 2026-10-27: the chat's list starts at once as instant change 1; a new style goes to the team.
       if (!wantsNewStyle(text)) {
         const changes = await aiChangesOf(paidLead);
@@ -519,7 +522,10 @@ async function renderAndStore(lead: FreeVideoLead): Promise<string> {
   const settings = await readSettings(true);
   const systemUserId = settings?.system_user_id;
   if (!systemUserId || !lead.job_id) throw new Error('No system user or job for the clean render');
-  const saved = await readPlan(systemUserId, lead.job_id);
+  // A finished free change (instant-change.ts) is what the buyer saw and paid for: its job becomes the clean version.
+  const free = await freeChangeOf(lead);
+  const sourceJob = free?.status === 'done' ? free.jobId : lead.job_id;
+  const saved = await readPlan(systemUserId, sourceJob);
   const props = cleanProps(saved.props);
   // Exactly as finish() does it: the render, then the loudness.
   const renderedUrl = await renderSmartVideo(props, () => undefined);
@@ -527,7 +533,7 @@ async function renderAndStore(lead: FreeVideoLead): Promise<string> {
   await checkCleanFile(data, props);
   // video.mp4 sits in the same folder and its URL is public, so the clean file needs a name nobody can guess.
   const name = `clean-${randomBytes(18).toString('base64url')}.mp4`;
-  return upload(`${jobDir(systemUserId, lead.job_id)}/${name}`, data, 'video/mp4');
+  return upload(`${jobDir(systemUserId, sourceJob)}/${name}`, data, 'video/mp4');
 }
 
 /** Fake mode: a short pause, then the free file stands in for the clean one. */
@@ -554,6 +560,8 @@ export async function renderCleanVersion(leadId: string): Promise<CleanOutcome> 
   const lead = await getLead(leadId);
   if (!lead || (lead.unlock_status !== 'paid' && lead.unlock_status !== 'rendering')) return 'none';
   if (lead.status !== 'done' || !lead.job_id || !lead.video_url) return 'waiting';
+  // A free change still being made: its end starts this render (instant-change.ts afterFreeChange), the sweep retries.
+  if ((await freeChangeOf(lead).catch(() => null))?.status === 'working') return 'waiting';
   const staleBefore = Date.now() - CLEAN_RENDER.staleMinutes * 60_000;
   if (lead.unlock_status === 'rendering' && lead.clean_claimed_at && Date.parse(lead.clean_claimed_at) > staleBefore) return 'none';
   if (!fakeMode() && !renderTargetAllowed()) {

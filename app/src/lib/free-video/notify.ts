@@ -334,3 +334,56 @@ export async function addToBoughtGroup(email: string): Promise<boolean> {
     return false;
   }
 }
+
+/** The free change email (owner 2026-11-01: "of course we want to send the email"): one plain-text email through Brevo. */
+export const FREE_CHANGE_EMAIL = {
+  subject: 'Your changed video ad is ready',
+  text: (firstName: string, link: string) =>
+    [
+      `Hi ${firstName},`,
+      '',
+      'Your changes are done. Watch your new video ad here:',
+      link,
+      '',
+      'Like it? You can remove the SAMPLE watermark right on that page, and keep changing anything you like until it feels just right.',
+      '',
+      'Szilard',
+    ].join('\n'),
+} as const;
+
+/** Sends FREE_CHANGE_EMAIL once per lead (a 'free_change_email' event marks it). Never throws. */
+export async function sendFreeChangeReady(lead: FreeVideoLead): Promise<'sent' | 'skipped' | 'failed'> {
+  try {
+    const { eventsTable, recordEvent } = await import('@/lib/free-video/leads');
+    const { count } = await eventsTable().select('id', { count: 'exact', head: true }).eq('lead_id', lead.id).eq('event', 'free_change_email');
+    if (count) return 'skipped';
+    if (!mailAllowed(lead.email)) {
+      console.log(`⚠️ [free-video] Lead ${lead.id}: free change email skipped (not the live server, not the test inbox)`);
+      return 'skipped';
+    }
+    const apiKey = process.env.BREVO_API_KEY;
+    if (!apiKey) return 'failed';
+    const link = `${SITE_URL}${unlockPagePath(lead.view_token)}`;
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        sender: { email: 'support@bluefx.net', name: 'Szilard Gyorfi' },
+        to: [{ email: lead.email }],
+        subject: FREE_CHANGE_EMAIL.subject,
+        textContent: FREE_CHANGE_EMAIL.text(lead.first_name?.trim() || 'there', link),
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      console.error(`❌ [free-video] Free change email of lead ${lead.id} failed: Brevo ${res.status}`);
+      return 'failed';
+    }
+    await recordEvent({ event: 'free_change_email', leadId: lead.id, ref: lead.ref });
+    console.log(`✅ [free-video] Lead ${lead.id}: free change email sent`);
+    return 'sent';
+  } catch (error) {
+    console.error(`❌ [free-video] Free change email of lead ${lead.id} failed:`, error);
+    return 'failed';
+  }
+}

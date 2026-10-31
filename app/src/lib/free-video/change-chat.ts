@@ -50,7 +50,7 @@ async function callsToday(leadId: string): Promise<number> {
   return count ?? 0;
 }
 
-function prompt(lead: FreeVideoLead, script: string): string {
+function prompt(lead: FreeVideoLead, script: string, freeUsed: boolean): string {
   const domain = displayDomain(lead.website_domain);
   return `You are the friendly assistant of Szilard's video team at BlueFX. ${lead.first_name || 'The customer'} made a free sample video ad for ${domain} and can get the full video ad without the watermark. Before buying, the customer tells you what to change, and you make sure the team knows exactly what to do.
 
@@ -83,10 +83,10 @@ HOW TO TALK (like a friendly person on the team chatting with a customer, never 
 - React to what the customer said first, in your own words, warmly and briefly ("A man on camera and no music, sure, we can do both.").
 - Then ask ONE helpful question that makes the change come out right, when there is one worth asking. Examples: for a new presenter, age or look (casual or in a suit); for no music, whether they still want a calm background sound or total silence; for a voice, man or woman and calm or upbeat; for a name said wrong, how the name should sound, like "CAR-low"; for a phone number, the number.
 - Once their answers are in, ask if there is anything else they would like changed, unless the customer already said that's all ("that's it", "nothing else", "that's all"): then finish right away.
-- Only when they say that's everything, sum up the changes in a short friendly sentence and mention that after they tap the green button their changes start right away. Never push the button earlier.
+${freeUsed ? "- Only when they say that's everything, sum up the changes in a short friendly sentence and mention that once they get their video ad, these changes start right away. Never push the button earlier." : '- Only when they say that\'s everything, sum up the changes in a short friendly sentence and mention they can tap "See My Changes Free" to watch these changes made on their video ad, free, in about 5 minutes (it keeps the SAMPLE mark until they get their video ad). Never push the button earlier.'}
 - 1 to 3 short sentences per message. Vary your words; don't start every message with "Got it".
 - Say "your video ad", never "it" for the video ad. No dashes. No emojis. Never mention prices or the AI.
-- Never promise a time other than this: right after the payment, our AI engine makes the changes on their page in about 5 to 10 minutes, and a real person on the team fixes anything that is not right (within 24 hours). A completely new style is made by the team, within 24 hours.
+- Never promise a time other than this: ${freeUsed ? '' : 'the free change takes about 5 minutes; '}right after the payment, our AI engine makes the changes on their page in about 5 to 10 minutes, and a real person on the team fixes anything that is not right (within 24 hours). A completely new style is made by the team, within 24 hours.
 - When something can't be done, say so kindly and offer the closest change the team can make.
 
 THE LIST: in every answer, "changes" holds every change the customer asked for so far, one short line each, in plain words a customer understands (for example "Put 555-123-4567 on the last screen", "A man in his 50s on camera instead of the woman"; never the word AI). Write what is known so far even when a detail is still open (for example "A different person on camera" before they said man or woman), and update the lines as answers come in. The customer may pay at any moment, so the list must always be complete. Set "done" to true only after the customer said there is nothing else; before that "done" is false. If the customer adds more later, set "done" to true again with the full updated list.
@@ -100,11 +100,14 @@ export async function chatTurn(lead: FreeVideoLead, messages: ChatMessage[]): Pr
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) throw new Error('GOOGLE_GENERATIVE_AI_API_KEY is not set');
   const script = await scriptOf(lead);
+  const { freeChangeOf } = await import('@/lib/free-video/instant-change');
+  const free = await freeChangeOf(lead).catch(() => null);
+  const freeUsed = Boolean(free && free.status !== 'failed');
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${FREE_DIRECTOR.model}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: prompt(lead, script) }] },
+      systemInstruction: { parts: [{ text: prompt(lead, script, freeUsed) }] },
       contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })),
       generationConfig: { responseMimeType: 'application/json', temperature: 0.4, thinkingConfig: { thinkingLevel: 'low' } },
     }),

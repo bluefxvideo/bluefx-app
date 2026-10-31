@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { Caveat } from 'next/font/google';
-import { ArrowUp, Download, Maximize2, Paperclip, Pencil, Phone, Sparkles, User, X } from 'lucide-react';
+import { ArrowUp, Download, Maximize2, Paperclip, Sparkles, X } from 'lucide-react';
 import { type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
@@ -32,6 +32,8 @@ interface UnlockPageProps {
   filesUntil: string | null;
   /** The change list confirmed in the change chat, if any. */
   plan: string[] | null;
+  /** The free change before paying (instant-change.ts), if any. */
+  freeChange?: AiChangeView | null;
   /** The changes asked for after the payment (the ready page lists them). */
   requested: string[];
   changesLeft: number;
@@ -53,7 +55,7 @@ const CLICK_WINDOW_MS = 30 * 60_000;
  * the Weekly Video Plan). The checkout opens in a new tab through /go/fvunlock; this page polls the lead's view, and asks
  * again every time the visitor comes back to this tab (no time limit), or taps "Paid? Tap here" in the phone bar.
  */
-export function UnlockPage({ token, initial, price, filesUntil, plan, requested, changesLeft, trial, storefront, preview = false }: UnlockPageProps) {
+export function UnlockPage({ token, initial, price, filesUntil, plan, freeChange = null, requested, changesLeft, trial, storefront, preview = false }: UnlockPageProps) {
   const [view, setView] = useState(initial);
   const [clickedAt, setClickedAt] = useState<number | null>(null);
   const beacon = useFreeVideoBeacon(token);
@@ -113,7 +115,7 @@ export function UnlockPage({ token, initial, price, filesUntil, plan, requested,
   return (
     <div className={cn(rp.page, s.page)}>
       {unlock.state === 'available' && (
-        <Offer view={view} token={token} price={price} filesUntil={filesUntil} initialPlan={plan} clicked={clickedAt !== null} onCheckout={onCheckout} onCheck={ask} />
+        <Offer view={view} token={token} price={price} filesUntil={filesUntil} initialPlan={plan} initialFree={freeChange} clicked={clickedAt !== null} onCheckout={onCheckout} onCheck={ask} />
       )}
       {working && <Unlocking view={view} token={token} requested={requested} preview={preview} />}
       {unlock.state === 'ready' && <Ready view={view} token={token} requested={requested} trial={trial} preview={preview} changesLeft={changesLeft} onDownload={() => beacon('download')} />}
@@ -191,12 +193,54 @@ interface OfferProps {
   price: UnlockPrice;
   filesUntil: string | null;
   initialPlan: string[] | null;
+  initialFree: AiChangeView | null;
   clicked: boolean;
   onCheckout: (e?: ReactMouseEvent<HTMLAnchorElement>) => void;
   onCheck: () => void;
 }
 
 /** The milliseconds until the launch price ends, ticking every second; null without a deadline, before the page runs or after it ends. */
+/**
+ * The one free change before paying (instant-change.ts): started from the saved change list, made by the AI engine
+ * with the SAMPLE watermark kept, shown here when done. Polls while it is being made.
+ */
+type AiChangeView = AiChangeRow;
+type FreeState = { state: 'none' | 'working' | 'done'; progress: number; videoUrl: string | null; message: string | null; busy: boolean };
+function useFreeChange(token: string, initial: AiChangeView | null): FreeState & { start: () => void } {
+  // The engine reports progress only while rendering: the bar also fills with the time since the start (90% at 5 min).
+  const shownProgress = (c: AiChangeView) => {
+    const since = c.at ? (Date.now() - Date.parse(c.at)) / 1000 : 0;
+    return Math.round(Math.max(c.progress, Math.min(90, (since / 300) * 90), 3));
+  };
+  const of = (c: AiChangeView | null): Omit<FreeState, 'message' | 'busy'> =>
+    !c || c.status === 'failed' ? { state: 'none', progress: 0, videoUrl: null } : { state: c.status, progress: c.status === 'done' ? 100 : shownProgress(c), videoUrl: c.videoUrl };
+  const [s, setS] = useState<FreeState>({ ...of(initial), message: initial?.status === 'failed' ? UNLOCK_PAGE.chat.free.failed : null, busy: false });
+  const working = s.state === 'working';
+  useEffect(() => {
+    if (!working) return;
+    const id = setInterval(async () => {
+      const res = await fetch(`/api/free-video/${token}/free-change`, { cache: 'no-store' }).catch(() => null);
+      const body = res ? await res.json().catch(() => null) : null;
+      const free = (body?.data?.free ?? null) as AiChangeView | null;
+      if (!free) return;
+      if (free.status === 'failed') setS({ ...of(null), message: UNLOCK_PAGE.chat.free.failed, busy: false });
+      else setS((prev) => ({ ...prev, ...of(free) }));
+    }, 4000);
+    return () => clearInterval(id);
+  }, [token, working]);
+  const start = useCallback(async () => {
+    setS((prev) => ({ ...prev, busy: true, message: null }));
+    const res = await fetch(`/api/free-video/${token}/free-change`, { method: 'POST', cache: 'no-store' }).catch(() => null);
+    const body = res ? await res.json().catch(() => null) : null;
+    const free = (body?.data?.free ?? null) as AiChangeView | null;
+    if (res?.ok && free) return setS({ ...of(free), progress: Math.max(3, free.progress), message: null, busy: false });
+    const code = body?.error?.code as string | undefined;
+    const R = UNLOCK_PAGE.chat.free.refusals;
+    setS((prev) => ({ ...prev, busy: false, message: code && code in R ? R[code as keyof typeof R] : UNLOCK_PAGE.chat.free.failed }));
+  }, [token]);
+  return { ...s, start: () => void start() };
+}
+
 function useTimeLeft(endsAt: string | null): number | null {
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
@@ -267,8 +311,11 @@ function useBar(boxes: RefObject<HTMLDivElement | null>[]): boolean {
   return on;
 }
 
-function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckout, onCheck }: OfferProps) {
+function Offer({ view, token, price, filesUntil, initialPlan, initialFree, clicked, onCheckout, onCheck }: OfferProps) {
   const [plan, setPlanState] = useState<string[] | null>(initialPlan);
+  const free = useFreeChange(token, initialFree);
+  const [shown, setShown] = useState<'before' | 'after'>('after');
+  const heroSrc = free.state === 'done' && shown === 'after' && free.videoUrl ? free.videoUrl : (view.videoUrl as string);
   const [pending, setPending] = useState<{ text: string | null; n: number }>({ text: null, n: 0 });
   const [pulse, setPulse] = useState(0);
   const [big, setBig] = useState(false);
@@ -302,23 +349,42 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
           <h1 id="unlock-title" className={s.title}>
             {F.title} <span className={s.titleRed}>{F.titleRed}</span>
           </h1>
-          <ul className={s.changeChips} aria-label="Changes people ask for">
-            {F.chips.map((chip, i) => {
-              const Icon = [Pencil, User, Phone][i];
-              return (
-                <li key={chip}>
-                  <button type="button" onClick={() => ask(F.chat.chipAsks[i])}>
-                    <Icon size={13} strokeWidth={2.5} aria-hidden="true" /> {chip}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          {free.state === 'none' && (
+            <button type="button" className={s.freeTry} onClick={() => ask(null)}>
+              <Sparkles size={15} strokeWidth={2.5} aria-hidden="true" /> {F.chat.free.tryLine}
+            </button>
+          )}
           <p className={cn(s.sub, s.heroSub)}>{F.sub}</p>
           <div className={s.side}>
+              {free.state === 'done' && (
+                <div className={s.freeTabs} role="tablist">
+                  <p className={s.freeKicker}>
+                    <Sparkles size={14} strokeWidth={2.5} aria-hidden="true" /> {F.chat.free.doneKicker}
+                  </p>
+                  <div className={s.freeToggle}>
+                    {(['before', 'after'] as const).map((k) => (
+                      <button key={k} type="button" role="tab" aria-selected={shown === k} className={cn(shown === k && s.freeOn)} onClick={() => setShown(k)}>
+                        {k === 'before' ? F.chat.free.before : F.chat.free.after}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {free.state === 'working' && (
+                <div className={s.freeWorking} aria-live="polite">
+                  <p>
+                    <Sparkles size={16} strokeWidth={2.5} aria-hidden="true" /> {F.chat.free.working}
+                  </p>
+                  <span className={s.freeBar}>
+                    <i style={{ width: `${free.progress}%` }} />
+                  </span>
+                  <small>{F.chat.free.workingNote}</small>
+                </div>
+              )}
             <div className={s.video}>
               <VideoAdPlayer
-                src={view.videoUrl as string}
+                key={heroSrc}
+                src={heroSrc}
                 label={PLAYER.label(view.domain)}
                 className={rp.heroPlayerFrame}
                 tapToPlay
@@ -329,7 +395,7 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
                 <Maximize2 size={13} strokeWidth={2.5} aria-hidden="true" /> {F.watchBig}
               </button>
             </div>
-            {big && <BigPlayer src={view.videoUrl as string} label={PLAYER.label(view.domain)} onClose={() => setBig(false)} />}
+            {big && <BigPlayer src={heroSrc} label={PLAYER.label(view.domain)} onClose={() => setBig(false)} />}
             <div ref={chatRef} className={s.heroChat} id="changes-chat">
               <ArrowNote text={F.chat.arrowNote} />
               <ChangeChat
@@ -337,10 +403,29 @@ function Offer({ view, token, price, filesUntil, initialPlan, clicked, onCheckou
                 plan={plan}
                 onPlan={setPlan}
                 pending={pending}
+                note={free.state === 'none' ? F.chat.free.note : free.state === 'done' ? F.chat.free.doneNote(price.price) : F.chat.free.workingNote}
                 buy={
-                  <a className={s.button} href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
-                    {F.buttonChanged(price.price)}
-                  </a>
+                  free.state === 'none' ? (
+                    <>
+                      {free.message && <p className={s.freeMessage}>{free.message}</p>}
+                      <button type="button" className={cn(s.button, s.freeButton)} onClick={free.start} disabled={free.busy}>
+                        <Sparkles size={18} strokeWidth={2.5} aria-hidden="true" /> {free.busy ? F.chat.free.starting : F.chat.free.button}
+                      </button>
+                      <a className={s.freeOrBuy} href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
+                        {F.chat.free.orBuy(price.price)}
+                      </a>
+                    </>
+                  ) : free.state === 'working' ? (
+                    <a className={s.freeOrBuy} href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
+                      {F.chat.free.orBuy(price.price)}
+                    </a>
+                  ) : (
+                    <>
+                      <a className={s.button} href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
+                        {F.chat.free.doneButton(price.price)}
+                      </a>
+                    </>
+                  )
                 }
               />
             </div>
@@ -693,13 +778,15 @@ interface ChangeChatProps {
   token: string;
   plan: string[] | null;
   onPlan: (plan: string[]) => void;
+  /** Replaces the note under the saved list. */
+  note?: string;
   /** A chip tap from the page: send this text (or just focus the box when text is null). n changes on every tap. */
   pending: { text: string | null; n: number };
   buy: ReactNode;
 }
 
 /** The change chat (change-chat.ts): the visitor tells the assistant what to change before paying; the confirmed list is saved. */
-function ChangeChat({ token, plan, onPlan, pending, buy }: ChangeChatProps) {
+function ChangeChat({ token, plan, onPlan, pending, buy, note }: ChangeChatProps) {
   const F = UNLOCK_PAGE.chat;
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>([{ role: 'assistant', text: F.hello }]);
   const [text, setText] = useState('');
@@ -821,7 +908,7 @@ function ChangeChat({ token, plan, onPlan, pending, buy }: ChangeChatProps) {
               </li>
             ))}
           </ul>
-          <p className={s.chatNote}>{F.listNote}</p>
+          <p className={s.chatNote}>{note ?? F.listNote}</p>
           {buy}
         </div>
       )}
@@ -1153,6 +1240,7 @@ interface AiChangeRow {
   status: 'working' | 'done' | 'failed';
   progress: number;
   videoUrl: string | null;
+  at?: string;
 }
 
 /** The lead's instant changes (instant-change.ts), asked again every 5 seconds while one is being made. */
@@ -1251,7 +1339,7 @@ function FilePicker({ files, onChange, disabled }: { files: File[]; onChange: (f
   );
 }
 
-/** The two ways to change a paid video ad: 3 instant AI changes, and the team for anything else (owner 2026-10-27). */
+/** The two ways to change a paid video ad: 5 instant AI changes, and the team for anything else (owner 2026-10-27). */
 function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: string; ai: AiState; changesLeft: number; startOpen: boolean; justDone: boolean }) {
   const F = UNLOCK_PAGE.changes;
   const [open, setOpen] = useState(startOpen);
