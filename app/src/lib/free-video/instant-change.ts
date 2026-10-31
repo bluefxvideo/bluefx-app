@@ -69,9 +69,19 @@ export function presenterWords(text: string): string | null {
 }
 
 /** The 8 looks of the style gallery: a change that asks for one of them goes to the team. */
-const STYLE_WORDS = /\b(hand-?drawn|whiteboard|vintage|news studio|cartoon|comic|chalkboard|scrapbook|clay|claymation|style)\b/i;
+// Only a request to SWITCH to a look counts, not a mention ("music that fits a whiteboard video", owner test 2026-11-01).
+const LOOKS = '(?:hand-?drawn|whiteboard|vintage(?: tv)?|news(?: studio)?|cartoon|comic(?: book)?|chalkboard|scrapbook|clay|claymation)';
+const STYLE_WORDS = new RegExp(
+  `\\b(?:(?:in|into|to|as|make it|turn it into|switch to|change it to|redo it as|remake it as)\\s+(?:a\\s+|the\\s+)?${LOOKS}\\b(?!\\s+(?:music|sound|song|voice))|${LOOKS}\\s+(?:style|version|look)\\b|(?:new|different|another|other)\\s+(?:video\\s+)?style\\b)`,
+  'i'
+);
 
-export const wantsNewStyle = (text: string) => STYLE_WORDS.test(text);
+/** A line about the music, voice or text never asks for a new style ("Music to match a whiteboard style"). */
+const NOT_STYLE = /\b(music|song|sound|soundtrack|voice|narrat\w*|font|text|captions?|subtitles?)\b/i;
+export const wantsNewStyle = (text: string) =>
+  text
+    .split(/\n+/)
+    .some((line) => !NOT_STYLE.test(line) && STYLE_WORDS.test(line));
 
 export interface AiChange {
   round: number;

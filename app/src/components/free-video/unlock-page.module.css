@@ -3933,3 +3933,6 @@
     justify-self: start;
   }
 }
+.freeTabs {
+  scroll-margin-top: 12px;
+}

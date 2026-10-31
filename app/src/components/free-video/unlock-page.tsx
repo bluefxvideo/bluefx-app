@@ -234,7 +234,7 @@ function useFreeChange(token: string, initial: AiChangeView | null): FreeState &
     const body = res ? await res.json().catch(() => null) : null;
     const free = (body?.data?.free ?? null) as AiChangeView | null;
     if (res?.ok && free) return setS({ ...of(free), progress: Math.max(3, free.progress), message: null, busy: false });
-    const code = body?.error?.code as string | undefined;
+    const code = (body?.details?.code ?? body?.error?.code) as string | undefined;
     const R = UNLOCK_PAGE.chat.free.refusals;
     setS((prev) => ({ ...prev, busy: false, message: code && code in R ? R[code as keyof typeof R] : UNLOCK_PAGE.chat.free.failed }));
   }, [token]);
@@ -320,9 +320,23 @@ function Offer({ view, token, price, filesUntil, initialPlan, initialFree, click
   const [pulse, setPulse] = useState(0);
   const [big, setBig] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
+  // A finished list starts the free change at once (owner 2026-11-01: "he should start the change and not ask me").
+  const freeRef = useRef(free);
+  freeRef.current = free;
+  // When the free change is done while the visitor waits, bring the new video ad into view (on phones the chat is far below it).
+  const wasWorking = useRef(free.state === 'working');
+  useEffect(() => {
+    if (free.state === 'working') wasWorking.current = true;
+    else if (free.state === 'done' && wasWorking.current) {
+      wasWorking.current = false;
+      document.getElementById('free-change-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [free.state]);
   const setPlan = useCallback((next: string[]) => {
     setPlanState(next);
     setPulse((n) => n + 1);
+    const f = freeRef.current;
+    if (f.state === 'none' && !f.busy) f.start();
   }, []);
   // A chip or the "Want changes first?" link: scroll to the chat, then send the chip's message (or just focus the box).
   const ask = useCallback((text: string | null) => {
@@ -357,7 +371,7 @@ function Offer({ view, token, price, filesUntil, initialPlan, initialFree, click
           <p className={cn(s.sub, s.heroSub)}>{F.sub}</p>
           <div className={s.side}>
               {free.state === 'done' && (
-                <div className={s.freeTabs} role="tablist">
+                <div className={s.freeTabs} role="tablist" id="free-change-result">
                   <p className={s.freeKicker}>
                     <Sparkles size={14} strokeWidth={2.5} aria-hidden="true" /> {F.chat.free.doneKicker}
                   </p>
