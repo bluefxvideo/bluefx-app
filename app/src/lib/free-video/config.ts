@@ -119,6 +119,12 @@ export const ML_GROUP_NAMES = {
 /** Every queued signup joins this group at submit (never a rejected one). No automation hangs on this group. */
 export const ML_GROUP_LEADS: string = '200567992522638921';
 /**
+ * A rejected signup (a refused or unreadable website) joins this group at submit (owner 2026-10-31). It triggers
+ * 'Free Video - No video rescue (auto)': 1 hour later, one email with the "video ad from a few lines" tutorial and
+ * the AI Media Machine. The automation excludes 'Free Video - Leads', so a retry that works cancels the email.
+ */
+export const ML_GROUP_NO_VIDEO: string = '202866392543790866';
+/**
  * Joining this group triggers 'Free Video Ad 1: Your video' (E1) and 'Free Video Ad 2: Follow-up' (E2, E3; it excludes
  * Bought and exits on it). Joined in the same upsert that sets the fields. Built through the MailerLite connector 2026-10-07.
  */

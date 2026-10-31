@@ -6,7 +6,7 @@ import { blockedCountry } from '@/lib/free-video/geo';
 import { hasInternalCookie } from '@/lib/free-video/internal-visit';
 import { attemptLimitOf, clientIp, createLead, verifyHuman } from '@/lib/free-video/leads';
 import { requestFacts, trackLead } from '@/lib/free-video/meta';
-import { joinLeadsGroup } from '@/lib/free-video/notify';
+import { joinLeadsGroup, joinNoVideoGroup } from '@/lib/free-video/notify';
 import { leadEventId } from '@/lib/free-video/pixel';
 import { ownerTestRef } from '@/lib/free-video/funnel';
 import { noteRefusal, refusalFieldsOf, type Refusal, type RefusalFields } from '@/lib/free-video/refusals';
@@ -141,9 +141,10 @@ export async function POST(req: Request) {
       userAgent: req.headers.get('user-agent'),
     });
 
-    // 6. A rejected lead (unreadable or refused website) never goes to MailerLite (review SEC-3); its row keeps the email.
-    // Nor to Facebook: a Lead is a request the AI Media Machine is going to make.
+    // 6. A rejected lead (unreadable or refused website) joins only 'Free Video - No video (auto)', whose automation sends
+    // one rescue email an hour later (owner 2026-10-31). Never to Facebook: a Lead is a request the AI Media Machine is going to make.
     const queued = result.ok ? result.lead : null;
+    const rejected = !result.ok && result.lead?.status === 'rejected' ? result.lead : null;
     const facts = requestFacts(req, ip, parsed.data.fbclid);
     after(async () => {
       if (queued) {
@@ -156,6 +157,7 @@ export async function POST(req: Request) {
           })(),
         ]);
       }
+      if (rejected) await joinNoVideoGroup(rejected);
       await sweepWatchdog();
     });
 

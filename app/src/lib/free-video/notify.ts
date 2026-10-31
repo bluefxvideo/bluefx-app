@@ -9,7 +9,8 @@
  * video ad on the page only.
  *
  * A visitor's typing never renames a subscriber (review SEC-3): the first name is sent only for an address
- * MailerLite does not know yet, or knows without a name. Rejected leads never reach MailerLite at all.
+ * MailerLite does not know yet, or knows without a name. A rejected lead joins only 'Free Video - No video
+ * (auto)', whose automation sends the one rescue email (joinNoVideoGroup).
  *
  * Off the live server nobody is mailed except FREE_VIDEO_TEST_EMAIL (the owner's inbox, plus-tags allowed).
  */
@@ -21,6 +22,7 @@ import {
   ML_FIELDS,
   ML_GROUP_BOUGHT,
   ML_GROUP_LEADS,
+  ML_GROUP_NO_VIDEO,
   ML_GROUP_READY,
   ML_GROUP_VIDEO_READY,
   ML_GROUP_UNLOCKED,
@@ -28,7 +30,7 @@ import {
   testInbox,
 } from '@/lib/free-video/config';
 import { alertOwner } from '@/lib/free-video/alerts';
-import { isServiceRef } from '@/lib/free-video/funnel';
+import { isOwnerTestRef, isServiceRef } from '@/lib/free-video/funnel';
 import { unlockPagePath } from '@/lib/free-video/offer';
 import { offerOf, offerSwitchOf } from '@/lib/free-video/offer-switch';
 import { eventsTable, getLead, leadsTable } from '@/lib/free-video/leads';
@@ -78,9 +80,8 @@ async function nameFor(lead: Pick<FreeVideoLead, 'email' | 'first_name'>): Promi
 
 /**
  * A queued signup joins 'Free Video - Leads' (no automation hangs on this group). A rejected lead (an
- * unreadable or refused website) never does: the row already keeps the email, and the form must not be a
- * way to add strangers' addresses to the list (review SEC-3). Called from the POST's after().
- * Returns true when MailerLite took the subscriber.
+ * unreadable or refused website) never does; it goes to joinNoVideoGroup instead. Called from the POST's
+ * after(). Returns true when MailerLite took the subscriber.
  */
 export async function joinLeadsGroup(lead: Pick<FreeVideoLead, 'email' | 'first_name' | 'website_domain' | 'status'>): Promise<boolean> {
   try {
@@ -98,6 +99,31 @@ export async function joinLeadsGroup(lead: Pick<FreeVideoLead, 'email' | 'first_
     return result.ok;
   } catch (error) {
     console.error('❌ [free-video] joinLeadsGroup failed:', error);
+    return false;
+  }
+}
+
+/**
+ * A rejected signup (a refused or unreadable website, owner 2026-10-31: "once they fill it out, they fill it
+ * out") joins 'Free Video - No video (auto)'. Its automation waits 1 hour and sends the rescue email, unless the
+ * person joined 'Free Video - Leads' by then (a retry with a working link). The owner's own tests never join.
+ * Called from the POST's after(). Returns true when MailerLite took the subscriber.
+ */
+export async function joinNoVideoGroup(
+  lead: Pick<FreeVideoLead, 'email' | 'first_name' | 'website_domain' | 'status' | 'ref' | 'source'>
+): Promise<boolean> {
+  try {
+    if (lead.status !== 'rejected' || lead.source === 'test' || isOwnerTestRef(lead.ref) || !mailAllowed(lead.email)) return false;
+    if (!ML_GROUP_NO_VIDEO) return false;
+    const result = await subscribeToMailerLite({
+      email: lead.email,
+      fullName: await nameFor(lead),
+      groups: [ML_GROUP_NO_VIDEO],
+      fields: { [ML_FIELDS.site]: displayDomain(lead.website_domain) },
+    });
+    return result.ok;
+  } catch (error) {
+    console.error('❌ [free-video] joinNoVideoGroup failed:', error);
     return false;
   }
 }
