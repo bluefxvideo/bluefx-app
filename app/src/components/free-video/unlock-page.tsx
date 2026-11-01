@@ -101,62 +101,16 @@ export function UnlockPage({ token, initial, price, filesUntil, plan, freeChange
     window.scrollTo({ top: 0, behavior: 'smooth' });
     void ask();
   }, [ask]));
-  // Inside Facebook's or Instagram's own browser the first tap tries Safari / Chrome (saved cards, Apple Pay, Google Pay);
-  // a second tap, or a switch that did not happen, opens the payment box right here.
-  const switchTried = useRef(false);
   const onCheckout = useCallback(
     (e?: ReactMouseEvent<HTMLAnchorElement>) => {
       setClickedAt(Date.now());
-      const app = switchTried.current ? null : inAppBrowser();
-      if (app) {
-        e?.preventDefault();
-        switchTried.current = true;
-        // The click still goes through /go/fvunlock for the funnel's numbers and Facebook's checkout event (no redirect followed).
-        void fetch(unlockGoUrl(token), { redirect: 'manual', credentials: 'same-origin' }).catch(() => undefined);
-        beacon(app === 'ios' ? 'pay_switch_ios' : 'pay_switch_android');
-        let left = false;
-        const away = () => {
-          if (document.visibilityState === 'hidden') left = true;
-        };
-        const stay = () => {
-          document.removeEventListener('visibilitychange', away);
-          window.removeEventListener('pagehide', away);
-          if (left) return;
-          beacon('pay_switch_stayed');
-          popup.open(price.product, token);
-        };
-        document.addEventListener('visibilitychange', away);
-        window.addEventListener('pagehide', away);
-        window.location.href = outsideBrowserUrl(app, token);
-        window.setTimeout(stay, SWITCH_WAIT_MS);
-        return;
-      }
       if (!popup.open(price.product, token)) return; // no popup yet: the link opens the hosted checkout in a new tab
       e?.preventDefault();
+      // The click still goes through /go/fvunlock for the funnel's numbers and Facebook's checkout event (no redirect followed).
       void fetch(unlockGoUrl(token), { redirect: 'manual', credentials: 'same-origin' }).catch(() => undefined);
     },
-    [popup, price.product, token, beacon]
+    [popup, price.product, token]
   );
-
-  // Opened from Facebook's browser by the buy button (?buy=1): open the payment box as soon as FastSpring is ready.
-  const autoOpened = useRef(false);
-  useEffect(() => {
-    if (preview || autoOpened.current || unlock.state !== 'available') return;
-    const url = new URL(window.location.href);
-    if (url.searchParams.get(BUY_PARAM) !== '1') return;
-    autoOpened.current = true;
-    url.searchParams.delete(BUY_PARAM);
-    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
-    const started = Date.now();
-    const timer = window.setInterval(() => {
-      if (popup.open(price.product, token)) {
-        window.clearInterval(timer);
-        setClickedAt(Date.now());
-        beacon('pay_auto_open');
-      } else if (Date.now() - started > 15_000) window.clearInterval(timer);
-    }, 300);
-    return () => window.clearInterval(timer);
-  }, [preview, unlock.state, popup, price.product, token, beacon]);
 
   return (
     <div className={cn(rp.page, s.page)}>
@@ -171,32 +125,6 @@ export function UnlockPage({ token, initial, price, filesUntil, plan, freeChange
   );
 }
 
-
-/** The address flag that opens the payment box on arrival (the hand-off from Facebook's browser). */
-const BUY_PARAM = 'buy';
-/** How long the page waits for Safari / Chrome to take over before it opens the payment box inside Facebook. */
-const SWITCH_WAIT_MS = 2000;
-
-/** Facebook's, Messenger's or Instagram's own browser on a phone: no saved cards, no Apple Pay or Google Pay there. */
-function inAppBrowser(): 'ios' | 'android' | null {
-  const agent = navigator.userAgent || '';
-  if (!/FBAN|FBAV|FB_IAB|FBIOS|Instagram/i.test(agent)) return null;
-  if (/iPhone|iPad|iPod/i.test(agent)) return 'ios';
-  if (/Android/i.test(agent)) return 'android';
-  return null;
-}
-
-/**
- * This unlock page in the phone's own browser, with ?buy=1 so it opens the payment box: Safari through its
- * x-safari-https address (iOS 17 and later), Chrome through an Android intent (without Chrome, its fallback opens the
- * same page here, where ?buy=1 opens the payment box).
- */
-function outsideBrowserUrl(app: 'ios' | 'android', token: string): string {
-  const url = new URL(`/v/${encodeURIComponent(token)}/unlock`, window.location.origin);
-  url.searchParams.set(BUY_PARAM, '1');
-  if (app === 'ios') return `x-safari-${url.toString()}`;
-  return `intent://${url.host}${url.pathname}${url.search}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url.toString())};end`;
-}
 
 declare global {
   interface Window {
