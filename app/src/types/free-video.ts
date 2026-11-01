@@ -415,8 +415,11 @@ export const FREE_VIDEO_STEP_OF: Record<SmartVideoJobStatus, 1 | 2 | 3 | 4 | 5> 
  * unlock_view: the unlock page (/v/<token>/unlock) was opened in a browser.
  * service_view: the Unlimited Video Ads page (/v/<token>/unlimited) was opened in a browser that runs its script; the
  * lead's first one starts its 3-day $99 hold (service-page.ts). Sent by the page, so email link scanners never start it.
+ * pay_switch_ios / pay_switch_android: the $49 buy button inside Facebook's or Instagram's own browser tried to open the
+ * page in Safari / Chrome (owner 2026-11-01: no saved cards or Apple Pay there). pay_switch_stayed: the switch did not
+ * happen, the payment box opened inside Facebook. pay_auto_open: the page opened in Safari / Chrome and opened the payment box.
  */
-export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open', 'tour_play', 'chat_open', 'tutorial_open', 'tutorial_end', 'service_view', 'service_click', 'unlock_view'] as const;
+export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open', 'tour_play', 'chat_open', 'tutorial_open', 'tutorial_end', 'service_view', 'service_click', 'unlock_view', 'pay_switch_ios', 'pay_switch_android', 'pay_switch_stayed', 'pay_auto_open'] as const;
 /** A page event the browser may send. */
 export type FreeVideoEvent = (typeof FREE_VIDEO_EVENTS)[number];
 /**

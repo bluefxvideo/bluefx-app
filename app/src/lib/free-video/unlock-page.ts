@@ -328,15 +328,15 @@ export const UNLOCK_PAGE = {
     signName: 'Szilard',
     declined: 'No problem. Your video ad is all yours.',
   },
-  /** The two ways to change a paid video ad (owner 2026-10-27): 5 instant AI changes, the team always available. */
+  /** The two ways to change a paid video ad (owner 2026-10-27): unlimited instant AI changes, the team always available. */
   changes: {
     open: 'Want something changed? Tap here',
     /** The heading over the open change tool on the paid page (owner 2026-10-29: "hard to see, easy to miss"). */
     panelTitle: 'Want something changed?',
     panelTitleRed: 'Change it right here',
     instantTitle: 'Instant: our AI engine makes your change right here',
-    instantNote: (left: number) => `About 5 to 10 minutes. You have ${left} of 5 instant changes left.`,
-    instantNone: 'You used your 5 instant changes. My team makes any other change for you.',
+    instantNote: (_left: number) => 'About 5 to 10 minutes. Make as many changes as you like.',
+    instantNone: 'My team makes any other change for you.',
     placeholder: 'Example: Put 555-123-4567 on the last screen, and use a man\u2019s voice.',
     instantButton: 'Make My Change Now',
     starting: 'Starting...',
@@ -365,7 +365,7 @@ export const UNLOCK_PAGE = {
     refusals: {
       style: 'A completely new style is made by my team. Tap \u201cAsk My Team Instead\u201d and tell us which style you want.',
       busy: 'Your last change is still being made. Give it a few minutes.',
-      noneLeft: 'You used your 5 instant changes. My team makes any other change for you.',
+      noneLeft: 'My team makes any other change for you.',
       notPaid: 'Changes open once your payment is in.',
       generic: 'Your change did not start. Please try again, or ask my team.',
     },

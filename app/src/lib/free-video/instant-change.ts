@@ -19,7 +19,9 @@ import type { SmartVideoJob } from '@/types/smart-video';
  * newest finished version. A full style switch is not an instant change (hit or miss in the engine): the page sends
  * those to the team. Each change is an 'ai_change' event on the lead (meta: the job id, the text, the round).
  */
-export const AI_CHANGES = 5;
+/** Owner 2026-11-01: "let them do as many changes as they want" after buying; this only stops a runaway (never shown). */
+export const AI_CHANGES = 50;
+const STUCK_MS = 3 * 60_000;
 /** The files a buyer may add to one change: the app's own edit limits (types/smart-video.ts). */
 export const CHANGE_MAX_FILES = 5;
 export const CHANGE_MAX_FILE_MB = 100;
@@ -114,7 +116,10 @@ async function changeOfRow(userId: string | null | undefined, row: ChangeRow, ro
   const jobId = row.meta?.jobId;
   if (!jobId || !userId) return null;
   const job = await readJob(userId, jobId).catch(() => null);
-  const failed = !job || job.status === 'failed' || isDead(job);
+  // A change beats every 45 s (runAiChange's heartbeat); 3 silent minutes means a deploy or crash killed it (owner
+  // 2026-11-01: his free change hung 12 minutes after a deploy). The page then offers to try again.
+  const silent = job && job.status !== 'done' && job.status !== 'failed' && Date.now() - Date.parse(job.updatedAt) > STUCK_MS;
+  const failed = !job || job.status === 'failed' || isDead(job) || Boolean(silent);
   return {
     round: row.meta.round ?? round,
     text: row.meta.text ?? '',
