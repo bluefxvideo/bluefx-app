@@ -27,6 +27,7 @@ import {
   ML_GROUP_VIDEO_READY,
   ML_GROUP_UNLOCKED,
   SITE_URL,
+  STATS_EXCLUDED_EMAILS,
   testInbox,
 } from '@/lib/free-video/config';
 import { alertOwner } from '@/lib/free-video/alerts';
@@ -386,4 +387,86 @@ export async function sendFreeChangeReady(lead: FreeVideoLead): Promise<'sent' |
     console.error(`❌ [free-video] Free change email of lead ${lead.id} failed:`, error);
     return 'failed';
   }
+}
+
+/**
+ * The missed-payment email (owner 2026-11-01: "sort of a shopping cart abandon email"): a lead who tapped the $49
+ * buy button and has not paid 30 minutes later gets one plain email from Szilard. Wording approved by the owner.
+ */
+export const CHECKOUT_REMINDER_EMAIL = {
+  subject: (firstName: string | null) => (firstName ? `${firstName}, did something go wrong?` : 'Did something go wrong?'),
+  text: (firstName: string | null, site: string, link: string) =>
+    [
+      `Hi ${firstName || 'there'},`,
+      '',
+      `I saw you started getting your video ad for ${site}, but the payment didn't go through.`,
+      '',
+      `Here's your page again: ${link}`,
+      '',
+      "Your $49 price is still there. If your card didn't work, PayPal works too. Or just reply to this email and I'll help you.",
+      '',
+      'Szilard',
+    ].join('\n'),
+} as const;
+
+/** How long after the buy tap the email waits, and how far back a tap still counts. */
+const CHECKOUT_REMINDER_AFTER_MS = 30 * 60_000;
+const CHECKOUT_REMINDER_WINDOW_MS = 24 * 60 * 60_000;
+
+/**
+ * Sends CHECKOUT_REMINDER_EMAIL to every lead whose $49 buy tap ('cta_click' fvunlock) is 30 minutes to 24 hours old,
+ * who has not paid or bought, and who never got it (a 'checkout_reminder_email' event marks it). Returns how many
+ * were sent. Never throws.
+ */
+export async function sendCheckoutReminders(): Promise<number> {
+  let sent = 0;
+  try {
+    const { recordEvent } = await import('@/lib/free-video/leads');
+    const now = Date.now();
+    const { data: taps, error } = await eventsTable()
+      .select('lead_id')
+      .eq('event', 'cta_click')
+      .eq('placement', 'fvunlock')
+      .lt('at', new Date(now - CHECKOUT_REMINDER_AFTER_MS).toISOString())
+      .gt('at', new Date(now - CHECKOUT_REMINDER_WINDOW_MS).toISOString())
+      .not('lead_id', 'is', null);
+    if (error) throw new Error(error.message);
+    const ids = [...new Set(((taps ?? []) as Array<{ lead_id: string }>).map((row) => row.lead_id))];
+    if (!ids.length) return 0;
+    const { data: done } = await eventsTable().select('lead_id').eq('event', 'checkout_reminder_email').in('lead_id', ids);
+    const already = new Set(((done ?? []) as Array<{ lead_id: string }>).map((row) => row.lead_id));
+    const apiKey = process.env.BREVO_API_KEY;
+    for (const id of ids) {
+      if (already.has(id)) continue;
+      const lead = await getLead(id).catch(() => null);
+      if (!lead || lead.unlock_status !== 'none' || lead.bought_at || lead.is_customer) continue;
+      // The owner's own test taps get no email (he read the wording in chat).
+      if (STATS_EXCLUDED_EMAILS.includes(lead.email.trim().toLowerCase())) continue;
+      if (!mailAllowed(lead.email) || !apiKey) continue;
+      const first = lead.first_name?.trim() || null;
+      const site = lead.website_domain ? displayDomain(lead.website_domain) : 'your business';
+      const link = `${SITE_URL}${unlockPagePath(lead.view_token)}`;
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          sender: { email: 'support@bluefx.net', name: 'Szilard Gyorfi' },
+          to: [{ email: lead.email }],
+          subject: CHECKOUT_REMINDER_EMAIL.subject(first),
+          textContent: CHECKOUT_REMINDER_EMAIL.text(first, site, link),
+        }),
+        signal: AbortSignal.timeout(10_000),
+      }).catch(() => null);
+      if (!res?.ok) {
+        console.error(`❌ [free-video] Missed-payment email of lead ${id} failed: Brevo ${res?.status ?? 'no answer'}`);
+        continue;
+      }
+      await recordEvent({ event: 'checkout_reminder_email', leadId: id, ref: lead.ref });
+      console.log(`✅ [free-video] Lead ${id}: missed-payment email sent`);
+      sent++;
+    }
+  } catch (error) {
+    console.error('❌ [free-video] Missed-payment emails failed:', error);
+  }
+  return sent;
 }
