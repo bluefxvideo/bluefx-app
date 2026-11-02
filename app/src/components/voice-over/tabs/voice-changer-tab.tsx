@@ -245,7 +245,7 @@ export function VoiceChangerTab({
                   </Button>
                 </label>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Audio: MP3, WAV, M4A (max 20MB) | Video: MP4, MOV, WebM (max 200MB) | Up to 10 minutes
+                  Audio: MP3, WAV, M4A (max 20MB) | Video: MP4, MOV, WebM (max 100MB) | Up to 10 minutes
                 </p>
               </div>
             )}

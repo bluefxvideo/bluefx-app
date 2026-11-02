@@ -22,7 +22,7 @@ export interface ListingVideoExample extends ToolExample {
   script: string[];
   /** Seconds the finished video runs. */
   seconds: number;
-  /** What each paid step cost. Animation is the Studio's Animate All, 6 credits per photo here. The export is free. */
+  /** What each paid step cost. Animation is the Studio's Animate All, 12 credits per photo here. The export is free. */
   credits: { photoCheck: number; script: number; voice: number; animation: number };
 }
 
@@ -66,7 +66,7 @@ export const LISTING_VIDEO_EXAMPLES: ListingVideoExample[] = [
       'Watch the sunset. Schedule your private showing today.',
     ],
     seconds: 31,
-    credits: { photoCheck: 2, script: 1, voice: 2, animation: 48 },
+    credits: { photoCheck: 2, script: 1, voice: 3, animation: 96 },
   },
 ];
 

@@ -154,7 +154,7 @@ export function ListingVideoTips() {
         'Paste a Zillow or Realtor.com link and the photos come in with the address (1 credit). Or upload your own photos. Analyze Photos reads every photo and leaves out the unusable ones, 1 credit per 5 photos.',
         'Choose the duration and the voice before the script. The script is written to fit that length with that voice, and the line above the script shows how long the voice needs.',
         'Edit any line before the voiceover. Name the address in the first line and say what to do next in the last one.',
-        'Open in Studio is the editor. Click Animate All there and every photo becomes a moving clip. The button shows the price first: 6 credits for most photos, more for a photo that stays on screen longer than 6 seconds. The example was made this way.',
+        'Open in Studio is the editor. Click Animate All there and every photo becomes a moving clip. The button shows the price first: 12 credits for most photos, more for a photo that stays on screen longer than 6 seconds. The example was made this way.',
         'In the Studio you also change the timing, the captions and the music. Then click Export. The export is free.',
       ]}
     />
