@@ -31,6 +31,7 @@ Written 2026-11-01 by Szilard's main business session, so a new YouTube session 
 - People reply and buy after personal, human emails. Keep scripts and emails personal.
 
 ## Rules
+- Every script and email goes through the humanizer rules (the pattern list in `app/src/lib/affiliate-toolkit/humanize.ts`, from Wikipedia's "Signs of AI writing"). Run `detectAiTells` on the draft and fix anything it flags.
 - Plain, natural English. No em dashes. No forced "not this, but that" lines, no staccato sentences, no repeated parallel phrasing.
 - Never promise sales, calls, leads or income.
 - When a real business is shown: "Demo. Not affiliated with this business" on screen, only nice things said, AI presenter is always made up (never a real person), no real estate listing photos, skip sites full of people's faces.
