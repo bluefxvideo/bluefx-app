@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/app/supabase/server';
+import { isLive } from '@/lib/free-video/config';
 
 /**
  * Is the credit bank launched (credit_bank_settings.starts_at set and reached)? The funnel pages use this to pick
@@ -23,6 +24,8 @@ export function bankLiveAt(startsAt: string | null, now = Date.now()): boolean {
 
 /** Whether the pages should show the credit bank copy now. Never throws. */
 export async function isCreditBankLive(): Promise<boolean> {
+  // Local preview only (never on the live site): PREVIEW_BANK_COPY=1 shows the new copy before launch.
+  if (!isLive() && process.env.PREVIEW_BANK_COPY === '1') return true;
   if (cache && Date.now() - cache.at < CACHE_MS) return bankLiveAt(cache.startsAt);
   try {
     // credit_bank_settings is not in the generated database types yet.
