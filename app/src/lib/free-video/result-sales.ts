@@ -710,7 +710,8 @@ export const TOOL_GROUPS_BANK: typeof TOOL_GROUPS = TOOL_GROUPS.map((group) => (
 }));
 
 const S = RESULT_SALES;
-const bankRecharge = `Busy season? Add a one-time recharge pack: $24.99 gives you 300 more credits, enough for ${Math.floor(300 / PHANTOM_CREDITS)} more complete video ads. Packs start at $9.99.`;
+const BANK_PACK = `Add a credit pack any time: 1,000 credits ($69.99) make ${Math.floor(1000 / PHANTOM_CREDITS)} more video ads, with nothing recurring.`;
+const bankRecharge = `Busy season? ${BANK_PACK}`;
 
 export const RESULT_SALES_BANK: SalesCopy = {
   ...S,
@@ -721,7 +722,7 @@ export const RESULT_SALES_BANK: SalesCopy = {
   resell: {
     ...S.resell,
     text: `Type any business's website, and the AI Media Machine makes a video ad for that business. Your account makes ${BANK} complete video ads, for your business or for theirs.`,
-    more: `Need more than ${BANK} for your clients? Add a credit pack any time: 1,000 credits ($69.99) make ${Math.floor(1000 / PHANTOM_CREDITS)} more video ads, with nothing recurring.`,
+    more: `Need more than ${BANK} video ads for your clients? ${BANK_PACK}`,
   },
   bonus: {
     ...S.bonus,
@@ -729,7 +730,7 @@ export const RESULT_SALES_BANK: SalesCopy = {
   },
   how: {
     ...S.how,
-    resultText: `With the AI Media Machine, you get ${BANK} more video ads, so more new customers come to you.`,
+    resultText: `The AI Media Machine makes ${BANK} more video ads for you, so more new customers come to you.`,
   },
   tools: {
     ...S.tools,
@@ -761,8 +762,9 @@ export const RESULT_SALES_BANK: SalesCopy = {
   },
   still: {
     ...S.still,
+    title: 'Your unfair advantage',
     text: [
-      `Right now, other businesses in your market post videos on YouTube, Instagram, Facebook and TikTok every day, and customers see those businesses first. With the AI Media Machine, your business posts a new video every 3 days too: ${BANK} complete video ads, ${READY}.`,
+      `Right now, other businesses in your market post a new video every week on YouTube, Instagram, Facebook and TikTok, and customers see those businesses first. With the AI Media Machine, your business posts twice as often: ${BANK} complete video ads included, enough for 2 new video ads every week for a full year. That's why forward-thinking business owners call the AI Media Machine their unfair advantage.`,
       ...S.still.text.slice(1),
     ],
   },
@@ -773,7 +775,7 @@ export const RESULT_SALES_BANK: SalesCopy = {
         ? {
             ...item,
             a: [
-              `No. You pay ${OFFER.now} once, and there are absolutely no monthly fees. Your account gets ${BANK_CREDITS_TEXT} credits, enough for ${BANK} video ads like yours, and the credits never expire. You also have 30 days to get your money back.`,
+              `No, your investment is ${OFFER.now}, one time, and there are absolutely no monthly fees. Your account gets ${BANK_CREDITS_TEXT} credits, enough for ${BANK} video ads like yours, and the credits never expire. You also have 30 days to get your money back.`,
             ],
           }
         : index === 1
@@ -794,13 +796,13 @@ export const RESULT_SALES_BANK: SalesCopy = {
     titleParts: (name: string) => [`${name}, the AI Media Machine made your video ad. What if your next `, `${BANK} video ads cost just ${PRICE_PER_BANK_VIDEO_AD} each`, '?'] as const,
     sub: 'One payment. Absolutely no monthly fees.',
     ps1: (name: string, domain: string) => `${name}, your $49 video ad for ${domain} is yours to keep. With the AI Media Machine, your next ${BANK} video ads are included, ${READY}.`,
-    ps2: 'You make your video ads yourself, type any change and get the new version in about 3 minutes, and all 12 tools are yours.',
+    ps2: 'The AI Media Machine makes each video ad for you, ready to post in about 3 minutes, and all 12 tools are yours with absolutely no monthly fees.',
   },
   ps: {
     ...S.ps,
     p2: `With the AI Media Machine, you type any change and get the new version of your video ad in about 3 minutes, without the stamp. You also get all 12 tools and ${BANK} complete video ads, ${READY}.`,
     pps: (domain: string) =>
-      `Here's the math. A freelancer charges about $${FREELANCER} for 1 video ad like yours, so ${BANK} video ads cost about ${FREELANCER_BANK}. With the AI Media Machine, you pay ${OFFER.now}, once. That's ${PRICE_PER_BANK_VIDEO_AD} a video ad. Every video ad is one more chance for new customers to find ${domain}.`,
+      `Here's the math. A freelancer charges about $${FREELANCER} for 1 video ad like yours, so ${BANK} video ads would cost about ${FREELANCER_BANK} if you hired a freelancer. With the AI Media Machine, you pay only ${OFFER.now}, one time! That's just ${PRICE_PER_BANK_VIDEO_AD} a video ad. Every video ad is one more chance for new customers to find ${domain}.`,
   },
 };
 
