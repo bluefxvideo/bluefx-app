@@ -4,6 +4,7 @@ import { createClient } from '@/app/supabase/server';
 import { ensureCreditsForUsage } from '@/lib/credits/subscription-entitlement';
 import { chargeClientFor } from '@/lib/credits/charge-client';
 import { Json } from '@/types/database';
+import { spendableCredits } from '@/lib/credits/credit-bank';
 
 /**
  * Logo Machine Database Operations
@@ -246,7 +247,7 @@ export async function getUserCredits(user_id: string): Promise<{ success: boolea
       return { success: false, error: error.message };
     }
 
-    return { success: true, credits: data?.available_credits || 0 };
+    return { success: true, credits: await spendableCredits(user_id, data?.available_credits || 0) };
 
   } catch (error) {
     console.error('getUserCredits error:', error);

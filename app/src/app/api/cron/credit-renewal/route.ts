@@ -90,6 +90,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       (activeSubscriptions || []).map(s => [s.user_id, s])
     );
 
+    // Credit bank accounts (new lifetime buyers: 5,000 once) are never topped up. Their credit
+    // period ends in ~100 years, so they should not be in this list at all; this is the second
+    // lock. If the database cannot say who is on the bank, renew nobody this run.
+    const bankUsers = await creditBankUsers(supabase);
+    if (bankUsers === null) {
+      return NextResponse.json({
+        success: false,
+        error: 'Could not read credit_bank_accounts; no renewals this run',
+      }, { status: 500 });
+    }
+
     let renewed = 0;
     let skipped = 0;
     const errors: string[] = [];
@@ -97,8 +108,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     for (const user of expiredUsers) {
       const subscription = activeUserMap.get(user.user_id);
 
-      if (!subscription) {
-        // No active subscription - skip renewal
+      if (!subscription || bankUsers.has(user.user_id)) {
+        // No active subscription, or on the credit bank - skip renewal
         skipped++;
         continue;
       }
@@ -165,4 +176,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       timestamp: new Date().toISOString(),
     }, { status: 500 });
   }
+}
+
+/**
+ * Every credit bank account (a small table: new lifetime buyers only): an empty set while the
+ * credit bank migration is not installed, null when the table exists but could not be read.
+ */
+async function creditBankUsers(
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<Set<string> | null> {
+  const { data, error } = await supabase
+    .from('credit_bank_accounts')
+    .select('user_id');
+  if (error) {
+    if (['PGRST205', '42P01'].includes(error.code || '') || /does not exist|could not find the table/i.test(error.message || '')) {
+      return new Set();
+    }
+    console.error('❌ Could not read credit_bank_accounts:', error.message);
+    return null;
+  }
+  return new Set(((data || []) as unknown as { user_id: string }[]).map(r => r.user_id));
 }

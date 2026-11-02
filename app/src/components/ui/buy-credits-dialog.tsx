@@ -85,7 +85,7 @@ export function BuyCreditsDialog({ open, onOpenChange }: BuyCreditsDialogProps) 
             Choose a credit package to continue creating amazing content.
             {credits && (
               <span className="font-medium text-foreground">
-                {' '}Current balance: {credits.available_credits} credits
+                {' '}Current balance: {credits.balance_credits} credits
               </span>
             )}
           </DialogDescription>

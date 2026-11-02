@@ -4,6 +4,7 @@ import { createClient, createAdminClient } from '@/app/supabase/server';
 import { ensureCreditsForUsage } from '@/lib/credits/subscription-entitlement';
 import { chargeClientFor } from '@/lib/credits/charge-client';
 import { Json } from '@/types/database';
+import { spendableCredits } from '@/lib/credits/credit-bank';
 
 /**
  * Database operations for Thumbnail Machine
@@ -387,7 +388,7 @@ export async function getUserCredits(
 
     return {
       success: true,
-      credits: data?.available_credits || 0,
+      credits: await spendableCredits(userId, data?.available_credits || 0),
     };
 
   } catch (error) {

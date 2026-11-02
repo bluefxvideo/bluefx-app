@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/app/supabase/server'
 import { cancelFastSpringSubscription } from '@/lib/credits/subscription-entitlement'
 import { insertBuyerProfile } from '@/lib/credits/buyer-profile'
+import { grantCreditBankIfLaunched } from '@/lib/credits/credit-bank'
 import type { Json } from '@/types/database'
 import crypto from 'crypto'
 import { findAuthUser, findAuthUserByEmail } from '@/lib/auth-user-lookup'
@@ -785,6 +786,10 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
         throw new Error(`Failed to grant lifetime credits: ${lifetimeCreditsError.message}`)
       }
 
+      // A lifetime bought after the credit bank launch: 5,000 credits once instead of
+      // 600 every 30 days (does nothing while the launch switch is off).
+      await grantCreditBankIfLaunched(supabase, userId, `FastSpring ${productId}`)
+
       // Cancel the superseded monthly/trial/yearly subscription in FastSpring so the
       // customer is never billed again.
       const oldSubId = existingSubscription.fastspring_subscription_id
@@ -1017,6 +1022,10 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
     throw new Error(`Failed to create credits: ${creditsError.message}`)
   }
   console.log(`✅ Created ${creditsAllocation} credits for user ${customerEmail}`)
+
+  // A lifetime bought after the credit bank launch: 5,000 credits once instead of 600 every
+  // 30 days (does nothing while the launch switch is off).
+  if (isLifetime) await grantCreditBankIfLaunched(supabase, userId, `FastSpring ${productId}`)
 
   // A previously-cancelled (suspended) customer who buys again — monthly, yearly
   // or lifetime — must get access back; cancellation is the only thing that suspends.

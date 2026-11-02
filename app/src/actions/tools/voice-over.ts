@@ -7,6 +7,7 @@ import { MINIMAX_VOICE_OPTIONS, type MinimaxEmotion } from '@/components/shared/
 import { convertVoiceInMedia, probeMediaSeconds } from '@/lib/voice-changer/convert';
 import type { ChatterboxPresetVoice } from '@/actions/models/chatterbox-voices';
 import type { Json } from '@/types/database';
+import { spendableCredits } from '@/lib/credits/credit-bank';
 import {
   voiceOverCredits,
   voiceChangerCredits,
@@ -363,7 +364,7 @@ async function getUserCredits(supabase: Awaited<ReturnType<typeof createClient>>
     .eq('user_id', userId)
     .single();
   
-  return userCredits?.available_credits || 0;
+  return spendableCredits(userId, userCredits?.available_credits || 0);
 }
 
 /**

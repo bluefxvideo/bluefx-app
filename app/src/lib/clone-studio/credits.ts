@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/app/supabase/server';
 import { ensureCreditsForUsage } from '@/lib/credits/subscription-entitlement';
 import { refundFailedGeneration } from '@/lib/credits/refund';
+import { spendableCredits } from '@/lib/credits/credit-bank';
 
 /**
  * Credits for work that runs after the click: a "Do it for me" run makes its pictures and
@@ -43,5 +44,5 @@ export function creditsOf(userId: string): CloneCredits {
 /** The client's balance right now. */
 export async function balanceOf(userId: string): Promise<number> {
   const { data } = await createAdminClient().from('user_credits').select('available_credits').eq('user_id', userId).maybeSingle();
-  return data?.available_credits || 0;
+  return spendableCredits(userId, data?.available_credits || 0);
 }

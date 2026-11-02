@@ -2,12 +2,21 @@
 
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { createClient } from '@/app/supabase/client'
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useMemo, useRef } from 'react'
+import { bankUsageNote, lockedBankCredits, type CreditBankStatus } from '@/lib/credits/credit-bank-messages'
 
 interface UserCredits {
   available_credits: number
   total_credits: number
 }
+
+/** What the hook hands out: `available_credits` is what a tool may plan to spend. */
+interface CreditsView extends UserCredits {
+  /** The full balance, for display. Equals available_credits for every account not on the credit bank. */
+  balance_credits: number
+}
+
+const BANK_KEY = ['credit-bank'] as const
 
 interface FastSpringPurchaseEvent {
   detail?: {
@@ -81,6 +90,8 @@ function startLiveCredits(queryClient: QueryClient): () => void {
             }))
           }
           refresh()
+          // The balance moved, so the credit bank window may have moved too (bank accounts only send a real read).
+          queryClient.invalidateQueries({ queryKey: BANK_KEY })
         }
       )
       .subscribe()
@@ -92,7 +103,10 @@ function startLiveCredits(queryClient: QueryClient): () => void {
   const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
     if (!session?.user) return
     listen(session.user.id)
-    if (event === 'SIGNED_IN') setTimeout(refresh, 0)
+    if (event === 'SIGNED_IN') setTimeout(() => {
+      refresh()
+      queryClient.invalidateQueries({ queryKey: BANK_KEY })
+    }, 0)
   })
 
   const backstop = setInterval(() => {
@@ -140,7 +154,7 @@ export function useCredits() {
 
   // Query for user credits
   const {
-    data: credits,
+    data: rawCredits,
     isLoading,
     error,
     refetch
@@ -173,6 +187,31 @@ export function useCredits() {
     retry: 2,
     refetchOnWindowFocus: false
   })
+
+  // Credit bank standing (new lifetime buyers only; null for everyone else). Refreshed when the balance moves.
+  const { data: bank } = useQuery({
+    queryKey: BANK_KEY,
+    queryFn: async (): Promise<CreditBankStatus | null> => {
+      const res = await fetch('/api/credits/bank-status')
+      if (!res.ok) return null
+      const json = await res.json() as { bank?: CreditBankStatus | null }
+      return json.bank ?? null
+    },
+    staleTime: 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false
+  })
+
+  // The 30-day window stays invisible until it matters: below the notice line tools see the full balance (the
+  // server still refuses a single job bigger than the window allows); from the notice line on they see what the
+  // window lets them spend now, plus pack credits.
+  const credits = useMemo((): CreditsView | undefined => rawCredits && {
+    ...rawCredits,
+    balance_credits: rawCredits.available_credits,
+    available_credits: bank && bank.window_used >= bank.notice_from
+      ? Math.max(rawCredits.available_credits - lockedBankCredits(bank), 0)
+      : rawCredits.available_credits,
+  }, [rawCredits, bank])
 
   // Mutation for credit purchases (optimistic)
   const purchaseCreditsMutation = useMutation({
@@ -265,6 +304,7 @@ export function useCredits() {
     onSettled: () => {
       // Always refetch to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['user-credits'] })
+      queryClient.invalidateQueries({ queryKey: BANK_KEY })
     }
   })
 
@@ -310,6 +350,10 @@ export function useCredits() {
 
   return {
     credits,
+    /** Credit bank standing, or null (every account that is not a new-model lifetime buyer). */
+    bank: bank ?? null,
+    /** The small note near the balance once 30-day bank usage reaches the notice line, else null. */
+    bankNote: bank ? bankUsageNote(bank) : null,
     isLoading,
     error,
     refetch,

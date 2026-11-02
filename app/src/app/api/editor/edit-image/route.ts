@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
 
       if (deductError || !deduction?.success) {
         return NextResponse.json(
-          { success: false, error: deductError?.message || 'Credit deduction failed' },
+          { success: false, error: deductError?.message || deduction?.error || 'Credit deduction failed' },
           { status: 402, headers: corsHeaders(request) },
         );
       }

@@ -40,6 +40,7 @@ import {
   type JobRow,
 } from '@/lib/smart-video/jobs';
 import { createApiError, createApiSuccess, type ApiResponse } from '@/types/validation';
+import { spendableCredits } from '@/lib/credits/credit-bank';
 import {
   SmartVideoReviseSchema,
   SmartVideoStartSchema,
@@ -133,7 +134,7 @@ async function charge(userId: string, jobId: string, credits: number, operation 
 /** Credits a user can spend right now. */
 async function availableCredits(userId: string): Promise<number> {
   const { data } = await createAdminClient().from('user_credits').select('available_credits').eq('user_id', userId).single();
-  return data?.available_credits ?? 0;
+  return spendableCredits(userId, data?.available_credits ?? 0);
 }
 
 /** Step 2: start the job. Returns at once; the work happens in after(). */

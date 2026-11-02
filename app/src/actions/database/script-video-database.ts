@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Json } from '@/types/database';
+import { spendableCredits } from '@/lib/credits/credit-bank';
 
 // Lazy initialization to avoid build-time errors
 function getSupabaseClient() {
@@ -390,7 +391,7 @@ export async function getUserCredits(user_id: string) {
 
     return {
       success: true,
-      credits: data?.available_credits || 0
+      credits: await spendableCredits(user_id, data?.available_credits || 0)
     };
   } catch (error) {
     console.error('Error getting user credits:', error);
