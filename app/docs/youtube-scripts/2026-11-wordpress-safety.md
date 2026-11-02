@@ -21,59 +21,68 @@ Main search phrase: "how to check if my website is hacked". In the description a
 - Have a hosting dashboard ready to show where the PHP version is (cPanel "Select PHP Version" or "MultiPHP Manager", or your host's own panel). Use your own site or a test site, never a stranger's.
 - Check the fixed PHP version numbers once more on php.net on the day you record.
 
-## The script
+## The script (v2: modeled on real winners, in Szilard's voice)
 
-### 1. Hook [A], 0:00 to 0:25
+Built from three videos that worked:
+- Your recipe video (17.5k views): open on something real, ask "what if", then do it live on screen and react as you go.
+- Mark Kashef's PHP2Shell video (6.4k in 10 days): "if you have a website, you should know about this", plain English, a 2-minute check, "send this to someone".
+- WPTuts' "Are WordPress Plugins Becoming a Liability?" (13.8k): a personal routine and an honest opinion, ending with "a normal business site doesn't need WordPress anymore, go static". That last point is your offer.
 
-"If someone built your website a few years ago and nobody has really logged into it since, give me two minutes. In October two big security problems hit WordPress sites within a few days of each other, and a lot of owners still don't know if they were affected. I'll show you how to check your own site, and what to do if it's on an old version."
+The middle is live: you check a real site on screen while you talk. Use one of YOUR OWN old WordPress sites (or a client's, with their OK). Never a stranger's site.
 
-### 2. Why I care [A], 0:25 to 0:45
+Lines in quotes are a guide. Say them your way.
 
-"I've been building sites on WordPress for about sixteen years, and **[YOUR STORY: the time malware hit a site in the middle of a campaign. How long it was down, or what it cost you or the client.]** So I take this stuff pretty seriously."
+### 1. Cold open (screen, then face), 0:00
 
-### 3. What happened [B], 0:45 to 1:50
+On screen: the BBC headline about governments taking sites offline.
 
-Graphic: one stack that stays on screen and changes as you talk. Website on top, then WordPress, then PHP, then the server. Light up the layer you're talking about.
+"So, a couple of weeks ago, governments in Finland, the Netherlands, France and Germany took some of their own websites offline, because of one bug. And that same bug is sitting on a lot of small business websites right now. If you have an older WordPress site, maybe yours too.
 
-"Most WordPress sites run on something called PHP. You can think of it as the engine under the hood.
+So let's check one. I'm going to take an old WordPress site of mine, and in about two minutes I'll show you if it's at risk and what to do about it."
 
-On October 20th a hole was announced in PHP itself. It's called PHP2Shell, and it can let someone take over the server your site runs on without a password. It had been sitting there for more than ten years, and researchers found it with the help of AI.
+### 2. Why you care (face), 0:25
 
-A couple of days before that, attackers got hold of connection keys from the company behind UpdraftPlus, a popular WordPress backup plugin. They used those keys to slip hidden plugins onto sites that were connected to their UpdraftCentral service.
+"I've been doing WordPress sites for about sixteen years, and [YOUR STORY: the time malware hit a site in the middle of a campaign, how long it was down or what it cost]. So when I saw this news, the first thing I did was go and check my own sites."
 
-In both cases the owner didn't have to click anything or do anything wrong."
+### 3. The live check (screen), 0:45
 
-### 4. Who should worry [B], 1:50 to 2:30
+"Okay, so this is the hosting dashboard. I'm going to go to PHP version. Let's see. [read the number out loud and react to it]
 
-Graphic: Shopify, Wix and Squarespace logos with a green tick. An old WordPress site with cobwebs.
+Anything that starts with 8.1 or lower, that's the problem. The fixed versions are 8.2.35, 8.3.36, 8.4.27 and 8.5.12, or newer.
 
-"If your site is on Shopify, Wix or Squarespace, the platform patches this kind of thing for you, so you can relax a bit.
+Now, what is PHP? Very simple. Your website is WordPress, and WordPress runs on PHP. It's like the engine under the hood. The bug is in the engine, so all those security plugins you installed in WordPress don't even get a chance to stop it."
 
-The sites I'd worry about are small business WordPress sites that a freelancer or an agency set up years ago, where nobody updates the plugins or the server anymore. That's a lot of the sites people send me."
+If you can't find the version, or to show the easy way:
 
-### 5. Check your site [S], 2:30 to 4:30
+"There's an easier way if you can't find this. OpenAI released a free checker, and I put a prompt in the description. You paste it into ChatGPT or Claude with your website and it tells you. Let's do that. [run it] If it says 'unknown', don't relax. Unknown means you ask your host."
 
-You don't need a full script here. Show these steps and say them in your own words.
+Then the second hack, on the WordPress Plugins page:
 
-1. Log in to your hosting account and find the PHP version. In cPanel it's under "Select PHP Version" or "MultiPHP Manager". Circle it on screen.
-2. Read the number out loud: "If it starts with 8.1 or lower, it needs an upgrade. The fixed versions are 8.2.35, 8.3.36, 8.4.27 and 8.5.12, or anything newer on the same line." Show these numbers as a graphic too.
-3. If you can't find it, show the prompt from the description pasted into ChatGPT, Claude or Gemini (it uses OpenAI's free checker). Say: "If it comes back 'unknown', that doesn't mean you're safe. It means you need to ask your host."
-4. Open the Plugins page in WordPress. Say: "If you ever connected your site to UpdraftCentral, read their security notice and ask your host or developer to scan the site. Some of those hidden plugins don't show up in this list."
-5. Show the copy-and-paste message from the description. "Just send them this. Any decent host will answer within a day."
+"And while we're here, one more thing. The same week there was another hack, through a backup plugin called UpdraftPlus. Attackers used stolen keys to put hidden plugins on people's sites. So if you ever connected your site to UpdraftCentral, go read their notice and have someone scan the site, because those plugins don't even show up in this list."
 
-### 6. The bigger problem [A], 4:30 to 5:20
+### 4. The fix (screen), 3:00
 
-"Fixing the PHP version takes about ten minutes. What worries me more is that these won't be the last ones, because AI is now finding old holes faster than anyone can patch them. And a lot of small business sites have nobody looking after them at all.
+"So what do you do if your site is on an old version? The easiest thing is you send your host this message. It's in the description, just copy it. A lot of hosts let you change it yourself right in this menu. Just make a backup first, because an old site can break on a new PHP version."
 
-That's what my team does for our website clients. We rebuild the site as clean, fast pages with no PHP and no plugins on the server, so a hole like PHP2Shell has nothing to get into, and there's no plugin list to hide anything in. When you want something changed, you send us a text or an email. And because the pages are clean, ChatGPT and Google can read them easily, which matters more and more now that people ask AI who to call."
+### 5. What I really think (face), 3:40
 
-### 7. CTA [A], 5:20 to 5:45
+"Now, what worries me more is this. Updating PHP fixes this one bug. But there's going to be another one next month, and another one after that, because AI is now finding these old holes faster than anybody can patch them. And most small business websites have nobody looking after them. The freelancer built it five years ago and that was it.
 
-"Two things before you go. If you know a business owner with an old WordPress site, send them this video. It might save them a really bad week.
+For a normal business website, a few pages with your services, your phone number and a contact form, you don't really need WordPress anymore. So what we do for our clients is rebuild the site as simple, fast pages. There's no PHP on the server and no plugins, so this kind of bug has nothing to get into. When you want to change something, you send us a text or an email and we do it.
 
-And if you'd like us to look at yours, the link to our website service is in the description. Or comment your website below and I'll tell you what I'd fix first."
+The other thing I like about it is that these clean pages are really easy for ChatGPT and Google to read. That matters a lot now, because people are starting to ask ChatGPT who they should call."
 
-(If you won't have time to answer comments, drop the last sentence.)
+### 6. CTA (face), 4:40
+
+"So, if you know somebody with an old WordPress site, send them this video. Honestly, it might save them a really bad week.
+
+And if you want us to take a look at your site, the link is in the description. Or just comment your website below and I'll tell you what I would do with it. Thank you for watching and I'll see you in the next one. Bye-bye."
+
+### Check before recording
+
+- The four countries and the "security plugins can't stop it" point come from the Oct 22 fact sheet on your Mac (BBC, Reuters, Help Net Security). Make sure they're in it.
+- PHP version numbers: check php.net on the day.
+- Section 5 has to match how your website service really works.
 
 ## Description
 
