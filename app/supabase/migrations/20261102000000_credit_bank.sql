@@ -8,8 +8,10 @@
 --
 -- BEFORE APPLYING: compare the live deduct_user_credits with the "legacy" branch below
 --   select pg_get_functiondef('public.deduct_user_credits(uuid,integer,text,jsonb)'::regprocedure);
--- The legacy branch is a verbatim copy of 20260225000001_fix_deduct_credits_logging.sql.
--- If the live body differs, merge the difference into the legacy branch first.
+-- The legacy branch is a verbatim copy of 20260225000001_fix_deduct_credits_logging.sql,
+-- and the guards at its top are those of 20261102000001_credit_rpc_guard.sql (apply that
+-- one first; this file keeps its guards and grants). If the live body differs, merge the
+-- difference into the legacy branch first.
 --
 -- Model
 --   * A bank buyer has a row in credit_bank_accounts. Nobody else does, so nothing
@@ -21,13 +23,19 @@
 --     buyers a pack spend LOWERS bonus_credits instead of raising used_credits, so the
 --     two buckets never mix. available_credits (generated: total - used + bonus) is
 --     still the full balance.
---   * Rolling window: bank credits spent in the last window_days (30) count against
---     window_limit (1,500). Every bank buyer's debit carries
+--   * Fixed 30-day periods (owner choice 2026-11-02): the first bank spend starts a
+--     period (credit_bank_accounts.period_started_at); within it at most window_limit
+--     (1,500) bank credits can be used. When window_days (30) have passed, the next
+--     bank spend starts a new period with all 1,500 available again. The roll happens
+--     inside the locked deduction. Every bank buyer's debit carries
 --     metadata.credit_bank = {bank, pack}; every refund of one carries
---     metadata.credit_bank = {bank, pack, debit_id}. Window usage = bank part of the
---     debits of the last 30 days minus the bank part refunded on them.
+--     metadata.credit_bank = {bank, pack, debit_id}. Period usage = bank part of the
+--     debits since period_started_at minus the bank part refunded on THOSE debits (a
+--     refund of a debit from an older period never touches the current period).
 --   * Pack credits are never limited. Spends take bank credits first (as far as the
---     window allows), the rest from pack credits; a spend can be split.
+--     period allows), the rest from pack credits; a spend can be split.
+--   * Security: deduct_user_credits keeps the guards of 20261102000001_credit_rpc_guard
+--     (positive amounts only, a signed-in caller only for itself, no anon).
 
 -- 1) Launch switch + numbers (one row). starts_at NULL = OFF.
 CREATE TABLE IF NOT EXISTS public.credit_bank_settings (
@@ -51,6 +59,8 @@ CREATE TABLE IF NOT EXISTS public.credit_bank_accounts (
   window_days INTEGER NOT NULL,
   source TEXT NOT NULL,
   purchased_at TIMESTAMPTZ NOT NULL,
+  -- Start of the current 30-day period; NULL until the first bank spend.
+  period_started_at TIMESTAMPTZ NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE public.credit_bank_accounts ENABLE ROW LEVEL SECURITY;
@@ -58,11 +68,13 @@ DROP POLICY IF EXISTS "Users read own credit bank" ON public.credit_bank_account
 CREATE POLICY "Users read own credit bank" ON public.credit_bank_accounts
   FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
--- The window query reads a user's recent ledger rows.
+-- The period query reads a user's recent ledger rows.
 CREATE INDEX IF NOT EXISTS credit_transactions_user_created_idx
   ON public.credit_transactions (user_id, created_at DESC);
 
--- 3) Status of one account: bank left, pack left, window usage, when credits come back.
+-- 3) Status of one account: bank left, pack left, period usage, when the next 1,500 unlock.
+--    (The keys keep the name "window" for the period.) A period that has run its 30 days
+--    counts as over: usage 0, next_free_at NULL, until the next bank spend starts one.
 CREATE OR REPLACE FUNCTION public.credit_bank_status(p_user_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -94,30 +106,33 @@ BEGIN
   v_bank_left := GREATEST(COALESCE(v_total, 0) - COALESCE(v_used, 0), 0);
   v_pack_left := GREATEST(COALESCE(v_available, 0) - v_bank_left, 0);
 
-  WITH d AS (
-    SELECT t.id, t.created_at, COALESCE((t.metadata->'credit_bank'->>'bank')::INTEGER, 0) AS bank
-    FROM credit_transactions t
-    WHERE t.user_id = p_user_id
-      AND t.transaction_type = 'debit'
-      AND t.metadata ? 'credit_bank'
-      AND t.created_at > NOW() - make_interval(days => v_acct.window_days)
-  ), r AS (
-    SELECT (t.metadata->'credit_bank'->>'debit_id')::UUID AS debit_id,
-           SUM(COALESCE((t.metadata->'credit_bank'->>'bank')::INTEGER, 0)) AS bank
-    FROM credit_transactions t
-    WHERE t.user_id = p_user_id
-      AND t.operation_type = 'refund'
-      AND t.metadata ? 'credit_bank'
-      AND t.created_at > NOW() - make_interval(days => v_acct.window_days)
-    GROUP BY 1
-  ), net AS (
-    SELECT d.created_at, GREATEST(d.bank - COALESCE(r.bank, 0), 0) AS bank
-    FROM d LEFT JOIN r ON r.debit_id = d.id
-  )
-  SELECT COALESCE(SUM(bank), 0)::INTEGER,
-         MIN(created_at) FILTER (WHERE bank > 0) + make_interval(days => v_acct.window_days)
-    INTO v_window_used, v_next_free
-  FROM net;
+  IF v_acct.period_started_at IS NULL
+     OR NOW() >= v_acct.period_started_at + make_interval(days => v_acct.window_days) THEN
+    v_window_used := 0;
+    v_next_free := NULL;
+  ELSE
+    WITH d AS (
+      SELECT t.id, COALESCE((t.metadata->'credit_bank'->>'bank')::INTEGER, 0) AS bank
+      FROM credit_transactions t
+      WHERE t.user_id = p_user_id
+        AND t.transaction_type = 'debit'
+        AND t.metadata ? 'credit_bank'
+        AND t.created_at >= v_acct.period_started_at
+    ), r AS (
+      SELECT (t.metadata->'credit_bank'->>'debit_id')::UUID AS debit_id,
+             SUM(COALESCE((t.metadata->'credit_bank'->>'bank')::INTEGER, 0)) AS bank
+      FROM credit_transactions t
+      WHERE t.user_id = p_user_id
+        AND t.operation_type = 'refund'
+        AND t.metadata ? 'credit_bank'
+        AND t.created_at >= v_acct.period_started_at
+      GROUP BY 1
+    )
+    SELECT COALESCE(SUM(GREATEST(d.bank - COALESCE(r.bank, 0), 0)), 0)::INTEGER
+      INTO v_window_used
+    FROM d LEFT JOIN r ON r.debit_id = d.id;
+    v_next_free := v_acct.period_started_at + make_interval(days => v_acct.window_days);
+  END IF;
 
   v_window_left := GREATEST(v_acct.window_limit - v_window_used, 0);
   SELECT notice_from INTO v_notice FROM credit_bank_settings WHERE id = 1;
@@ -133,6 +148,7 @@ BEGIN
     'window_left', v_window_left,
     'spendable_now', v_pack_left + LEAST(v_bank_left, v_window_left),
     'next_free_at', v_next_free,
+    'period_started_at', v_acct.period_started_at,
     -- The note shows from 1,200 of 1,500 (80%); a smaller test limit keeps the same 80%.
     'notice_from', LEAST(COALESCE(v_notice, 1200), FLOOR(v_acct.window_limit * 0.8)::INTEGER)
   );
@@ -265,8 +281,10 @@ BEGIN
 END;
 $$;
 
--- 6) The one deduction every tool uses. Accounts without a bank row run the old body
---    unchanged; bank accounts get the bucket split and the window limit, atomically.
+-- 6) The one deduction every tool uses. Same guards as 20261102000001_credit_rpc_guard
+--    (positive amounts only; a signed-in caller may charge only itself; no anon), then:
+--    accounts without a bank row run the old body unchanged; bank accounts get the bucket
+--    split and the 30-day period limit, atomically.
 CREATE OR REPLACE FUNCTION public.deduct_user_credits(
   p_user_id UUID,
   p_amount INTEGER,
@@ -282,17 +300,29 @@ DECLARE
   v_remaining INTEGER;
   v_is_bank BOOLEAN;
   v_row user_credits%ROWTYPE;
+  v_acct public.credit_bank_accounts%ROWTYPE;
   v_status JSONB;
   v_bank_left INTEGER;
   v_pack_left INTEGER;
   v_window_left INTEGER;
+  v_limit INTEGER;
   v_bank_take INTEGER;
   v_pack_take INTEGER;
-  v_next_free TEXT;
+  v_unlock TEXT;
+  v_next INTEGER;
 BEGIN
+  -- ===== guards (20261102000001) =====
+  IF p_amount IS NULL OR p_amount <= 0 THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Invalid credit amount', 'remaining_credits', 0);
+  END IF;
+  IF auth.role() IS NOT NULL AND auth.role() <> 'service_role'
+     AND (auth.uid() IS NULL OR p_user_id IS DISTINCT FROM auth.uid()) THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Not allowed to use these credits', 'remaining_credits', 0);
+  END IF;
+
   SELECT EXISTS (SELECT 1 FROM public.credit_bank_accounts WHERE user_id = p_user_id) INTO v_is_bank;
 
-  IF NOT v_is_bank OR p_amount IS NULL OR p_amount <= 0 THEN
+  IF NOT v_is_bank THEN
     -- ===== legacy branch: verbatim copy of 20260225000001 =====
     SELECT available_credits INTO v_available
     FROM user_credits
@@ -344,43 +374,55 @@ BEGIN
   END IF;
 
   -- ===== credit bank branch =====
-  -- Lock the balance row so two parallel generations cannot both pass the window check.
+  -- Lock the balance and the period so two parallel generations cannot both pass the check.
   SELECT * INTO v_row FROM public.user_credits WHERE user_id = p_user_id FOR UPDATE;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('success', false, 'error', 'User credits record not found', 'remaining_credits', 0);
   END IF;
+  SELECT * INTO v_acct FROM public.credit_bank_accounts WHERE user_id = p_user_id FOR UPDATE;
 
   v_status := public.credit_bank_status(p_user_id);
   v_bank_left := (v_status->>'bank_left')::INTEGER;
   v_pack_left := (v_status->>'pack_left')::INTEGER;
   v_window_left := (v_status->>'window_left')::INTEGER;
+  v_limit := (v_status->>'window_limit')::INTEGER;
 
   v_bank_take := LEAST(p_amount, v_bank_left, v_window_left);
   v_pack_take := p_amount - v_bank_take;
 
   IF v_pack_take > v_pack_left THEN
     IF v_bank_left > v_bank_take THEN
-      -- Bank credits exist but the 30-day window holds them back.
-      v_next_free := COALESCE(to_char((v_status->>'next_free_at')::TIMESTAMPTZ AT TIME ZONE 'UTC', 'Mon FMDD'), 'soon');
+      -- Bank credits exist but the 30-day period's 1,500 are used.
+      v_unlock := COALESCE(to_char((v_status->>'next_free_at')::TIMESTAMPTZ AT TIME ZONE 'UTC', 'Mon FMDD'), 'soon');
+      v_next := LEAST(v_limit, v_bank_left - v_window_left);
       RETURN jsonb_build_object(
         'success', false,
         'error', CASE WHEN v_window_left = 0 THEN
-            'You''ve reached your ' || to_char((v_status->>'window_limit')::INTEGER, 'FM999,999,999')
-            || ' credits for this ' || (v_status->>'window_days') || '-day window. Your remaining '
-            || to_char(v_bank_left, 'FM999,999,999') || ' credits are safe and unlock again on ' || v_next_free
+            'You''ve used your ' || to_char(v_limit, 'FM999,999,999')
+            || ' credits for this ' || (v_status->>'window_days') || '-day period. Your remaining '
+            || to_char(v_bank_left, 'FM999,999,999') || ' credits are safe, and your next '
+            || to_char(v_next, 'FM999,999,999') || ' unlock on ' || v_unlock
             || '. Need more now? Buy a credit pack, pack credits work right away.'
           ELSE
             'This needs ' || to_char(p_amount, 'FM999,999,999') || ' credits and you have '
-            || to_char(v_window_left + v_pack_left, 'FM999,999,999') || ' left in this '
-            || (v_status->>'window_days') || '-day window. Your other '
-            || to_char(v_bank_left - v_window_left, 'FM999,999,999') || ' credits are safe and unlock again on '
-            || v_next_free || '. Need more now? Buy a credit pack, pack credits work right away.'
+            || to_char(v_window_left + v_pack_left, 'FM999,999,999') || ' left for this '
+            || (v_status->>'window_days') || '-day period. Your remaining '
+            || to_char(v_bank_left - v_window_left, 'FM999,999,999') || ' credits are safe, and your next '
+            || to_char(v_next, 'FM999,999,999') || ' unlock on ' || v_unlock
+            || '. Need more now? Buy a credit pack, pack credits work right away.'
           END,
         'limit_reached', true,
         'remaining_credits', v_row.available_credits
       );
     END IF;
     RETURN jsonb_build_object('success', false, 'error', 'Insufficient credits', 'remaining_credits', v_row.available_credits);
+  END IF;
+
+  -- A bank spend with no running period (first spend, or the last period has ended)
+  -- starts a new 30-day period now. credit_bank_status already counted it as fresh.
+  IF v_bank_take > 0 AND (v_acct.period_started_at IS NULL
+      OR NOW() >= v_acct.period_started_at + make_interval(days => v_acct.window_days)) THEN
+    UPDATE public.credit_bank_accounts SET period_started_at = NOW() WHERE user_id = p_user_id;
   END IF;
 
   UPDATE public.user_credits
@@ -408,6 +450,10 @@ BEGIN
   RETURN jsonb_build_object('success', true, 'remaining_credits', v_remaining);
 END;
 $$;
+
+-- Keep the grants of 20261102000001 (no anon, no PUBLIC).
+REVOKE EXECUTE ON FUNCTION public.deduct_user_credits(UUID, INTEGER, TEXT, JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.deduct_user_credits(UUID, INTEGER, TEXT, JSONB) TO authenticated, service_role;
 
 -- 7) Safety net: nothing but grant_credit_bank may change a bank buyer's bank size.
 --    A stray monthly top-up (topup_user_credits, a webhook re-grant) would otherwise

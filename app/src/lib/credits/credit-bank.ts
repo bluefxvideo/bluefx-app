@@ -3,8 +3,8 @@ import { bankLimitMessage, isHeldByWindow, type CreditBankStatus } from '@/lib/c
 
 /**
  * Credit bank (owner decision 2026-11-02): people who buy lifetime after the launch time get
- * 5,000 credits once that never expire, with at most 1,500 bank credits spent per rolling 30
- * days. Credit pack credits are never limited. Existing lifetime buyers and the $37 monthly
+ * 5,000 credits once that never expire, with at most 1,500 bank credits spent per fixed 30-day
+ * period. Credit pack credits are never limited. Existing lifetime buyers and the $37 monthly
  * plan keep 600 credits every 30 days.
  *
  * The rules live in the database (migration 20261102000000_credit_bank.sql): the launch switch

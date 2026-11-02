@@ -4,7 +4,7 @@ import { getCreditBankStatus } from '@/lib/credits/credit-bank'
 
 /**
  * The caller's credit bank standing (new lifetime buyers only: 5,000 credits once, at most
- * 1,500 bank credits per rolling 30 days). Every other account gets { bank: null }, and pages
+ * 1,500 bank credits per fixed 30-day period). Every other account gets { bank: null }, and pages
  * then show nothing new. Read by useCredits.
  */
 export async function GET() {
