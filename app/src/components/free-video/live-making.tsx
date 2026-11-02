@@ -9,9 +9,9 @@ import { VideoAdPlayer } from './video-ad-player';
 import styles from './free-video.module.css';
 
 /** FREE_VIDEO_STEP_OF (types/free-video.ts), repeated here so the page bundle does not load zod. */
-const STEP_OF: Record<SmartVideoJobStatus, number> = { reading: 1, directing: 2, producing: 3, rendering: 4, finishing: 5, done: 5, failed: 5 };
+const STEP_OF: Record<SmartVideoJobStatus, number> = { reading: 1, directing: 2, script: 2, producing: 3, rendering: 4, finishing: 5, done: 5, failed: 5 };
 /** About how many minutes are left when each step starts (a job takes about 4: measured 3 min 46 s on 2026-10-07). */
-const MINUTES_LEFT: Record<SmartVideoJobStatus, number> = { reading: 4, directing: 4, producing: 3, rendering: 2, finishing: 1, done: 1, failed: 1 };
+const MINUTES_LEFT: Record<SmartVideoJobStatus, number> = { reading: 4, directing: 4, script: 4, producing: 3, rendering: 2, finishing: 1, done: 1, failed: 1 };
 /** A computed wait above this shows the "busy day" line instead of a time. */
 const BUSY_ETA_MINUTES = 90;
 

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { cleanLink } from '@/lib/smart-video/link';
 import { VIDEO_FORMATS, VIDEO_LENGTHS, VIDEO_LOOKS, type VideoFormat, type VideoLength, type VideoLook } from '@/lib/smart-video/types';
 import { LISTING_INSTRUCTIONS_MAX, type ListingOptions } from '@/lib/smart-video/listing';
+import type { DraftScript } from '@/lib/smart-video/script-edit';
 
 export const SMART_VIDEO_MAX_FILES = 15;
 export const SMART_VIDEO_MAX_FILE_MB = 100;
@@ -71,11 +72,23 @@ export const SmartVideoReviseSchema = z
     path: ['presenter'],
   });
 
+/** Script first: the client's script, approved (script-edit.ts checks it against the draft). */
+export const SmartVideoApproveSchema = z.object({
+  jobId: z.string().uuid(),
+  // The whole voice-over as the client left it (script-edit.ts checks the words).
+  text: z.string().max(SMART_VIDEO_TEXT_MAX),
+});
+export type SmartVideoApproveInput = z.input<typeof SmartVideoApproveSchema>;
+
 export type SmartVideoReviseInput = z.input<typeof SmartVideoReviseSchema>;
 
 export type SmartVideoStartInput = z.input<typeof SmartVideoStartSchema>;
 
-export type SmartVideoJobStatus = 'reading' | 'directing' | 'producing' | 'rendering' | 'finishing' | 'done' | 'failed';
+/**
+ * 'script': script first (owner 2026-11-02). The script is written and waits for the client to read, change and approve
+ * it; nothing is charged or made before that. It does not count as running (no heartbeat, no two-at-once limit).
+ */
+export type SmartVideoJobStatus = 'reading' | 'directing' | 'script' | 'producing' | 'rendering' | 'finishing' | 'done' | 'failed';
 
 /** Job state, kept as job.json next to the job's files (admin-only trial: no table yet). */
 export interface SmartVideoJob {
@@ -103,6 +116,16 @@ export interface SmartVideoJob {
   presenterPhoto?: { name: string; path: string };
   /** With presenterPhoto: film the photo as it is instead of putting the person in the current presenter's place. */
   presenterPhotoAsIs?: boolean;
+  /**
+   * Script first (owner 2026-11-02): the job writes the script, waits as 'script' until the client approves it, and
+   * only then is charged and made. The script to read and change is in `draft`.
+   */
+  scriptFirst?: boolean;
+  draft?: DraftScript;
+  /** Script first: the client asked for the AI presenter (paid, and then `presenter`, only on approval). */
+  wantsPresenter?: boolean;
+  /** Script first: when the client approved the script. */
+  approvedAt?: string;
   /** Set on ReelEstate's automatic listing videos. */
   listing?: ListingOptions;
   /** Listing video: the photos whose animation was charged, by asset id. */

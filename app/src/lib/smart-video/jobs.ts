@@ -1,16 +1,18 @@
 import path from 'node:path';
 import { createAdminClient } from '@/app/supabase/server';
 import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
-import { createSmartVideo, type SmartVideoMedia, type SmartVideoOptions, type SmartVideoResult } from '@/lib/smart-video/pipeline';
+import { createSmartVideo, writeScript, type SmartVideoMedia, type SmartVideoOptions, type SmartVideoResult } from '@/lib/smart-video/pipeline';
 import { listingClipCredits, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
 import { PRESENTER_ASSET } from '@/lib/smart-video/presenter';
 import { checkAdScript } from '@/lib/smart-video/script-rules';
+import { draftOf } from '@/lib/smart-video/script-edit';
 import { listingLinkPhotos } from '@/lib/smart-video/listing';
 import type { DirectorPlan, SmartAsset } from '@/lib/smart-video/types';
 import { prepareAssets, type ClientFile } from '@/lib/smart-video/prepare-assets';
 import { downloadLinkPhotos, fromLink } from '@/lib/smart-video/sources';
 import { levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
-import { usageOf } from '@/lib/smart-video/usage';
+import { trackUsage, usageOf } from '@/lib/smart-video/usage';
+import { matchScreenWords } from '@/lib/smart-video/script-sync';
 import type { SmartVideoJob, SmartVideoScriptScene } from '@/types/smart-video';
 
 /**
@@ -153,7 +155,8 @@ export async function readPlan(userId: string, jobId: string): Promise<SavedPlan
 }
 
 /**
- * Jobs of this user that are still working (a job with a stale heartbeat is dead, not running). A free video ad copied
+ * Jobs of this user that are still working (a job with a stale heartbeat is dead, not running; a script waiting for
+ * approval is not working). A free video ad copied
  * into the account (claim.ts) is left out while its watermark comes off, and so are the 3 bonus video ads (bonus-ads.ts):
  * the user did not start them, and two of them blocked the owner's next video (2026-10-13).
  */
@@ -162,7 +165,7 @@ export async function runningJobs(userId: string): Promise<number> {
   const { count } = await jobsTable()
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .not('status', 'in', '(done,failed)')
+    .not('status', 'in', '(done,failed,script)')
     .is('job->>freeLeadId', null)
     .is('job->>bonus', null)
     .gt('updated_at', alive);
@@ -271,6 +274,24 @@ export interface SmartVideoRunHooks {
   renderScale?: number;
 }
 
+/** The client's files and text, with what their link says (the photos of the page, its facts). */
+async function readInputs(job: SmartVideoJob, uploads: { name: string; path: string }[], readLink?: SmartVideoRunHooks['readLink']): Promise<{ files: ClientFile[]; brief: string }> {
+  const files: ClientFile[] = await Promise.all(uploads.map(async (u) => ({ filename: u.name, data: await download(u.path) })));
+  let brief = job.brief;
+  if (job.link && readLink) {
+    const read = await readLink(job.link);
+    files.push(...read.files);
+    brief = job.brief.trim() ? `${read.brief}\n\nNOTE FROM THE CLIENT:\n${job.brief}` : read.brief;
+  } else if (job.link) {
+    // A listing video takes its photos from the whole listing, more of them than a general video uses
+    const linkPhotos = job.listing ? listingLinkPhotos(uploads.length) : undefined;
+    const link = await fromLink(job.link, linkPhotos);
+    files.push(...(await downloadLinkPhotos(link.imageUrls, linkPhotos)));
+    brief = job.brief.trim() ? `${link.brief}\n\nNOTE FROM THE CLIENT:\n${job.brief}` : link.brief;
+  }
+  return { files, brief };
+}
+
 export async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string; path: string }[], hooks: SmartVideoRunHooks = {}): Promise<void> {
   let job = initial;
   // Listing video: the photos whose animation is paid for so far, and what each one cost
@@ -286,20 +307,7 @@ export async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: 
   const heartbeat = setInterval(() => touchJob(job.id).catch(() => undefined), 45_000);
   try {
     console.log(`🎬 Smart Video job ${job.id}: ${uploads.length} files${job.link ? ' + link' : ''}`);
-    const files: ClientFile[] = await Promise.all(uploads.map(async (u) => ({ filename: u.name, data: await download(u.path) })));
-
-    let brief = job.brief;
-    if (job.link && hooks.readLink) {
-      const read = await hooks.readLink(job.link);
-      files.push(...read.files);
-      brief = job.brief.trim() ? `${read.brief}\n\nNOTE FROM THE CLIENT:\n${job.brief}` : read.brief;
-    } else if (job.link) {
-      // A listing video takes its photos from the whole listing, more of them than a general video uses
-      const linkPhotos = job.listing ? listingLinkPhotos(uploads.length) : undefined;
-      const link = await fromLink(job.link, linkPhotos);
-      files.push(...(await downloadLinkPhotos(link.imageUrls, linkPhotos)));
-      brief = job.brief.trim() ? `${link.brief}\n\nNOTE FROM THE CLIENT:\n${job.brief}` : link.brief;
-    }
+    const { files, brief } = await readInputs(job, uploads, hooks.readLink);
 
     const store = hooks.onStored
       ? async (data: Buffer, name: string, contentType: string) => {
@@ -456,4 +464,120 @@ export const DEAD_JOB = 'The job stopped unexpectedly (the server restarted duri
 
 /** A running job keeps its updatedAt fresh with a heartbeat; one that has gone quiet died with its process (deploy, crash). */
 export const isDead = (job: SmartVideoJob) =>
-  job.status !== 'done' && job.status !== 'failed' && Date.now() - Date.parse(job.updatedAt) > STALE_AFTER_MS;
+  job.status !== 'done' && job.status !== 'failed' && job.status !== 'script' && Date.now() - Date.parse(job.updatedAt) > STALE_AFTER_MS;
+
+// ---------------------------------------------------------------------------------------------------------------
+// Script first (owner 2026-11-02): the script is written and shown before anything is charged or made.
+
+/** What a script job keeps until it is approved: the plan, the text it was written from, and the files it uses. */
+export interface SavedScript {
+  plan: DirectorPlan;
+  brief: string;
+  /** The prepared files without their bytes: they are loaded again from the job's folder on approval. */
+  assets: Omit<SmartAsset, 'data'>[];
+}
+
+export async function readScript(userId: string, jobId: string): Promise<SavedScript> {
+  const { data, error } = await jobsTable().select('plan').eq('id', jobId).eq('user_id', userId).maybeSingle();
+  const saved = (data?.plan as { draft?: SavedScript } | null)?.draft;
+  if (error || !saved) throw new Error(error?.message || 'This script was not saved');
+  return saved;
+}
+
+/** Scripts this user had written in the last day and never approved (scripts are free, so they are counted). */
+export async function unapprovedScriptsToday(userId: string): Promise<number> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { count } = await jobsTable()
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('job->>scriptFirst', 'true')
+    .is('job->>approvedAt', null)
+    .gt('created_at', since);
+  return count ?? 0;
+}
+
+/** Scripts waiting for this user's approval right now. */
+export async function waitingScripts(userId: string): Promise<number> {
+  const { count } = await jobsTable().select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'script');
+  return count ?? 0;
+}
+
+/** Writes the script of a new video and stops: status 'script', nothing charged. A failure charges nothing either. */
+export async function runScriptJob(initial: SmartVideoJob, uploads: { name: string; path: string }[]): Promise<void> {
+  let job = initial;
+  const dir = jobDir(job.userId, job.id);
+  const heartbeat = setInterval(() => touchJob(job.id).catch(() => undefined), 45_000);
+  try {
+    console.log(`📝 Smart Video script ${job.id}: ${uploads.length} files${job.link ? ' + link' : ''}`);
+    const { files, brief } = await readInputs(job, uploads);
+    const assets = await prepareAssets(files, (data, name, contentType) => upload(`${dir}/${name}`, data, contentType));
+    job = await writeJob(job, { status: 'directing' });
+    const { plan, usage } = await writeScript(brief, assets, {
+      length: job.length === 'script' ? 'script' : 'auto',
+      format: job.format,
+      look: job.look && job.look !== 'auto' ? job.look : null,
+      presenter: Boolean(job.wantsPresenter),
+      checkScript: job.length !== 'script' ? checkAdScript : undefined,
+    });
+    const saved: SavedScript = { plan, brief, assets: assets.map(({ data: _data, ...rest }) => rest) };
+    const { error } = await jobsTable().update({ plan: { draft: saved } }).eq('id', job.id);
+    if (error) throw new Error(`Could not save the script: ${error.message}`);
+    await writeJob(job, { status: 'script', draft: draftOf(plan, Boolean(job.wantsPresenter), job.length === 'script'), usage });
+    console.log(`✅ Smart Video script ${job.id} ready: ${plan.scenes.length} scenes`);
+  } catch (error) {
+    console.error(`❌ Smart Video script ${job.id} failed:`, error);
+    const spent = usageOf(error);
+    // Nothing was charged (creditsUsed is 0), so failAndRefund only marks it failed.
+    await failAndRefund({ ...job, ...(spent.length ? { usage: spent } : {}) }, error instanceof Error ? error.message : 'Unknown error').catch(() => undefined);
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
+/** Makes the approved script exactly as the client left it (approved and charged by approveSmartVideoScript). */
+export async function runApprovedJob(initial: SmartVideoJob, saved: SavedScript, approvedPlan: DirectorPlan, changed: number[]): Promise<void> {
+  let job = initial;
+  const dir = jobDir(job.userId, job.id);
+  const heartbeat = setInterval(() => touchJob(job.id).catch(() => undefined), 45_000);
+  try {
+    console.log(`🎬 Smart Video job ${job.id}: making the approved script (${approvedPlan.scenes.length} scenes, ${changed.length} lines changed)`);
+    // The words on screen of the lines the client changed are matched to the new words (the voice-over stays as approved).
+    const matched = await trackUsage(() => matchScreenWords(approvedPlan, changed));
+    const plan = matched.result;
+    const assets: SmartAsset[] = await Promise.all(
+      saved.assets.map(async (asset) => ({ ...asset, data: await download(`${dir}/${path.basename(new URL(asset.url).pathname)}`) }))
+    );
+    const store = (data: Buffer, name: string, contentType: string) => upload(`${dir}/${name}`, data, contentType);
+    const result = await createSmartVideo(saved.brief, assets, store, (url) => download(`${dir}/${path.basename(new URL(url).pathname)}`), {
+      length: job.length === 'script' ? 'script' : 'auto',
+      format: job.format,
+      look: job.look && job.look !== 'auto' ? job.look : null,
+      sound: soundOf(job),
+      presenter: Boolean(job.presenter),
+      approvedPlan: plan,
+      onStage: (stage) => {
+        job = { ...job, status: stage };
+        writeJob(job).catch(() => undefined);
+      },
+    });
+    // The script's own cost is part of the video's.
+    result.usage = [...(initial.usage ?? []), ...matched.usage, ...result.usage];
+    // A paid presenter who did not make it into the video (a clip that failed): credits back.
+    if (job.presenter && result.plan.scenes[0]?.speaker?.asset !== PRESENTER_ASSET) {
+      const back = await refundPresenter(job).catch(() => 0);
+      job = { ...job, presenter: false, creditsUsed: Math.max(0, (job.creditsUsed ?? 0) - back) };
+      result.warnings.push(
+        `The AI presenter could not be made for this video, so the narrator says the first line.${back ? ` ${refundSentence(back)}` : ''}`
+      );
+    }
+    await finish(job, result, saved.brief, (next) => {
+      job = next;
+    });
+  } catch (error) {
+    console.error(`❌ Smart Video job ${job.id} failed:`, error);
+    const spent = usageOf(error);
+    await failAndRefund({ ...job, ...(spent.length ? { usage: [...(initial.usage ?? []), ...spent] } : {}) }, error instanceof Error ? error.message : 'Unknown error').catch(() => undefined);
+  } finally {
+    clearInterval(heartbeat);
+  }
+}

@@ -194,6 +194,46 @@ export interface SmartVideoOptions {
   checkScript?: (plan: DirectorPlan) => string | null;
   /** Another model or looser rules for the director (the free video funnel: Flash, owner 2026-10-07). */
   director?: DirectorOptions;
+  /**
+   * The script the client read, changed and approved (script first, owner 2026-11-02): it is made exactly as it is,
+   * without another director call or a shorter presenter line. Written by writeScript.
+   */
+  approvedPlan?: DirectorPlan;
+}
+
+/**
+ * Script first (owner 2026-11-02): only the director runs, so the client reads and changes the script before anything
+ * is paid for or made. With a presenter, scene 1 is written (or shortened) to a line the presenter can say.
+ */
+export async function writeScript(
+  brief: string,
+  assets: SmartAsset[],
+  { length = 'auto', format = 'vertical', look = null, presenter = false, checkScript, director }: Pick<SmartVideoOptions, 'length' | 'format' | 'look' | 'presenter' | 'checkScript' | 'director'> = {}
+): Promise<{ plan: DirectorPlan; usage: UsageEntry[] }> {
+  const { result, usage } = await trackUsage(async () => {
+    const plan = await directVideo(brief, assets, length, format, look, null, checkScript, presenter ? { ...director, presenterOpening: true } : director);
+    return presenter ? shortenOpening(plan, brief) : plan;
+  });
+  return { plan: result, usage };
+}
+
+/**
+ * A presenter says scene 1 on camera: the director is told the length up front, and a longer line is shortened on
+ * its own afterwards (owner 2026-10-23: a bonus video ad lost its presenter to a 17-word line). A check that sent the
+ * whole plan back used up the director's tries and failed another bonus video ad.
+ */
+async function shortenOpening(directed: DirectorPlan, brief: string): Promise<DirectorPlan> {
+  const opening = directed.scenes[0];
+  if (!opening || opening.speaker || opening.narration.split(/\s+/).filter(Boolean).length <= PRESENTER_MAX_WORDS) return directed;
+  const short = await shortenPresenterLine(opening.narration, brief).catch((error) => {
+    console.warn('⚠️ The first line could not be shortened, the narrator says it:', String(error).slice(0, 160));
+    return null;
+  });
+  if (!short) return directed;
+  console.log(`✂️ Presenter line shortened: "${opening.narration}" → "${short}"`);
+  // The blocks' cues pointed at the old words: they show from the start of the scene instead.
+  directed.scenes[0] = { ...opening, narration: short, blocks: opening.blocks.map((block) => ('cue' in block ? { ...block, cue: null } : block)) as typeof opening.blocks };
+  return directed;
 }
 
 export async function createSmartVideo(
@@ -212,7 +252,7 @@ async function produce(
   assets: SmartAsset[],
   store: StoreFile,
   loadStored: (url: string) => Promise<Buffer>,
-  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera, pickMusic, presenter = false, presenterCast, checkScript, director }: SmartVideoOptions
+  { length = 'auto', format = 'vertical', look = null, sound = FULL_SOUND, listing = null, clips, onStage = () => {}, adjustPlan, stillCamera, pickMusic, presenter = false, presenterCast, checkScript, director, approvedPlan }: SmartVideoOptions
 ): Promise<Omit<SmartVideoResult, 'usage'>> {
   // A listing whose page is off the market often keeps a single photo: say so before anything is spent.
   const photos = assets.filter((a) => a.kind === 'image').length;
@@ -221,8 +261,8 @@ async function produce(
       `A listing video needs at least ${LISTING_MIN_PHOTOS} photos and ${photos === 1 ? 'only 1 came' : `${photos} came`} with this listing. Add your own photos, or check that the link shows an active listing.`
     );
   }
-  onStage('directing');
-  console.log(`🎬 Smart Video: directing (${assets.length} files${listing ? `, listing video of ${listing.seconds} s` : ''})...`);
+  if (!approvedPlan) onStage('directing');
+  console.log(`🎬 Smart Video: ${approvedPlan ? 'making the approved script' : 'directing'} (${assets.length} files${listing ? `, listing video of ${listing.seconds} s` : ''})...`);
   const horizontal = format === 'horizontal';
   // The presenter is cast and photographed while the director writes the script.
   const presenterPhoto =
@@ -245,24 +285,11 @@ async function produce(
             return null;
           })
       : null;
-  // A presenter says scene 1 on camera: the director is told the length up front, and a longer line is shortened on
-  // its own afterwards (owner 2026-10-23: a bonus video ad lost its presenter to a 17-word line). A check that sent the
-  // whole plan back used up the director's tries and failed another bonus video ad.
-  const directed = await directVideo(brief, assets, length, format, look, listing, checkScript, presenterPhoto ? { ...director, presenterOpening: true } : director);
-  if (presenterPhoto && directed.scenes[0] && !directed.scenes[0].speaker) {
-    const opening = directed.scenes[0];
-    if (opening.narration.split(/\s+/).filter(Boolean).length > PRESENTER_MAX_WORDS) {
-      const short = await shortenPresenterLine(opening.narration, brief).catch((error) => {
-        console.warn('⚠️ The first line could not be shortened, the narrator says it:', String(error).slice(0, 160));
-        return null;
-      });
-      if (short) {
-        console.log(`✂️ Presenter line shortened: "${opening.narration}" → "${short}"`);
-        // The blocks' cues pointed at the old words: they show from the start of the scene instead.
-        directed.scenes[0] = { ...opening, narration: short, blocks: opening.blocks.map((block) => ('cue' in block ? { ...block, cue: null } : block)) as typeof opening.blocks };
-      }
-    }
-  }
+  // An approved script is made as the client left it; otherwise the director writes it now (shortenOpening).
+  const directed = approvedPlan
+    ? structuredClone(approvedPlan)
+    : await directVideo(brief, assets, length, format, look, listing, checkScript, presenterPhoto ? { ...director, presenterOpening: true } : director);
+  if (presenterPhoto && !approvedPlan) await shortenOpening(directed, brief);
   // Listing videos keep their own recipe.
   const plan = adjustPlan && !listing ? adjustPlan(directed) : directed;
   // With the script ready, the presenter records scene 1 word for word, beside the production.

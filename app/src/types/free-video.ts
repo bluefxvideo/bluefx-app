@@ -401,6 +401,7 @@ export const FREE_VIDEO_STEP_COUNT = 5;
 export const FREE_VIDEO_STEP_OF: Record<SmartVideoJobStatus, 1 | 2 | 3 | 4 | 5> = {
   reading: 1,
   directing: 2,
+  script: 2, // a Phantom script waiting for approval; free video ads never wait
   producing: 3,
   rendering: 4,
   finishing: 5,

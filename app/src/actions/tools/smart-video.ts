@@ -29,7 +29,12 @@ import {
   presenterReference,
   readPlan,
   refundPresenter,
+  runApprovedJob,
+  runScriptJob,
   runSmartVideoJob,
+  readScript,
+  unapprovedScriptsToday,
+  waitingScripts,
   runningJobs,
   safeName,
   scriptOf,
@@ -41,10 +46,13 @@ import {
 } from '@/lib/smart-video/jobs';
 import { createApiError, createApiSuccess, type ApiResponse } from '@/types/validation';
 import { spendableCredits } from '@/lib/credits/credit-bank';
+import { applyDraft, draftOf } from '@/lib/smart-video/script-edit';
 import {
+  SmartVideoApproveSchema,
   SmartVideoReviseSchema,
   SmartVideoStartSchema,
   SmartVideoUploadRequestSchema,
+  type SmartVideoApproveInput,
   type SmartVideoJob,
   type SmartVideoReviseInput,
   type SmartVideoStartInput,
@@ -158,7 +166,10 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
     if (listing && !parsed.link && parsed.uploads.length < LISTING_MIN_PHOTOS) {
       return createApiError(`Add at least ${LISTING_MIN_PHOTOS} photos of the home, or paste the listing link`);
     }
-    const credits = listing ? LISTING_CREDITS : phantomCredits(parsed.brief, parsed.length === 'script');
+    // Script first (owner 2026-11-02): a Phantom video starts by writing its script only. The client reads and changes
+    // it, and is charged when they approve it (approveSmartVideoScript). A listing video is still made in one go.
+    if (!listing) return await startScript(userId, parsed);
+    const credits = LISTING_CREDITS;
     // The AI presenter opens tall and wide Phantom videos (presenter.ts films 9:16 or 16:9); it is charged on its own.
     const presenter = parsed.presenter && !listing;
     if (presenter) {
@@ -214,6 +225,123 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
   } catch (error) {
     console.error('❌ startSmartVideo error:', error);
     return createApiError(readable(error, 'Could not start the video'));
+  }
+}
+
+/**
+ * Scripts are free, so they are limited: at most SCRIPTS_PER_DAY written in a day and never approved, and
+ * SCRIPTS_WAITING waiting for approval at once (a new one past that asks to approve or delete one first).
+ */
+const SCRIPTS_PER_DAY = 10;
+const SCRIPTS_WAITING = 5;
+
+async function startScript(userId: string, parsed: ReturnType<typeof SmartVideoStartSchema.parse>): Promise<ApiResponse<{ jobId: string }>> {
+  if ((await waitingScripts(userId)) >= SCRIPTS_WAITING) {
+    return createApiError(`You have ${SCRIPTS_WAITING} scripts waiting under Your video ads. Make a video from one of them, or delete one, then write a new one.`);
+  }
+  if ((await unapprovedScriptsToday(userId)) >= SCRIPTS_PER_DAY) {
+    return createApiError(`You wrote ${SCRIPTS_PER_DAY} scripts today without making a video from them. Make a video from one of them, or come back tomorrow.`);
+  }
+  // The balance is checked now too, so nobody writes a script they cannot make (they are charged only on approval).
+  const credits = phantomCredits(parsed.brief, parsed.length === 'script') + (parsed.presenter ? PHANTOM_PRESENTER_CREDITS : 0);
+  const balance = await availableCredits(userId);
+  if (balance < credits) return createApiError(`This video ad needs ${credits} credits. You have ${balance}.`);
+  const now = new Date().toISOString();
+  const job = await createJob({
+    id: parsed.jobId,
+    userId,
+    status: 'reading',
+    scriptFirst: true,
+    brief: parsed.brief,
+    link: parsed.link || undefined,
+    length: parsed.length,
+    format: parsed.format,
+    look: parsed.look,
+    voiceOver: parsed.voiceOver,
+    music: parsed.music,
+    ...(parsed.presenter ? { wantsPresenter: true } : {}),
+    creditsUsed: 0,
+    createdAt: now,
+    updatedAt: now,
+  });
+  after(() => runScriptJob(job, parsed.uploads));
+  return createApiSuccess({ jobId: job.id });
+}
+
+/**
+ * Script first: the client approved the script (as written, or with their changes). Now the video is charged and made
+ * from exactly these words, without another rewrite.
+ */
+export async function approveSmartVideoScript(input: SmartVideoApproveInput): Promise<ApiResponse<{ jobId: string }>> {
+  try {
+    const userId = await currentUserId();
+    if (!userId) return createApiError('Please sign in again');
+    const parsed = SmartVideoApproveSchema.parse(input);
+    const job = await readJob(userId, parsed.jobId);
+    if (!job || !job.scriptFirst) return createApiError('This script could not be found. Please reload the page.');
+    if (job.status !== 'script' || !job.draft) return createApiError('This video is already being made.');
+    const saved = await readScript(userId, job.id);
+    const edited = applyDraft(saved.plan, job.draft, parsed.text);
+    if ('error' in edited) return createApiError(edited.error);
+    if ((await runningJobs(userId)) >= MAX_RUNNING_JOBS) return createApiError(TOO_MANY);
+
+    const credits = phantomCredits(job.brief, job.length === 'script');
+    const presenter = Boolean(job.wantsPresenter);
+    const needed = credits + (presenter ? PHANTOM_PRESENTER_CREDITS : 0);
+    const balance = await availableCredits(userId);
+    if (balance < needed) return createApiError(`This video ad needs ${needed} credits. You have ${balance}.`);
+
+    // One approval only: the row moves from 'script' to 'producing' before anything is charged, so a double click
+    // (or two tabs) makes one video and one charge.
+    const { data: claimed, error: claimError } = await jobsTable()
+      .update({ status: 'producing', updated_at: new Date().toISOString() })
+      .eq('id', job.id)
+      .eq('user_id', userId)
+      .eq('status', 'script')
+      .select('id');
+    if (claimError) return createApiError('Your video ad could not be started. Please try again.');
+    if (!claimed?.length) return createApiError('This video is already being made.');
+    const chargeError = await charge(userId, job.id, credits);
+    if (chargeError) {
+      await jobsTable().update({ status: 'script', updated_at: new Date().toISOString() }).eq('id', job.id);
+      return createApiError(chargeError);
+    }
+    const presenterPaid = presenter ? await chargePresenter(userId, job.id) : false;
+    const approved = await writeJob(job, {
+      status: 'producing',
+      approvedAt: new Date().toISOString(),
+      ...(presenterPaid ? { presenter: true } : {}),
+      creditsUsed: credits + (presenterPaid ? PHANTOM_PRESENTER_CREDITS : 0),
+      draft: draftOf(edited.plan, presenter, job.length === 'script'),
+      script: scriptOf(edited.plan),
+    }).catch(async (error) => {
+      // A job that could not be saved never runs: its credits come back here.
+      await refundFailedGeneration({ userId, referenceIds: [job.id], operation: 'Phantom video' });
+      if (presenterPaid) await refundPresenter({ ...job, presenter: true });
+      await jobsTable().update({ status: 'script' }).eq('id', job.id);
+      throw error;
+    });
+    after(() => runApprovedJob(approved, saved, edited.plan, edited.changed));
+    return createApiSuccess({ jobId: job.id });
+  } catch (error) {
+    console.error('❌ approveSmartVideoScript error:', error);
+    return createApiError(readable(error, 'Your video ad could not be started'));
+  }
+}
+
+/** Script first: a script the client does not want. Only a script still waiting for approval can be deleted. */
+export async function deleteSmartVideoScript(jobId: string): Promise<ApiResponse<{ jobId: string }>> {
+  try {
+    const userId = await currentUserId();
+    if (!userId) return createApiError('Please sign in again');
+    if (!/^[0-9a-f-]{36}$/.test(jobId)) return createApiError('This script could not be found');
+    const { data, error } = await jobsTable().delete().eq('id', jobId).eq('user_id', userId).eq('status', 'script').select('id');
+    if (error) return createApiError('The script could not be deleted. Please try again.');
+    if (!data?.length) return createApiError('This script is already being made into a video.');
+    return createApiSuccess({ jobId });
+  } catch (error) {
+    console.error('❌ deleteSmartVideoScript error:', error);
+    return createApiError('The script could not be deleted');
   }
 }
 

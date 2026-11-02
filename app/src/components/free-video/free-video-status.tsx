@@ -33,7 +33,7 @@ const SESSION_MS = 90 * 60_000;
 const UNLOCK_WINDOW_MS = 30 * 60_000;
 
 /** FREE_VIDEO_STEP_OF (types/free-video.ts), repeated here so the page bundle does not load zod. */
-const STEP_OF: Record<SmartVideoJobStatus, number> = { reading: 1, directing: 2, producing: 3, rendering: 4, finishing: 5, done: 5, failed: 5 };
+const STEP_OF: Record<SmartVideoJobStatus, number> = { reading: 1, directing: 2, script: 2, producing: 3, rendering: 4, finishing: 5, done: 5, failed: 5 };
 
 type UnlockInfo = FreeVideoUnlockView & { checkoutPath: string };
 
