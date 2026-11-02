@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RESULT_PAGE } from '@/lib/free-video/result-page';
-import { RESULT_SALES, SALES_PAGE_HERO_VIMEO, TOOL_GROUPS, type SalesTool } from '@/lib/free-video/result-sales';
+import { RESULT_SALES, SALES_PAGE_HERO_VIMEO, salesCopy, type SalesTool } from '@/lib/free-video/result-sales';
 import { goUrl, OFFER, type ResultPagePlacement } from '@/lib/free-video/offer';
 import { PLAYER } from '@/lib/free-video/copy';
 import type { FreeVideoView, TutorialOpenSource } from '@/types/free-video';
@@ -52,6 +52,8 @@ interface ResultSalesPageProps {
  */
 export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound, onComplete, afterUnlock = false }: ResultSalesPageProps) {
   const { domain, firstName } = view;
+  // Today's words, or the credit bank's once it is launched (view.bankCopy, set by the server).
+  const { copy: C, groups } = salesCopy(view.bankCopy);
   const videoUrl = view.videoUrl as string;
   const cards = view.nextAds ?? null;
   const written = bonus && (Boolean(cards) || Boolean(view.nextAdsPending));
@@ -82,10 +84,10 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
   // The $49 thank-you page: one sale clock per browser that never restarts; once it ends, the lines about it change.
   const thanksClock = useThanksDeadline(afterUnlock);
   const noTimer = afterUnlock && thanksClock.expired;
-  const T = RESULT_SALES.afterUnlock.noTimer;
+  const T = C.afterUnlock.noTimer;
   const timerUntil = afterUnlock ? thanksClock.until : bonus ? view.cleanUntil : undefined;
-  const change = RESULT_SALES.top.change;
-  const { banner, top, hero, salesVideo, price, button, how, tools, oldWay, customers, founder, lifetime, own, guarantee, still, faq, ps } = RESULT_SALES;
+  const change = C.top.change;
+  const { banner, top, hero, salesVideo, price, button, how, tools, oldWay, customers, founder, lifetime, own, guarantee, still, faq, ps } = C;
   const dov = RESULT_PAGE.stack.proof[0];
 
   return (
@@ -106,9 +108,9 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
                 <span className={s.titleRed}>{red}</span>
                 {end}
               </>
-            ))(RESULT_SALES.afterUnlock.titleParts(firstName))}
+            ))(C.afterUnlock.titleParts(firstName))}
           </h1>
-          <p className={s.afterUnlockSub}>{RESULT_SALES.afterUnlock.sub}</p>
+          <p className={s.afterUnlockSub}>{C.afterUnlock.sub}</p>
         </section>
       ) : (
       <section className={cn(rp.wrap, s.top)} aria-labelledby="fv-sales-title">
@@ -197,7 +199,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-video">
         <h2 id="fv-sales-video" className={rp.h2}>
-          {afterUnlock ? RESULT_SALES.afterUnlock.salesVideoTitle : salesVideo.title}
+          {afterUnlock ? C.afterUnlock.salesVideoTitle : salesVideo.title}
         </h2>
         <SalesVideo />
         <p className={s.caption}>{salesVideo.caption}</p>
@@ -208,7 +210,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           {price.title}
         </h2>
         <div className={s.priceBox}>
-          <p className={s.priceReason}>{afterUnlock ? RESULT_SALES.afterUnlock.priceReason : price.reason}</p>
+          <p className={s.priceReason}>{afterUnlock ? C.afterUnlock.priceReason : price.reason}</p>
           <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={timerUntil} external={afterUnlock} />
           <div className={s.prices}>
             <p className={s.priceRegular}>
@@ -246,20 +248,20 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             <span className={s.resellIcon} aria-hidden="true">
               $
             </span>
-            <h3 className={s.resellTitle}>{RESULT_SALES.resell.title}</h3>
+            <h3 className={s.resellTitle}>{C.resell.title}</h3>
           </div>
-          <p>{RESULT_SALES.resell.text}</p>
-          <p>{RESULT_SALES.resell.proof}</p>
-          <p>{RESULT_SALES.resell.more}</p>
+          <p>{C.resell.text}</p>
+          <p>{C.resell.proof}</p>
+          <p>{C.resell.more}</p>
         </div>
       </section>
 
       {bonus && (
         <section id={RESULT_PAGE.written.anchor} className={cn(rp.wrap, s.section, s.bonusSection)} aria-labelledby="fv-sales-bonus">
           <h2 id="fv-sales-bonus" className={rp.h2}>
-            {RESULT_SALES.bonus.title(domain)}
+            {C.bonus.title(domain)}
           </h2>
-          <p className={cn(rp.text, s.intro)}>{RESULT_SALES.bonus.text(domain, deadline?.day ?? null)}</p>
+          <p className={cn(rp.text, s.intro)}>{C.bonus.text(domain, deadline?.day ?? null)}</p>
           {written && (
             <ul className={rp.ads}>
               {(cards ?? ([2, 3, 4] as const).map((n) => ({ n, pending: true }) as const)).map((card) =>
@@ -272,7 +274,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             </ul>
           )}
           <ul className={s.bonusItems}>
-            {RESULT_SALES.bonus.items.map((item) => (
+            {C.bonus.items.map((item) => (
               <li key={item.label}>
                 <strong>{item.label}</strong> {item.text}
               </li>
@@ -288,7 +290,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         </h2>
         <ol className={rp.steps}>
           {RESULT_PAGE.how.steps.map((base, index) => {
-            const step = afterUnlock && index === 2 ? { ...base, title: RESULT_SALES.afterUnlock.step3.title, text: () => RESULT_SALES.afterUnlock.step3.text } : base;
+            const step = afterUnlock && index === 2 ? { ...base, title: C.afterUnlock.step3.title, text: () => C.afterUnlock.step3.text } : base;
             return (
             <li key={step.title} className={cn(rp.step, step.done && rp.stepDone)}>
               <span className={cn(rp.stepIcon, !step.done && rp.stepIconNext)} aria-hidden="true">
@@ -305,10 +307,10 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           })}
         </ol>
         <div className={s.sceneWrap}>
-          <ResultScene domain={domain} />
+          <ResultScene domain={domain} note={view.bankCopy ? how.resultText : undefined} />
         </div>
         <h3 className={cn(s.h3, s.subSection, s.leftHead)}>{how.scrollTitle}</h3>
-        <p className={rp.text}>{afterUnlock ? RESULT_SALES.afterUnlock.scrollText : how.scrollText}</p>
+        <p className={rp.text}>{afterUnlock ? C.afterUnlock.scrollText : how.scrollText}</p>
         <figure className={s.leads}>
           <Image src={how.leadsImage} alt={how.leadsAlt} width={1320} height={192} sizes="(min-width: 760px) 712px, 100vw" />
           <figcaption>{how.leads}</figcaption>
@@ -326,9 +328,10 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         </h2>
         <p className={s.toolsLead}>{tools.lead(domain)}</p>
         <p className={s.toolsNote}>{tools.note}</p>
+        {tools.amountsNote && <p className={s.toolsNote}>{tools.amountsNote}</p>}
         {(() => {
           let number = 0;
-          return TOOL_GROUPS.map((group, index) => (
+          return groups.map((group, index) => (
             <div key={group.title} className={s.group}>
               <p className={s.groupTitle}>{group.title}</p>
               {group.lead && <p className={rp.text}>{group.lead}</p>}
@@ -336,7 +339,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
                 number += 1;
                 return <ToolCard key={tool.name} n={number} tool={tool} domain={domain} />;
               })}
-              {(index === 1 || index === TOOL_GROUPS.length - 1) && <SalesBuy token={token} placement="fvrestools" />}
+              {(index === 1 || index === groups.length - 1) && <SalesBuy token={token} placement="fvrestools" />}
             </div>
           ));
         })()}
@@ -372,9 +375,9 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             <div key={card.name} className={cn(s.costCard, index === 1 && s.costCardUs)}>
               <p className={s.costName}>{card.name}</p>
               <p className={s.costLine}>{card.line1}</p>
-              <p className={s.costLine}>{card.line2}</p>
+              {card.line2 && <p className={s.costLine}>{card.line2}</p>}
               <p className={s.costPrice}>{card.price}</p>
-              <p className={s.costPer}>{card.per}</p>
+              {card.per && <p className={s.costPer}>{card.per}</p>}
             </div>
           ))}
         </div>
@@ -532,20 +535,20 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </section>
       </div>
 
-      <Walkthrough token={token} video={RESULT_SALES.walkthroughVideo} />
+      <Walkthrough token={token} video={C.walkthroughVideo} />
       <div className={cn(rp.wrap, rp.narrow, s.sectionTight)}>
         <SalesBuy token={token} placement="fvres3" />
       </div>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-label="P.S.">
         <p className={s.body}>
-          <strong>P.S.</strong> <Bold text={afterUnlock ? RESULT_SALES.afterUnlock.ps1(firstName, domain) : ps.p1(firstName, domain)} words={ps.bold} />
+          <strong>P.S.</strong> <Bold text={afterUnlock ? C.afterUnlock.ps1(firstName, domain) : ps.p1(firstName, domain)} words={ps.bold} />
         </p>
         <p className={s.body}>
-          <Bold text={afterUnlock ? RESULT_SALES.afterUnlock.ps2 : ps.p2} words={ps.bold} />
+          <Bold text={afterUnlock ? C.afterUnlock.ps2 : ps.p2} words={ps.bold} />
         </p>
         <p className={s.body}>
-          <Bold text={noTimer ? T.ps3 : afterUnlock ? RESULT_SALES.afterUnlock.ps3 : ps.p3} words={ps.bold} />
+          <Bold text={noTimer ? T.ps3 : afterUnlock ? C.afterUnlock.ps3 : ps.p3} words={ps.bold} />
         </p>
         {written && (
           <p className={s.body}>

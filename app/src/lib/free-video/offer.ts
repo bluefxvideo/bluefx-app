@@ -185,6 +185,15 @@ export const VIDEO_ADS_LIKE_FREE_PER_MONTH = 10;
 export const PRICE_PER_VIDEO_AD_UNDER = `$${Math.ceil(Number(OFFER.now.replace(/\D/g, '')) / (VIDEO_ADS_LIKE_FREE_PER_MONTH * 12))}`;
 
 /**
+ * The credit bank (owner 2026-11-02, credit-bank.ts): new lifetime buyers get BANK_CREDITS once, never expiring. The
+ * sales copy switches to it when the bank is launched (credit-bank-launch.ts): 5,000 / 50 credits per video ad (the AI
+ * presenter is included) = 100 video ads, $297 / 100 = $2.97 a video ad.
+ */
+export const BANK_CREDITS = 5000;
+export const BANK_VIDEO_ADS = Math.floor(BANK_CREDITS / PHANTOM_CREDITS);
+export const PRICE_PER_BANK_VIDEO_AD = `$${(Number(OFFER.now.replace(/\D/g, '')) / BANK_VIDEO_ADS).toFixed(2)}`;
+
+/**
  * The 3-day bonus (owner 2026-10-08: "i love the deadline but its too long, 24h or 3 days"): a lead who buys the AI
  * Media Machine within CLEAN_COPY_HOURS of the free video ad being ready gets this video ad in the account without the
  * watermark (claim.ts renders the copy clean); a later buyer gets the watermarked file, which one edit makes clean.

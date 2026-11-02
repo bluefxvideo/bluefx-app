@@ -21,6 +21,7 @@ import net from 'node:net';
 import { createAdminClient } from '@/app/supabase/server';
 import { INTAKE, IP_ROWS_PER_DAY, JOB_MINUTES, OWNER_TEST_EMAILS, SETTINGS_CACHE_MS, UNREADABLE } from '@/lib/free-video/config';
 import { unlockOpen } from '@/lib/free-video/cleanup';
+import { isCreditBankLive } from '@/lib/credits/credit-bank-launch';
 import { ERRORS } from '@/lib/free-video/copy';
 import { isServiceRef } from '@/lib/free-video/funnel';
 import { cleanCopyUntil, isPlacement, unlockGoUrl } from '@/lib/free-video/offer';
@@ -700,6 +701,8 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
       const until = cleanCopyUntil(sw?.offer === 'machine' ? { ...lead, finished_at: sw.at.toISOString() } : lead);
       const why = whyItWorksOf(lead);
       const nextAds = nextAdCardsOf(lead);
+      // The sales copy of the result page and the $49 upsell (result-sales.ts salesCopy); false on any error.
+      const bankCopy = lead.video_url ? await isCreditBankLive() : false;
       return lead.video_url
         ? {
             ...base,
@@ -710,6 +713,7 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
             ...(why ? { whyItWorks: why } : {}),
             ...(lead.live?.presenterPhoto ? { poster: lead.live.presenterPhoto } : {}),
             ...(nextAds ? { nextAds } : nextAdsPendingOf(lead) ? { nextAdsPending: true } : {}),
+            ...(bankCopy ? { bankCopy: true } : {}),
           }
         : { ...base, state: 'checking' };
     }

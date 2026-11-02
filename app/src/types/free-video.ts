@@ -331,6 +331,8 @@ export interface FreeVideoView {
   nextAds?: FreeVideoNextAdCard[];
   /** ready: the next 3 video ads are being written right now, so the page asks again in a few seconds. */
   nextAdsPending?: boolean;
+  /** ready: the credit bank is launched (credit-bank-launch.ts), so the sales copy says 100 video ads once instead of 10 every month. */
+  bankCopy?: boolean;
 }
 
 /**
