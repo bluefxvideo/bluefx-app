@@ -35,7 +35,7 @@ Main search phrase: "how to check if my website is hacked". In the description a
 
 Graphic: one stack that stays on screen and changes as you talk. Website on top, then WordPress, then PHP, then the server. Light up the layer you're talking about.
 
-"Here's the short version. Most WordPress sites run on something called PHP. You can think of it as the engine under the hood.
+"Most WordPress sites run on something called PHP. You can think of it as the engine under the hood.
 
 On October 20th a hole was announced in PHP itself. It's called PHP2Shell, and it can let someone take over the server your site runs on without a password. It had been sitting there for more than ten years, and researchers found it with the help of AI.
 
@@ -55,11 +55,11 @@ The sites I'd worry about are small business WordPress sites that a freelancer o
 
 You don't need a full script here. Show these steps and say them in your own words.
 
-1. **Log in to your hosting account.** Find the PHP version. In cPanel it's under "Select PHP Version" or "MultiPHP Manager". Circle it on screen.
-2. **Read the number.** Say: "If it starts with 8.1 or lower, it needs an upgrade. The fixed versions are 8.2.35, 8.3.36, 8.4.27 and 8.5.12, or anything newer on the same line." Show these numbers as a graphic too.
-3. **Can't find it?** Show the prompt from the description pasted into ChatGPT, Claude or Gemini (it uses OpenAI's free checker). Say: "If it comes back 'unknown', that doesn't mean you're safe. It means you need to ask your host."
-4. **The backup plugin.** Open the Plugins page in WordPress. Say: "If you ever connected your site to UpdraftCentral, read their security notice and ask your host or developer to scan the site. Some of those hidden plugins don't show up in this list."
-5. **Message your host.** Show the copy-and-paste message from the description. "Just send them this. Any decent host will answer within a day."
+1. Log in to your hosting account and find the PHP version. In cPanel it's under "Select PHP Version" or "MultiPHP Manager". Circle it on screen.
+2. Read the number out loud: "If it starts with 8.1 or lower, it needs an upgrade. The fixed versions are 8.2.35, 8.3.36, 8.4.27 and 8.5.12, or anything newer on the same line." Show these numbers as a graphic too.
+3. If you can't find it, show the prompt from the description pasted into ChatGPT, Claude or Gemini (it uses OpenAI's free checker). Say: "If it comes back 'unknown', that doesn't mean you're safe. It means you need to ask your host."
+4. Open the Plugins page in WordPress. Say: "If you ever connected your site to UpdraftCentral, read their security notice and ask your host or developer to scan the site. Some of those hidden plugins don't show up in this list."
+5. Show the copy-and-paste message from the description. "Just send them this. Any decent host will answer within a day."
 
 ### 6. The bigger problem [A], 4:30 to 5:20
 
@@ -79,15 +79,15 @@ And if you'd like us to look at yours, the link to our website service is in the
 
 > Is your WordPress site safe? In October 2026 two security problems hit WordPress sites a few days apart: PHP2Shell, a hole in PHP itself (CVE-2026-109618 and CVE-2026-109619), and hidden plugins pushed through stolen UpdraftCentral keys. Here's how to check your own site in about two minutes, and what to do if it's on an old version.
 >
-> 👉 Want us to rebuild and look after your website? [WEBSITE SERVICE LINK]
+> Want us to rebuild and look after your website? [WEBSITE SERVICE LINK]
 >
-> **Check your PHP version**
+> CHECK YOUR PHP VERSION
 > Fixed versions: 8.2.35, 8.3.36, 8.4.27, 8.5.12 or newer on the same line. If yours starts with 8.1 or lower, upgrade or ask your host.
 >
-> **Prompt for ChatGPT, Claude or Gemini (it needs to be able to run code)**
+> PROMPT FOR CHATGPT, CLAUDE OR GEMINI (it needs to be able to run code)
 > Use OpenAI's free PHP2Shell checker at https://github.com/openai/php2shell-checker to check my website, https://yourwebsite.com. Run the website check against my site only and tell me in plain English what it found. If the result is unknown, explain what that means and write a short message I can send my hosting company.
 >
-> **Message to send your host**
+> MESSAGE TO SEND YOUR HOST
 > Hi, could you tell me which PHP version my site [yourwebsite.com] runs on, and confirm it's patched for PHP2Shell (CVE-2026-109618 and CVE-2026-109619)? If it's on 8.1 or lower, please let me know how we can upgrade. Thanks!
 >
 > 0:00 Is your site at risk?
@@ -104,7 +104,7 @@ And if you'd like us to look at yours, the link to our website service is in the
 
 Hi {name},
 
-Quick one today. In October two security problems hit WordPress sites a few days apart. One was a hole in PHP, the code most WordPress sites run on, and the other came through a popular backup plugin. A lot of owners never heard about either.
+In October two security problems hit WordPress sites a few days apart. One was a hole in PHP, the code most WordPress sites run on, and the other came through a popular backup plugin. A lot of owners never heard about either.
 
 I made a short video showing how to check your own site in about two minutes. You log in to your hosting, find the PHP version, and if it starts with 8.1 or lower you ask your host to upgrade it. I put a message you can copy and send them in the description.
 
