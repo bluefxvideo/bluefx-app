@@ -48,7 +48,7 @@ export const OPERATION_COST: Record<string, Rate> = {
   video_analyzer: { perCharge: 0.02 }, // Gemini flash-lite (+ a download)
   'editor-animate-image': { perCredit: 0.04 }, // LTX 2.3 fast, 1 credit a second
   'editor-edit-image': { perCharge: 0.05 },
-  'agent-clone-animate': { perCredit: 0.06 }, // LTX 2.5 fast with sound on Replicate, 1 credit a second
+  'agent-clone-animate': { perCredit: 0.03 }, // LTX 2.5 fast with sound on Replicate ($0.06 a second), 2 credits a second
   'agent-clone-composite': { perCharge: 0.06 },
   'agent-clone-voice-switch': { perCharge: 0.05 },
   'script-to-video-generation': { perCharge: 0.3 },
@@ -58,7 +58,7 @@ export const OPERATION_COST: Record<string, Rate> = {
   'reelestate-analyze': { perCredit: 0.003 },
   'reelestate-script': { perCharge: 0.005 },
   'reelestate-voiceover': { perCharge: 0.05 },
-  'reelestate-clips': { perCredit: 0.02 },
+  'reelestate-clips': { perCredit: 0.03 }, // LTX 2.5 fast 1080p on Replicate, $0.36 a 6-second clip, 12 credits
   'reelestate-cleanup': { perCredit: 0.0175 }, // Seedream edit, 2 credits a photo
 
   // Images
@@ -75,7 +75,7 @@ export const OPERATION_COST: Record<string, Rate> = {
   // Voice and music
   voice_over_generation: { perCharge: 0.07 }, // MiniMax speech 2.8 HD, by characters
   voice_changer: { perCharge: 0.05 },
-  'voice-clone': { perCharge: 0.05 },
+  'voice-clone': { perCharge: 3 }, // Replicate MiniMax voice cloning
   music_generation: { perCharge: 0.06 }, // Lyria 3 Pro $0.08, MiniMax music $0.03
 };
 

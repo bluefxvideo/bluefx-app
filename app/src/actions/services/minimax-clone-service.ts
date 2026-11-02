@@ -5,12 +5,12 @@ import { createClient } from '@supabase/supabase-js';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { getUserCredits, deductCredits } from '@/actions/database/cinematographer-database';
+import { VOICE_CLONE_CREDITS } from '@/lib/voice-pricing';
 
 const execFileAsync = promisify(execFile);
 
-// What the clone tab advertises on its button. Charged only AFTER a
+// What the clone tabs advertise on their buttons (lib/voice-pricing.ts). Charged only AFTER a
 // successful clone, so a failed attempt costs nothing and needs no refund.
-const VOICE_CLONE_CREDITS = 50;
 
 // MiniMax's hard limits for a cloning sample. Checked here, before the
 // provider call: a 5-second sample used to reach MiniMax, fail with the bare

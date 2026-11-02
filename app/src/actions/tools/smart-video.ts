@@ -9,7 +9,7 @@ import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
 import { waitingFreeVideos } from '@/lib/free-video/claim';
 import { transcribeWords } from '@/lib/smart-video/audio';
 import { reviseSmartVideo, withSubtitleLook, type SmartVideoMedia } from '@/lib/smart-video/pipeline';
-import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_PRESENTER_CHANGE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
+import { LISTING_CLIP_CREDITS_PER_SECOND, LISTING_CREDITS, listingClipCap, PHANTOM_PRESENTER_CHANGE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
 import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount, type ListingOptions } from '@/lib/smart-video/listing';
 import { IMAGE_FILE, prepareAssets, presenterPhotoFromUpload, type ClientFile } from '@/lib/smart-video/prepare-assets';
 import { PRESENTER_ASSET } from '@/lib/smart-video/presenter';
@@ -167,13 +167,19 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
         return createApiError(`This video needs ${needed} credits: ${credits} for the video and ${PHANTOM_PRESENTER_CREDITS} for the AI presenter. You have ${balance}.`);
       }
     }
+    let clipCap: number | undefined;
     if (listing) {
       // The clips are charged photo by photo while the video is made: the balance has to cover all of them now.
       const photos = listingPhotoCount(listing.seconds, (parsed.link ? listingLinkPhotos(parsed.uploads.length) : 0) + parsed.uploads.length);
-      const needed = credits + photos * LISTING_CLIP_CREDITS;
+      // Each clip costs 2 credits a second and its length is only known once the voice is recorded: the balance
+      // has to cover the most the clips can cost (listingClipCap), and they are never charged above it.
+      clipCap = listingClipCap(photos);
+      const needed = credits + clipCap;
       const balance = await availableCredits(userId);
       if (balance < needed) {
-        return createApiError(`This video needs ${needed} credits: ${credits} for the video and ${LISTING_CLIP_CREDITS} for each of ${photos} animated photos. You have ${balance}.`);
+        return createApiError(
+          `This video needs up to ${needed} credits: ${credits} for the video and up to ${clipCap} to animate ${photos} photos (${LISTING_CLIP_CREDITS_PER_SECOND} credits per second of clip). You have ${balance}.`
+        );
       }
     }
     const chargeError = await charge(userId, parsed.jobId, credits, listing ? 'listing-video' : 'smart-video');
@@ -193,7 +199,7 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
       voiceOver: parsed.voiceOver,
       music: parsed.music,
       ...(presenterPaid ? { presenter: true } : {}),
-      ...(listing ? { listing } : {}),
+      ...(listing ? { listing, clipCap } : {}),
       creditsUsed: credits + (presenterPaid ? PHANTOM_PRESENTER_CREDITS : 0),
       createdAt: now,
       updatedAt: now,

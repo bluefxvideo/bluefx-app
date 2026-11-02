@@ -2,7 +2,7 @@ import path from 'node:path';
 import { createAdminClient } from '@/app/supabase/server';
 import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
 import { createSmartVideo, type SmartVideoMedia, type SmartVideoOptions, type SmartVideoResult } from '@/lib/smart-video/pipeline';
-import { LISTING_CLIP_CREDITS, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
+import { listingClipCredits, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
 import { PRESENTER_ASSET } from '@/lib/smart-video/presenter';
 import { checkAdScript } from '@/lib/smart-video/script-rules';
 import { listingLinkPhotos } from '@/lib/smart-video/listing';
@@ -176,10 +176,10 @@ export async function runningJobs(userId: string): Promise<number> {
  */
 export const clipReference = (jobId: string, assetId: string) => `${jobId}-clip-${assetId}`;
 
-export async function chargeClip(job: SmartVideoJob, assetId: string): Promise<boolean> {
+export async function chargeClip(job: SmartVideoJob, assetId: string, credits: number): Promise<boolean> {
   const { data, error } = await createAdminClient().rpc('deduct_user_credits', {
     p_user_id: job.userId,
-    p_amount: LISTING_CLIP_CREDITS,
+    p_amount: credits,
     p_operation: 'listing-video-clip',
     p_metadata: { batch_id: clipReference(job.id, assetId), video: job.id },
   });
@@ -271,8 +271,12 @@ export interface SmartVideoRunHooks {
 
 export async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: string; path: string }[], hooks: SmartVideoRunHooks = {}): Promise<void> {
   let job = initial;
-  // Listing video: the photos whose animation is paid for so far
+  // Listing video: the photos whose animation is paid for so far, and what each one cost
   const clipCharges: string[] = [];
+  const clipCredits: Record<string, number> = {};
+  // Credits the clips have taken so far, counted before each charge is sent (the clips are charged in parallel),
+  // so together they never go above the ceiling quoted when the video started.
+  let clipCommitted = 0;
   // Refunds run one at a time: each reads the balance and writes it back, so two at once would lose one.
   let refunds: Promise<void> = Promise.resolve();
   const dir = jobDir(job.userId, job.id);
@@ -315,21 +319,33 @@ export async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: 
       clips: job.listing?.animate
         ? {
             // Every charge is saved with the job at once: a job that dies half-way still knows what to give back.
-            charge: async (assetId) => {
-              const charged = await chargeClip(job, assetId);
+            charge: async (assetId, clipSeconds) => {
+              // 2 credits a second of clip, never above what is left of the quoted ceiling (a job from before the
+              // ceiling existed has none). A clip past the ceiling is made without a charge.
+              const price = listingClipCredits(clipSeconds);
+              const amount = job.clipCap === undefined ? price : Math.max(0, Math.min(price, job.clipCap - clipCommitted));
+              if (amount === 0) return true;
+              clipCommitted += amount;
+              const charged = await chargeClip(job, assetId, amount);
               if (charged) {
                 clipCharges.push(assetId);
-                job = { ...job, clipCharges: [...clipCharges] };
+                clipCredits[assetId] = amount;
+                job = { ...job, clipCharges: [...clipCharges], clipCredits: { ...clipCredits } };
                 writeJob(job).catch(() => undefined);
+              } else {
+                clipCommitted -= amount;
               }
               return charged;
             },
             refund: (assetId) =>
               (refunds = refunds
                 .then(async () => {
+                  if (!clipCharges.includes(assetId)) return; // a clip made without a charge has nothing to give back
                   if ((await refundClip(job, assetId)) === 0) return;
                   clipCharges.splice(clipCharges.indexOf(assetId), 1);
-                  job = { ...job, clipCharges: [...clipCharges] };
+                  clipCommitted -= clipCredits[assetId] ?? 0;
+                  delete clipCredits[assetId];
+                  job = { ...job, clipCharges: [...clipCharges], clipCredits: { ...clipCredits } };
                   writeJob(job).catch(() => undefined);
                 })
                 .catch((error) => console.warn(`⚠️ Refund of listing clip ${assetId} failed:`, String(error).slice(0, 160)))),
@@ -348,7 +364,10 @@ export async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: 
       hooks.options ? hooks.options(base, assets) : base
     );
     // What a listing video cost in the end: its own price plus the photos that were animated
-    if (job.listing) job = { ...job, clipCharges: [...clipCharges], creditsUsed: (initial.creditsUsed ?? 0) + clipCharges.length * LISTING_CLIP_CREDITS };
+    if (job.listing) {
+      const clipsCost = clipCharges.reduce((sum, assetId) => sum + (clipCredits[assetId] ?? 0), 0);
+      job = { ...job, clipCharges: [...clipCharges], clipCredits: { ...clipCredits }, creditsUsed: (initial.creditsUsed ?? 0) + clipsCost };
+    }
     // A paid presenter who did not make it into the video (a first line too long to say, a clip that failed): credits back.
     if (job.presenter && result.plan.scenes[0]?.speaker?.asset !== PRESENTER_ASSET) {
       const back = await refundPresenter(job).catch(() => 0);
@@ -364,7 +383,7 @@ export async function runSmartVideoJob(initial: SmartVideoJob, uploads: { name: 
     console.error(`❌ Smart Video job ${job.id} failed:`, error);
     // What the job had already spent at the APIs is kept with it (forViewer keeps it off the page).
     const spent = usageOf(error);
-    await failAndRefund({ ...job, clipCharges: [...clipCharges], ...(spent.length ? { usage: spent } : {}) }, error instanceof Error ? error.message : 'Unknown error').catch(() => undefined);
+    await failAndRefund({ ...job, clipCharges: [...clipCharges], clipCredits: { ...clipCredits }, ...(spent.length ? { usage: spent } : {}) }, error instanceof Error ? error.message : 'Unknown error').catch(() => undefined);
   } finally {
     clearInterval(heartbeat);
   }

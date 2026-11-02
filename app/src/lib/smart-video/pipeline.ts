@@ -162,7 +162,7 @@ export interface SmartVideoOptions {
    * A listing's animated photos are paid per photo. `charge` is asked before a photo is animated
    * (false = no credits: the photo stays still); `refund` gives the credits back when its clip fails.
    */
-  clips?: { charge: (assetId: string) => Promise<boolean>; refund: (assetId: string) => Promise<void> };
+  clips?: { charge: (assetId: string, clipSeconds: number) => Promise<boolean>; refund: (assetId: string) => Promise<void> };
   onStage?: (stage: SmartVideoStage) => void;
   /**
    * Changes the director's plan before anything is produced, so what it removes is never paid for
@@ -487,10 +487,11 @@ async function animateListingPhotos(
   console.log(`🎞️ Animating ${wanted.size} listing photos...`);
   await Promise.all(
     [...wanted].map(async ([id, { seconds, focus }]) => {
-      if (clips && !(await clips.charge(id))) return;
+      // The clip is priced by its length (2 credits a second), known here: after the voice is recorded
+      const clipSeconds = listingClipSeconds(seconds);
+      if (clips && !(await clips.charge(id, clipSeconds))) return;
       try {
         const photo = assets.find((a) => a.id === id) as SmartAsset;
-        const clipSeconds = listingClipSeconds(seconds);
         const clip = await animatePhoto(await cropToFrame(photo.data, focus, horizontal), LISTING_MOTION, horizontal, clipSeconds, true);
         media.assets[`${id}-motion`] = { url: await store(clip, `${id}-motion.mp4`, 'video/mp4'), kind: 'video', portrait: !horizontal, seconds: clipSeconds };
       } catch (error) {

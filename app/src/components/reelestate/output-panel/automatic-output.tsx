@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { containerStyles } from '@/lib/container-styles';
 import { cn } from '@/lib/utils';
-import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
+import { LISTING_CLIP_CREDITS_PER_SECOND, LISTING_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import type { useSmartVideo } from '@/components/smart-video/hooks/use-smart-video';
 import { SoundSwitches, plainError, soundLabel } from '@/components/smart-video/shared';
 import type { SmartVideoJob, SmartVideoJobStatus } from '@/types/smart-video';
@@ -29,9 +29,12 @@ function costLine(job: SmartVideoJob): string | null {
   if (!job.creditsUsed) return null;
   if (job.parentId) return `This change cost ${job.creditsUsed} credits.`;
   const clips = job.clipCharges?.length ?? 0;
-  return clips
-    ? `This video cost ${job.creditsUsed} credits: ${LISTING_CREDITS} for the video and ${LISTING_CLIP_CREDITS} for each of ${clips} animated photos.`
-    : `This video cost ${job.creditsUsed} credits.`;
+  const clipsCost = job.creditsUsed - LISTING_CREDITS;
+  if (!clips || clipsCost <= 0) return `This video cost ${job.creditsUsed} credits.`;
+  // Videos made before 2026-11-02 paid 6 credits a photo and saved no per-clip amounts
+  return job.clipCredits
+    ? `This video cost ${job.creditsUsed} credits: ${LISTING_CREDITS} for the video and ${clipsCost} for ${clips} animated ${clips === 1 ? 'photo' : 'photos'} (${LISTING_CLIP_CREDITS_PER_SECOND} credits per second of clip).`
+    : `This video cost ${job.creditsUsed} credits: ${LISTING_CREDITS} for the video and ${clipsCost} for ${clips} animated ${clips === 1 ? 'photo' : 'photos'}.`;
 }
 
 /**

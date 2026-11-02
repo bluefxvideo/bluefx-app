@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
+import { voiceOverCredits } from '@/lib/voice-pricing';
 
 import { Play, Square, Mic } from 'lucide-react';
 import {
@@ -76,7 +77,8 @@ export function GeneratorTab({ voiceOverState, credits, creditsLoading, clonedVo
     setState((prev) => ({ ...prev, selectedVoice: voiceId }));
   };
 
-  const estimatedCredits = 2;
+  // 3 credits per started 1,000 characters, the price the server charges
+  const estimatedCredits = voiceOverCredits(localScriptText);
   // While the balance is loading, assume enough — the server re-checks anyway.
   const canGenerate = localScriptText.trim().length > 0 && state.selectedVoice && (creditsLoading || credits >= estimatedCredits);
 
@@ -179,7 +181,7 @@ export function GeneratorTab({ voiceOverState, credits, creditsLoading, clonedVo
       <Card className="p-6">
         <div className="mb-4">
           <h3 className="text-lg font-semibold">1. Enter Your Script</h3>
-          <p className="text-sm text-muted-foreground">Write or paste the text you want to convert to speech (max 10,000 characters)</p>
+          <p className="text-sm text-muted-foreground">Write or paste the text you want to convert to speech (max 10,000 characters). 3 credits per started 1,000 characters.</p>
         </div>
         <Textarea
           value={localScriptText}

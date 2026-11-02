@@ -24,7 +24,23 @@ export const PHANTOM_PRESENTER_CHANGE_CREDITS = 30;
 
 /** The automatic listing video (ReelEstate): the video itself, plus each photo that becomes a moving clip. */
 export const LISTING_CREDITS = 25;
-export const LISTING_CLIP_CREDITS = 6;
+/**
+ * A photo's moving clip: 2 credits per second of clip (fal LTX 2.3 fast, $0.04 a second; owner-approved 2026-11-02).
+ * A clip is 6, 8, 10 or 12 seconds (listingClipSeconds), as long as its photo is on screen: 12 to 24 credits.
+ */
+export const LISTING_CLIP_CREDITS_PER_SECOND = 2;
+export const listingClipCredits = (clipSeconds: number) => clipSeconds * LISTING_CLIP_CREDITS_PER_SECOND;
+/** The shortest clip, the one most photos get (a room is on screen about 3 seconds). */
+export const LISTING_SHORTEST_CLIP_SECONDS = 6;
+/**
+ * The clip lengths are only known once the voice is recorded, so the page quotes a ceiling: 6 seconds a photo plus
+ * these seconds for the photos that stay on screen longer (the price with the figures, the last photo with the
+ * contact card). The balance is checked against it before the video starts and the clips are never charged above it.
+ */
+export const LISTING_LONGER_CLIP_SECONDS = 10;
+/** The most the moving clips of a video with this many photos cost. */
+export const listingClipCap = (photos: number) =>
+  listingClipCredits(photos * LISTING_SHORTEST_CLIP_SECONDS + LISTING_LONGER_CLIP_SECONDS);
 
 export const MAX_LIFESTYLE_PHOTOS = 3;
 export const MAX_ANIMATED_PHOTOS = 2;

@@ -1,4 +1,6 @@
 import { readFile, writeFile } from 'fs/promises';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { createAdminClient } from '@/app/supabase/server';
 import { convertVoiceWithChatterbox } from '@/actions/models/fal-chatterbox-s2s';
 import type { ChatterboxPresetVoice } from '@/actions/models/chatterbox-voices';
@@ -23,6 +25,31 @@ import {
  * voice" on a finished presenter clip). No auth or credits here — callers
  * own those.
  */
+
+/**
+ * Length in seconds of a hosted audio or video file (ffprobe reads http(s) sources directly, only the header for
+ * most files); null when it cannot be read. The Voice Changer prices a run by this before charging.
+ */
+export async function probeMediaSeconds(url: string): Promise<number | null> {
+  if (!/^https?:\/\//.test(url)) return null;
+  const probe = (entries: string[]) =>
+    promisify(execFile)('ffprobe', ['-v', 'error', '-protocol_whitelist', 'http,https,tcp,tls', ...entries, '-of', 'csv=p=0', url], {
+      timeout: 120_000,
+      maxBuffer: 32 * 1024 * 1024,
+    });
+  try {
+    const { stdout } = await probe(['-show_entries', 'format=duration']);
+    const seconds = parseFloat(stdout.trim());
+    if (Number.isFinite(seconds) && seconds > 0) return seconds;
+    // A browser recording (WebM) often has no length in its header: read the time of its last audio packet instead
+    const packets = await probe(['-select_streams', 'a:0', '-show_entries', 'packet=pts_time']);
+    const last = packets.stdout.split('\n').reduce((most, line) => Math.max(most, parseFloat(line) || 0), 0);
+    return last > 0 ? last : null;
+  } catch (error) {
+    console.warn('⚠️ Could not read the media length:', String(error).slice(0, 160));
+    return null;
+  }
+}
 
 export type VoiceTarget =
   | { mode: 'preset'; voice: ChatterboxPresetVoice }

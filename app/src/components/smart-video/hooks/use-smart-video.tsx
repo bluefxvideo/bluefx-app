@@ -12,7 +12,7 @@ import {
 } from '@/actions/tools/smart-video';
 import { cleanLink, findWebsite } from '@/lib/smart-video/link';
 import { isStalePageError } from '@/lib/stale-page';
-import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_PRESENTER_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
+import { LISTING_CREDITS, listingClipCap, PHANTOM_PRESENTER_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
 import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount, type ListingLength } from '@/lib/smart-video/listing';
 import type { PhantomExample } from '@/lib/smart-video/examples';
 import { urlToFile } from '@/lib/url-to-file';
@@ -285,10 +285,11 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
   }, [queryClient]);
 
-  // Listing video: how many photos the video shows, and what animating them adds to the price
-  // (before anything is added, the price is shown for the photos a video of this length holds)
+  // Listing video: how many photos the video shows, and the most animating them adds to the price (2 credits a
+  // second of clip, the lengths known only once the voice is recorded; the server checks and caps the same number).
+  // Before anything is added, the price is shown for the photos a video of this length holds.
   const listingPhotos = listingPhotoCount(listingSeconds, (link.trim() ? listingLinkPhotos(files.length) : 0) + files.length || 99);
-  const clipCredits = isListing ? listingPhotos * LISTING_CLIP_CREDITS : 0;
+  const clipCredits = isListing ? listingClipCap(listingPhotos) : 0;
 
   return {
     listingSeconds,

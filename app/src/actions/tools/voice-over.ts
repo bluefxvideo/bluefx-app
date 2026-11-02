@@ -4,9 +4,15 @@ import { createClient } from '@/app/supabase/server';
 import { createPredictionRecord, updatePredictionRecord } from '@/actions/database/thumbnail-database';
 import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
 import { MINIMAX_VOICE_OPTIONS, type MinimaxEmotion } from '@/components/shared/voice-constants';
-import { convertVoiceInMedia } from '@/lib/voice-changer/convert';
+import { convertVoiceInMedia, probeMediaSeconds } from '@/lib/voice-changer/convert';
 import type { ChatterboxPresetVoice } from '@/actions/models/chatterbox-voices';
 import type { Json } from '@/types/database';
+import {
+  voiceOverCredits,
+  voiceChangerCredits,
+  voiceChangerTooLong,
+  VOICE_CHANGER_TOO_LONG,
+} from '@/lib/voice-pricing';
 
 // Request/Response types for Voice Over
 export interface VoiceOverRequest {
@@ -339,44 +345,12 @@ function getVoiceDetails(voiceId: string): VoiceOption {
 }
 
 /**
- * Calculate credit costs for voice over operations
+ * Credit cost of a voice over: 3 credits per started 1,000 characters of the script
+ * (lib/voice-pricing.ts; quality and format no longer change the price).
  */
 function calculateVoiceOverCreditCost(request: VoiceOverRequest) {
-  const wordCount = request.script_text.trim().split(/\s+/).length;
-  const baseCost = 2; // Base cost per voice generation
-  
-  // Quality multiplier
-  let qualityMultiplier = 1;
-  if (request.quality === 'hd') {
-    qualityMultiplier = 1.5;
-  }
-  
-  // Format multiplier
-  let formatMultiplier = 1;
-  if (request.export_format === 'wav') {
-    formatMultiplier = 1.2; // WAV files are larger
-  }
-  
-  // Length multiplier (for very long content)
-  let lengthMultiplier = 1;
-  if (wordCount > 500) {
-    lengthMultiplier = 1 + ((wordCount - 500) * 0.001); // Small increase for long content
-  }
-  
-  const perVoiceCost = Math.ceil(baseCost * qualityMultiplier * formatMultiplier * lengthMultiplier);
-  const voiceCount = 1;
-  const total = perVoiceCost * voiceCount;
-  
-  return {
-    base: baseCost,
-    per_voice: perVoiceCost,
-    quality_multiplier: qualityMultiplier,
-    format_multiplier: formatMultiplier,
-    length_multiplier: lengthMultiplier,
-    voice_count: voiceCount,
-    total,
-    word_count: wordCount
-  };
+  const total = voiceOverCredits(request.script_text);
+  return { per_voice: total, total, characters: request.script_text.trim().length };
 }
 
 /**
@@ -487,9 +461,6 @@ export interface VoiceChangerResponse {
   error?: string;
 }
 
-const VOICE_CHANGER_BASE_CREDITS = 3;
-const VOICE_CHANGER_HQ_CREDITS = 4;
-
 /**
  * Voice Changer — re-speaks uploaded audio (or a video's speech) in a target
  * voice via ChatterboxHD speech-to-speech.
@@ -515,7 +486,6 @@ export async function executeVoiceChanger(
     const batch_id = request.batch_id && /^voice_changer_[a-z0-9_]{1,40}$/.test(request.batch_id)
       ? request.batch_id
       : `voice_changer_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-    const creditCost = request.high_quality_audio ? VOICE_CHANGER_HQ_CREDITS : VOICE_CHANGER_BASE_CREDITS;
     const fail = (error: string, remaining: number): VoiceChangerResponse =>
       ({ success: false, error, batch_id, generation_time_ms: Date.now() - startTime, credits_used: 0, remaining_credits: remaining });
 
@@ -524,6 +494,13 @@ export async function executeVoiceChanger(
       return fail('Target voice sample is missing — please upload it again', 0);
     }
     if (request.target_mode === 'preset' && !request.target_voice) return fail('No target voice selected', 0);
+
+    // The price follows the source's length (2 credits per started minute, lib/voice-pricing.ts),
+    // measured here before anything is charged; sources over 10 minutes are refused.
+    const sourceSeconds = await probeMediaSeconds(request.source_url);
+    if (sourceSeconds === null) return fail('Could not read the length of this file. Upload it again, or try an MP3 or MP4 file.', 0);
+    if (voiceChangerTooLong(sourceSeconds)) return fail(VOICE_CHANGER_TOO_LONG, 0);
+    const creditCost = voiceChangerCredits(sourceSeconds, request.high_quality_audio);
 
     // Verify credits
     const userCredits = await getUserCredits(supabase, user.id);

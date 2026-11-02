@@ -1,6 +1,7 @@
 import type { ToolExample } from '@/components/tools/tool-examples';
-import type { AgentCloneDuration, CleanupPreset, TargetDuration } from '@/types/reelestate';
+import { AGENT_CLONE_ANIMATION_CREDITS_PER_SECOND, type AgentCloneDuration, type CleanupPreset, type TargetDuration } from '@/types/reelestate';
 import type { ListingLength } from '@/lib/smart-video/listing';
+import { LISTING_CREDITS, listingClipCap } from '@/lib/smart-video/pricing';
 import type { VideoFormat } from '@/lib/smart-video/types';
 
 // Real results of ReelEstate, made in the tool with invented houses.
@@ -83,7 +84,7 @@ export interface AutomaticVideoExample extends ToolExample {
   format: VideoFormat;
   /** Seconds the finished video runs. */
   runs: number;
-  /** The video's own price, and what animating the photos added. */
+  /** The video's own price, and the most animating the photos adds today (2 credits per second of clip). */
   credits: { video: number; animation: number };
 }
 
@@ -116,7 +117,7 @@ export const AUTOMATIC_VIDEO_EXAMPLES: AutomaticVideoExample[] = [
     seconds: 30,
     format: 'horizontal',
     runs: 30,
-    credits: { video: 25, animation: 42 },
+    credits: { video: LISTING_CREDITS, animation: listingClipCap(7) },
   },
 ];
 
@@ -203,7 +204,7 @@ export const AGENT_CLONE_EXAMPLES: AgentCloneExample[] = [
     action: 'gesturing around the room, presenting the space to the viewer',
     actionPreset: 'Gesturing around',
     dialogue: 'Welcome to 14 Birchwood Lane. This kitchen has a quartz island and brass fixtures. Come see it this weekend.',
-    credits: { composite: 2, animation: 10 },
+    credits: { composite: 2, animation: 10 * AGENT_CLONE_ANIMATION_CREDITS_PER_SECOND },
   },
   {
     id: 'front',
@@ -221,6 +222,6 @@ export const AGENT_CLONE_EXAMPLES: AgentCloneExample[] = [
     duration: 6,
     action: 'walking slowly toward the camera along the front path, smiling',
     dialogue: 'Just listed: 14 Birchwood Lane. Message me for a private showing.',
-    credits: { composite: 2, animation: 6 },
+    credits: { composite: 2, animation: 6 * AGENT_CLONE_ANIMATION_CREDITS_PER_SECOND },
   },
 ];

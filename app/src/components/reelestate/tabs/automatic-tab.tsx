@@ -11,7 +11,7 @@ import { StandardStep } from '@/components/tools/standard-step';
 import { cn } from '@/lib/utils';
 import { cleanLink } from '@/lib/smart-video/link';
 import { LISTING_INSTRUCTIONS_MAX, LISTING_LENGTHS, LISTING_MIN_PHOTOS, listingPhotoCount } from '@/lib/smart-video/listing';
-import { LISTING_CLIP_CREDITS } from '@/lib/smart-video/pricing';
+import { LISTING_CLIP_CREDITS_PER_SECOND, LISTING_SHORTEST_CLIP_SECONDS, listingClipCredits } from '@/lib/smart-video/pricing';
 import type { VideoFormat } from '@/lib/smart-video/types';
 import type { useSmartVideo } from '@/components/smart-video/hooks/use-smart-video';
 import { FileThumb, SoundSwitches } from '@/components/smart-video/shared';
@@ -171,7 +171,8 @@ export function AutomaticTab({ video }: { video: ReturnType<typeof useSmartVideo
             </div>
 
             <p className="rounded-lg border p-3 text-xs text-muted-foreground">
-              Every photo becomes a moving clip: the camera pushes slowly into the room. {LISTING_CLIP_CREDITS} credits per photo.
+              Every photo becomes a moving clip: the camera pushes slowly into the room. {LISTING_CLIP_CREDITS_PER_SECOND} credits per second of clip:
+              most photos get a {LISTING_SHORTEST_CLIP_SECONDS}-second clip ({listingClipCredits(LISTING_SHORTEST_CLIP_SECONDS)} credits), a photo that stays on screen longer gets a longer one.
             </p>
 
             <div className="space-y-1.5">
@@ -208,17 +209,17 @@ export function AutomaticTab({ video }: { video: ReturnType<typeof useSmartVideo
         {/* The label wraps on a narrow form panel (a laptop screen) instead of being cut off at both ends. */}
         <Button onClick={video.start} disabled={busy} className="h-auto min-h-12 w-full whitespace-normal py-2 font-medium" size="lg">
           {busy ? <Loader2 className="mr-2 h-4 w-4 flex-shrink-0 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4 flex-shrink-0" />}
-          <span>Make the listing video · {total} credits</span>
+          <span>Make the listing video · up to {total} credits</span>
         </Button>
         <p className="mt-2 text-center text-xs text-muted-foreground">
           {/* The price follows the length, not the number of photos that come in: say so where the price is. */}
-          {video.credits} + {video.listingPhotos} × {LISTING_CLIP_CREDITS} credits: a {video.listingSeconds}-second video shows {video.listingPhotos} photos
+          {video.credits} credits for the video and up to {video.clipCredits} for the moving clips: a {video.listingSeconds}-second video shows {video.listingPhotos} photos
           {video.link.trim()
             ? ', however many the listing has (fewer photos cost less)'
             : video.files.length > video.listingPhotos
               ? ` of your ${video.files.length}`
               : ''}
-          . A photo that cannot be animated is not charged.
+          . You pay {LISTING_CLIP_CREDITS_PER_SECOND} credits per second of clip made, never more than this. A photo that cannot be animated is not charged.
         </p>
       </TabFooter>
     </TabContentWrapper>

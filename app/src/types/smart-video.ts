@@ -105,8 +105,12 @@ export interface SmartVideoJob {
   presenterPhotoAsIs?: boolean;
   /** Set on ReelEstate's automatic listing videos. */
   listing?: ListingOptions;
-  /** Listing video: the photos whose animation was charged (6 credits each), by asset id. */
+  /** Listing video: the photos whose animation was charged, by asset id. */
   clipCharges?: string[];
+  /** Listing video: the credits each charged photo cost (2 a second of its clip), by asset id. */
+  clipCredits?: Record<string, number>;
+  /** Listing video: the most its clips may cost together, quoted and checked when it started (listingClipCap). */
+  clipCap?: number;
   /** A revision: the job it changes and the client's note. */
   parentId?: string;
   note?: string;
