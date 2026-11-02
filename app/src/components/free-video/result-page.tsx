@@ -885,8 +885,6 @@ export type WalkthroughVideo = {
   playLabel: string;
   chapters: readonly { label: string; at: number }[];
   length: string;
-  /** The speed it starts at (YouTube's own steps, e.g. 1.25); viewers can still change it. */
-  rate?: number;
 };
 
 export function Walkthrough({ token, video }: { token: string; video?: WalkthroughVideo }) {
@@ -894,21 +892,6 @@ export function Walkthrough({ token, video }: { token: string; video?: Walkthrou
   const walkthrough = { ...RESULT_PAGE.walkthrough, ...(video ? { length: video.length } : {}) };
   const beacon = useFreeVideoBeacon(token);
   const [from, setFrom] = useState<number | null>(null);
-  const frameRef = useRef<HTMLIFrameElement>(null);
-  // The start speed (owner 2026-11-02: "I just speak so slowly", 1.25x): YouTube takes it by postMessage once its player
-  // listens, so the command goes a few times in the first seconds after the frame loads.
-  const rate = 'rate' in tour ? tour.rate : undefined;
-  const setRate = () => {
-    const frame = frameRef.current;
-    if (!rate || !frame?.contentWindow) return;
-    let tries = 0;
-    const send = () => {
-      frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*');
-      frame.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'setPlaybackRate', args: [rate] }), '*');
-      if (++tries < 12) window.setTimeout(send, 500);
-    };
-    send();
-  };
   const play = (at: number) => {
     if (from === null) beacon('tour_play');
     setFrom(at);
@@ -944,10 +927,8 @@ export function Walkthrough({ token, video }: { token: string; video?: Walkthrou
         ) : (
           <iframe
             key={from}
-            ref={frameRef}
-            onLoad={setRate}
             className={styles.walkPlayer}
-            src={`https://www.youtube-nocookie.com/embed/${tour.youtubeId}?autoplay=1&rel=0&playsinline=1&start=${from}${rate ? '&enablejsapi=1' : ''}`}
+            src={`https://www.youtube-nocookie.com/embed/${tour.youtubeId}?autoplay=1&rel=0&playsinline=1&start=${from}`}
             title={tour.title}
             allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
             allowFullScreen

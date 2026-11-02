@@ -298,8 +298,6 @@ export const RESULT_SALES = {
       { label: 'A video ad from a few lines', at: 687 },
     ],
     length: '14:53',
-    /** Owner 2026-11-02: plays at 1.25x ("I just speak so slowly"). */
-    rate: 1.25,
   },
 
   hero: {
