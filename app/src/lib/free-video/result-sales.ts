@@ -592,7 +592,7 @@ export const RESULT_SALES = {
       {
         q: 'Do I have to use all 12 tools?',
         a: [
-          'No. Start with Phantom Ad Maker, the tool that made your video ad: type your website, and Phantom Ad Maker makes your next video ad. Open the other 11 tools when your business needs a new kind of video ad, a voice-over, music or an ebook. The 15-minute walkthrough below shows Phantom Ad Maker step by step.',
+          'No. Start with Phantom Ad Maker, the tool that made your video ad: type your website, and Phantom Ad Maker makes your next video ad. Open the other 11 tools when your business needs a new kind of video ad, a voice-over, music or an ebook. The 15-minute walkthrough above shows Phantom Ad Maker step by step.',
         ],
       },
     ],

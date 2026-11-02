@@ -46,6 +46,9 @@ interface ResultSalesPageProps {
   afterUnlock?: boolean;
 }
 
+/** The tutorial plays where the sales video was, and the bottom walkthrough goes (owner 2026-11-02). */
+const SALES_VIDEO_IS_TUTORIAL = true;
+
 /**
  * The result page "the sales page way" (design board J, owner 2026-10-22): result-sales.ts has the words and the order.
  * Every button opens ClickBank's checkout through /go (fvres1 price box, fvresads bonus, fvres2 how, fvrestools the 4
@@ -279,13 +282,19 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         </div>
       </section>
 
-      <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-video">
-        <h2 id="fv-sales-video" className={rp.h2}>
-          {afterUnlock ? C.afterUnlock.salesVideoTitle : salesVideo.title}
-        </h2>
-        <SalesVideo />
-        <p className={s.caption}>{salesVideo.caption}</p>
-      </section>
+      {/* Owner 2026-11-02: the new Phantom tutorial takes the sales video's spot on both pages (the sales video says things
+          that are no longer true); SALES_VIDEO_IS_TUTORIAL = false brings the sales video back. */}
+      {SALES_VIDEO_IS_TUTORIAL ? (
+        <Walkthrough token={token} video={C.walkthroughVideo} />
+      ) : (
+        <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-video">
+          <h2 id="fv-sales-video" className={rp.h2}>
+            {afterUnlock ? C.afterUnlock.salesVideoTitle : salesVideo.title}
+          </h2>
+          <SalesVideo />
+          <p className={s.caption}>{salesVideo.caption}</p>
+        </section>
+      )}
 
       <section ref={priceRef} className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby={price.title ? "fv-sales-price" : undefined}>
         {price.title && (
@@ -619,7 +628,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </section>
       </div>
 
-      <Walkthrough token={token} video={C.walkthroughVideo} />
+      {!SALES_VIDEO_IS_TUTORIAL && <Walkthrough token={token} video={C.walkthroughVideo} />}
       <div className={cn(rp.wrap, rp.narrow, s.sectionTight)}>
         <SalesBuy token={token} placement="fvres3" />
       </div>
