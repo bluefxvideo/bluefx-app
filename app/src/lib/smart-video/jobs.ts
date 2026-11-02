@@ -177,6 +177,7 @@ export async function runningJobs(userId: string): Promise<number> {
 export const clipReference = (jobId: string, assetId: string) => `${jobId}-clip-${assetId}`;
 
 export async function chargeClip(job: SmartVideoJob, assetId: string, credits: number): Promise<boolean> {
+  if (credits === 0) return true; // deduct_user_credits refuses 0; nothing to take
   const { data, error } = await createAdminClient().rpc('deduct_user_credits', {
     p_user_id: job.userId,
     p_amount: credits,
@@ -197,6 +198,7 @@ export async function refundClip(job: SmartVideoJob, assetId: string): Promise<n
 export const presenterReference = (jobId: string) => `${jobId}-presenter`;
 
 export async function chargePresenter(userId: string, jobId: string, credits = PHANTOM_PRESENTER_CREDITS): Promise<boolean> {
+  if (credits === 0) return true; // deduct_user_credits refuses 0; nothing to take
   const { data, error } = await createAdminClient().rpc('deduct_user_credits', {
     p_user_id: userId,
     p_amount: credits,

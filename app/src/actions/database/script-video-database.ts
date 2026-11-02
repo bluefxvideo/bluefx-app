@@ -408,6 +408,8 @@ export async function deductCredits(
   operation_type: string,
   metadata: Json
 ) {
+  // deduct_user_credits refuses 0 (a guard against negative charges); nothing to take is a success.
+  if (amount === 0) return { success: true, error: undefined, remainingCredits: undefined, transaction_id: undefined };
   const supabase = getSupabaseClient();
   try {
     // Use the same RPC function as thumbnail-machine

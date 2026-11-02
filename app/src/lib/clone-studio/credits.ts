@@ -20,6 +20,7 @@ export interface CloneCredits {
 export function creditsOf(userId: string): CloneCredits {
   return {
     async charge(amount, operation, reference, detail = {}) {
+      if (amount === 0) return null; // deduct_user_credits refuses 0; nothing to take
       const entitlement = await ensureCreditsForUsage(userId, amount);
       if (!entitlement.ok) return entitlement.error || 'Insufficient credits';
       const { data, error } = await createAdminClient().rpc('deduct_user_credits', {
