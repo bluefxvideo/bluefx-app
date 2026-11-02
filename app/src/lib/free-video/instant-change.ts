@@ -225,33 +225,46 @@ export async function startAiChange(
   return { jobId: job.id, run: () => runAiChange(job, base, lead, text, round, files.uploads) };
 }
 
+/** The warnings a change gets when it asked for new presenter words that the presenter's filmed scene kept. */
+const PRESENTER_LINE_KEPT = /first line is said by the presenter|change what the presenter says/i;
+
 async function runAiChange(start: SmartVideoJob, baseId: string, lead: FreeVideoLead, text: string, round: number, uploads: ChangeUpload[], free = false): Promise<void> {
   let job = start;
   const heartbeat = setInterval(() => touchJob(job.id).catch(() => undefined), 45_000);
   try {
     const saved = await readPlan(job.userId, baseId);
     if (!saved.media) throw new Error('The video ad has no saved media to change');
+    const media = saved.media;
     const dir = jobDir(job.userId, job.id);
     const store = (data: Buffer, name: string, contentType: string) => upload(`${dir}/${name}`, data, contentType);
     // The buyer's files continue the numbering of the video ad's own files (a1, a2, ... then a7, a8), as in the app.
     const taken = Object.keys(saved.media.assets).map((assetId) => Number(/^a(\d+)/.exec(assetId)?.[1] || 0));
     const files = await Promise.all(uploads.map(async (u) => ({ filename: u.name, data: await download(u.path) })));
     const added = files.length ? await prepareAssets(files, store, Math.max(0, ...taken) + 1) : [];
-    const revised = await reviseSmartVideo(
-      { plan: saved.plan, media: saved.media },
-      text,
-      saved.brief || '',
-      store,
-      (stage) => {
-        job = { ...job, status: stage };
-        writeJob(job).catch(() => undefined);
-      },
-      added,
-      undefined,
-      // A different person on camera is cast only through the presenter option, never from the note (owner rule
-      // 2026-10-13); a buyer's change that asks for one passes those lines as "who should be on camera".
-      { presenter: presenterWords(text) || undefined }
-    );
+    const revise = (presenter: string | undefined) =>
+      reviseSmartVideo(
+        { plan: saved.plan, media },
+        text,
+        saved.brief || '',
+        store,
+        (stage) => {
+          job = { ...job, status: stage };
+          writeJob(job).catch(() => undefined);
+        },
+        added,
+        undefined,
+        { presenter }
+      );
+    // A different person on camera is cast only through the presenter option, never from the note (owner rule
+    // 2026-10-13); a buyer's change that asks for one passes those lines as "who should be on camera".
+    const asked = presenterWords(text) || undefined;
+    let revised = await revise(asked);
+    // A change to the presenter's own words came back unchanged with only a warning, and the buyer saw "done"
+    // (Ronnie 2026-11-02: "stop paying 3 to 4 percent"). The same person is filmed again saying the new first line.
+    if (!asked && revised.warnings.some((w) => PRESENTER_LINE_KEPT.test(w))) {
+      console.log(`🔄 [free-video] Change ${round} for lead ${lead.id}: the presenter's line changed, filming the same person again`);
+      revised = await revise('the same person, saying the new first line');
+    }
     const result = withSubtitleLook(revised, saved, text);
     // The buyer paid for the clean version: never the SAMPLE watermark or the end card. The free change keeps it.
     const props = { ...result.props };
