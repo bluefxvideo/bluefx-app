@@ -12,7 +12,6 @@
  * mostly don't run ads; they want customers from social media).
  */
 import { OFFER, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
-import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
 
 const MONTH = VIDEO_ADS_LIKE_FREE_PER_MONTH;
 const YEAR = MONTH * 12;
@@ -368,7 +367,7 @@ export const RESULT_SALES = {
     text: `Type any business's website, and the AI Media Machine makes a video ad for that business. Your account makes ${MONTH} complete video ads every month, for your business or for theirs.`,
     proof: 'One of our buyers, a marketing agency owner in California, already makes video ads for 7 client websites with his account.',
     /** Owner 2026-10-26: "10 videos, but what if I get 20 videos?" The 1,000-credit pack (buy-credits-dialog.tsx) at 60 credits per video ad like the free one. */
-    more: `Need more than ${MONTH} a month for your clients? Add a credit pack any time: 1,000 credits ($69.99) make about ${Math.floor(1000 / (PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS))} more video ads, with nothing recurring.`,
+    more: `Need more than ${MONTH} a month for your clients? Add a credit pack any time: 1,000 credits ($69.99) make about ${Math.floor(1000 / 60)} more video ads, with nothing recurring.`,
   },
 
   bonus: {

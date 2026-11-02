@@ -647,7 +647,7 @@ function StyleRow({ smart }: { smart: SmartVideo }) {
         checked={smart.presenter}
         onChange={smart.setPresenter}
         disabled={smart.isBusy}
-        text={`A person who fits the style opens your video ad and says the first line on camera. ${PHANTOM_PRESENTER_CREDITS} credits, given back if the presenter cannot be made.`}
+        text={`A person who fits the style opens your video ad and says the first line on camera. Included in the video ad's credits.`}
       />
       <StyleGallery smart={smart} open={open} onClose={() => setOpen(false)} />
     </>

@@ -165,7 +165,11 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
       const needed = credits + PHANTOM_PRESENTER_CREDITS;
       const balance = await availableCredits(userId);
       if (balance < needed) {
-        return createApiError(`This video needs ${needed} credits: ${credits} for the video and ${PHANTOM_PRESENTER_CREDITS} for the AI presenter. You have ${balance}.`);
+        return createApiError(
+          PHANTOM_PRESENTER_CREDITS > 0
+            ? `This video needs ${needed} credits: ${credits} for the video and ${PHANTOM_PRESENTER_CREDITS} for the AI presenter. You have ${balance}.`
+            : `This video needs ${needed} credits. You have ${balance}.`
+        );
       }
     }
     let clipCap: number | undefined;

@@ -11,10 +11,11 @@ export const PHANTOM_EXTRA_MINUTE_CREDITS = 20;
 /** A change to a finished video from a note. */
 export const PHANTOM_REVISION_CREDITS = 10;
 /**
- * The AI presenter who opens a video (tall or wide) and says the first line (presenter.ts: about $0.58 at the APIs, the same
- * rate as ReelEstate's animated photos). Charged on its own and given back when the presenter does not make it into the video.
+ * The AI presenter who opens a video (tall or wide) and says the first line (presenter.ts: about $0.47 more at the APIs).
+ * Included in the video ad's credits since owner 2026-11-02 ("make the cost 50 even with presenter", for everyone: 5,000
+ * credits = 100 video ads). 0 = no separate charge (chargePresenter skips it); changing the presenter later stays paid.
  */
-export const PHANTOM_PRESENTER_CREDITS = 10;
+export const PHANTOM_PRESENTER_CREDITS = 0;
 /**
  * An edit with "Change the presenter" (or "Add a presenter"): a new AI presenter, or the same one saying new words
  * (owner 2026-10-13: its own choice and its own price, never decided from the note). On top of

@@ -5,7 +5,7 @@
  * Client-safe: no process.env and no server imports. The page components import this file.
  */
 
-import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
+import { PHANTOM_CREDITS } from '@/lib/smart-video/pricing';
 
 /**
  * Every place an offer button can sit: the thank-you page, the video ad page, the form's "one free video ad per
@@ -173,7 +173,9 @@ export const VIDEO_ADS_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / PHANTOM
  * 600 / 60 = 10 video ads a month like the free one, which opens with an AI presenter (runner.ts presenter: true, 10
  * credits more): the number the thank-you offer uses (owner 2026-10-08, one number everywhere).
  */
-export const VIDEO_ADS_LIKE_FREE_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / (PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS));
+// Kept at the approved 10 while the sales wording waits (owner 2026-11-02: the presenter is now included, so 600 credits
+// make 12; the sales pages change together, later).
+export const VIDEO_ADS_LIKE_FREE_PER_MONTH = 10;
 
 /**
  * What one video ad like the free one works out to: the lifetime price over a year of VIDEO_ADS_LIKE_FREE_PER_MONTH
