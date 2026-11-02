@@ -1040,6 +1040,19 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
   // A person talking in the client's own clip is the picture, not a voice-over, and keeps their sound.
   const heard = sound.voiceOver ? cuts : cuts.filter((cut) => cut.url);
   const silent = !sound.voiceOver && !sound.music;
+  // A word ends where the next begins (or after a beat), and never after its scene: the next scene may have no
+  // room for subtitles (the presenter's last word ran onto a free video ad's whiteboard once the handover got short).
+  const allWords = spoken.map((word, n) => {
+    const sceneEnd = scenes.find((scene) => word.time >= scene.start && word.time < scene.end)?.end ?? Infinity;
+    const end = Math.min(spoken[n + 1]?.time ?? lastWordEnd, word.time + 0.9, sceneEnd);
+    return { text: word.raw, start: word.time, end: Math.max(word.time + 0.12, end) };
+  });
+  // A person talking on camera always has subtitles, even when the rest of the video has none (owner 2026-11-02: the
+  // presenter's opening line had no captions; most people watch muted). The free video ad already did this.
+  const talking = scenes.filter((scene) => (scene as { speaker?: unknown }).speaker);
+  const captionWords = showsCaptions(plan, sound)
+    ? allWords
+    : allWords.filter((word) => talking.some((scene) => word.start >= scene.start - 0.05 && word.start < scene.end));
   const props = {
     duration,
     format: media.format || 'vertical',
@@ -1059,17 +1072,7 @@ export function buildProps(plan: DirectorPlan, media: SmartVideoMedia) {
       sfx: silent ? [] : sfx,
       ...(silent ? { autoSfx: false } : {}),
     },
-    captions: showsCaptions(plan, sound)
-      ? {
-          // A word ends where the next begins (or after a beat), and never after its scene: the next scene may have no
-          // room for subtitles (the presenter's last word ran onto a free video ad's whiteboard once the handover got short).
-          words: spoken.map((word, n) => {
-            const sceneEnd = scenes.find((scene) => word.time >= scene.start && word.time < scene.end)?.end ?? Infinity;
-            const end = Math.min(spoken[n + 1]?.time ?? lastWordEnd, word.time + 0.9, sceneEnd);
-            return { text: word.raw, start: word.time, end: Math.max(word.time + 0.12, end) };
-          }),
-        }
-      : undefined,
+    captions: captionWords.length ? { words: captionWords } : undefined,
     // The news look's ticker line along the bottom.
     ...(plan.style === 'news' && plan.ticker ? { ticker: plan.ticker } : {}),
     scenes,
