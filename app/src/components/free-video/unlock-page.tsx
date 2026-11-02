@@ -204,9 +204,16 @@ interface OfferProps {
  * The one free change before paying (instant-change.ts): started from the saved change list, made by the AI engine
  * with the SAMPLE watermark kept, shown here when done. Polls while it is being made.
  */
-type AiChangeView = AiChangeRow;
+export type AiChangeView = AiChangeRow;
 type FreeState = { state: 'none' | 'working' | 'done'; progress: number; videoUrl: string | null; message: string | null; busy: boolean };
-function useFreeChange(token: string, initial: AiChangeView | null): FreeState & { start: () => void } {
+/** The free change's messages: the $49 page's by default, the free thank-you page's own (result-sales.ts) there. */
+export interface FreeChangeCopy {
+  failed: string;
+  refusals: Record<'style' | 'used' | 'noList' | 'notReady' | 'paid', string>;
+}
+
+/** `load`: the page had no free change from the server (the free thank-you page), so it reads it once on the first render. */
+export function useFreeChange(token: string, initial: AiChangeView | null, copy: FreeChangeCopy = UNLOCK_PAGE.chat.free, load = false): FreeState & { start: () => void } {
   // The engine reports progress only while rendering: the bar also fills with the time since the start (90% at 5 min).
   const shownProgress = (c: AiChangeView) => {
     const since = c.at ? (Date.now() - Date.parse(c.at)) / 1000 : 0;
@@ -214,8 +221,23 @@ function useFreeChange(token: string, initial: AiChangeView | null): FreeState &
   };
   const of = (c: AiChangeView | null): Omit<FreeState, 'message' | 'busy'> =>
     !c || c.status === 'failed' ? { state: 'none', progress: 0, videoUrl: null } : { state: c.status, progress: c.status === 'done' ? 100 : shownProgress(c), videoUrl: c.videoUrl };
-  const [s, setS] = useState<FreeState>({ ...of(initial), message: initial?.status === 'failed' ? UNLOCK_PAGE.chat.free.failed : null, busy: false });
+  const [s, setS] = useState<FreeState>({ ...of(initial), message: initial?.status === 'failed' ? copy.failed : null, busy: false });
   const working = s.state === 'working';
+  useEffect(() => {
+    if (!load) return;
+    let gone = false;
+    void (async () => {
+      const res = await fetch(`/api/free-video/${token}/free-change`, { cache: 'no-store' }).catch(() => null);
+      const body = res ? await res.json().catch(() => null) : null;
+      const free = (body?.data?.free ?? null) as AiChangeView | null;
+      if (!gone && free && free.status !== 'failed') setS((prev) => ({ ...prev, ...of(free) }));
+    })();
+    return () => {
+      gone = true;
+    };
+    // Once, on the first render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     if (!working) return;
     const id = setInterval(async () => {
@@ -223,11 +245,11 @@ function useFreeChange(token: string, initial: AiChangeView | null): FreeState &
       const body = res ? await res.json().catch(() => null) : null;
       const free = (body?.data?.free ?? null) as AiChangeView | null;
       if (!free) return;
-      if (free.status === 'failed') setS({ ...of(null), message: UNLOCK_PAGE.chat.free.failed, busy: false });
+      if (free.status === 'failed') setS({ ...of(null), message: copy.failed, busy: false });
       else setS((prev) => ({ ...prev, ...of(free) }));
     }, 4000);
     return () => clearInterval(id);
-  }, [token, working]);
+  }, [token, working, copy.failed]);
   const start = useCallback(async () => {
     setS((prev) => ({ ...prev, busy: true, message: null }));
     const res = await fetch(`/api/free-video/${token}/free-change`, { method: 'POST', cache: 'no-store' }).catch(() => null);
@@ -235,9 +257,9 @@ function useFreeChange(token: string, initial: AiChangeView | null): FreeState &
     const free = (body?.data?.free ?? null) as AiChangeView | null;
     if (res?.ok && free) return setS({ ...of(free), progress: Math.max(3, free.progress), message: null, busy: false });
     const code = (body?.details?.code ?? body?.error?.code) as string | undefined;
-    const R = UNLOCK_PAGE.chat.free.refusals;
-    setS((prev) => ({ ...prev, busy: false, message: code && code in R ? R[code as keyof typeof R] : UNLOCK_PAGE.chat.free.failed }));
-  }, [token]);
+    const R = copy.refusals;
+    setS((prev) => ({ ...prev, busy: false, message: code && code in R ? R[code as keyof typeof R] : copy.failed }));
+  }, [token, copy]);
   return { ...s, start: () => void start() };
 }
 
@@ -767,7 +789,7 @@ function CompactBuy({ price, left, action }: { price: UnlockPrice; left: number 
 
 
 /** The hand-drawn red arrow and note that point at the change chat (UX review 2026-10-27); the arrow draws itself once in view. */
-function ArrowNote({ text }: { text: string }) {
+export function ArrowNote({ text }: { text: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [shown, setShown] = useState(false);
   useEffect(() => {
@@ -788,7 +810,23 @@ function ArrowNote({ text }: { text: string }) {
   );
 }
 
+/** The chat's words: the $49 page's (UNLOCK_PAGE.chat) by default, the free thank-you page's own there. */
+export interface ChangeChatCopy {
+  title: string;
+  note: string;
+  hello: string;
+  ideas: ReadonlyArray<{ label: string; ask: string }>;
+  thinking: string;
+  listTitle: string;
+  listNote: string;
+  placeholder: string;
+  send: string;
+  limit: string;
+  error: string;
+}
+
 interface ChangeChatProps {
+  copy?: ChangeChatCopy;
   token: string;
   plan: string[] | null;
   onPlan: (plan: string[]) => void;
@@ -800,9 +838,9 @@ interface ChangeChatProps {
 }
 
 /** The change chat (change-chat.ts): the visitor tells the assistant what to change before paying; the confirmed list is saved. */
-function ChangeChat({ token, plan, onPlan, pending, buy, note }: ChangeChatProps) {
-  const F = UNLOCK_PAGE.chat;
-  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>([{ role: 'assistant', text: F.hello }]);
+export function ChangeChat({ copy, token, plan, onPlan, pending, buy, note }: ChangeChatProps) {
+  const F: ChangeChatCopy = copy ?? UNLOCK_PAGE.chat;
+  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>(F.hello ? [{ role: 'assistant', text: F.hello }] : []);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [glow, setGlow] = useState(false);

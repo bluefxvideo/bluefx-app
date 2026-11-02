@@ -352,6 +352,22 @@ export const FREE_CHANGE_EMAIL = {
     ].join('\n'),
 } as const;
 
+/** The same email for a lead on the AI Media Machine offer (owner 2026-11-02): the free thank-you page, no $49. */
+export const FREE_CHANGE_EMAIL_MACHINE = {
+  subject: 'Your changed video ad is ready',
+  text: (firstName: string, link: string) =>
+    [
+      `Hi ${firstName},`,
+      '',
+      'Your changes are done. Watch your new video ad here:',
+      link,
+      '',
+      'Like it? With the AI Media Machine, your video ads come without the SAMPLE watermark, and you make every next change yourself in about 3 minutes. It is all on that page.',
+      '',
+      'Szilard',
+    ].join('\n'),
+} as const;
+
 /** Sends FREE_CHANGE_EMAIL once per lead (a 'free_change_email' event marks it). Never throws. */
 export async function sendFreeChangeReady(lead: FreeVideoLead): Promise<'sent' | 'skipped' | 'failed'> {
   try {
@@ -364,15 +380,18 @@ export async function sendFreeChangeReady(lead: FreeVideoLead): Promise<'sent' |
     }
     const apiKey = process.env.BREVO_API_KEY;
     if (!apiKey) return 'failed';
-    const link = `${SITE_URL}${unlockPagePath(lead.view_token)}`;
+    const { offerOf, offerSwitchOf } = await import('@/lib/free-video/offer-switch');
+    const machine = offerOf(lead, await offerSwitchOf(lead.id).catch(() => null)) === 'machine';
+    const email = machine ? FREE_CHANGE_EMAIL_MACHINE : FREE_CHANGE_EMAIL;
+    const link = `${SITE_URL}${machine ? `/v/${lead.view_token}` : unlockPagePath(lead.view_token)}`;
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: { 'api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         sender: { email: 'support@bluefx.net', name: 'Szilard Gyorfi' },
         to: [{ email: lead.email }],
-        subject: FREE_CHANGE_EMAIL.subject,
-        textContent: FREE_CHANGE_EMAIL.text(lead.first_name?.trim() || 'there', link),
+        subject: email.subject,
+        textContent: email.text(lead.first_name?.trim() || 'there', link),
       }),
       signal: AbortSignal.timeout(10_000),
     });
