@@ -792,8 +792,8 @@ export const RESULT_SALES_BANK: SalesCopy = {
   },
   afterUnlock: {
     ...S.afterUnlock,
-    title: (name: string) => `${name}, the AI Media Machine made your video ad. What if your next ${BANK} video ads cost just ${PRICE_PER_BANK_VIDEO_AD} each?`,
-    titleParts: (name: string) => [`${name}, the AI Media Machine made your video ad. What if your next `, `${BANK} video ads cost just ${PRICE_PER_BANK_VIDEO_AD} each`, '?'] as const,
+    title: (name: string) => `${name}, the AI Media Machine just made your first video ad. What if your next ${BANK} video ads cost just ${PRICE_PER_BANK_VIDEO_AD} each?`,
+    titleParts: (name: string) => [`${name}, the AI Media Machine just made your first video ad. What if your next `, `${BANK} video ads cost just ${PRICE_PER_BANK_VIDEO_AD} each`, '?'] as const,
     sub: 'One payment. Absolutely no monthly fees.',
     ps1: (name: string, domain: string) => `${name}, your $49 video ad for ${domain} is yours to keep. With the AI Media Machine, your next ${BANK} video ads are included, ${READY}.`,
     ps2: 'The AI Media Machine makes each video ad for you, ready to post in about 3 minutes, and all 12 tools are yours with absolutely no monthly fees.',
