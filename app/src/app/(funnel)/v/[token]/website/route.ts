@@ -21,8 +21,9 @@ const esc = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').
 const BOT = /bot|crawler|spider|preview|scan|headless/i;
 /**
  * "Let's talk" opens the owner's 30 minute "Your New Website" Calendly event in a popup over the page (owner 2026-11-03).
- * Pre-filled so the lead only picks a time: name and email from the lead, the phone question (a1) with their business
- * phone, and their website as utm_content (stored on the booking, not shown). a2 (biggest challenge) stays optional.
+ * Pre-filled so the lead only picks a time: name, email and their website (question a3) from the lead, plus the website as
+ * utm_content. a1 (phone) and a2 (biggest challenge) are optional and left empty (owner 2026-11-03: a business number
+ * from their site may be a support desk, so no phone is guessed).
  */
 const CALENDAR_URL = 'https://calendly.com/szilardgyorfi/new-website';
 const REACH_EMAIL = 'support@bluefx.net';
@@ -88,7 +89,7 @@ function renderPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, inter
     url: `/v/${token}/website`,
     internal,
     calendar: CALENDAR_URL,
-    prefill: { name: first, email: lead.email, customAnswers: demo.phone ? { a1: demo.phone.replace(/[^\d+]/g, '') } : {} },
+    prefill: { name: first, email: lead.email, customAnswers: { a3: `https://${lead.website_domain}` } },
     utm: { utmSource: 'bluefx', utmCampaign: 'website-demo', utmContent: lead.website_domain },
   }).replace(/</g, '\\u003c');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -136,7 +137,7 @@ v.addEventListener('play',function(){if(!played){played=true;send('website_play'
 v.addEventListener('timeupdate',function(){if(!watched&&v.duration&&v.currentTime/v.duration>=0.6){watched=true;send('website_watched')}});
 document.getElementById('talk').addEventListener('click',function(){send('website_interest');
  var q=new URLSearchParams({name:c.prefill.name,email:c.prefill.email,utm_source:c.utm.utmSource,utm_campaign:c.utm.utmCampaign,utm_content:c.utm.utmContent});
- if(c.prefill.customAnswers.a1)q.set('a1',c.prefill.customAnswers.a1);var link=c.calendar+'?'+q;
+ q.set('a3',c.prefill.customAnswers.a3);var link=c.calendar+'?'+q;
  if(window.Calendly&&Calendly.initPopupWidget){Calendly.initPopupWidget({url:link})}else{window.open(link,'_blank','noopener')}});
 })();</script>
 <link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet"><script src="https://assets.calendly.com/assets/external/widget.js" async></script>
