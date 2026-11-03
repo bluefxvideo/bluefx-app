@@ -105,7 +105,9 @@ main{max-width:980px;margin:0 auto;padding:28px 16px 48px}
 h1{font-size:clamp(26px,4.4vw,40px);line-height:1.15;margin:0 0 20px;letter-spacing:-.01em}
 .player{position:relative;border-radius:16px;overflow:hidden;background:#000;box-shadow:0 14px 40px rgba(15,23,42,.22);aspect-ratio:16/9}
 video{display:block;width:100%;height:100%;background:#000}
-.cta{margin:26px auto 0;max-width:520px;text-align:center}
+.fs{display:block;margin:12px auto 0;width:auto;background:#fff;color:var(--navy);border:2px solid var(--navy);box-shadow:none;font-size:17px;padding:11px 20px}
+.fs:active{transform:none;box-shadow:none}
+.cta{margin:22px auto 0;max-width:520px;text-align:center}
 button{width:100%;border:0;border-radius:14px;background:var(--green);color:#fff;font-family:inherit;font-weight:700;font-size:21px;line-height:1.2;padding:19px 22px;cursor:pointer;box-shadow:0 6px 0 #0f5f2c;transition:transform .08s}
 button:active{transform:translateY(3px);box-shadow:0 3px 0 #0f5f2c}
 .reach{display:flex;align-items:center;gap:14px;max-width:520px;margin:22px auto 0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 18px}
@@ -122,7 +124,8 @@ button:active{transform:translateY(3px);box-shadow:0 3px 0 #0f5f2c}
 </style></head><body><main>
 <p class="from">A video from <b>Szilard at BlueFX</b></p>
 <h1>${esc(title)}</h1>
-<div class="player"><video id="v" src="${esc(demo.video)}"${demo.poster ? ` poster="${esc(demo.poster)}"` : ''} controls playsinline preload="metadata"></video></div>
+<div class="player"><video id="v" src="${esc(demo.video)}"${demo.poster ? ` poster="${esc(demo.poster)}"` : ''} controls preload="metadata"></video></div>
+<button type="button" class="fs" id="fs">&#x26F6; Watch full screen</button>
 <div class="cta"><button type="button" id="talk">Let's talk</button></div>
 <div class="reach"><img src="${PHOTO_URL}" alt="Szilard Gyorfi" width="64" height="64"><p><span class="name">Szilard Gyorfi</span><br>Founder, BlueFX<br>Reach me here:<br><a href="mailto:${REACH_EMAIL}">${REACH_EMAIL}</a></p></div>
 ${demo.before && demo.after ? `<section class="ba"><h2>Before and after</h2><div class="ba-grid">
@@ -133,6 +136,7 @@ ${demo.before && demo.after ? `<section class="ba"><h2>Before and after</h2><div
 <script>(function(){var c=${config};var vid;try{vid=localStorage.getItem('fv_vid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.setItem('fv_vid',vid)}catch(e){vid=null}
 function send(e){if(c.internal)return;try{fetch(c.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({e:e,v:vid}),keepalive:true})}catch(x){}}
 var v=document.getElementById('v'),played=false,watched=false;
+document.getElementById('fs').addEventListener('click',function(){try{if(v.requestFullscreen){v.requestFullscreen()}else if(v.webkitEnterFullscreen){v.webkitEnterFullscreen()}else if(v.webkitRequestFullscreen){v.webkitRequestFullscreen()}}catch(x){}var p=v.play();if(p&&p.catch)p.catch(function(){})});
 v.addEventListener('play',function(){if(!played){played=true;send('website_play')}});
 v.addEventListener('timeupdate',function(){if(!watched&&v.duration&&v.currentTime/v.duration>=0.6){watched=true;send('website_watched')}});
 document.getElementById('talk').addEventListener('click',function(){send('website_interest');
