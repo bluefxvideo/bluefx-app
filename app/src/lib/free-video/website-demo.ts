@@ -6,12 +6,12 @@ import type { FreeVideoLead } from '@/types/free-video';
 /**
  * Website demos (owner 2026-11-03): a personal video for one lead about a new homepage we drew up for their business.
  * The owner recorded one take; per lead, the background shows their current site, then the new homepage mock
- * (website-demos/_tools/make_video.py). The page is /v/<token>/website: the video and one "Yes, I'm interested"
- * button. No calendar: the owner calls the people who say yes (Dylan Power's warm call).
+ * (website-demos/_tools/make_video.py). The page is /v/<token>/website: the video, a "Let's talk" button that opens
+ * the owner's calendar, and his email. The owner also calls the people who click (Dylan Power's warm call).
  *
  * The demo itself is a 'website_demo' event on the lead (meta: video, poster, business), written by the upload script,
  * so there is no new table. The newest one wins. The page's own events: website_play, website_watched (most of the
- * video seen) and website_interest (the button). The owner gets an email at the first watched and the first interest
+ * video seen) and website_interest (the Let's talk button). The owner gets an email at the first watched and the first interest
  * of each lead. Nothing is stored or emailed for the owner's own browser (internal visit).
  */
 
@@ -87,9 +87,9 @@ export async function recordWebsiteEvent(lead: FreeVideoLead, demo: WebsiteDemo,
   const page = `${SITE_URL}/v/${lead.view_token}/website?internal=1`;
   if (event === 'website_interest') {
     await emailOwner(
-      `Website lead: ${lead.first_name || lead.email} said YES, call now`,
+      `Website lead: ${lead.first_name || lead.email} clicked Let's talk, call now`,
       [
-        `${who} clicked "Yes, I'm interested" on their website video page.`,
+        `${who} clicked "Let's talk" on their website video page (your calendar opened for them; Calendly emails you if they book).`,
         '',
         'Call them now (Dylan: warm leads go cold fast). Their number is on their website / Google listing.',
         `Their website: https://${lead.website_domain}`,

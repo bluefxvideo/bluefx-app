@@ -7,8 +7,8 @@ import { recordWebsiteEvent, WEBSITE_EVENTS, websiteDemoOf, type WebsiteDemo, ty
 import { FREE_VIDEO_TOKEN_PATTERN, type FreeVideoLead } from '@/types/free-video';
 
 /**
- * /v/<token>/website (owner 2026-11-03): the lead's personal website video (website-demo.ts) and one
- * "Yes, I'm interested" button. A full HTML page of its own, like /unlimited: no funnel header, no ad pixels.
+ * /v/<token>/website (owner 2026-11-03): the lead's personal website video (website-demo.ts) and a
+ * "Let's talk" button (opens the owner's calendar) and an email line with his photo. A full HTML page of its own, like /unlimited: no funnel header, no ad pixels.
  * GET: the page (404 when the lead has no demo). POST {e, v}: the page's events (play, watched, interest).
  * ?internal=1 or the owner's fv_internal cookie: nothing is stored and nobody is emailed.
  */
@@ -19,6 +19,10 @@ const notFound = () => new NextResponse('Not found', { status: 404, headers: { '
 const noContent = () => new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
 const esc = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const BOT = /bot|crawler|spider|preview|scan|headless/i;
+/** "Let's talk" opens the owner's Calendly website-call event in a popup over the page (owner 2026-11-03). */
+const CALENDAR_URL = 'https://calendly.com/szilardgyorfi/website';
+const REACH_EMAIL = 'contact@bluefx.net';
+const PHOTO_URL = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/website-demos/_shared/szilard.jpg';
 
 async function load(token: string): Promise<{ lead: FreeVideoLead; demo: WebsiteDemo } | null> {
   if (!FREE_VIDEO_TOKEN_PATTERN.test(token)) return null;
@@ -75,9 +79,8 @@ function renderPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, inter
   const word = (lead.first_name || '').trim().split(/\s+/)[0] || '';
   const first = word ? word.charAt(0).toUpperCase() + word.slice(1) : ''; // "sam" typed in the form → "Sam"
   const business = demo.business || displayDomain(lead.website_domain);
-  const title = first ? `${first}, I made this for ${business}` : `I made this for ${business}`;
-  const thanks = first ? `Thanks, ${first}! I'll reach out to you shortly.` : "Thanks! I'll reach out to you shortly.";
-  const config = JSON.stringify({ url: `/v/${token}/website`, internal });
+  const title = first ? `${first}, I remade your website for ${business}. Take a look.` : `I remade your website for ${business}. Take a look.`;
+  const config = JSON.stringify({ url: `/v/${token}/website`, internal, calendar: CALENDAR_URL });
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>${esc(title)}</title>
@@ -94,22 +97,25 @@ video{display:block;width:100%;height:100%;background:#000}
 .cta{margin:26px auto 0;max-width:520px;text-align:center}
 button{width:100%;border:0;border-radius:14px;background:var(--green);color:#fff;font-family:inherit;font-weight:700;font-size:21px;line-height:1.2;padding:19px 22px;cursor:pointer;box-shadow:0 6px 0 #0f5f2c;transition:transform .08s}
 button:active{transform:translateY(3px);box-shadow:0 3px 0 #0f5f2c}
-.thanks{display:none;background:#fff;border:2px solid var(--green);border-radius:14px;padding:20px 22px;font-size:20px;font-weight:600}
-.done button{display:none}.done .thanks{display:block}
-.note{color:var(--muted);font-size:15px;margin:16px 0 0;text-align:center}
+.reach{display:flex;align-items:center;gap:14px;max-width:520px;margin:22px auto 0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 18px}
+.reach img{width:56px;height:56px;border-radius:50%;object-fit:cover;flex:none}
+.reach p{margin:0;font-size:16px;color:var(--muted);line-height:1.4}.reach a{color:var(--navy);font-weight:700;font-size:18px;text-decoration:none;word-break:break-all}
 @media (max-width:600px){main{padding:18px 12px 36px}.player{border-radius:12px}}
 </style></head><body><main>
 <p class="from">A video from <b>Szilard at BlueFX</b></p>
 <h1>${esc(title)}</h1>
 <div class="player"><video id="v" src="${esc(demo.video)}"${demo.poster ? ` poster="${esc(demo.poster)}"` : ''} controls playsinline preload="metadata"></video></div>
-<div class="cta" id="cta"><button type="button" id="yes">Yes, I'm interested</button><div class="thanks">${esc(thanks)}</div></div>
-<p class="note">Questions? Just reply to my email.</p>
+<div class="cta"><button type="button" id="talk">Let's talk</button></div>
+<div class="reach"><img src="${PHOTO_URL}" alt="Szilard" width="56" height="56"><p>Or reach me here:<br><a href="mailto:${REACH_EMAIL}">${REACH_EMAIL}</a></p></div>
 </main>
 <script>(function(){var c=${config};var vid;try{vid=localStorage.getItem('fv_vid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.setItem('fv_vid',vid)}catch(e){vid=null}
 function send(e){if(c.internal)return;try{fetch(c.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({e:e,v:vid}),keepalive:true})}catch(x){}}
 var v=document.getElementById('v'),played=false,watched=false;
 v.addEventListener('play',function(){if(!played){played=true;send('website_play')}});
 v.addEventListener('timeupdate',function(){if(!watched&&v.duration&&v.currentTime/v.duration>=0.6){watched=true;send('website_watched')}});
-document.getElementById('yes').addEventListener('click',function(){send('website_interest');document.getElementById('cta').className='cta done'});
-})();</script></body></html>`;
+document.getElementById('talk').addEventListener('click',function(){send('website_interest');
+ if(window.Calendly&&Calendly.initPopupWidget){Calendly.initPopupWidget({url:c.calendar})}else{window.open(c.calendar,'_blank','noopener')}});
+})();</script>
+<link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet"><script src="https://assets.calendly.com/assets/external/widget.js" async></script>
+</body></html>`;
 }
