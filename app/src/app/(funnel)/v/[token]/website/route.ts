@@ -21,8 +21,8 @@ const esc = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').
 const BOT = /bot|crawler|spider|preview|scan|headless/i;
 /** "Let's talk" opens the owner's Calendly website-call event in a popup over the page (owner 2026-11-03). */
 const CALENDAR_URL = 'https://calendly.com/szilardgyorfi/website';
-const REACH_EMAIL = 'contact@bluefx.net';
-const PHOTO_URL = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/website-demos/_shared/szilard.jpg';
+const REACH_EMAIL = 'support@bluefx.net';
+const PHOTO_URL = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/website-demos/_shared/szilard-founder.jpg';
 
 async function load(token: string): Promise<{ lead: FreeVideoLead; demo: WebsiteDemo } | null> {
   if (!FREE_VIDEO_TOKEN_PATTERN.test(token)) return null;
@@ -99,14 +99,15 @@ button{width:100%;border:0;border-radius:14px;background:var(--green);color:#fff
 button:active{transform:translateY(3px);box-shadow:0 3px 0 #0f5f2c}
 .reach{display:flex;align-items:center;gap:14px;max-width:520px;margin:22px auto 0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 18px}
 .reach img{width:56px;height:56px;border-radius:50%;object-fit:cover;flex:none}
-.reach p{margin:0;font-size:16px;color:var(--muted);line-height:1.4}.reach a{color:var(--navy);font-weight:700;font-size:18px;text-decoration:none;word-break:break-all}
+.reach img{width:64px;height:64px}.reach p{margin:0;font-size:15px;color:var(--muted);line-height:1.4}.reach .name{color:var(--ink);font-weight:700;font-size:17px}
+.reach a{color:var(--navy);font-weight:700;font-size:17px;text-decoration:none;white-space:nowrap}
 @media (max-width:600px){main{padding:18px 12px 36px}.player{border-radius:12px}}
 </style></head><body><main>
 <p class="from">A video from <b>Szilard at BlueFX</b></p>
 <h1>${esc(title)}</h1>
 <div class="player"><video id="v" src="${esc(demo.video)}"${demo.poster ? ` poster="${esc(demo.poster)}"` : ''} controls playsinline preload="metadata"></video></div>
 <div class="cta"><button type="button" id="talk">Let's talk</button></div>
-<div class="reach"><img src="${PHOTO_URL}" alt="Szilard" width="56" height="56"><p>Or reach me here:<br><a href="mailto:${REACH_EMAIL}">${REACH_EMAIL}</a></p></div>
+<div class="reach"><img src="${PHOTO_URL}" alt="Szilard Gyorfi" width="64" height="64"><p><span class="name">Szilard Gyorfi</span><br>Founder, BlueFX<br>Reach me here:<br><a href="mailto:${REACH_EMAIL}">${REACH_EMAIL}</a></p></div>
 </main>
 <script>(function(){var c=${config};var vid;try{vid=localStorage.getItem('fv_vid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.setItem('fv_vid',vid)}catch(e){vid=null}
 function send(e){if(c.internal)return;try{fetch(c.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({e:e,v:vid}),keepalive:true})}catch(x){}}
