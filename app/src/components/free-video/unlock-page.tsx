@@ -873,10 +873,12 @@ export function ChangeChat({ copy, token, plan, onPlan, pending, buy, note }: Ch
       setBusy(true);
       try {
         // The greeting is the page's own line: the model sees the talk from the visitor's first message.
+        // Some chats have no greeting (the free top on the result page), so only a leading greeting is dropped.
+        const talk = next[0]?.role === 'assistant' ? next.slice(1) : next;
         const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/change-chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: next.slice(1).slice(-16) }),
+          body: JSON.stringify({ messages: talk.slice(-16) }),
         });
         const answer = await res.json().catch(() => null);
         if (res.ok && answer?.success) {
