@@ -18,6 +18,9 @@ import type { FreeVideoLead } from '@/types/free-video';
 export interface WebsiteDemo {
   video: string;
   poster: string | null;
+  /** The top screen of their site today and of the new homepage (owner 2026-11-03), when published. */
+  before: string | null;
+  after: string | null;
   /** The business name the page greets ("I made this for VTV Conversions"). */
   business: string;
 }
@@ -39,6 +42,8 @@ export async function websiteDemoOf(leadId: string): Promise<WebsiteDemo | null>
   return {
     video: meta.video,
     poster: typeof meta.poster === 'string' && meta.poster.startsWith('https://') ? meta.poster : null,
+    before: typeof meta.before === 'string' && meta.before.startsWith('https://') ? meta.before : null,
+    after: typeof meta.after === 'string' && meta.after.startsWith('https://') ? meta.after : null,
     business: typeof meta.business === 'string' && meta.business.trim() ? meta.business.trim() : '',
   };
 }

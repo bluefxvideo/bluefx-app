@@ -101,6 +101,12 @@ button:active{transform:translateY(3px);box-shadow:0 3px 0 #0f5f2c}
 .reach img{width:56px;height:56px;border-radius:50%;object-fit:cover;flex:none}
 .reach img{width:64px;height:64px}.reach p{margin:0;font-size:15px;color:var(--muted);line-height:1.4}.reach .name{color:var(--ink);font-weight:700;font-size:17px}
 .reach a{color:var(--navy);font-weight:700;font-size:17px;text-decoration:none;white-space:nowrap}
+.ba{margin:44px 0 0}.ba h2{font-size:clamp(22px,3.2vw,30px);margin:0 0 16px;text-align:center}
+.ba-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.ba figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 6px 18px rgba(15,23,42,.08)}
+.ba img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:top}
+.ba figcaption{padding:10px 14px;font-weight:700;font-size:16px}.ba .before figcaption{color:var(--muted)}.ba .after figcaption{color:var(--green)}
+@media (max-width:700px){.ba-grid{grid-template-columns:1fr}}
 @media (max-width:600px){main{padding:18px 12px 36px}.player{border-radius:12px}}
 </style></head><body><main>
 <p class="from">A video from <b>Szilard at BlueFX</b></p>
@@ -108,6 +114,10 @@ button:active{transform:translateY(3px);box-shadow:0 3px 0 #0f5f2c}
 <div class="player"><video id="v" src="${esc(demo.video)}"${demo.poster ? ` poster="${esc(demo.poster)}"` : ''} controls playsinline preload="metadata"></video></div>
 <div class="cta"><button type="button" id="talk">Let's talk</button></div>
 <div class="reach"><img src="${PHOTO_URL}" alt="Szilard Gyorfi" width="64" height="64"><p><span class="name">Szilard Gyorfi</span><br>Founder, BlueFX<br>Reach me here:<br><a href="mailto:${REACH_EMAIL}">${REACH_EMAIL}</a></p></div>
+${demo.before && demo.after ? `<section class="ba"><h2>Before and after</h2><div class="ba-grid">
+<figure class="before"><img src="${esc(demo.before)}" alt="Your website today" loading="lazy"><figcaption>Your website today</figcaption></figure>
+<figure class="after"><img src="${esc(demo.after)}" alt="Your new homepage" loading="lazy"><figcaption>Your new homepage</figcaption></figure>
+</div></section>` : ''}
 </main>
 <script>(function(){var c=${config};var vid;try{vid=localStorage.getItem('fv_vid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.setItem('fv_vid',vid)}catch(e){vid=null}
 function send(e){if(c.internal)return;try{fetch(c.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({e:e,v:vid}),keepalive:true})}catch(x){}}
