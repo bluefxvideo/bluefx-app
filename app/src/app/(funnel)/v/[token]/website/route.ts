@@ -72,7 +72,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
 }
 
 function renderPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, internal: boolean): string {
-  const first = (lead.first_name || '').trim().split(/\s+/)[0] || '';
+  const word = (lead.first_name || '').trim().split(/\s+/)[0] || '';
+  const first = word ? word.charAt(0).toUpperCase() + word.slice(1) : ''; // "sam" typed in the form → "Sam"
   const business = demo.business || displayDomain(lead.website_domain);
   const title = first ? `${first}, I made this for ${business}` : `I made this for ${business}`;
   const thanks = first ? `Thanks, ${first}! I'll reach out to you shortly.` : "Thanks! I'll reach out to you shortly.";
