@@ -21,6 +21,8 @@ export interface WebsiteDemo {
   /** The top screen of their site today and of the new homepage (owner 2026-11-03), when published. */
   before: string | null;
   after: string | null;
+  /** Their business phone from their own website, pre-filled in the calendar's phone question (they can change it). */
+  phone: string | null;
   /** The business name the page greets ("I made this for VTV Conversions"). */
   business: string;
 }
@@ -44,6 +46,7 @@ export async function websiteDemoOf(leadId: string): Promise<WebsiteDemo | null>
     poster: typeof meta.poster === 'string' && meta.poster.startsWith('https://') ? meta.poster : null,
     before: typeof meta.before === 'string' && meta.before.startsWith('https://') ? meta.before : null,
     after: typeof meta.after === 'string' && meta.after.startsWith('https://') ? meta.after : null,
+    phone: typeof meta.phone === 'string' && /^[+\d][\d\s().-]{6,24}$/.test(meta.phone) ? meta.phone : null,
     business: typeof meta.business === 'string' && meta.business.trim() ? meta.business.trim() : '',
   };
 }
