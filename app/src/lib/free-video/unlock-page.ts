@@ -104,8 +104,17 @@ export const UNLOCK_PAGE = {
       doneTitle: 'Watch your new video ad',
       before: 'Before',
       after: 'After',
-      doneNote: (price: string) => `Like it? Remove the SAMPLE mark for ${price}. Then keep changing anything you like, the wording, the person, the music, until your video ad feels just right.`,
-      doneButton: (price: string) => `Remove the Watermark for ${price}`,
+      // Owner 2026-11-04 (Shannon's page): after the free change the box kept "free" wording and ticked new requests as
+      // if made, so people tapped the button not knowing they were paying. Now it says the free change is used.
+      doneHead: 'Your free change is done. Watch the After version.',
+      madeTitle: 'Made for free:',
+      nextTitle: 'Your next change:',
+      doneNote: (price: string) => `Like it? Unlock your video ad for ${price}: no SAMPLE mark, and as many changes as you like, made on your page in about 5 to 10 minutes.`,
+      doneButton: (price: string) => `Unlock My Video Ad, ${price}`,
+      nextNote: (price: string) => `Your free change is used. Unlock your video ad for ${price}, and this change is made on your page right after, at no extra cost.`,
+      nextButton: (price: string) => `Unlock My Video Ad + This Change, ${price}`,
+      /** The chat's answer once the free change is used (a fixed line: the AI promised changes that never ran). */
+      usedReply: (price: string) => `Noted. Your free change is already used. Unlock your video ad for ${price}, and this change is made on your page right after, at no extra cost.`,
     },
     limit: 'You sent a lot of messages today. Please email your changes to support@bluefx.net.',
     error: 'Sorry, my answer did not come through. Please try again, or email support@bluefx.net.',

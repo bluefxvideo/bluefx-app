@@ -389,10 +389,13 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
         }
         return;
       }
-      const text = plan.map((c, i) => `${i + 1}. ${c}`).join('\n');
-      // The free change already made this list (the clean version is that change): nothing more to start.
+      // The free change already made its own lines (the clean version is that change): only the lines asked after it
+      // start now (owner 2026-11-04: the whole list ran again, so a new presenter could be cast twice).
       const free = await freeChangeOf(paidLead).catch(() => null);
-      if (free && free.status !== 'failed' && free.text.trim() === text.trim()) return;
+      const made = free && free.status !== 'failed' ? free.text.split('\n').map((l) => l.replace(/^\s*\d+\.\s*/, '').trim()) : [];
+      const fresh = plan.filter((c) => !made.includes(c.trim()));
+      if (!fresh.length) return;
+      const text = fresh.map((c, i) => `${i + 1}. ${c}`).join('\n');
       // Owner 2026-10-27: the chat's list starts at once as instant change 1; a new style goes to the team.
       if (!wantsNewStyle(text)) {
         const changes = await aiChangesOf(paidLead);

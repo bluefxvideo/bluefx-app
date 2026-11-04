@@ -101,6 +101,14 @@ THE LIST: in every answer, "changes" holds every change the customer asked for s
 Answer ONLY as JSON: {"reply": string, "done": boolean, "changes": string[]}`;
 }
 
+/**
+ * After the free change: the list holds only what was asked since (the page ticks the free change's own lines as made,
+ * and a payment then starts only the new lines; owner 2026-11-04, Shannon's new request showed with a tick).
+ */
+function madeNote(freeText: string): string {
+  return `\n\nALREADY MADE BY THE FREE CHANGE (it is in the video ad now):\n${freeText}\n"changes" holds ONLY what the customer asked for after that free change. Never repeat those lines, unless the customer says one of them is still not right: then write it again as a new line saying what is still wrong (for example "Lubbock is still said wrong by the person on camera").`;
+}
+
 /** One turn of the chat. Throws on a model or database error (the route answers with a friendly fallback). */
 export async function chatTurn(lead: FreeVideoLead, messages: ChatMessage[]): Promise<ChatAnswer | 'limit'> {
   if ((await callsToday(lead.id)) >= CHAT_DAILY_CAP) return 'limit';
@@ -116,7 +124,7 @@ export async function chatTurn(lead: FreeVideoLead, messages: ChatMessage[]): Pr
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: prompt(lead, script, freeUsed, lifetime) }] },
+      systemInstruction: { parts: [{ text: prompt(lead, script, freeUsed, lifetime) + (freeUsed && free ? madeNote(free.text) : '') }] },
       contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })),
       generationConfig: { responseMimeType: 'application/json', temperature: 0.4, thinkingConfig: { thinkingLevel: 'low' } },
     }),
@@ -135,10 +143,25 @@ export async function chatTurn(lead: FreeVideoLead, messages: ChatMessage[]): Pr
     ? parsed.changes.filter((c): c is string => typeof c === 'string' && c.trim().length > 2).map((c) => c.trim().slice(0, 200)).slice(0, 12)
     : [];
   const done = parsed.done === true && list.length > 0;
+  // Owner 2026-11-04 (Shannon): once the free change was used, the model still answered "we will fix it right away" and
+  // nothing ran. A finished list now gets a fixed answer that says what the next change takes.
+  const said = freeUsed && done ? await usedReply(lead, lifetime) : reply;
   const last = messages[messages.length - 1]?.text ?? '';
-  await recordEvent({ event: 'change_chat', leadId: lead.id, ref: lead.ref, meta: { said: last.slice(0, CHAT_MAX_CHARS), reply: reply.slice(0, 600) } });
+  await recordEvent({ event: 'change_chat', leadId: lead.id, ref: lead.ref, meta: { said: last.slice(0, CHAT_MAX_CHARS), reply: said.slice(0, 600) } });
   if (list.length) await recordEvent({ event: 'change_plan', leadId: lead.id, ref: lead.ref, meta: { changes: list, done } });
-  return { reply, changes: done ? list : null };
+  return { reply: said, changes: done ? list : null };
+}
+
+/** The chat's fixed answer once the free change is used: the AI Media Machine page's, or the $49 page's with today's price. */
+async function usedReply(lead: FreeVideoLead, lifetime: boolean): Promise<string> {
+  if (lifetime) {
+    const { RESULT_SALES } = await import('@/lib/free-video/result-sales');
+    return RESULT_SALES.freeTop.free.usedReply;
+  }
+  const { UNLOCK_PAGE } = await import('@/lib/free-video/unlock-page');
+  const { unlockPriceOf } = await import('@/lib/free-video/unlock-price');
+  const price = await unlockPriceOf(lead.id).catch(() => null);
+  return UNLOCK_PAGE.chat.free.usedReply(price?.price ?? '$49');
 }
 
 /** The newest change list of a lead (confirmed or still being chatted about), or null. */

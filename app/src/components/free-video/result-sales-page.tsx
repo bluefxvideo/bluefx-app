@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { ChatLauncher } from './chat-launcher';
 import { OfferButton } from './offer-button';
 import { VideoAdPlayer } from './video-ad-player';
-import { ArrowNote, ChangeChat, useFreeChange } from './unlock-page';
+import { ArrowNote, ChangeChat, nextChanges, useFreeChange } from './unlock-page';
 import u from './unlock-page.module.css';
 import {
   Legal,
@@ -178,7 +178,10 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
               plan={plan}
               onPlan={setPlan}
               pending={pending}
-              note={free.state === 'none' ? FT.free.note : free.state === 'done' ? FT.free.doneNote : FT.free.workingNote}
+              made={free.state === 'done' ? { items: free.made, madeTitle: FT.free.madeTitle, nextTitle: FT.free.nextTitle, headNote: FT.free.doneHead } : null}
+              note={
+                free.state === 'none' ? FT.free.note : free.state === 'done' ? (nextChanges(plan, free.made).length ? FT.free.nextNote : FT.free.doneNote) : FT.free.workingNote
+              }
               buy={
                 free.state === 'none' ? (
                   <>
@@ -198,7 +201,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
                   <>
                     {free.message && <p className={u.freeMessage}>{free.message}</p>}
                     <button type="button" className={u.button} onClick={toPrice}>
-                      {FT.free.doneButton}
+                      {nextChanges(plan, free.made).length ? FT.free.nextButton : FT.free.doneButton}
                     </button>
                   </>
                 )

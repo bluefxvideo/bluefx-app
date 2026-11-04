@@ -663,8 +663,17 @@ export const RESULT_SALES = {
       doneKicker: 'Your change is in',
       before: 'Before',
       after: 'After',
-      doneNote: 'Like it? With the AI Media Machine, your video ads come without the SAMPLE stamp, and you make every next change yourself in about 3 minutes.',
+      // Owner 2026-11-04 (Shannon): after the free change the box still said "Your first change is free" and ticked her
+      // new request as if made. Now it says the free change is used and what the next change takes.
+      doneHead: 'Your free change is done. Watch the After version.',
+      madeTitle: 'Made for free:',
+      nextTitle: 'Your next change:',
+      doneNote: 'Want more changes? With the AI Media Machine, you make every next change yourself, typed just like here, in about 3 minutes, without the SAMPLE stamp.',
       doneButton: 'Get the AI Media Machine',
+      nextNote: 'Your free change is used. With the AI Media Machine, you make this change yourself, typed just like here, in about 3 minutes, without the SAMPLE stamp.',
+      nextButton: 'Get the AI Media Machine and Make This Change',
+      /** The chat's answer once the free change is used (a fixed line: the AI promised changes that never ran). */
+      usedReply: "Noted. Your free change is already used, so this one you make yourself in the AI Media Machine: type it there just like here, and it's done in about 3 minutes.",
     },
   },
   afterUnlock: {

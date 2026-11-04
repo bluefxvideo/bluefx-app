@@ -205,7 +205,21 @@ interface OfferProps {
  * with the SAMPLE watermark kept, shown here when done. Polls while it is being made.
  */
 export type AiChangeView = AiChangeRow;
-type FreeState = { state: 'none' | 'working' | 'done'; progress: number; videoUrl: string | null; message: string | null; busy: boolean };
+/** `made`: the free change's own list (its numbered text), so the box can tell it apart from changes asked afterwards. */
+type FreeState = { state: 'none' | 'working' | 'done'; progress: number; videoUrl: string | null; message: string | null; busy: boolean; made: string[] };
+
+/** "1. Add my phone\n2. A man on camera" → ['Add my phone', 'A man on camera'] (startFreeChange numbers the list). */
+export function changeLines(text: string): string[] {
+  return text
+    .split('\n')
+    .map((line) => line.replace(/^\s*\d+\.\s*/, '').trim())
+    .filter(Boolean);
+}
+
+/** The items of the chat's list that the free change did not make (owner 2026-11-04: they showed with a tick as if done). */
+export function nextChanges(plan: string[] | null, made: string[]): string[] {
+  return (plan ?? []).filter((c) => !made.includes(c));
+}
 /** The free change's messages: the $49 page's by default, the free thank-you page's own (result-sales.ts) there. */
 export interface FreeChangeCopy {
   failed: string;
@@ -220,7 +234,9 @@ export function useFreeChange(token: string, initial: AiChangeView | null, copy:
     return Math.round(Math.max(c.progress, Math.min(90, (since / 300) * 90), 3));
   };
   const of = (c: AiChangeView | null): Omit<FreeState, 'message' | 'busy'> =>
-    !c || c.status === 'failed' ? { state: 'none', progress: 0, videoUrl: null } : { state: c.status, progress: c.status === 'done' ? 100 : shownProgress(c), videoUrl: c.videoUrl };
+    !c || c.status === 'failed'
+      ? { state: 'none', progress: 0, videoUrl: null, made: [] }
+      : { state: c.status, progress: c.status === 'done' ? 100 : shownProgress(c), videoUrl: c.videoUrl, made: changeLines(c.text ?? '') };
   const [s, setS] = useState<FreeState>({ ...of(initial), message: initial?.status === 'failed' ? copy.failed : null, busy: false });
   const working = s.state === 'working';
   useEffect(() => {
@@ -439,7 +455,16 @@ function Offer({ view, token, price, filesUntil, initialPlan, initialFree, click
                 plan={plan}
                 onPlan={setPlan}
                 pending={pending}
-                note={free.state === 'none' ? F.chat.free.note : free.state === 'done' ? F.chat.free.doneNote(price.price) : F.chat.free.workingNote}
+                made={free.state === 'done' ? { items: free.made, madeTitle: F.chat.free.madeTitle, nextTitle: F.chat.free.nextTitle, headNote: F.chat.free.doneHead } : null}
+                note={
+                  free.state === 'none'
+                    ? F.chat.free.note
+                    : free.state === 'done'
+                      ? nextChanges(plan, free.made).length
+                        ? F.chat.free.nextNote(price.price)
+                        : F.chat.free.doneNote(price.price)
+                      : F.chat.free.workingNote
+                }
                 buy={
                   free.state === 'none' ? (
                     <>
@@ -458,7 +483,7 @@ function Offer({ view, token, price, filesUntil, initialPlan, initialFree, click
                   ) : (
                     <>
                       <a className={s.button} href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
-                        {F.chat.free.doneButton(price.price)}
+                        {nextChanges(plan, free.made).length ? F.chat.free.nextButton(price.price) : F.chat.free.doneButton(price.price)}
                       </a>
                     </>
                   )
@@ -835,10 +860,12 @@ interface ChangeChatProps {
   /** A chip tap from the page: send this text (or just focus the box when text is null). n changes on every tap. */
   pending: { text: string | null; n: number };
   buy: ReactNode;
+  /** After the free change: what it made (ticked under madeTitle); the rest of the list shows under nextTitle, not ticked. */
+  made?: { items: string[]; madeTitle: string; nextTitle: string; headNote: string } | null;
 }
 
 /** The change chat (change-chat.ts): the visitor tells the assistant what to change before paying; the confirmed list is saved. */
-export function ChangeChat({ copy, token, plan, onPlan, pending, buy, note }: ChangeChatProps) {
+export function ChangeChat({ copy, token, plan, onPlan, pending, buy, note, made }: ChangeChatProps) {
   const F: ChangeChatCopy = copy ?? UNLOCK_PAGE.chat;
   const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>(F.hello ? [{ role: 'assistant', text: F.hello }] : []);
   const [text, setText] = useState('');
@@ -913,7 +940,7 @@ export function ChangeChat({ copy, token, plan, onPlan, pending, buy, note }: Ch
         </span>
         <div>
           <p className={s.chatTitle}>{F.title}</p>
-          <p className={s.chatNote}>{F.note}</p>
+          <p className={s.chatNote}>{made ? made.headNote : F.note}</p>
         </div>
       </div>
       <div ref={list} className={s.chatList} aria-live="polite">
@@ -947,24 +974,63 @@ export function ChangeChat({ copy, token, plan, onPlan, pending, buy, note }: Ch
           </p>
         )}
       </div>
-      {plan && (
+      {made ? (
         <div className={s.chatPlan}>
-          <p>
-            <b>{F.listTitle}</b>
-          </p>
-          <ul className={s.checklist}>
-            {plan.map((c) => (
-              <li key={c}>
-                <span className={s.tick}>
-                  <Tick size={11} stroke={3.5} />
-                </span>
-                {c}
-              </li>
-            ))}
-          </ul>
+          {made.items.length > 0 && (
+            <>
+              <p>
+                <b>{made.madeTitle}</b>
+              </p>
+              <ul className={s.checklist}>
+                {made.items.map((c) => (
+                  <li key={c}>
+                    <span className={s.tick}>
+                      <Tick size={11} stroke={3.5} />
+                    </span>
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {nextChanges(plan, made.items).length > 0 && (
+            <>
+              <p>
+                <b>{made.nextTitle}</b>
+              </p>
+              <ul className={s.checklist}>
+                {nextChanges(plan, made.items).map((c) => (
+                  <li key={c}>
+                    <span className={s.openTick} aria-hidden="true" />
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
           <p className={s.chatNote}>{note ?? F.listNote}</p>
           {buy}
         </div>
+      ) : (
+        plan && (
+          <div className={s.chatPlan}>
+            <p>
+              <b>{F.listTitle}</b>
+            </p>
+            <ul className={s.checklist}>
+              {plan.map((c) => (
+                <li key={c}>
+                  <span className={s.tick}>
+                    <Tick size={11} stroke={3.5} />
+                  </span>
+                  {c}
+                </li>
+              ))}
+            </ul>
+            <p className={s.chatNote}>{note ?? F.listNote}</p>
+            {buy}
+          </div>
+        )
       )}
       <form
         className={cn(s.chatForm, glow && s.chatGlow, text.trim() && s.chatReady)}
