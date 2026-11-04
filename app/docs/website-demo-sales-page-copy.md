@@ -262,8 +262,8 @@ Heading:
 **I'm already paying Wix, GoDaddy or someone else. Do I have to wait?**
 No. Most of those plans only cover hosting, and our plans include hosting, so you'd stop paying them. If you're locked into a contract, tell us when it ends and we'll switch you that day. Your new site waits for you.
 
-**How does the ChatGPT connection work?**
-We connect your website to your own ChatGPT account. Then you just tell ChatGPT what you want, like "change our Saturday hours to 9 to 2" or "add this job we just finished" with a few photos, and your website updates itself in minutes. It works from your phone or computer, wherever you are.
+**How does the ChatGPT (or Claude) connection work?**
+We connect your website to your own ChatGPT or Claude account. Then you just tell it what you want, like "change our Saturday hours to 9 to 2" or "add this job we just finished" with a few photos, and your website updates itself in minutes. It works from your phone or computer, wherever you are.
 
 **Do I need to buy hosting or an SSL certificate?**
 No. Hosting, security, SSL and backups are all included in every plan, so there are no extra bills. The only thing you keep is your web address, and we connect it for you.
