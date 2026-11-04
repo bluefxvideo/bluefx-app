@@ -66,8 +66,8 @@ People leave a slow site in a few seconds and call the next business. Your new s
 **It shows up when people ask AI.**
 More and more people ask ChatGPT and Google's AI "who should I call?" Your new site is written and built so AI can read it and recommend you.
 
-**You update it by sending a message.**
-Your site has AI built in. Just write what you want in plain English, like "change Saturday hours to 9 to 2", and it's done in minutes. No logins, no tech skills.
+**You update it from your own ChatGPT.**
+We connect your website to your ChatGPT account. Want to change a price, add a new offer, or show a job you just finished? Tell ChatGPT what changed, add a photo if you like, and your website updates itself in minutes, from your phone or computer. No waiting days for a web developer, and no tech skills needed. You're in full control.
 
 ---
 
@@ -141,7 +141,7 @@ Your new website, live and looked after, plus showing up when people ask AI.
 
 - The new website you just saw, up to 8 pages
 - Hosting, security, daily backups and your web address, all handled
-- Unlimited edits: just tell your site in plain English what to change ("change Saturday hours to 9 to 2")
+- Update it yourself anytime from your own ChatGPT: prices, offers, new projects, blog posts
 - Set up so ChatGPT and Google's AI can find and recommend you
 - A monthly scoreboard showing how often AI names you vs your competitors
 
@@ -173,7 +173,7 @@ Link: See everything included
 - Up to 8 custom-designed pages
 - Hosting, security, daily backups and your web address, all handled
 - Built to load fast and work perfectly on a phone
-- Unlimited edits with zero tech skills: message your site in plain English and it's done in minutes
+- Connected to your ChatGPT, so you can change anything yourself, no tech skills needed
 - The Google rankings you've earned move over safely
 - Every page answers a question your buyers actually ask, the kind AI repeats
 - Built in the clean format AI programs can read
@@ -263,6 +263,9 @@ Heading:
 **I'm already paying Wix, GoDaddy or someone else. Do I have to wait?**
 No. Most of those plans only cover hosting, and our plans include hosting, so you'd stop paying them. If you're locked into a contract, tell us when it ends and we'll switch you that day. Your new site waits for you.
 
+**How does the ChatGPT connection work?**
+We connect your website to your own ChatGPT account. Then you just tell ChatGPT what you want, like "change our Saturday hours to 9 to 2" or "add this job we just finished" with a few photos, and your website updates itself in minutes. It works from your phone or computer, wherever you are.
+
 **Do I need to buy hosting or an SSL certificate?**
 No. Hosting, security, SSL and backups are all included in every plan, so there are no extra bills. The only thing you keep is your web address, and we connect it for you.
 
@@ -273,7 +276,7 @@ Yes. We move everything over for you, and you keep your web address.
 Yes. Your domain always belongs to you. We connect it to the new site for you, and only after you've approved it.
 
 **What if I want to change something on the new site?**
-What you saw is a preview, so anything can be changed. Before launch you get a private link to review every page of the full website, and we change whatever you ask. We only switch your web address to the new site once you approve it. After launch, edits are unlimited: your site has AI built in, so you just send it a message in plain English.
+What you saw is a preview, so anything can be changed. Before launch you get a private link to review every page of the full website, and we change whatever you ask. We only switch your web address to the new site once you approve it. After launch, you can change anything yourself from your own ChatGPT.
 
 **How will people find my new site?**
 Every page is written to answer the questions your customers search for, on Google and in AI tools like ChatGPT. AI usually starts picking up new pages within 30 to 60 days, and you get a monthly scoreboard so you can see it happening.
