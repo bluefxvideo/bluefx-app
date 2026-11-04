@@ -24,7 +24,7 @@ Headline:
 > **{first_name}, we made {business} a new website**
 
 Under the headline:
-> When we made your video ad, my team and I spent some time on {domain}, and we couldn't help ourselves. Here's the new website we made for you. Watch the short video first.
+> When we made your video ad, I spent some time on {domain} and couldn't help myself. Here's what I built for you. Watch the short video first.
 
 [VIDEO]
 
