@@ -102,7 +102,7 @@ Heading:
 > **Your site is ready. Pick how you want it to grow.**
 
 Under the heading:
-> No setup fee on the first two plans, because the hard part is already done: your new homepage is built. You've seen it before you pay a cent.
+> No setup fee on the first two plans. You've seen your new site before you pay a cent.
 
 Card order:
 - Mobile: Growth Engine, then Website + AI SEO, then All-In.
@@ -111,7 +111,7 @@ Card order:
 ### Card: Growth Engine (badge: MOST POPULAR)
 
 **$899/mo**
-Setup: ~~$1,997~~ **$0**, because your site is already built
+Setup: ~~$1,997~~ **$0**
 
 For businesses that want a steady stream of new customers, not only a better website.
 
@@ -128,7 +128,7 @@ Link: See everything included
 ### Card: Website + AI SEO
 
 **$299/mo**
-Setup: ~~$997~~ **$0**, because your site is already built
+Setup: ~~$997~~ **$0**
 
 Your new website, live and looked after, plus showing up when people ask AI.
 
@@ -153,9 +153,6 @@ Everything in Growth Engine, plus nothing slips through the cracks.
 - Missed a call? The customer gets a text back right away, before they call your competitor
 - Automatic follow-ups, appointment reminders and "come back" offers
 - Same-day support and a monthly 1-on-1 call with me
-
-Small note:
-> Honestly? Most businesses don't need this one, and I'll tell you so on the call.
 
 Button: **Book a call about All-In**
 Link: See everything included
