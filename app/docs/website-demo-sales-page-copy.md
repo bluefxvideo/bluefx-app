@@ -31,7 +31,7 @@ Under the headline:
 [Watch full screen] (existing button)
 
 Two buttons under the video:
-- Primary (green, big): **Make it live**. It scrolls to the plans.
+- Primary (green, big): **Yes, I want my new website**. It scrolls to the plans.
 - Secondary (text link or outline): **Let's talk first**. It opens Calendly.
 
 ---
@@ -68,30 +68,40 @@ More and more people ask ChatGPT and Google's AI "who should I call?" Your new s
 
 ---
 
-## 4. Proof
+## 4. Proof: the Ascent Equipment case study
 
 Heading:
-> **What happened for one of my clients**
+> **A website I rebuilt: Ascent Equipment**
 
-Case box, Dave Rom, Ascent Equipment:
-> 14 days after I rebuilt his website, AI went from never mentioning his business to naming it in **half of all AI answers**.
+Intro:
+> Dave Rom's company makes machines that bend metal letters for sign shops all over the US, and has been in business for eleven years. His old site took 10 seconds to load, was clumsy on phones, and when buyers asked AI who to buy from, his name came up zero times.
 
-Below it, his quote:
-> "Within just a few weeks of launching, we have seen a 45% increase in organic traffic."
-> **Dave Rom**, President, Ascent Equipment
+Pictures:
+- His new site on a phone and on a computer (screenshots of ascentequipment.com)
+- A "See the whole website" button that opens the full page, scrollable
 
-Link:
-> See the full case study (link: aispartan.com/ascent-case-study/)
+Three stat boxes, all measured 14 days after launch:
+- Website grade: 71 to 93
+- Time to load: 10.2s to 4.6s
+- AI answers naming him: 0% to 50%
 
-Two short quotes in smaller cards:
+Below them:
+- The HubSpot grader before and after images
+- The AI visibility chart
 
-> "BlueFx is atomic power for business and I can't recommend him enough. Szilard is a hero."
-> **Gregory Green**, slideedigitizing.com
+These come from aispartan.com/assets: grader-before.png, grader-after.png and shot-score.png.
 
-> "They've done a fabulous job... it saves me countless hours."
-> **Deryck Jones**, agency owner
+Testimonial, with his photo (aispartan.com/assets/dov-rom.jpg). It's Dave (Dov) Rom, President, Ascent Equipment, and the full text appears exactly as on aispartan.com/pricing:
+> "I rarely give public endorsements, but my experience with BlueFx was so positive that I am compelled to share it. [...full text...] look no further than BlueFx."
 
-Trust line under the quotes:
+"What other clients say" (3 short cards):
+- "I like what I am seeing here and I think overall the website gives a sense of genuine and honest facts." **Jay**, two investment websites (needs Jay's OK)
+- "I'm so happy with what you've done so far. Can't wait till it's published." **Tessa Rhodes**, Online Swim Academy (needs Tessa's OK)
+- "They've done a fabulous job... it saves me countless hours." **Deryck Jones**, agency owner
+
+Don't show Gregory Green.
+
+Trust line:
 > 17 years in online marketing. 36,000+ customers since 2008.
 
 ---
@@ -102,7 +112,7 @@ Heading:
 > **Your site is ready. Pick how you want it to grow.**
 
 Under the heading:
-> No setup fee on the first two plans. You've seen your new site before you pay a cent.
+> No setup fee on the first two plans. You've seen your new site before you pay a cent. For scale: $299 a month is less than one new customer.
 
 Card order:
 - Mobile: Growth Engine, then Website + AI SEO, then All-In.
@@ -121,8 +131,9 @@ For businesses that want a steady stream of new customers, not only a better web
 - More Google reviews, with replies written for you
 - **Bonus: the Client Wake-Up Campaign.** I wake up your old customers and dead leads and turn them into new calls, no ads needed.
 
-Button: **Make my site live**
+Button: **Yes, start my new website** (FastSpring checkout)
 Under the button: Cancel anytime. 60-day guarantee.
+Under that: Prefer to talk first? **Book a call** (Calendly)
 Link: See everything included
 
 ### Card: Website + AI SEO
@@ -138,13 +149,14 @@ Your new website, live and looked after, plus showing up when people ask AI.
 - Set up so ChatGPT and Google's AI can find and recommend you
 - A monthly scoreboard showing how often AI names you vs your competitors
 
-Button: **Make my site live**
+Button: **Yes, start my new website** (FastSpring checkout)
 Under the button: Cancel anytime. 60-day guarantee.
+Under that: Prefer to talk first? **Book a call** (Calendly)
 Link: See everything included
 
 ### Card: All-In
 
-**$1,499/mo** + one-time setup, priced on our call
+**$1,499/mo** + $2,997 one-time setup
 
 Everything in Growth Engine, plus nothing slips through the cracks.
 
@@ -154,7 +166,9 @@ Everything in Growth Engine, plus nothing slips through the cracks.
 - Automatic follow-ups, appointment reminders and "come back" offers
 - Same-day support and a monthly 1-on-1 call with me
 
-Button: **Book a call about All-In**
+Button: **Yes, start my new website** (FastSpring checkout)
+Under the button: Cancel anytime. 60-day guarantee.
+Under that: Prefer to talk first? **Book a call** (Calendly)
 Link: See everything included
 
 ### "See everything included" (expands under each card)
@@ -247,11 +261,20 @@ Heading:
 **I'm already paying Wix, GoDaddy or someone else. Do I have to wait?**
 No. Most of those plans only cover hosting, and my plans include hosting, so you'd stop paying them. If you're locked into a contract, tell me when it ends and we'll switch you that day. Your new site waits for you.
 
+**Do I need to buy hosting or an SSL certificate?**
+No. Hosting, security, SSL and backups are all included in every plan, so there are no extra bills. The only thing you keep is your web address, and I connect it for you.
+
+**Another company runs my site right now. Can you take it over?**
+Yes. I move everything over and you keep your web address. One client was paying another company $250 a month for a single site and moved it to me.
+
 **Do I keep my web address?**
 Yes. Your domain always belongs to you, and I connect it to the new site for you.
 
 **What if I want to change something on the new site?**
 Tell me before it goes live and I'll change it. After that, edits are unlimited: just tell your site in plain English what you want changed.
+
+**How will people find my new site?**
+Every page is written to answer the questions your customers search for, on Google and in AI tools like ChatGPT. AI usually starts picking up new pages within 30 to 60 days, and you get a monthly scoreboard so you can see it happening.
 
 **Will I lose my Google rankings?**
 No. Protecting your rankings is step one. Your old page addresses forward to the new ones, so nothing you've earned gets lost.
@@ -274,7 +297,7 @@ Heading:
 
 > Right now your customers are looking you up on their phones and asking AI who to call. Let's make sure they find the new {business}.
 
-Primary button: **Make it live** (scrolls to plans)
+Primary button: **Yes, I want my new website** (scrolls to plans)
 Secondary: **Let's talk first** (Calendly)
 
 ---
