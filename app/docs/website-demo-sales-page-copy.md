@@ -123,7 +123,7 @@ For businesses that want a steady stream of new customers, not only a better web
 
 - Everything in Website + AI SEO
 - 2 to 3 new pages every month, each one built to win a question your buyers ask
-- 1 long video and 2 short videos a month, made and posted for you
+- 1 long video and 2 short videos a month, made for you
 - More Google reviews, with replies written for you
 - **Bonus: the Client Wake-Up Campaign.** We wake up your old customers and dead leads and turn them into new calls, no ads needed.
 
@@ -187,9 +187,8 @@ Link: See everything included
 **Growth Engine** (everything above, plus)
 - Up to 40 pages, so every service and buyer question gets its own page
 - 2 to 3 new pages every month
-- 1 long video per month, scripted, edited and published
+- 1 long video per month, scripted and edited for you
 - 2 short videos per month (Shorts and Reels)
-- Posted to 3 social channels for you
 - YouTube channel set up, the #1 place AI engines pull answers from
 - Review system: every customer invited, problems caught privately
 - Review responses written for you
