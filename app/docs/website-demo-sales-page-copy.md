@@ -112,9 +112,7 @@ Heading:
 Under the heading:
 > No setup fee on the first two plans. You've seen your new site before you pay a cent. For scale: $299 a month is less than one new customer.
 
-Card order:
-- Mobile: Growth Engine, then Website + AI SEO, then All-In.
-- Desktop: Website + AI SEO, Growth Engine (in the middle, bigger), All-In.
+Card order, the same on phone and desktop, because each plan builds on the one before: Website + AI SEO ($299), then Growth Engine ($899, highlighted as Most Popular), then All-In ($1,499).
 
 ### Card: Growth Engine (badge: MOST POPULAR)
 
