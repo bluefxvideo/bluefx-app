@@ -1,6 +1,6 @@
 # Website demo sales page: full copy
 
-For the personal page at /v/<token>/website. The voice is Szilard writing to one person, so it uses "I" and never "we" in headlines.
+For the personal page at /v/<token>/website. The voice is Szilard as the front man for a team: "my team and I" and "we". Never present him as a one-man band.
 
 Placeholders:
 - `{first_name}`: the lead's first name, capitalized
@@ -21,10 +21,10 @@ Small line above the headline:
 > A video from **Szilard at BlueFX**
 
 Headline:
-> **{first_name}, I made {business} a new website**
+> **{first_name}, we made {business} a new website**
 
 Under the headline:
-> When we made your video ad, I spent some time on {domain} and couldn't help myself. Here's what I built for you. Watch the short video first.
+> When we made your video ad, my team and I spent some time on {domain}, and we couldn't help ourselves. Here's the new website we made for you. Watch the short video first.
 
 [VIDEO]
 
@@ -46,7 +46,7 @@ Captions:
 - "Your new homepage"
 
 Under the pictures, one line:
-> Tap either picture to see the whole page.
+> Tap either picture to see the whole page. This is a preview, so anything on it can be changed.
 
 ---
 
@@ -55,7 +55,7 @@ Under the pictures, one line:
 Heading:
 > **What your new website does that your old one doesn't**
 
-Three short blocks, each with an icon:
+Four short blocks, each with an icon:
 
 **It works on a phone.**
 Most of your customers find you on their phone. Your new site is built for that first: big buttons, easy to read, one tap to call you.
@@ -66,12 +66,15 @@ People leave a slow site in a few seconds and call the next business. Your new s
 **It shows up when people ask AI.**
 More and more people ask ChatGPT and Google's AI "who should I call?" Your new site is written and built so AI can read it and recommend you.
 
+**You update it by sending a message.**
+Your site has AI built in. Just write what you want in plain English, like "change Saturday hours to 9 to 2", and it's done in minutes. No logins, no tech skills.
+
 ---
 
 ## 4. Proof: the Ascent Equipment case study
 
 Heading:
-> **A website I rebuilt: Ascent Equipment**
+> **A website my team rebuilt: Ascent Equipment**
 
 Intro:
 > Dave Rom's company makes machines that bend metal letters for sign shops all over the US, and has been in business for eleven years. His old site took 10 seconds to load, was clumsy on phones, and when buyers asked AI who to buy from, his name came up zero times.
@@ -94,12 +97,7 @@ These come from aispartan.com/assets: grader-before.png, grader-after.png and sh
 Testimonial, with his photo (aispartan.com/assets/dov-rom.jpg). It's Dave (Dov) Rom, President, Ascent Equipment, and the full text appears exactly as on aispartan.com/pricing:
 > "I rarely give public endorsements, but my experience with BlueFx was so positive that I am compelled to share it. [...full text...] look no further than BlueFx."
 
-"What other clients say" (3 short cards):
-- "I like what I am seeing here and I think overall the website gives a sense of genuine and honest facts." **Jay**, two investment websites (needs Jay's OK)
-- "I'm so happy with what you've done so far. Can't wait till it's published." **Tessa Rhodes**, Online Swim Academy (needs Tessa's OK)
-- "They've done a fabulous job... it saves me countless hours." **Deryck Jones**, agency owner
-
-Don't show Gregory Green.
+No other client quotes for now. Don't show Gregory Green.
 
 Trust line:
 > 17 years in online marketing. 36,000+ customers since 2008.
@@ -129,7 +127,7 @@ For businesses that want a steady stream of new customers, not only a better web
 - 2 to 3 new pages every month, each one built to win a question your buyers ask
 - 1 long video and 2 short videos a month, made and posted for you
 - More Google reviews, with replies written for you
-- **Bonus: the Client Wake-Up Campaign.** I wake up your old customers and dead leads and turn them into new calls, no ads needed.
+- **Bonus: the Client Wake-Up Campaign.** We wake up your old customers and dead leads and turn them into new calls, no ads needed.
 
 Button: **Yes, start my new website** (FastSpring checkout)
 Under the button: Cancel anytime. 60-day guarantee.
@@ -164,7 +162,7 @@ Everything in Growth Engine, plus nothing slips through the cracks.
 - A chatbot on your site that answers customers 24/7
 - Missed a call? The customer gets a text back right away, before they call your competitor
 - Automatic follow-ups, appointment reminders and "come back" offers
-- Same-day support and a monthly 1-on-1 call with me
+- Same-day support and a monthly 1-on-1 strategy call with Szilard
 
 Button: **Yes, start my new website** (FastSpring checkout)
 Under the button: Cancel anytime. 60-day guarantee.
@@ -212,7 +210,7 @@ Link: See everything included
 ### Guarantee box (under the cards)
 
 Heading:
-> **My guarantee**
+> **Our guarantee**
 
 > You've already seen your new site, so there are no surprises. And once it's live, if AI doesn't name your business more often 60 days after launch than it did before, your next month is free.
 
@@ -232,8 +230,14 @@ Heading:
 > **What happens next**
 
 1. **You pick your plan.** It takes a minute, and you can cancel anytime.
-2. **I get in touch the same day.** Tell me anything you want changed, and I'll connect your web address. You don't need to know anything technical.
-3. **Your new site goes live.** Usually within a week, often sooner. Then I start on the AI part and send your first scoreboard.
+2. **We build out your full website.** What you saw is a preview, so tell us anything you want changed. My team turns it into your complete site.
+3. **You review every page.** You get a private link where you can check every page of the new site, and we change whatever you ask until you're happy.
+4. **You approve it, and only then it goes live.** Your current website stays exactly as it is until you say yes. Then we switch your web address over to the new site.
+
+Under the steps:
+> After launch, we start on the AI part and send your first scoreboard.
+
+The review link and the approve-before-switch rule are a key promise, so keep them prominent.
 
 ---
 
@@ -244,9 +248,9 @@ Heading:
 
 [Photo]
 
-> Hi, I'm Szilard, the founder of BlueFX. I've been building websites, videos and marketing for small businesses since 2008. I made your new homepage myself, and I'm the one you'll talk to.
+> Hi, I'm Szilard, the founder of BlueFX. My team has been building websites, videos and marketing for small businesses since 2008. They built your new homepage, and I personally look over every project.
 >
-> If it's not a fit for you, I'll tell you straight and point you somewhere better.
+> You can always reach me directly. If it's not a fit for you, I'll tell you straight and point you somewhere better.
 
 Button: **Let's talk** (Calendly)
 Line under it: Or just email me at support@bluefx.net
@@ -256,22 +260,22 @@ Line under it: Or just email me at support@bluefx.net
 ## 8. FAQ
 
 Heading:
-> **Questions people ask me**
+> **Questions business owners ask us**
 
 **I'm already paying Wix, GoDaddy or someone else. Do I have to wait?**
-No. Most of those plans only cover hosting, and my plans include hosting, so you'd stop paying them. If you're locked into a contract, tell me when it ends and we'll switch you that day. Your new site waits for you.
+No. Most of those plans only cover hosting, and our plans include hosting, so you'd stop paying them. If you're locked into a contract, tell us when it ends and we'll switch you that day. Your new site waits for you.
 
 **Do I need to buy hosting or an SSL certificate?**
-No. Hosting, security, SSL and backups are all included in every plan, so there are no extra bills. The only thing you keep is your web address, and I connect it for you.
+No. Hosting, security, SSL and backups are all included in every plan, so there are no extra bills. The only thing you keep is your web address, and we connect it for you.
 
 **Another company runs my site right now. Can you take it over?**
-Yes. I move everything over and you keep your web address. One client was paying another company $250 a month for a single site and moved it to me.
+Yes. We move everything over for you, and you keep your web address.
 
 **Do I keep my web address?**
-Yes. Your domain always belongs to you, and I connect it to the new site for you.
+Yes. Your domain always belongs to you. We connect it to the new site for you, and only after you've approved it.
 
 **What if I want to change something on the new site?**
-Tell me before it goes live and I'll change it. After that, edits are unlimited: just tell your site in plain English what you want changed.
+What you saw is a preview, so anything can be changed. Before launch you get a private link to review every page of the full website, and we change whatever you ask. We only switch your web address to the new site once you approve it. After launch, edits are unlimited: your site has AI built in, so you just send it a message in plain English.
 
 **How will people find my new site?**
 Every page is written to answer the questions your customers search for, on Google and in AI tools like ChatGPT. AI usually starts picking up new pages within 30 to 60 days, and you get a monthly scoreboard so you can see it happening.
@@ -280,10 +284,10 @@ Every page is written to answer the questions your customers search for, on Goog
 No. Protecting your rankings is step one. Your old page addresses forward to the new ones, so nothing you've earned gets lost.
 
 **Can I cancel?**
-Yes, anytime, with no contracts. Your site stays online until the end of your paid month, and if you leave, I hand you all your content.
+Yes, anytime, with no contracts. Your site stays online until the end of your paid month, and if you leave, we hand you all your content.
 
 **What do I have to do?**
-Almost nothing. Pick a plan, answer a couple of quick questions, and maybe spend 15 minutes a month telling me what's new in your business.
+Almost nothing. Pick a plan, review the pages we send you, and maybe spend 15 minutes a month telling us what's new in your business.
 
 **Why did you make this for free? What's the catch?**
 No catch. Showing you is easier than explaining it. If you don't want it, no hard feelings, it just sits here.
