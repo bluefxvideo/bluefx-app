@@ -32,7 +32,7 @@ Under the headline:
 
 Two buttons under the video:
 - Primary (green, big): **Yes, I want my new website**. It scrolls to the plans.
-- Secondary (text link or outline): **Let's talk first**. It opens Calendly.
+- Secondary (text link or outline): **Book a call**. It opens Calendly. (Was "Let's talk first"; owner 2026-11-05.)
 
 ---
 
@@ -50,24 +50,37 @@ Under the pictures, one line:
 
 ---
 
-## 3. What changes for you
+## 3. Old way / new way (owner 2026-11-05)
+
+Between Before and after and the Ascent case study. It replaces the separate pain blocks and the four benefits.
+Desktop: one comparison table, a red "Your website today" header over a light red column, a green "Your new website" header
+over a white column, one icon per side per row. Phone: one card per pair, today on top, new website under it.
 
 Heading:
-> **What your new website does that your old one doesn't**
+> **Your next customer is looking you up right now**
 
-Four short blocks, each with an icon:
+**Row 1** (icons: missed call / ringing phone)
+- Today: **Customers call the next business.**
+  A customer opens your website on their phone and finds:
+  - a slow page
+  - an old look
+  - no quick way to call you
 
-**It works on a phone.**
-Most of your customers find you on their phone. Your new site is built for that first: big buttons, easy to read, one tap to call you.
+  So the customer calls the next business on the list. That call could have been the biggest job of your month.
+- New website: **Customers call you.**
+  Your new site is built for the phone first: it loads quickly, has big buttons, is easy to read, and lets customers call you with one tap.
 
-**It loads fast.**
-People leave a slow site in a few seconds and call the next business. Your new site loads quickly, with no heavy plugins slowing it down.
+**Row 2** (icons: dollar / rising arrow)
+- Today: **You pay every month for a website that doesn't bring you customers.**
+  Wix, GoDaddy or a web guy gets paid every month, whether your website brings you ten calls or none.
+- New website: **Your website brings you new customers.**
+  More and more people ask ChatGPT and Google's AI "who should I call?" Your new site is written and built so AI can read it and recommend you. Hosting is included, so you stop paying for the old one.
 
-**It shows up when people ask AI.**
-More and more people ask ChatGPT and Google's AI "who should I call?" Your new site is written and built so AI can read it and recommend you.
-
-**You update it from your own ChatGPT.**
-We connect your website to your ChatGPT account. Want to change a price, add a new offer, or show a job you just finished? Tell ChatGPT what changed, add a photo if you like, and your website updates itself in minutes, from your phone or computer. No waiting days for a web developer, and no tech skills needed. You're in full control.
+**Row 3** (icons: clock / chat)
+- Today: **Every small change means waiting.**
+  A new price, a new photo, new Saturday hours. You email someone, wait days, and sometimes pay extra for the change.
+- New website: **You change your website yourself in minutes.**
+  We connect your website to your ChatGPT account. Tell ChatGPT what changed, add a photo if you like, and your website updates itself in minutes, from your phone or computer. No waiting days for a web developer, and no tech skills needed.
 
 ---
 
@@ -302,7 +315,7 @@ Heading:
 > Right now your customers are looking you up on their phones and asking AI who to call. Let's make sure they find the new {business}.
 
 Primary button: **Yes, I want my new website** (scrolls to plans)
-Secondary: **Let's talk first** (Calendly)
+Secondary: **Book a call** (Calendly)
 
 ---
 
