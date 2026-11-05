@@ -50,36 +50,40 @@ Under the pictures, one line:
 
 ---
 
-## 3. Old way / new way (owner 2026-11-05)
+## 3. Most websites today / your new website (owner 2026-11-05)
 
-Between Before and after and the Ascent case study. It replaces the separate pain blocks and the four benefits.
-Desktop: one comparison table, a red "Your website today" header over a light red column, a green "Your new website" header
-over a white column, one icon per side per row. Phone: one card per pair, today on top, new website under it.
+Between Before and after and the Ascent case study. The left side talks about most websites, never the lead's own
+site (owner: no badmouthing their website). Desktop: a red "Most websites today" header over a light red column, a
+green "Your new website" header over a white column, each row its own card with a whiteboard drawing per side.
+Phone: one card per row, most websites on top, new website under it.
 
 Heading:
 > **Your next customer is looking you up right now**
 
-**Row 1** (icons: missed call / ringing phone)
-- Today: **Customers call the next business.**
-  A customer opens your website on their phone and finds:
-  - a slow page
-  - an old look
-  - no quick way to call you
+Under the heading:
+> Here's what usually happens next, and what your new website does instead.
 
-  So the customer calls the next business on the list. That call could have been the biggest job of your month.
-- New website: **Customers call you.**
+**Row 1** (drawings: customer frowning at a slow phone, then calling another shop / owner answering a ringing phone)
+- Most websites today: **Customers call the next business.**
+  A customer looks up a local business on their phone, and the website:
+  - loads slowly
+  - has tiny text
+  - hides the phone number
+
+  So the customer hits back and calls the next business on the list. One missed call can be the biggest job of the month.
+- Your new website: **Customers call you.**
   Your new site is built for the phone first: it loads quickly, has big buttons, is easy to read, and lets customers call you with one tap.
 
-**Row 2** (icons: dollar / rising arrow)
-- Today: **You pay every month for a website that doesn't bring you customers.**
-  Wix, GoDaddy or a web guy gets paid every month, whether your website brings you ten calls or none.
-- New website: **Your website brings you new customers.**
+**Row 2** (drawings: owner with a long bill and a silent phone / owner on the phone, phones ringing, chart up)
+- Most websites today: **Business owners pay every month for websites that bring no calls.**
+  Wix, GoDaddy or a web developer gets paid every month, whether the website brings ten calls or none.
+- Your new website: **Your website brings you new customers.**
   More and more people ask ChatGPT and Google's AI "who should I call?" Your new site is written and built so AI can read it and recommend you. Hosting is included, so you stop paying for the old one.
 
-**Row 3** (icons: clock / chat)
-- Today: **Every small change means waiting.**
-  A new price, a new photo, new Saturday hours. You email someone, wait days, and sometimes pay extra for the change.
-- New website: **You change your website yourself in minutes.**
+**Row 3** (drawings: owner waiting under a clock and calendar / owner typing one message, website gets a check mark)
+- Most websites today: **Every small change means waiting.**
+  A new price, a new photo, new Saturday hours. The business owner emails the web developer, waits days, and sometimes pays extra for the change.
+- Your new website: **You change your website yourself in minutes.**
   We connect your website to your ChatGPT account. Tell ChatGPT what changed, add a photo if you like, and your website updates itself in minutes, from your phone or computer. No waiting days for a web developer, and no tech skills needed.
 
 ---

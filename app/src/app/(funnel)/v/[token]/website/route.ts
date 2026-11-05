@@ -211,21 +211,21 @@ ${setup}
 const PAIRS: Array<{ oldH: string; oldP: string; oldList?: string[]; oldEnd?: string; newH: string; newP: string }> = [
   {
     oldH: 'Customers call the next business.',
-    oldP: 'A customer opens your website on their phone and finds:',
-    oldList: ['a slow page', 'an old look', 'no quick way to call you'],
-    oldEnd: 'So the customer calls the next business on the list. That call could have been the biggest job of your month.',
+    oldP: 'A customer looks up a local business on their phone, and the website:',
+    oldList: ['loads slowly', 'has tiny text', 'hides the phone number'],
+    oldEnd: 'So the customer hits back and calls the next business on the list. One missed call can be the biggest job of the month.',
     newH: 'Customers call you.',
     newP: 'Your new site is built for the phone first: it loads quickly, has big buttons, is easy to read, and lets customers call you with one tap.',
   },
   {
-    oldH: "You pay every month for a website that doesn't bring you customers.",
-    oldP: 'Wix, GoDaddy or a web guy gets paid every month, whether your website brings you ten calls or none.',
+    oldH: 'Business owners pay every month for websites that bring no calls.',
+    oldP: 'Wix, GoDaddy or a web developer gets paid every month, whether the website brings ten calls or none.',
     newH: 'Your website brings you new customers.',
     newP: 'More and more people ask ChatGPT and Google\'s AI "who should I call?" Your new site is written and built so AI can read it and recommend you. Hosting is included, so you stop paying for the old one.',
   },
   {
     oldH: 'Every small change means waiting.',
-    oldP: 'A new price, a new photo, new Saturday hours. You email someone, wait days, and sometimes pay extra for the change.',
+    oldP: 'A new price, a new photo, new Saturday hours. The business owner emails the web developer, waits days, and sometimes pays extra for the change.',
     newH: 'You change your website yourself in minutes.',
     newP: 'We connect your website to your ChatGPT account. Tell ChatGPT what changed, add a photo if you like, and your website updates itself in minutes, from your phone or computer. No waiting days for a web developer, and no tech skills needed.',
   },
@@ -279,6 +279,7 @@ video{display:block;width:100%;height:100%;background:#000}
 .ba small{font-weight:600;font-size:14px;color:var(--navy);white-space:nowrap}
 .ba .shot{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in}
 .hint{color:var(--muted);font-size:16.5px;text-align:center;margin-top:12px}
+.vs-intro{text-align:center;color:var(--muted);margin:-6px auto 20px;max-width:620px}
 .vs{max-width:940px;margin:0 auto;display:grid;gap:20px}
 .vs-head{display:grid;grid-template-columns:1fr 1fr;border-radius:14px;overflow:hidden;margin-bottom:-6px;font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .vs-head div{padding:14px 24px}.h-old{background:#b91c1c;color:#fff}.h-new{background:var(--green);color:#fff}
@@ -416,9 +417,9 @@ ${demo.before && demo.after ? `<section class="ba" aria-labelledby="ba-h"><h2 id
 <figure class="after"><button type="button" class="shot" data-shot="1" aria-label="See your new homepage, full page"><img src="${esc(demo.after)}" alt="Your new homepage" loading="lazy"></button><figcaption>Your new homepage <small>See full page</small></figcaption></figure>
 </div><p class="hint">Tap either picture to see the whole page. This is a preview, so anything on it can be changed.</p></section>
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Before and after, full page"><div class="lb-bar"><button type="button" class="tab" data-tab="0">Your website today</button><button type="button" class="tab" data-tab="1">Your new homepage</button><button type="button" class="x" id="lbx">&#x2715; Close</button></div><div class="lb-scroll" id="lbs"><img id="lbi" alt=""></div></div>` : ''}
-<section aria-labelledby="pain-h"><h2 id="pain-h">Your next customer is looking you up right now</h2>
-<div class="vs"><div class="vs-head"><div class="h-old">Your website today</div><div class="h-new">Your new website</div></div>
-${PAIRS.map((pair, i) => `<div class="vs-row"><div class="c old"><img class="wb" src="${WHITEBOARD}/old-${i + 1}.jpg?v=${WHITEBOARD_V}" alt="" loading="lazy" width="720" height="540"><div><span class="lbl">Your website today</span><h3>${esc(pair.oldH)}</h3><p>${esc(pair.oldP)}</p>${pair.oldList ? `<ul class="bad">${pair.oldList.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>` : ''}${pair.oldEnd ? `<p class="end">${esc(pair.oldEnd)}</p>` : ''}</div></div><div class="c new"><img class="wb" src="${WHITEBOARD}/new-${i + 1}.jpg?v=${WHITEBOARD_V}" alt="" loading="lazy" width="720" height="540"><div><span class="lbl">Your new website</span><h3>${esc(pair.newH)}</h3><p>${esc(pair.newP)}</p></div></div></div>`).join('\n')}
+<section aria-labelledby="pain-h"><h2 id="pain-h">Your next customer is looking you up right now</h2><p class="vs-intro">Here's what usually happens next, and what your new website does instead.</p>
+<div class="vs"><div class="vs-head"><div class="h-old">Most websites today</div><div class="h-new">Your new website</div></div>
+${PAIRS.map((pair, i) => `<div class="vs-row"><div class="c old"><img class="wb" src="${WHITEBOARD}/old-${i + 1}.jpg?v=${WHITEBOARD_V}" alt="" loading="lazy" width="720" height="540"><div><span class="lbl">Most websites today</span><h3>${esc(pair.oldH)}</h3><p>${esc(pair.oldP)}</p>${pair.oldList ? `<ul class="bad">${pair.oldList.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>` : ''}${pair.oldEnd ? `<p class="end">${esc(pair.oldEnd)}</p>` : ''}</div></div><div class="c new"><img class="wb" src="${WHITEBOARD}/new-${i + 1}.jpg?v=${WHITEBOARD_V}" alt="" loading="lazy" width="720" height="540"><div><span class="lbl">Your new website</span><h3>${esc(pair.newH)}</h3><p>${esc(pair.newP)}</p></div></div></div>`).join('\n')}
 </div></section>
 <section class="narrow" aria-labelledby="proof-h">
 <h2 id="proof-h">A website my team rebuilt: Ascent Equipment</h2>
