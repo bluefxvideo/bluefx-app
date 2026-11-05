@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { isLive, PROD_SITE_URL, SITE_URL } from '@/lib/free-video/config';
 import { WEBSITE_CHECKOUT, WEBSITE_PLANS, type WebsitePlan } from '@/lib/free-video/website-plans';
-import { renderWebsitePageV1 } from '@/lib/free-video/website-demo-page-v1';
 import { hasInternalCookie } from '@/lib/free-video/internal-visit';
 import { getLeadByToken } from '@/lib/free-video/leads';
 import { displayDomain } from '@/lib/free-video/website';
@@ -68,10 +67,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   }
   if (!found) return notFound();
   const internal = req.nextUrl.searchParams.get('internal') === '1' || hasInternalCookie(req.headers.get('cookie'));
-  // The sales page only with ?preview=sales until the owner makes it the default (2026-11-05); everyone else sees today's page.
-  const sales = req.nextUrl.searchParams.get('preview') === 'sales';
-  const html = sales ? renderPage(token, found.lead, found.demo, internal) : renderWebsitePageV1(token, found.lead, found.demo, internal);
-  return new NextResponse(html, { status: 200, headers: HTML_HEADERS });
+  // The sales page is the default for every lead since 2026-11-05 (owner); ?preview=sales links keep working.
+  return new NextResponse(renderPage(token, found.lead, found.demo, internal), { status: 200, headers: HTML_HEADERS });
 }
 
 function sameOrigin(origin: string | null): boolean {
