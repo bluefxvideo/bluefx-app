@@ -13,6 +13,7 @@
  */
 
 import { createAdminClient } from '@/app/supabase/server'
+import { checkBankSpend, lookupCreditBank } from '@/lib/credits/credit-bank'
 
 export const FULL_CREDITS = 600
 export const TRIAL_CREDITS = 100
@@ -181,6 +182,13 @@ export function classifyFastSpring(fs: { state: string; active: boolean }): Reco
  * resets the 30-day period). Returns true on success.
  */
 async function topup(admin: AdminClient, userId: string, target: number): Promise<boolean> {
+  // A credit bank account (new lifetime buyers) never gets the monthly top-up: it would turn
+  // the 5,000 bank into 600. When the database cannot say, wait for the next chance.
+  const bank = await lookupCreditBank(userId, admin)
+  if (bank.kind !== 'legacy') {
+    if (bank.kind === 'unknown') console.warn(`[entitlement] top-up of ${userId} skipped: credit bank status unknown`)
+    return false
+  }
   const { data, error } = await admin.rpc('topup_user_credits', {
     p_user_id: userId,
     p_target_credits: target,
@@ -279,6 +287,14 @@ export async function ensureCreditsForUsage(
   amount: number,
 ): Promise<{ ok: boolean; error?: string }> {
   const admin = createAdminClient()
+
+  // Credit bank accounts (new lifetime buyers) have no monthly grant at all: only the bank,
+  // its 30-day window and their pack credits. The charge itself enforces the same rule again.
+  const bank = await lookupCreditBank(userId, admin)
+  if (bank.kind === 'bank') return checkBankSpend(bank.status, amount)
+  // The database could not say which model this account is on: never grant on a guess.
+  // The charge (deduct_user_credits) still refuses an amount the balance cannot cover.
+  if (bank.kind === 'unknown') return { ok: true }
 
   const { data: sub } = await admin
     .from('user_subscriptions')

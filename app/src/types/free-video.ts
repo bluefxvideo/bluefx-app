@@ -313,6 +313,8 @@ export interface FreeVideoView {
   isCustomer: boolean;
   /** A lead of the service funnel (funnel.ts): once ready, the page is the Unlimited Video Ads page (/v/<token>/unlimited). */
   service?: boolean;
+  /** Funnel 2 (or a lead switched to it): the finished video ad opens on the $49 page, /v/<token>/unlock. */
+  videoOffer?: boolean;
   /** Offer 1, the $99 unlock. */
   unlock: FreeVideoUnlockView;
   /** P1 */
@@ -329,6 +331,8 @@ export interface FreeVideoView {
   nextAds?: FreeVideoNextAdCard[];
   /** ready: the next 3 video ads are being written right now, so the page asks again in a few seconds. */
   nextAdsPending?: boolean;
+  /** ready: the credit bank is launched (credit-bank-launch.ts), so the sales copy says 100 video ads once instead of 10 every month. */
+  bankCopy?: boolean;
 }
 
 /**
@@ -397,6 +401,7 @@ export const FREE_VIDEO_STEP_COUNT = 5;
 export const FREE_VIDEO_STEP_OF: Record<SmartVideoJobStatus, 1 | 2 | 3 | 4 | 5> = {
   reading: 1,
   directing: 2,
+  script: 2, // a Phantom script waiting for approval; free video ads never wait
   producing: 3,
   rendering: 4,
   finishing: 5,
@@ -410,10 +415,11 @@ export const FREE_VIDEO_STEP_OF: Record<SmartVideoJobStatus, 1 | 2 | 3 | 4 | 5> 
 
 /**
  * tour_play: the founder's walkthrough of the AI Media Machine on the result page was started (SALES_PAGE.tour).
+ * unlock_view: the unlock page (/v/<token>/unlock) was opened in a browser.
  * service_view: the Unlimited Video Ads page (/v/<token>/unlimited) was opened in a browser that runs its script; the
  * lead's first one starts its 3-day $99 hold (service-page.ts). Sent by the page, so email link scanners never start it.
  */
-export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open', 'tour_play', 'chat_open', 'tutorial_open', 'tutorial_end', 'service_view', 'service_click'] as const;
+export const FREE_VIDEO_EVENTS = ['landing_view', 'form_start', 'video_play', 'video_complete', 'download', 'offer_open', 'tour_play', 'chat_open', 'tutorial_open', 'tutorial_end', 'service_view', 'service_click', 'unlock_view'] as const;
 /** A page event the browser may send. */
 export type FreeVideoEvent = (typeof FREE_VIDEO_EVENTS)[number];
 /**
@@ -435,7 +441,8 @@ export type TutorialOpenSource = (typeof TUTORIAL_OPEN_SOURCES)[number];
  * meta {fbc, fbp}) and the outcome of every Conversions API send ('capi', meta {name, id, ok, error}).
  */
 /** service_paid: a paid Unlimited Video Ads order of this lead (service-order.ts). */
-export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused' | 'service_paid';
+/** change_request: a change an unlock buyer typed on the unlock page (meta {text, round}). */
+export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused' | 'service_paid' | 'change_request' | 'change_chat' | 'change_plan' | 'ai_change' | 'ai_preview' | 'free_change_email' | 'checkout_reminder_email' | 'website_demo' | 'website_play' | 'website_plans' | 'website_watched' | 'website_interest' | 'website_checkout' | 'website_purchase';
 
 export const FreeVideoEventSchema = z.object({
   e: z.enum(FREE_VIDEO_EVENTS),

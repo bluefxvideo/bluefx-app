@@ -4,8 +4,8 @@ import { Home, ImageIcon, UserCircle } from 'lucide-react';
 import { ExampleChip, ExampleFile, ExampleText, ExampleVideo, ToolExamples } from '@/components/tools/tool-examples';
 import { ToolTips } from '@/components/tools/tool-tips';
 import { LISTING_LENGTHS, listingPhotoCount } from '@/lib/smart-video/listing';
-import { LISTING_CLIP_CREDITS, LISTING_CREDITS } from '@/lib/smart-video/pricing';
-import { CLEANUP_PRESET_CONFIG } from '@/types/reelestate';
+import { LISTING_CLIP_CREDITS_PER_SECOND, LISTING_CREDITS, LISTING_SHORTEST_CLIP_SECONDS, listingClipCap, listingClipCredits } from '@/lib/smart-video/pricing';
+import { AGENT_CLONE_ANIMATION_CREDITS_PER_SECOND, CLEANUP_PRESET_CONFIG } from '@/types/reelestate';
 import { BeforeAfterView } from './components/before-after-view';
 import {
   AGENT_CLONE_EXAMPLES,
@@ -18,9 +18,9 @@ import {
   type PhotoCleanupExample,
 } from './examples';
 
-// "67 credits for 30 seconds, 91 for 45, 121 for 60"
+// "at most 129 credits for 30 seconds, 177 for 45, 237 for 60"
 const AUTOMATIC_PRICES = LISTING_LENGTHS.map(
-  (seconds, i) => `${LISTING_CREDITS + listingPhotoCount(seconds, 99) * LISTING_CLIP_CREDITS}${i === 0 ? ' credits' : ''} for ${seconds}${i === 0 ? ' seconds' : ''}`,
+  (seconds, i) => `${i === 0 ? 'at most ' : ''}${LISTING_CREDITS + listingClipCap(listingPhotoCount(seconds, 99))}${i === 0 ? ' credits' : ''} for ${seconds}${i === 0 ? ' seconds' : ''}`,
 ).join(', ');
 
 /**
@@ -46,7 +46,7 @@ export function AutomaticVideoExamples({
       media={(example) => <ExampleVideo src={example.videoUrl} poster={example.posterUrl} landscape={example.format === 'horizontal'} />}
       cost={(example) => {
         const { video, animation } = example.credits;
-        return `Cost: ${video + animation} credits in total · ${video} for the video, ${animation} to animate the ${example.photos.length} photos.`;
+        return `Cost: up to ${video + animation} credits in total · ${video} for the video, up to ${animation} to animate the ${example.photos.length} photos (${LISTING_CLIP_CREDITS_PER_SECOND} credits per second of clip).`;
       }}
       renderInputs={(example) => (
         <>
@@ -82,7 +82,7 @@ export function AutomaticVideoTips() {
         'Add your name and phone number. The last photo carries them, with the open house when you name one.',
         'Want the video your way? Write it under Instructions: "Start with the kitchen." "Leave the bathrooms out." "Mention the new roof."',
         'Choose the length by the photos: 30 seconds shows 7 photos, 45 seconds 11, 60 seconds 16. From a link, the video takes one photo per room from the whole listing.',
-        `Every photo becomes a moving clip: the camera pushes slowly into the room. A video costs ${LISTING_CREDITS} credits plus ${LISTING_CLIP_CREDITS} per photo: ${AUTOMATIC_PRICES}.`,
+        `Every photo becomes a moving clip: the camera pushes slowly into the room. A video costs ${LISTING_CREDITS} credits plus ${LISTING_CLIP_CREDITS_PER_SECOND} credits per second of clip (most photos get a ${LISTING_SHORTEST_CLIP_SECONDS}-second clip, ${listingClipCredits(LISTING_SHORTEST_CLIP_SECONDS)} credits): ${AUTOMATIC_PRICES}.`,
         'Not quite right? Write what to change under the finished video: a new price, a room to leave out, another open house. A change costs 10 credits.',
       ]}
     />
@@ -154,7 +154,7 @@ export function ListingVideoTips() {
         'Paste a Zillow or Realtor.com link and the photos come in with the address (1 credit). Or upload your own photos. Analyze Photos reads every photo and leaves out the unusable ones, 1 credit per 5 photos.',
         'Choose the duration and the voice before the script. The script is written to fit that length with that voice, and the line above the script shows how long the voice needs.',
         'Edit any line before the voiceover. Name the address in the first line and say what to do next in the last one.',
-        'Open in Studio is the editor. Click Animate All there and every photo becomes a moving clip. The button shows the price first: 6 credits for most photos, more for a photo that stays on screen longer than 6 seconds. The example was made this way.',
+        'Open in Studio is the editor. Click Animate All there and every photo becomes a moving clip. The button shows the price first: 12 credits for most photos, more for a photo that stays on screen longer than 6 seconds. The example was made this way.',
         'In the Studio you also change the timing, the captions and the music. Then click Export. The export is free.',
       ]}
     />
@@ -270,7 +270,7 @@ export function AgentCloneTips() {
         'Add one listing photo as the background. The composite puts you into that room with matching light for 2 credits. Not right? Click Regenerate Composite.',
         'The prompt says where you stand: "standing next to the kitchen island", "on the front path, the whole house visible behind her".',
         'Then choose the length, an action and your line. About 2 words per second fit: 20 words for a 10-second clip.',
-        'The video costs 1 credit per second, and the AI makes the voice. Want your own voice? Click Switch voice on the finished clip and upload a 10 to 30 second recording (4 credits).',
+        `The video costs ${AGENT_CLONE_ANIMATION_CREDITS_PER_SECOND} credits per second, and the AI makes the voice. Want your own voice? Click Switch voice on the finished clip and upload a 10 to 30 second recording (4 credits).`,
         'Landscape is for YouTube and listing sites, Portrait for Reels and TikTok. Finished clips are in History.',
       ]}
     />

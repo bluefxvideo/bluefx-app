@@ -626,7 +626,8 @@ const WALKERS = [
 ];
 
 /** THE RESULT: the whiteboard drawing with customers walking from the video ad on the phone into the shop, and the money they bring popping up at the door. */
-export function ResultScene({ domain }: { domain: string }) {
+/** The walking customers and the money at the door. `note` replaces the line under the title (the unlock page never names the AI Media Machine). */
+export function ResultScene({ domain, note }: { domain: string; note?: string }) {
   const { result } = RESULT_PAGE.how;
   return (
     <div className={styles.result}>
@@ -664,7 +665,7 @@ export function ResultScene({ domain }: { domain: string }) {
       <div className={styles.resultText}>
         <p className={styles.resultKicker}>{result.kicker}</p>
         <p className={styles.resultTitle}>{result.title(domain)}</p>
-        <p className={styles.resultNote}>{result.text}</p>
+        <p className={styles.resultNote}>{note ?? result.text}</p>
       </div>
     </div>
   );
@@ -825,12 +826,28 @@ export function LoopVideo({ src, poster }: { src: string; poster: string }) {
     const video = ref.current;
     if (!video || typeof IntersectionObserver === 'undefined') return;
     video.muted = true;
+    let onScreen = false;
+    const start = () => {
+      video.muted = true;
+      if (onScreen && video.paused) void video.play().catch(() => undefined);
+    };
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) void video.play().catch(() => undefined);
+      onScreen = entry.isIntersecting;
+      if (onScreen) start();
       else video.pause();
     });
     observer.observe(video);
-    return () => observer.disconnect();
+    // On the live site a script reloads same-site videos right after they start (it adds '?' to the address), which
+    // leaves them stopped and unloaded: while on screen, start again whenever the video reloads or sits stopped
+    // (owner 2026-10-27: the styles showed as still pictures).
+    const events = ['loadstart', 'emptied', 'canplay'] as const;
+    events.forEach((name) => video.addEventListener(name, start));
+    const retry = window.setInterval(start, 1500);
+    return () => {
+      observer.disconnect();
+      events.forEach((name) => video.removeEventListener(name, start));
+      window.clearInterval(retry);
+    };
   }, []);
   return <video ref={ref} src={src} poster={poster} muted loop playsInline preload="none" aria-hidden="true" />;
 }

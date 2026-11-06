@@ -12,6 +12,7 @@ import { Play, Square, Trash2, Upload, Mic2, AlertCircle } from 'lucide-react';
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { toast } from 'sonner';
+import { VOICE_CLONE_CREDITS } from '@/lib/voice-pricing';
 
 interface ClonedVoice {
   id: string;
@@ -32,7 +33,7 @@ interface CloneTabProps {
   isCloning: boolean;
 }
 
-const CLONE_CREDIT_COST = 50; // ~$4 revenue, $3 Replicate cost = $1 margin
+const CLONE_CREDIT_COST = VOICE_CLONE_CREDITS; // Replicate MiniMax cloning costs $3 a clone
 
 /**
  * Clone Tab - Voice cloning interface

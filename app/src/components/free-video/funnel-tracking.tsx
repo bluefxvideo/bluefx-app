@@ -13,6 +13,7 @@ import {
   updateTrackedPage,
   type TrackingStart,
 } from '@/lib/free-video/analytics';
+import { rememberLeadToken } from '@/lib/free-video/lead-cookie';
 
 /** Microsoft's standard Clarity snippet (the queue, then the tag script) for a checked project id. */
 const claritySnippet = (projectId: string) =>
@@ -48,6 +49,11 @@ export function FunnelTracking({ clarityProjectId }: FunnelTrackingProps) {
   useEffect(() => {
     if (started) updateTrackedPage(pathname);
   }, [started, pathname]);
+
+  // The free website check on bluefx.net's OTO3 page finds this buyer by this cookie (lead-cookie.ts).
+  useEffect(() => {
+    rememberLeadToken(pathname);
+  }, [pathname]);
 
   useEffect(() => {
     if (!started?.clarity) return;

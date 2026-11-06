@@ -16,8 +16,8 @@ import { normalizeProviderError, refundFailedGeneration, refundSentence } from '
  * GET:  poll job status (persists video to Supabase on completion, refunds a failed job)
  */
 
-// Credit cost: 1 credit per second (matches cinematographer pricing)
-const CREDITS_PER_SECOND = 1;
+// Credit cost: 2 credits per second (owner 2026-11-02: fal LTX 2.3 fast costs $0.04/s, so no more than $0.02 per credit)
+const CREDITS_PER_SECOND = 2;
 
 // Clip lengths the engine makes, in seconds
 const CLIP_SECONDS = [6, 8, 10, 12, 14, 16, 18, 20];

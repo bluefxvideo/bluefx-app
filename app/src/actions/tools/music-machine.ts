@@ -11,6 +11,7 @@ import { generateLyriaInstrumental } from '@/actions/models/gemini-lyria';
 import { ensureCreditsForUsage } from '@/lib/credits/subscription-entitlement';
 import { createPredictionRecord } from '@/actions/database/thumbnail-database';
 import { deductCredits } from '@/actions/database/cinematographer-database';
+import { spendableCredits } from '@/lib/credits/credit-bank';
 
 // Request interface for Music Machine
 export interface MusicMachineRequest {
@@ -292,5 +293,5 @@ async function getUserCredits(supabase: Awaited<ReturnType<typeof createClient>>
     .eq('user_id', userId)
     .single();
 
-  return userCredits?.available_credits || 0;
+  return spendableCredits(userId, userCredits?.available_credits || 0);
 }

@@ -1,0 +1,1703 @@
+'use client';
+
+import Image from 'next/image';
+import { Caveat } from 'next/font/google';
+import { ArrowUp, Download, Maximize2, Paperclip, Sparkles, X } from 'lucide-react';
+import { type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
+import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
+import { PLAN_INFO_PATH, planGoUrl, unlockGoUrl } from '@/lib/free-video/offer';
+import { RESULT_SALES } from '@/lib/free-video/result-sales';
+import { SALES_PAGE } from '@/lib/free-video/sales-page';
+import { UNLOCK_PAGE } from '@/lib/free-video/unlock-page';
+import type { UnlockPrice } from '@/lib/free-video/unlock-price';
+import { cn } from '@/lib/utils';
+import type { FreeVideoView } from '@/types/free-video';
+import { LoopVideo, PayCards, ResultScene, Shield, Stars, Tick, VideoReview, videoReviewsOf } from './result-page';
+import { ResultSalesPage } from './result-sales-page';
+import { SaveToPhotos } from './save-to-photos';
+import { VideoAdPlayer } from './video-ad-player';
+import rp from './result-page.module.css';
+import s from './unlock-page.module.css';
+
+/** The handwritten note by the arrow. */
+const caveat = Caveat({ subsets: ['latin'], weight: '700', display: 'swap' });
+const SALES_PAGE_FOUNDER_PHOTO = SALES_PAGE.founder.photo;
+
+interface UnlockPageProps {
+  token: string;
+  initial: FreeVideoView;
+  price: UnlockPrice;
+  /** The last day the video ad can be unlocked (ISO), or null when unknown. */
+  filesUntil: string | null;
+  /** The change list confirmed in the change chat, if any. */
+  plan: string[] | null;
+  /** The free change before paying (instant-change.ts), if any. */
+  freeChange?: AiChangeView | null;
+  /** The changes asked for after the payment (the ready page lists them). */
+  requested: string[];
+  changesLeft: number;
+  /** The free-month Weekly Video Plan offer is on (its FastSpring product exists, or a local preview). */
+  trial: boolean;
+  /** FastSpring's popup storefront (the live one on the live site, the test one elsewhere). */
+  storefront: string;
+  /** A local preview of one display: the page never asks for news. */
+  preview?: boolean;
+}
+
+/** How often the page asks for news while the payment or the clean video ad is on its way. */
+const POLL_MS = 4000;
+/** A checkout click keeps the page asking on a timer for 30 minutes; after that it still asks whenever the page is shown again. */
+const CLICK_WINDOW_MS = 30 * 60_000;
+
+/**
+ * The unlock page (owner 2026-10-27): offer → "unlocking" (paid, the clean render runs) → ready (download, change box,
+ * the Weekly Video Plan). The checkout opens in a new tab through /go/fvunlock; this page polls the lead's view, and asks
+ * again every time the visitor comes back to this tab (no time limit), or taps "Paid? Tap here" in the phone bar.
+ */
+export function UnlockPage({ token, initial, price, filesUntil, plan, freeChange = null, requested, changesLeft, trial, storefront, preview = false }: UnlockPageProps) {
+  const [view, setView] = useState(initial);
+  const [clickedAt, setClickedAt] = useState<number | null>(null);
+  const beacon = useFreeVideoBeacon(token);
+  const unlock = view.unlock;
+  const working = unlock.state === 'paid' || unlock.state === 'rendering';
+
+  useEffect(() => {
+    beacon('unlock_view');
+  }, [beacon]);
+
+  const ask = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/free-video/${encodeURIComponent(token)}`, { cache: 'no-store' });
+      const answer = await res.json().catch(() => null);
+      if (res.ok && answer?.success && answer.data) setView(answer.data as FreeVideoView);
+    } catch {
+      /* the next round asks again */
+    }
+  }, [token]);
+
+  // Ask for news while the payment is expected or the clean video ad is being made.
+  useEffect(() => {
+    const waiting = working || (clickedAt !== null && unlock.state === 'available');
+    if (!waiting || preview) return;
+    const timer = window.setInterval(() => {
+      if (!working && clickedAt !== null && Date.now() - clickedAt > CLICK_WINDOW_MS) return;
+      void ask();
+    }, POLL_MS);
+    const onShow = () => document.visibilityState === 'visible' && void ask();
+    document.addEventListener('visibilitychange', onShow);
+    window.addEventListener('focus', onShow);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onShow);
+      window.removeEventListener('focus', onShow);
+    };
+  }, [ask, working, clickedAt, unlock.state, preview]);
+
+  // FastSpring's popup cart (owner 2026-10-27: "use the FastSpring pop-up, so when they finish it goes to the thank-you
+  // page"): the checkout opens over this page; a finished order closes it and this page turns into the thank-you page.
+  const popup = useFastSpringPopup(storefront, useCallback(() => {
+    setClickedAt(Date.now());
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    void ask();
+  }, [ask]));
+  const onCheckout = useCallback(
+    (e?: ReactMouseEvent<HTMLAnchorElement>) => {
+      setClickedAt(Date.now());
+      if (!popup.open(price.product, token)) return; // no popup yet: the link opens the hosted checkout in a new tab
+      e?.preventDefault();
+      // The click still goes through /go/fvunlock for the funnel's numbers and Facebook's checkout event (no redirect followed).
+      void fetch(unlockGoUrl(token), { redirect: 'manual', credentials: 'same-origin' }).catch(() => undefined);
+    },
+    [popup, price.product, token]
+  );
+
+  return (
+    <div className={cn(rp.page, s.page)}>
+      {unlock.state === 'available' && (
+        <Offer view={view} token={token} price={price} filesUntil={filesUntil} initialPlan={plan} initialFree={freeChange} clicked={clickedAt !== null} onCheckout={onCheckout} onCheck={ask} />
+      )}
+      {working && <Unlocking view={view} token={token} requested={requested} preview={preview} />}
+      {unlock.state === 'ready' && <Ready view={view} token={token} requested={requested} trial={trial} preview={preview} changesLeft={changesLeft} onDownload={() => beacon('download')} />}
+      {unlock.state === 'failed' && <Note title={UNLOCK_PAGE.failed.title} text={UNLOCK_PAGE.failed.text} />}
+      {unlock.state === 'unavailable' && <Note title={UNLOCK_PAGE.closed.title} text={UNLOCK_PAGE.closed.text} link={{ href: `/v/${token}`, label: UNLOCK_PAGE.closed.button }} />}
+    </div>
+  );
+}
+
+
+declare global {
+  interface Window {
+    fastspring?: { builder?: { push: (cmd: Record<string, unknown>) => void; reset: () => void } };
+    onFSPopupClosed?: (order: { reference?: string; id?: string } | null) => void;
+  }
+}
+
+/**
+ * FastSpring's popup cart on this page (the Store Builder script with the popup storefront, as the Weekly Video Plan page
+ * uses). The app's root layout loads an older Store Builder for the web storefront; this page swaps it for the popup one.
+ * open() returns false while the script is not ready, so the link's hosted checkout is the fallback.
+ */
+function useFastSpringPopup(storefront: string, onPaid: () => void) {
+  const ready = useRef(false);
+  const paid = useRef(onPaid);
+  paid.current = onPaid;
+  useEffect(() => {
+    window.onFSPopupClosed = (order) => {
+      if (order && (order.reference || order.id)) {
+        try {
+          window.fastspring?.builder?.reset();
+        } catch {
+          /* nothing to reset */
+        }
+        paid.current();
+      }
+    };
+    document.getElementById('fsc-api')?.remove();
+    delete window.fastspring;
+    const script = document.createElement('script');
+    script.id = 'fsc-api';
+    script.src = 'https://sbl.onfastspring.com/sbl/1.0.5/fastspring-builder.min.js';
+    script.type = 'text/javascript';
+    script.dataset.storefront = storefront;
+    script.setAttribute('data-popup-closed', 'onFSPopupClosed');
+    script.onload = () => {
+      ready.current = true;
+    };
+    document.body.appendChild(script);
+    return () => {
+      script.remove();
+      ready.current = false;
+    };
+  }, [storefront]);
+  return useMemo(
+    () => ({
+      open(product: string, token: string): boolean {
+        const builder = window.fastspring?.builder;
+        if (!ready.current || !builder) return false;
+        try {
+          builder.push({ reset: true, products: [{ path: product, quantity: 1 }], tags: { freeVideoLead: token }, checkout: true });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    }),
+    []
+  );
+}
+
+interface OfferProps {
+  view: FreeVideoView;
+  token: string;
+  price: UnlockPrice;
+  filesUntil: string | null;
+  initialPlan: string[] | null;
+  initialFree: AiChangeView | null;
+  clicked: boolean;
+  onCheckout: (e?: ReactMouseEvent<HTMLAnchorElement>) => void;
+  onCheck: () => void;
+}
+
+/** The milliseconds until the launch price ends, ticking every second; null without a deadline, before the page runs or after it ends. */
+/**
+ * The one free change before paying (instant-change.ts): started from the saved change list, made by the AI engine
+ * with the SAMPLE watermark kept, shown here when done. Polls while it is being made.
+ */
+export type AiChangeView = AiChangeRow;
+/** `made`: the free change's own list (its numbered text), so the box can tell it apart from changes asked afterwards. */
+type FreeState = { state: 'none' | 'working' | 'done'; progress: number; videoUrl: string | null; message: string | null; busy: boolean; made: string[] };
+
+/** "1. Add my phone\n2. A man on camera" → ['Add my phone', 'A man on camera'] (startFreeChange numbers the list). */
+export function changeLines(text: string): string[] {
+  return text
+    .split('\n')
+    .map((line) => line.replace(/^\s*\d+\.\s*/, '').trim())
+    .filter(Boolean);
+}
+
+/** The items of the chat's list that the free change did not make (owner 2026-11-04: they showed with a tick as if done). */
+export function nextChanges(plan: string[] | null, made: string[]): string[] {
+  return (plan ?? []).filter((c) => !made.includes(c));
+}
+/** The free change's messages: the $49 page's by default, the free thank-you page's own (result-sales.ts) there. */
+export interface FreeChangeCopy {
+  failed: string;
+  refusals: Record<'style' | 'used' | 'noList' | 'notReady' | 'paid', string>;
+}
+
+/** `load`: the page had no free change from the server (the free thank-you page), so it reads it once on the first render. */
+export function useFreeChange(token: string, initial: AiChangeView | null, copy: FreeChangeCopy = UNLOCK_PAGE.chat.free, load = false): FreeState & { start: () => void } {
+  // The engine reports progress only while rendering: the bar also fills with the time since the start (90% at 5 min).
+  const shownProgress = (c: AiChangeView) => {
+    const since = c.at ? (Date.now() - Date.parse(c.at)) / 1000 : 0;
+    return Math.round(Math.max(c.progress, Math.min(90, (since / 300) * 90), 3));
+  };
+  const of = (c: AiChangeView | null): Omit<FreeState, 'message' | 'busy'> =>
+    !c || c.status === 'failed'
+      ? { state: 'none', progress: 0, videoUrl: null, made: [] }
+      : { state: c.status, progress: c.status === 'done' ? 100 : shownProgress(c), videoUrl: c.videoUrl, made: changeLines(c.text ?? '') };
+  const [s, setS] = useState<FreeState>({ ...of(initial), message: initial?.status === 'failed' ? copy.failed : null, busy: false });
+  const working = s.state === 'working';
+  useEffect(() => {
+    if (!load) return;
+    let gone = false;
+    void (async () => {
+      const res = await fetch(`/api/free-video/${token}/free-change`, { cache: 'no-store' }).catch(() => null);
+      const body = res ? await res.json().catch(() => null) : null;
+      const free = (body?.data?.free ?? null) as AiChangeView | null;
+      if (!gone && free && free.status !== 'failed') setS((prev) => ({ ...prev, ...of(free) }));
+    })();
+    return () => {
+      gone = true;
+    };
+    // Once, on the first render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!working) return;
+    const id = setInterval(async () => {
+      const res = await fetch(`/api/free-video/${token}/free-change`, { cache: 'no-store' }).catch(() => null);
+      const body = res ? await res.json().catch(() => null) : null;
+      const free = (body?.data?.free ?? null) as AiChangeView | null;
+      if (!free) return;
+      if (free.status === 'failed') setS({ ...of(null), message: copy.failed, busy: false });
+      else setS((prev) => ({ ...prev, ...of(free) }));
+    }, 4000);
+    return () => clearInterval(id);
+  }, [token, working, copy.failed]);
+  const start = useCallback(async () => {
+    setS((prev) => ({ ...prev, busy: true, message: null }));
+    const res = await fetch(`/api/free-video/${token}/free-change`, { method: 'POST', cache: 'no-store' }).catch(() => null);
+    const body = res ? await res.json().catch(() => null) : null;
+    const free = (body?.data?.free ?? null) as AiChangeView | null;
+    if (res?.ok && free) return setS({ ...of(free), progress: Math.max(3, free.progress), message: null, busy: false });
+    const code = (body?.details?.code ?? body?.error?.code) as string | undefined;
+    const R = copy.refusals;
+    setS((prev) => ({ ...prev, busy: false, message: code && code in R ? R[code as keyof typeof R] : copy.failed }));
+  }, [token, copy]);
+  return { ...s, start: () => void start() };
+}
+
+function useTimeLeft(endsAt: string | null): number | null {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    if (!endsAt) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [endsAt]);
+  if (!endsAt || now === null) return null;
+  const ms = Date.parse(endsAt) - now;
+  return ms > 0 ? ms : null;
+}
+
+/** The time left split into days, hours, minutes and seconds. */
+function parts(ms: number | null) {
+  const total = ms === null ? null : Math.floor(ms / 1000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  if (total === null) return { d: '--', h: '--', m: '--', s: '--' };
+  return { d: pad(Math.floor(total / 86400)), h: pad(Math.floor((total % 86400) / 3600)), m: pad(Math.floor((total % 3600) / 60)), s: pad(total % 60) };
+}
+
+/** "2d 23:59:12", for the small spots (the phone bar, the short buy boxes). */
+function shortClock(ms: number | null): string | null {
+  if (ms === null) return null;
+  const p = parts(ms);
+  return `${Number(p.d) > 0 ? `${Number(p.d)}d ` : ''}${p.h}:${p.m}:${p.s}`;
+}
+
+/** The ticking timer: 4 boxes, days, hours, minutes, seconds. */
+function Timer({ ms, label }: { ms: number | null; label: string }) {
+  const p = parts(ms);
+  const boxes: Array<[string, string]> = [
+    [p.d, 'days'],
+    [p.h, 'hours'],
+    [p.m, 'min'],
+    [p.s, 'sec'],
+  ];
+  return (
+    <div className={s.timer} role="timer" aria-label={label}>
+      {boxes.map(([value, label]) => (
+        <span key={label} className={s.timerBox}>
+          <b>{value}</b>
+          <small>{label}</small>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Phone bar: on once the first buy box has scrolled away, off while any buy box is on screen. */
+function useBar(boxes: RefObject<HTMLDivElement | null>[]): boolean {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const rects = boxes.map((box) => box.current?.getBoundingClientRect()).filter((r): r is DOMRect => Boolean(r));
+      const first = rects[0];
+      const anyShown = rects.some((r) => r.top < window.innerHeight && r.bottom > 0);
+      setOn(Boolean(first && first.bottom < 0) && !anyShown);
+    };
+    check();
+    window.addEventListener('scroll', check, { passive: true });
+    window.addEventListener('resize', check);
+    return () => {
+      window.removeEventListener('scroll', check);
+      window.removeEventListener('resize', check);
+    };
+  }, [boxes]);
+  return on;
+}
+
+function Offer({ view, token, price, filesUntil, initialPlan, initialFree, clicked, onCheckout, onCheck }: OfferProps) {
+  const [plan, setPlanState] = useState<string[] | null>(initialPlan);
+  const free = useFreeChange(token, initialFree);
+  const [shown, setShown] = useState<'before' | 'after'>('after');
+  const heroSrc = free.state === 'done' && shown === 'after' && free.videoUrl ? free.videoUrl : (view.videoUrl as string);
+  const [pending, setPending] = useState<{ text: string | null; n: number }>({ text: null, n: 0 });
+  const [pulse, setPulse] = useState(0);
+  const [big, setBig] = useState(false);
+  const chatRef = useRef<HTMLDivElement>(null);
+  // A finished list starts the free change at once (owner 2026-11-01: "he should start the change and not ask me").
+  const freeRef = useRef(free);
+  freeRef.current = free;
+  // When the free change is done while the visitor waits, bring the new video ad into view (on phones the chat is far below it).
+  const wasWorking = useRef(free.state === 'working');
+  useEffect(() => {
+    if (free.state === 'working') wasWorking.current = true;
+    else if (free.state === 'done' && wasWorking.current) {
+      wasWorking.current = false;
+      document.getElementById('free-change-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [free.state]);
+  const setPlan = useCallback((next: string[]) => {
+    setPlanState(next);
+    setPulse((n) => n + 1);
+    const f = freeRef.current;
+    if (f.state === 'none' && !f.busy) f.start();
+  }, []);
+  // A chip or the "Want changes first?" link: scroll to the chat, then send the chip's message (or just focus the box).
+  const ask = useCallback((text: string | null) => {
+    chatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setPending((p) => ({ text, n: p.n + 1 }));
+  }, []);
+  const F = UNLOCK_PAGE;
+  const beacon = useFreeVideoBeacon(token);
+  const topBuy = useRef<HTMLDivElement>(null);
+  const midBuy = useRef<HTMLDivElement>(null);
+  const lateBuy = useRef<HTMLDivElement>(null);
+  const bottomBuy = useRef<HTMLDivElement>(null);
+  const [boxes] = useState(() => [topBuy, midBuy, lateBuy, bottomBuy]);
+  const barOn = useBar(boxes);
+  const checkout = unlockGoUrl(token);
+  const left = useTimeLeft(price.endsAt);
+    const action = <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} />;
+
+  return (
+    <>
+      <section className={s.top} aria-labelledby="unlock-title">
+        <div className={s.hero}>
+          <p className={s.kicker}>{F.kicker(view.domain)}</p>
+          <h1 id="unlock-title" className={s.title}>
+            {F.title} <span className={s.titleRed}>{F.titleRed}</span>
+          </h1>
+          {free.state === 'none' && (
+            <button type="button" className={s.freeTry} onClick={() => ask(null)}>
+              <Sparkles size={15} strokeWidth={2.5} aria-hidden="true" /> {F.chat.free.tryLine}
+            </button>
+          )}
+          <p className={cn(s.sub, s.heroSub)}>{F.sub}</p>
+          <div className={s.side}>
+              {free.state === 'done' && (
+                <div className={s.freeTabs} role="tablist" id="free-change-result">
+                  <p className={s.freeKicker}>
+                    <Sparkles size={14} strokeWidth={2.5} aria-hidden="true" /> {F.chat.free.doneKicker}
+                  </p>
+                  <div className={s.freeToggle}>
+                    {(['before', 'after'] as const).map((k) => (
+                      <button key={k} type="button" role="tab" aria-selected={shown === k} className={cn(shown === k && s.freeOn)} onClick={() => setShown(k)}>
+                        {k === 'before' ? F.chat.free.before : F.chat.free.after}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {free.state === 'working' && (
+                <div className={s.freeWorking} aria-live="polite">
+                  <p>
+                    <Sparkles size={16} strokeWidth={2.5} aria-hidden="true" /> {F.chat.free.working}
+                  </p>
+                  <span className={s.freeBar}>
+                    <i style={{ width: `${free.progress}%` }} />
+                  </span>
+                  <small>{F.chat.free.workingNote}</small>
+                </div>
+              )}
+            <div className={s.video}>
+              <VideoAdPlayer
+                key={heroSrc}
+                src={heroSrc}
+                label={PLAYER.label(view.domain)}
+                className={rp.heroPlayerFrame}
+                tapToPlay
+                onPlayWithSound={() => beacon('video_play')}
+                onComplete={() => beacon('video_complete')}
+              />
+              <button type="button" className={s.watchBig} onClick={() => setBig(true)}>
+                <Maximize2 size={13} strokeWidth={2.5} aria-hidden="true" /> {F.watchBig}
+              </button>
+            </div>
+            {big && <BigPlayer src={heroSrc} label={PLAYER.label(view.domain)} onClose={() => setBig(false)} />}
+            <div ref={chatRef} className={s.heroChat} id="changes-chat">
+              <ArrowNote text={F.chat.arrowNote} />
+              <ChangeChat
+                token={token}
+                plan={plan}
+                onPlan={setPlan}
+                pending={pending}
+                made={free.state === 'done' ? { items: free.made, madeTitle: F.chat.free.madeTitle, nextTitle: F.chat.free.nextTitle, headNote: F.chat.free.doneHead } : null}
+                note={
+                  free.state === 'none'
+                    ? F.chat.free.note
+                    : free.state === 'done'
+                      ? nextChanges(plan, free.made).length
+                        ? F.chat.free.nextNote(price.price)
+                        : F.chat.free.doneNote(price.price)
+                      : F.chat.free.workingNote
+                }
+                buy={
+                  free.state === 'none' ? (
+                    <>
+                      {free.message && <p className={s.freeMessage}>{free.message}</p>}
+                      <button type="button" className={cn(s.button, s.freeButton)} onClick={free.start} disabled={free.busy}>
+                        <Sparkles size={18} strokeWidth={2.5} aria-hidden="true" /> {free.busy ? F.chat.free.starting : F.chat.free.button}
+                      </button>
+                      <a className={s.freeOrBuy} href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
+                        {F.chat.free.orBuy(price.price)}
+                      </a>
+                    </>
+                  ) : free.state === 'working' ? (
+                    <a className={s.freeOrBuy} href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
+                      {F.chat.free.orBuy(price.price)}
+                    </a>
+                  ) : (
+                    <>
+                      <a className={s.button} href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
+                        {nextChanges(plan, free.made).length ? F.chat.free.nextButton(price.price) : F.chat.free.doneButton(price.price)}
+                      </a>
+                    </>
+                  )
+                }
+              />
+            </div>
+          </div>
+          <div className={s.heroPrice}>
+            <PriceBlock price={price} left={left} />
+          </div>
+          <div ref={topBuy} className={s.heroAction}>
+            <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} only="button" pulse={pulse} />
+          </div>
+          <div className={s.heroStyles}>
+            <p className={s.heroStylesTitle}>{F.styles.title}</p>
+            <p className={s.heroStylesText}>{F.styles.text}</p>
+            <ul className={s.styleGrid}>
+              {RESULT_SALES.styles.items.map((style) => (
+                <li key={style.id}>
+                  <span className={s.styleTile}>
+                    <LoopVideo src={`/smart-video/looks/${style.id}.mp4`} poster={`/smart-video/looks/${style.id}-poster.jpg`} />
+                  </span>
+                  <span className={s.styleName}>{style.label}</span>
+                </li>
+              ))}
+            </ul>
+            <p className={s.heroStylesText}>{F.styles.more}</p>
+          </div>
+          <div className={s.heroTrust}>
+            <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} only="trust" />
+          </div>
+        </div>
+      </section>
+
+      <section className={s.proofStrip} aria-label={F.proof.line}>
+        <div className={s.faces}>
+          {F.proof.faces.map((r) => (
+            <Image key={r.name} src={r.photo} alt="" width={80} height={80} sizes="40px" />
+          ))}
+        </div>
+        <div>
+          <Stars size={14} label={F.proof.stars} />
+          <p>{F.proof.line}</p>
+        </div>
+      </section>
+
+
+      <section className={cn(s.section, s.sectionSoft)}>
+        <div className={s.narrow}>
+          <h2 className={s.h2}>{F.getTitle}</h2>
+          <ul className={s.stack}>
+            {F.get.map((item, i) => (
+              <li key={item.title}>
+                <span className={s.tick}>
+                  <Tick size={14} stroke={3} />
+                </span>
+                <div>
+                  <h3>{item.title}</h3>
+                  <p>{item.text}</p>
+                  {i === F.get.length - 1 && (
+                    <ul className={cn(s.chips, s.chipsSmall)}>
+                      {F.platforms.map((name) => (
+                        <li key={name}>{name}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div ref={midBuy}>
+            <CompactBuy price={price} left={left} action={action} />
+          </div>
+        </div>
+      </section>
+
+      <section className={s.section}>
+        <div className={s.narrow}>
+          <h2 className={s.h2}>{F.scrolling.title}</h2>
+          <p className={s.p}>{F.scrolling.text}</p>
+          <div className={s.sceneWrap}>
+            <ResultScene domain={view.domain} note={F.scrolling.sceneNote} />
+          </div>
+        </div>
+      </section>
+
+      <section className={cn(s.section, s.sectionSoft)}>
+        <div className={s.narrow}>
+          <h2 className={s.h2}>{F.compare.title}</h2>
+          <div className={s.bill}>
+            {F.compare.parts.map((item) => (
+              <p key={item.part} className={s.billRow}>
+                <span>{item.part}</span>
+                <b>{item.price}</b>
+              </p>
+            ))}
+            <p className={cn(s.billRow, s.billTotal)}>
+              <span>
+                {F.compare.totalLabel}
+                <small>{F.compare.wait}</small>
+              </span>
+              <b className={s.compareBad}>{F.compare.total}</b>
+            </p>
+          </div>
+          <div className={s.billUs}>
+            <p className={s.billRow}>
+              <span>{F.compare.usLabel}</span>
+              <b className={s.compareGood}>{price.price}</b>
+            </p>
+            <p className={s.small}>{F.compare.usNote}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className={s.section}>
+        <div className={s.narrow}>
+          <h2 className={s.h2}>{F.reviewsTitle}</h2>
+          <p className={s.p}>{F.reviewsLead}</p>
+          <p className={s.label}>{F.reviewsWorkLabel}</p>
+          <div className={s.reviews}>
+            {F.reviews.map((r) => (
+              <figure key={r.name} className={s.review}>
+                <figcaption className={s.reviewHead}>
+                  <Image className={s.reviewFace} src={r.photo} alt={r.name} width={80} height={80} sizes="40px" />
+                  <span>
+                    <b>{r.name}</b>
+                    <small>{r.role}</small>
+                  </span>
+                  <Stars size={12} label={F.proof.stars} />
+                </figcaption>
+                <blockquote>&ldquo;{r.quote}&rdquo;</blockquote>
+              </figure>
+            ))}
+          </div>
+          <p className={s.label}>{F.videoReviewsLabel}</p>
+          <ul className={cn(rp.reviews, s.videoReviews)}>
+            {videoReviewsOf(F.videoReviews).map((item) => (
+              <VideoReview key={item.name} item={item} />
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className={cn(s.section, s.sectionSoft)}>
+        <div className={s.narrow}>
+          <div className={s.founder}>
+            <Image className={s.founderFace} src={F.founder.photo} alt={F.founder.name} width={240} height={240} sizes="120px" />
+            <div className={s.founderText}>
+              <p className={s.label}>{F.founder.name}</p>
+              <h2 className={s.h2}>{F.founder.title}</h2>
+              {F.founder.text(price.price).map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+              <p>
+                <b>{F.founder.lessonsTitle}</b>
+              </p>
+              <ol className={s.lessons}>
+                {F.founder.lessons.map((l) => (
+                  <li key={l.strong}>
+                    <b>{l.strong}</b> {l.text}
+                  </li>
+                ))}
+              </ol>
+              <p>
+                <b>{F.founder.lessonsEnd}</b> {F.founder.proofLine}
+              </p>
+              <figure className={s.leads}>
+                <Image src={F.founder.proofImage} alt={F.founder.proofAlt} width={554} height={178} sizes="(min-width: 700px) 520px, 100vw" />
+                <figcaption>{F.founder.proofCaption}</figcaption>
+              </figure>
+            </div>
+          </div>
+          <ul className={s.stats}>
+            {F.founder.stats.map((st) => (
+              <li key={st.label}>
+                <b>{st.n}</b>
+                <span>{st.label}</span>
+              </li>
+            ))}
+          </ul>
+          <div className={s.guarantee}>
+            <Shield />
+            <div>
+              <h2>{F.guaranteeTitle}</h2>
+              <p className={s.guaranteeSub}>{F.guaranteeSub}</p>
+              <p>{F.guarantee(price.price)}</p>
+            </div>
+          </div>
+          <div ref={lateBuy}>
+            <CompactBuy price={price} left={left} action={action} />
+          </div>
+        </div>
+      </section>
+
+      <section className={s.section}>
+        <div className={s.narrow}>
+          <h2 className={s.h2}>{F.faqTitle}</h2>
+          <dl className={s.faq}>
+            {F.faq(price.price, filesUntil).map((item) => (
+              <div key={item.q}>
+                <dt>{item.q}</dt>
+                <dd>{item.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
+      <section className={cn(s.section, s.sectionFinal)}>
+        <div ref={bottomBuy} className={s.narrow}>
+          <h2 className={cn(s.h2, s.center)}>{F.bottomTitle(view.domain)}</h2>
+          <div className={s.finalBuy}>
+            <PriceBlock price={price} left={left} />
+            {action}
+            {filesUntil && <p className={cn(s.small, s.center)}>{F.filesLine(filesUntil)}</p>}
+          </div>
+        </div>
+      </section>
+
+      <div className={cn(s.bar, barOn && s.barOn)} aria-hidden={!barOn}>
+        {clicked ? (
+          <>
+            <p className={s.barWaiting}>{F.barWaiting}</p>
+            <button type="button" className={s.barCheck} onClick={onCheck} tabIndex={barOn ? 0 : -1}>
+              {F.barCheck}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className={s.barPrice}>
+              {price.launch && <s>{price.regular}</s>}
+              <b>{price.price}</b>
+              {left !== null && <small>{shortClock(left)}</small>}
+            </div>
+            <a href={checkout} target="_blank" rel="noopener noreferrer" onClick={onCheckout} tabIndex={barOn ? 0 : -1}>
+              {F.bar}
+            </a>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** The price, the saving and the deadline. */
+function PriceBlock({ price, left }: { price: UnlockPrice; left: number | null }) {
+  const F = UNLOCK_PAGE;
+  return (
+    <div className={s.priceBlock}>
+      {price.launch && <p className={s.save}>{F.save(price.regular, price.price)}</p>}
+      <p className={s.price}>
+        {price.launch && <s>{price.regular}</s>}
+        <b>{price.price}</b> <span>{F.priceUnit}</span>
+      </p>
+      {price.launch && price.endsAt && (
+        <div className={s.deadline}>
+          <b>
+            <Clock /> {F.timerLabel(price.price)}
+          </b>
+          <Timer ms={left} label={F.timerLabel(price.price)} />
+          {/* In the visitor's own time zone, so only once the page runs in the browser (left is null before that). */}
+          <span>{left !== null ? F.ends(price.endsAt, price.regular) : '\u00a0'}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ActionProps {
+  href: string;
+  price: UnlockPrice;
+  /** The visitor confirmed a change list in the chat. */
+  changed: boolean;
+  /** The hero splits the box: the button (with the chat link under it) and the trust lines. */
+  only?: 'button' | 'trust';
+  /** Grows by one each time a change list is saved: the button pulses once. */
+  pulse?: number;
+  clicked: boolean;
+  onCheckout: (e?: ReactMouseEvent<HTMLAnchorElement>) => void;
+}
+
+/** The button, the promise and the payment logos. */
+function Action({ href, price, changed, clicked, onCheckout, only, pulse = 0 }: ActionProps) {
+  const F = UNLOCK_PAGE;
+  return (
+    <div className={s.buy}>
+      {only !== 'trust' && (
+        <>
+      {/* A new tab, so this page keeps asking and shows the clean video ad once the payment arrives. */}
+      <a key={pulse} className={cn(s.button, pulse > 0 && s.buttonPulse)} href={href} target="_blank" rel="noopener noreferrer" onClick={onCheckout}>
+        {changed ? F.buttonChanged(price.price) : F.button(price.price)}
+      </a>
+      {clicked && (
+        <p className={s.clicked} role="status">
+          {F.afterClick}
+        </p>
+      )}
+        </>
+      )}
+      {only !== 'button' && (
+        <>
+      <p className={s.guaranteeShort}>
+        <Shield /> {F.promiseShort(price.price)}
+      </p>
+      <div className={s.trust}>
+        <p>{F.trust}</p>
+        <PayCards />
+      </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** A short buy box between sections: the price line and the button. */
+function CompactBuy({ price, left, action }: { price: UnlockPrice; left: number | null; action: ReactNode }) {
+  const F = UNLOCK_PAGE;
+  return (
+    <div className={s.compactBuy}>
+      <p className={s.compactPrice}>
+        {price.launch && <s>{price.regular}</s>} <b>{price.price}</b> <span>{F.priceUnit}</span>
+        {price.launch && left !== null && <em>{UNLOCK_PAGE.priceUpIn} {shortClock(left)}</em>}
+      </p>
+      {action}
+    </div>
+  );
+}
+
+
+/** The hand-drawn red arrow and note that point at the change chat (UX review 2026-10-27); the arrow draws itself once in view. */
+export function ArrowNote({ text }: { text: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return setShown(true);
+    const io = new IntersectionObserver(([entry]) => entry.isIntersecting && (setShown(true), io.disconnect()), { threshold: 0.6 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className={cn(s.arrowNote, shown && s.arrowShown)} aria-hidden="true">
+      {text && <span className={cn(caveat.className, s.arrowText)}>{text}</span>}
+      <svg className={s.arrowSvg} viewBox="0 0 90 70" fill="none">
+        <path d="M6 6 C 40 4, 70 18, 72 52" stroke="#c0271c" strokeWidth="3.5" strokeLinecap="round" />
+        <path d="M60 42 L72 56 L82 41" stroke="#c0271c" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
+
+/** The chat's words: the $49 page's (UNLOCK_PAGE.chat) by default, the free thank-you page's own there. */
+export interface ChangeChatCopy {
+  title: string;
+  note: string;
+  hello: string;
+  ideas: ReadonlyArray<{ label: string; ask: string }>;
+  thinking: string;
+  listTitle: string;
+  listNote: string;
+  placeholder: string;
+  send: string;
+  limit: string;
+  error: string;
+}
+
+interface ChangeChatProps {
+  copy?: ChangeChatCopy;
+  token: string;
+  plan: string[] | null;
+  onPlan: (plan: string[]) => void;
+  /** Replaces the note under the saved list. */
+  note?: string;
+  /** A chip tap from the page: send this text (or just focus the box when text is null). n changes on every tap. */
+  pending: { text: string | null; n: number };
+  buy: ReactNode;
+  /** After the free change: what it made (ticked under madeTitle); the rest of the list shows under nextTitle, not ticked. */
+  made?: { items: string[]; madeTitle: string; nextTitle: string; headNote: string } | null;
+}
+
+/** The change chat (change-chat.ts): the visitor tells the assistant what to change before paying; the confirmed list is saved. */
+export function ChangeChat({ copy, token, plan, onPlan, pending, buy, note, made }: ChangeChatProps) {
+  const F: ChangeChatCopy = copy ?? UNLOCK_PAGE.chat;
+  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>(F.hello ? [{ role: 'assistant', text: F.hello }] : []);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [glow, setGlow] = useState(false);
+  const list = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const started = messages.some((m) => m.role === 'user');
+
+  useEffect(() => {
+    const el = list.current;
+    if (el && messages.length > 1) el.scrollTop = el.scrollHeight;
+  }, [messages, busy]);
+
+  // A soft glow on the message box the first time the chat is on screen.
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([entry]) => entry.isIntersecting && (setGlow(true), io.disconnect()), { threshold: 0.5 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const send = useCallback(
+    async (raw: string) => {
+      const said = raw.trim();
+      if (!said || busy) return;
+      const next = [...messages, { role: 'user' as const, text: said.slice(0, 600) }];
+      setMessages(next);
+      setText('');
+      setBusy(true);
+      try {
+        // The greeting is the page's own line: the model sees the talk from the visitor's first message.
+        // Some chats have no greeting (the free top on the result page), so only a leading greeting is dropped.
+        const talk = next[0]?.role === 'assistant' ? next.slice(1) : next;
+        const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/change-chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: talk.slice(-16) }),
+        });
+        const answer = await res.json().catch(() => null);
+        if (res.ok && answer?.success) {
+          setMessages((m) => [...m, { role: 'assistant', text: answer.data.reply as string }]);
+          if (Array.isArray(answer.data.changes) && answer.data.changes.length) onPlan(answer.data.changes as string[]);
+        } else {
+          setMessages((m) => [...m, { role: 'assistant', text: answer?.details?.code === 'limit' ? F.limit : F.error }]);
+        }
+      } catch {
+        setMessages((m) => [...m, { role: 'assistant', text: F.error }]);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, messages, token, onPlan, F.limit, F.error]
+  );
+
+  // A tap on a chip under the headline or on "Want changes first?".
+  const lastPending = useRef(0);
+  useEffect(() => {
+    if (pending.n === 0 || pending.n === lastPending.current) return;
+    lastPending.current = pending.n;
+    if (pending.text) void send(pending.text);
+    else if (window.matchMedia('(min-width: 860px)').matches) input.current?.focus({ preventScroll: true });
+  }, [pending, send]);
+
+  return (
+    <div ref={box} className={s.chat}>
+      <div className={s.chatHead}>
+        <span className={s.chatFace}>
+          <Image src={SALES_PAGE_FOUNDER_PHOTO} alt="Szilard" width={88} height={88} sizes="44px" />
+        </span>
+        <div>
+          <p className={s.chatTitle}>{F.title}</p>
+          <p className={s.chatNote}>{made ? made.headNote : F.note}</p>
+        </div>
+      </div>
+      <div ref={list} className={s.chatList} aria-live="polite">
+        {messages.map((m, i) =>
+          m.role === 'user' ? (
+            <p key={i} className={s.chatMe}>
+              {m.text}
+            </p>
+          ) : (
+            <p key={i} className={s.chatThem}>
+              {m.text}
+            </p>
+          )
+        )}
+        {!started && (
+          <div className={s.chatIdeas}>
+            {F.ideas.map((idea) => (
+              <button key={idea.label} type="button" onClick={() => void send(idea.ask)}>
+                {idea.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {busy && (
+          <p className={cn(s.chatThem, s.chatBusy)}>
+            <span className={s.dots} aria-label={F.thinking}>
+              <i />
+              <i />
+              <i />
+            </span>
+          </p>
+        )}
+      </div>
+      {made ? (
+        <div className={s.chatPlan}>
+          {made.items.length > 0 && (
+            <>
+              <p>
+                <b>{made.madeTitle}</b>
+              </p>
+              <ul className={s.checklist}>
+                {made.items.map((c) => (
+                  <li key={c}>
+                    <span className={s.tick}>
+                      <Tick size={11} stroke={3.5} />
+                    </span>
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {nextChanges(plan, made.items).length > 0 && (
+            <>
+              <p>
+                <b>{made.nextTitle}</b>
+              </p>
+              <ul className={s.checklist}>
+                {nextChanges(plan, made.items).map((c) => (
+                  <li key={c}>
+                    <span className={s.openTick} aria-hidden="true" />
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <p className={s.chatNote}>{note ?? F.listNote}</p>
+          {buy}
+        </div>
+      ) : (
+        plan && (
+          <div className={s.chatPlan}>
+            <p>
+              <b>{F.listTitle}</b>
+            </p>
+            <ul className={s.checklist}>
+              {plan.map((c) => (
+                <li key={c}>
+                  <span className={s.tick}>
+                    <Tick size={11} stroke={3.5} />
+                  </span>
+                  {c}
+                </li>
+              ))}
+            </ul>
+            <p className={s.chatNote}>{note ?? F.listNote}</p>
+            {buy}
+          </div>
+        )
+      )}
+      <form
+        className={cn(s.chatForm, glow && s.chatGlow, text.trim() && s.chatReady)}
+        onSubmit={(e) => {
+          e.preventDefault();
+          void send(text);
+        }}
+      >
+        <input ref={input} value={text} onChange={(e) => setText(e.target.value)} placeholder={F.placeholder} maxLength={600} aria-label={F.title} />
+        <button type="submit" disabled={busy || !text.trim()} aria-label={F.send}>
+          <ArrowUp size={18} strokeWidth={2.75} aria-hidden="true" />
+        </button>
+      </form>
+    </div>
+  );
+}
+
+/** The visitor's video ad, big, with sound, over a dark backdrop (UX review 2026-10-27: on a computer the page shows a small preview). */
+function BigPlayer({ src, label, onClose }: { src: string; label: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflow;
+    };
+  }, [onClose]);
+  return (
+    <div className={s.bigBack} role="dialog" aria-modal="true" aria-label={label} onClick={onClose}>
+      <div className={s.bigBox} onClick={(e) => e.stopPropagation()}>
+        <video src={src} controls autoPlay playsInline className={s.bigVideo} />
+        <button type="button" className={s.bigClose} onClick={onClose} aria-label={UNLOCK_PAGE.close}>
+          <X size={22} strokeWidth={2.5} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Clock() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true" style={{ verticalAlign: '-2px' }}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+function Unlocking({ view, token, requested, preview }: { view: FreeVideoView; token: string; requested: string[]; preview: boolean }) {
+  const F = UNLOCK_PAGE.thanks;
+  const ai = useAiChanges(token, !preview);
+  const running = ai.changes.find((c) => c.status === 'working');
+  return (
+    <>
+      <section className={cn(s.section, s.thanksTop)}>
+        <div className={s.narrow}>
+          <div className={s.paidStrip} role="status">
+            <span className={s.statusTick}>
+              <Tick size={14} stroke={3} />
+            </span>
+            <div>
+              <h1>{F.paidTitle(view.firstName)}</h1>
+              <p>{F.paidNote}</p>
+              {running && (
+                <div className={s.makingChanges}>
+                  <b>{UNLOCK_PAGE.changes.working(running.text)}</b>
+                  <div className={s.progressTrack}>
+                    <span style={{ width: `${Math.max(12, running.progress)}%` }} />
+                  </div>
+                </div>
+              )}
+              {requested.length > 0 && (
+                <div className={s.makingChanges}>
+                  <b>{F.makingChanges}</b>
+                  {requested.map((r) => (
+                    <p key={r}>{r}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+      <AimmUpsell view={view} token={token} />
+    </>
+  );
+}
+
+/**
+ * The upsell after the $49 payment (owner 2026-10-28): the AI Media Machine's full sales page from the result page,
+ * replacing the Weekly Video Plan ("people buy the $49 easily, and then they easily buy the $297"). No 3-day bonus here
+ * (they already own the clean video ad), so the price clock is the sales page's own. Its buttons carry the lead's id in
+ * ClickBank's tracking id, so a sale from this page shows up on the $49 buyer.
+ */
+function AimmUpsell({ view, token }: { view: FreeVideoView; token: string }) {
+  const none = useCallback(() => undefined, []);
+  // A buyer who already owns the AI Media Machine (Tim, Lucky) sees no offer for it.
+  if (view.isCustomer) return null;
+  return <ResultSalesPage view={view} token={token} bonus={false} deadline={null} onPlayWithSound={none} onComplete={none} afterUnlock />;
+}
+
+/** The Weekly Video Plan offer after the $49 payment (owner 2026-10-27, rebuilt after the 3-expert review): the offer names itself first. Off the page since 2026-10-28 (AimmUpsell); kept to switch back. */
+export function WeeklyPlanOffer({ view, token, kicker, preview = false }: { view: FreeVideoView; token: string; kicker: string; preview?: boolean }) {
+  const F = UNLOCK_PAGE.thanks;
+  const [declined, setDeclined] = useState(false);
+  const planned = (view.nextAds ?? []).slice(0, 3);
+  const promoImage = view.poster || planned[0]?.imageUrl || null;
+  if (declined) {
+    return (
+      <section className={s.section}>
+        <div className={cn(s.narrow, s.center)}>
+          <p className={s.p}>{F.declined}</p>
+        </div>
+      </section>
+    );
+  }
+  const cards = [
+    ...planned.map((ad) => ({ key: String(ad.n), title: ad.title, teaser: ad.teaser, image: ad.imageUrl })),
+    { key: 'promo', title: F.promoCard.title, teaser: F.promoCard.teaser, image: promoImage },
+  ].slice(0, 4);
+  const buy = (
+    <div className={s.thanksBuy}>
+      <a className={s.button} href={planGoUrl(token)} target="_blank" rel="noopener noreferrer">
+        {F.button}
+      </a>
+      <p className={s.small}>{F.today}</p>
+    </div>
+  );
+  return (
+    <section className={cn(s.section, s.thanks)}>
+      <div className={s.narrow}>
+        <div className={s.thanksHead}>
+          <p className={s.label}>{kicker}</p>
+          <h2 className={s.h2}>{F.title(view.domain)}</h2>
+          <p className={s.p}>{F.sub}</p>
+        </div>
+        {F.salesVideo ? (
+          <div className={s.salesVideo}>
+            {/* Owner's own landscape message (2026-10-27): a plain wide player, sound on when they press play. */}
+            <video className={s.salesVideoEl} src={F.salesVideo} poster={F.salesVideoPoster || undefined} controls playsInline preload="metadata" aria-label="A message from Szilard" />
+          </div>
+        ) : preview ? (
+          <div className={s.salesVideoSpot}>{F.salesVideoSpot}</div>
+        ) : null}
+        {buy}
+        <div className={s.thanksBlock}>
+          <p className={s.h3}>{F.plannedTitle}</p>
+          <p className={s.p}>{F.plannedNote}</p>
+          <ul className={s.plannedGrid}>
+            {cards.map((card, i) => (
+              <li key={card.key}>
+                <span className={s.plannedImage}>
+                  {card.image ? <Image src={card.image} alt="" width={432} height={540} sizes="(min-width: 700px) 150px, 45vw" /> : null}
+                  <em>
+                    {F.week(i + 1)} · {F.styles[i]}
+                  </em>
+                </span>
+                <b>{card.title}</b>
+                <span>{card.teaser}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className={s.thanksBlock}>
+          <p className={s.h3}>{F.howTitle}</p>
+          <ol className={s.steps}>
+            {F.how.map((step, i) => (
+              <li key={step.title}>
+                <span className={s.stepNum}>{i + 1}</span>
+                <div>
+                  <h3>{step.title}</h3>
+                  <p>{step.text}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className={s.getBox}>
+          <p className={s.h3}>{F.getTitle}</p>
+          <ul className={s.checklist}>
+            {F.get.map((line) => (
+              <li key={line}>
+                <span className={s.tick}>
+                  <Tick size={11} stroke={3.5} />
+                </span>
+                {line}
+              </li>
+            ))}
+          </ul>
+          <div className={s.getPrices}>
+            <p className={s.strikeLine}>{F.oneByOne}</p>
+            <p>{F.planPrice}</p>
+            <p className={s.firstMonth}>{F.firstMonth}</p>
+          </div>
+          {buy}
+        </div>
+        {F.quote && (
+          <figure className={s.review}>
+            <figcaption className={s.reviewHead}>
+              <Image className={s.reviewFace} src={F.quote.photo} alt={F.quote.name} width={80} height={80} sizes="40px" />
+              <span>
+                <b>{F.quote.name}</b>
+                <small>{F.quote.role}</small>
+              </span>
+              <Stars size={12} label={UNLOCK_PAGE.proof.stars} />
+            </figcaption>
+            <blockquote>&ldquo;{F.quote.quote}&rdquo;</blockquote>
+          </figure>
+        )}
+        <div className={s.thanksBlock}>
+          <p className={s.h3}>{F.riskTitle}</p>
+          <ul className={s.checklist}>
+            {F.risk.map((line) => (
+              <li key={line}>
+                <span className={s.tick}>
+                  <Tick size={11} stroke={3.5} />
+                </span>
+                {line}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className={s.thanksBlock}>
+          <p className={s.h3}>{F.faqTitle}</p>
+          <dl className={s.faq}>
+            {F.faq.map((item) => (
+              <div key={item.q}>
+                <dt>{item.q}</dt>
+                <dd>{item.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+        {buy}
+        <button type="button" className={s.noThanks} onClick={() => setDeclined(true)}>
+          {F.noThanks}
+        </button>
+        <div className={s.thanksSign}>
+          <Image className={s.chatFaceImg} src={SALES_PAGE_FOUNDER_PHOTO} alt="Szilard" width={96} height={96} sizes="48px" />
+          <p>
+            {F.sign}
+            <br />
+            <b>{F.signName}</b>
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+interface ReadyProps {
+  view: FreeVideoView;
+  token: string;
+  requested: string[];
+  trial: boolean;
+  preview: boolean;
+  changesLeft: number;
+  onDownload: () => void;
+}
+
+function Ready({ view, token, requested, trial, preview, changesLeft, onDownload }: ReadyProps) {
+  const F = UNLOCK_PAGE.ready;
+  const ai = useAiChanges(token, !preview);
+  const newest = [...ai.changes].reverse().find((c) => c.status === 'done' && c.videoUrl);
+  const [picked, setPicked] = useState<string | null>(null);
+  const original = view.unlock.cleanVideoUrl as string;
+  const clean = picked ?? newest?.videoUrl ?? original;
+  const download = clean === original ? view.unlock.cleanDownloadUrl ?? clean : clean;
+  const versions = [{ label: UNLOCK_PAGE.changes.original, url: original }, ...ai.changes.filter((c) => c.status === 'done' && c.videoUrl).map((c) => ({ label: UNLOCK_PAGE.changes.version(c.round), url: c.videoUrl as string }))];
+  return (
+    <>
+      <section className={cn(s.section, s.thanksTop)}>
+        <div className={cn(s.narrow, s.readyWide)}>
+          <h1 className={cn(s.title, s.center, s.readyTitle)}>{F.title}</h1>
+          {/* Owner 2026-10-29: on a computer the video and the change tool sit side by side, so the offer below shows sooner. */}
+          <div className={s.readyGrid}>
+            <div className={s.readyLeft}>
+              <div className={cn(s.readyVideo, trial && s.readyVideoSmall)}>
+                <VideoAdPlayer key={clean} src={clean} label={PLAYER.label(view.domain)} className={rp.heroPlayerFrame} tapToPlay />
+              </div>
+              {versions.length > 1 && (
+                <p className={s.versions}>
+                  {UNLOCK_PAGE.changes.versions}{' '}
+                  {versions.map((v) => (
+                    <button key={v.url} type="button" className={cn(s.versionLink, v.url === clean && s.versionOn)} onClick={() => setPicked(v.url)}>
+                      {v.label}
+                    </button>
+                  ))}
+                </p>
+              )}
+              <a className={trial ? s.downloadQuiet : s.button} href={download} onClick={onDownload} download>
+                {trial && <Download size={17} strokeWidth={2.5} aria-hidden="true" />} {F.button}
+              </a>
+              <SaveToPhotos url={clean} fileName={DOWNLOAD.cleanFileName(view.domain)} onSaved={onDownload} variant="link" />
+            </div>
+            <div className={s.readyRight}>
+              {requested.length > 0 && (
+                <div className={s.chatPlan}>
+                  <p>
+                    <b>{F.requestedTitle}</b>
+                  </p>
+                  {requested.map((r) => (
+                    <p key={r} className={s.requestedText}>
+                      {r}
+                    </p>
+                  ))}
+                  <p className={s.chatNote}>{F.requestedNote}</p>
+                </div>
+              )}
+              {/* Owner 2026-10-29: buyers all use the change tool, so it is open right under the video, never folded behind a link. */}
+              <ChangesPanel token={token} ai={ai} changesLeft={changesLeft} startOpen justDone={Boolean(newest) && !picked} />
+            </div>
+          </div>
+        </div>
+      </section>
+      <AimmUpsell view={view} token={token} />
+    </>
+  );
+}
+
+interface AiChangeRow {
+  round: number;
+  text: string;
+  jobId: string;
+  status: 'working' | 'done' | 'failed';
+  progress: number;
+  videoUrl: string | null;
+  at?: string;
+}
+
+/** The lead's instant changes (instant-change.ts), asked again every 5 seconds while one is being made. */
+function useAiChanges(token: string, enabled: boolean) {
+  const [state, setState] = useState<{ changes: AiChangeRow[]; left: number; loaded: boolean }>({ changes: [], left: 3, loaded: false });
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/ai-change`, { cache: 'no-store' });
+      const answer = await res.json().catch(() => null);
+      if (res.ok && answer?.success) setState({ changes: answer.data.changes, left: answer.data.left, loaded: true });
+    } catch {
+      /* the next round asks again */
+    }
+  }, [token]);
+  useEffect(() => {
+    if (enabled) void load();
+  }, [enabled, load]);
+  const working = state.changes.some((c) => c.status === 'working');
+  useEffect(() => {
+    if (!enabled || !working) return;
+    const timer = window.setInterval(() => void load(), 5000);
+    return () => window.clearInterval(timer);
+  }, [enabled, working, load]);
+  return { ...state, working, reload: load, set: setState };
+}
+
+type AiState = ReturnType<typeof useAiChanges>;
+
+
+const FILE_OK = /\.(jpe?g|png|webp|tiff?|gif|bmp|heic|heif|avif|mp4|mov|webm|m4v)$/i;
+const MAX_FILES = 5;
+const MAX_MB = 100;
+
+/** Sends the picked files straight to storage (signed URLs from /change-uploads). Throws when one fails. */
+async function uploadChangeFiles(token: string, files: File[]): Promise<{ uploadJobId?: string; uploads: { name: string; path: string }[] }> {
+  if (!files.length) return { uploads: [] };
+  const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/change-uploads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ files: files.map((f) => ({ name: f.name, size: f.size })) }),
+  });
+  const answer = await res.json().catch(() => null);
+  if (!res.ok || !answer?.success) throw new Error('slots');
+  const slots = answer.data.slots as { name: string; path: string; uploadUrl: string }[];
+  for (const [i, slot] of slots.entries()) {
+    const put = await fetch(slot.uploadUrl, { method: 'PUT', headers: { 'Content-Type': files[i].type || 'application/octet-stream' }, body: files[i] });
+    if (!put.ok) throw new Error('upload');
+  }
+  return { uploadJobId: answer.data.uploadJobId, uploads: slots.map(({ name, path }) => ({ name, path })) };
+}
+
+/** The file picker of a change: photos, logos and clips, with the limits written next to it (owner 2026-10-27). */
+function FilePicker({ files, onChange, disabled }: { files: File[]; onChange: (files: File[]) => void; disabled?: boolean }) {
+  const F = UNLOCK_PAGE.changes;
+  const input = useRef<HTMLInputElement>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const add = (picked: File[]) => {
+    const wrong = picked.filter((f) => !FILE_OK.test(f.name));
+    const big = picked.filter((f) => FILE_OK.test(f.name) && f.size > MAX_MB * 1024 * 1024);
+    setWarning([wrong.length ? F.filesWrongType(wrong.map((f) => f.name).join(', ')) : '', big.length ? F.filesTooBig(big.map((f) => f.name).join(', ')) : ''].filter(Boolean).join(' ') || null);
+    onChange([...files, ...picked.filter((f) => !wrong.includes(f) && !big.includes(f))].slice(0, MAX_FILES));
+  };
+  return (
+    <div className={s.filePicker}>
+      <input
+        ref={input}
+        type="file"
+        multiple
+        hidden
+        accept="image/*,video/mp4,video/quicktime,video/webm,.heic,.heif"
+        onChange={(e) => {
+          add(Array.from(e.target.files ?? []));
+          e.target.value = '';
+        }}
+      />
+      {files.length < MAX_FILES && (
+        <button type="button" className={s.fileButton} onClick={() => input.current?.click()} disabled={disabled}>
+          <Paperclip size={16} strokeWidth={2.5} aria-hidden="true" /> {F.filesButton}
+        </button>
+      )}
+      <p className={s.fileLimit}>{F.filesLimit}</p>
+      {files.length > 0 && (
+        <ul className={s.fileList}>
+          {files.map((f, i) => (
+            <li key={`${f.name}-${i}`}>
+              <span>{f.name}</span>
+              <button type="button" onClick={() => onChange(files.filter((_, j) => j !== i))} disabled={disabled} aria-label={`${F.remove} ${f.name}`}>
+                <X size={14} strokeWidth={2.5} aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {warning && <p className={s.fileWarning}>{warning}</p>}
+    </div>
+  );
+}
+
+/** The two ways to change a paid video ad: unlimited instant AI changes, and the team for anything else (owner 2026-10-27). */
+function ChangesPanel({ token, ai, changesLeft, startOpen, justDone }: { token: string; ai: AiState; changesLeft: number; startOpen: boolean; justDone: boolean }) {
+  const F = UNLOCK_PAGE.changes;
+  const [open, setOpen] = useState(startOpen);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [human, setHuman] = useState(false);
+  /** Phones only (owner 2026-10-29, expert panel): the two ways start as two big buttons, so the offer below comes up sooner. */
+  const [unfolded, setUnfolded] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const running = ai.changes.find((c) => c.status === 'working');
+  const last = ai.changes[ai.changes.length - 1];
+
+  const start = async () => {
+    const said = text.trim();
+    if (said.length < 3 || busy) return;
+    setBusy(true);
+    setMessage(files.length ? F.filesUploading : null);
+    try {
+      let sent: Awaited<ReturnType<typeof uploadChangeFiles>>;
+      try {
+        sent = await uploadChangeFiles(token, files);
+      } catch {
+        setMessage(F.filesFailed);
+        return;
+      }
+      setMessage(null);
+      const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/ai-change`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: said, ...sent }),
+      });
+      const answer = await res.json().catch(() => null);
+      if (res.ok && answer?.success) {
+        ai.set({ changes: answer.data.changes, left: answer.data.left, loaded: true });
+        setText('');
+        setFiles([]);
+      } else {
+        const code = answer?.details?.code as keyof typeof F.refusals | undefined;
+        setMessage(code && code in F.refusals ? F.refusals[code] : F.refusals.generic);
+        if (code === 'style') setHuman(true);
+      }
+    } catch {
+      setMessage(F.refusals.generic);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (running) {
+    return (
+      <div className={s.aiWorking} role="status">
+        <b>{F.working(running.text)}</b>
+        <div className={s.progressTrack}>
+          <span style={{ width: `${Math.max(12, running.progress)}%` }} />
+        </div>
+        <p>{F.workingNote}</p>
+      </div>
+    );
+  }
+  if (!open) {
+    return (
+      <>
+        {justDone && <p className={s.aiDone}>{F.doneNote}</p>}
+        {last?.status === 'failed' && <p className={s.aiDone}>{F.failed}</p>}
+        <button type="button" className={s.askLink} onClick={() => setOpen(true)}>
+          {F.open}
+        </button>
+      </>
+    );
+  }
+  return (
+    <div className={s.changesPanel}>
+      <p className={s.changesHead}>
+        {F.panelTitle} {F.panelTitleRed}
+      </p>
+      {justDone && <p className={s.aiDone}>{F.doneNote}</p>}
+      {last?.status === 'failed' && <p className={s.aiDone}>{F.failed}</p>}
+      {!unfolded && (
+        <div className={s.changeChoices}>
+          <button type="button" className={s.choiceMine} onClick={() => setUnfolded(true)}>
+            {F.choiceMine} <small>{F.choiceMineTime}</small>
+          </button>
+          <button type="button" className={s.choiceTeam} onClick={() => (setHuman(true), setUnfolded(true))}>
+            {F.choiceTeam} <small>{F.choiceTeamTime}</small>
+          </button>
+        </div>
+      )}
+      <div className={cn(s.changeWays, !unfolded && s.changeWaysFolded)}>
+      <div className={cn(s.changeWay, s.changeWayMain)}>
+        <p className={s.changeWayTitle}>
+          <Sparkles size={16} strokeWidth={2.5} aria-hidden="true" /> {F.instantTitle}
+        </p>
+        {ai.left > 0 ? (
+          <>
+            <p className={s.small}>{F.instantNote(ai.left)}</p>
+            <textarea className={s.box} rows={3} maxLength={1500} placeholder={F.placeholder} value={text} onChange={(e) => setText(e.target.value)} />
+            <FilePicker files={files} onChange={setFiles} disabled={busy} />
+            <button type="button" className={s.instantButton} onClick={start} disabled={busy || text.trim().length < 3}>
+              {busy ? F.starting : F.instantButton}
+            </button>
+          </>
+        ) : (
+          <p className={s.small}>{F.instantNone}</p>
+        )}
+        {message && (
+          <p className={s.sent} role="status">
+            {message}
+          </p>
+        )}
+      </div>
+      <div className={s.changeWay}>
+        <div className={s.humanHead}>
+          <Image className={s.humanFace} src={SALES_PAGE_FOUNDER_PHOTO} alt="Szilard" width={96} height={96} sizes="48px" />
+          <p className={s.changeWayTitle}>{F.humanTitle}</p>
+        </div>
+        <p className={s.small}>{F.humanNote}</p>
+        {human || ai.left === 0 ? (
+          <ChangeBox token={token} initialLeft={changesLeft} />
+        ) : (
+          <button type="button" className={s.buttonQuiet} onClick={() => setHuman(true)}>
+            {F.humanButton}
+          </button>
+        )}
+      </div>
+      </div>
+    </div>
+  );
+}
+
+function ChangeBox({ token, initialLeft, collapsible = false }: { token: string; initialLeft: number; collapsible?: boolean }) {
+  const F = UNLOCK_PAGE.ready;
+  const [open, setOpen] = useState(!collapsible);
+  const [text, setText] = useState('');
+  const [left, setLeft] = useState(initialLeft);
+  const [sending, setSending] = useState(false);
+  const [message, setMessage] = useState<string | null>(left > 0 ? null : F.refusals.noRoundsLeft);
+  const [files, setFiles] = useState<File[]>([]);
+
+  const send = async () => {
+    if (text.trim().length < 3 || sending) return;
+    setSending(true);
+    try {
+      let sent: Awaited<ReturnType<typeof uploadChangeFiles>>;
+      try {
+        sent = await uploadChangeFiles(token, files);
+      } catch {
+        setMessage(UNLOCK_PAGE.changes.filesFailed);
+        return;
+      }
+      const res = await fetch(`/api/free-video/${encodeURIComponent(token)}/change`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text.trim(), ...sent }),
+      });
+      const answer = await res.json().catch(() => null);
+      if (res.ok && answer?.success) {
+        const now = Number(answer.data?.left ?? 0);
+        setLeft(now);
+        setText('');
+        setFiles([]);
+        setMessage(F.sent());
+      } else {
+        const code = answer?.details?.code as keyof typeof F.refusals | undefined;
+        if (code === 'noRoundsLeft') setLeft(0);
+        setMessage(code && code in F.refusals ? F.refusals[code] : F.refusals.generic);
+      }
+    } catch {
+      setMessage(F.refusals.generic);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (!open && left > 0) {
+    return (
+      <button type="button" className={s.askLink} onClick={() => setOpen(true)}>
+        {F.changeOpen}
+      </button>
+    );
+  }
+  return (
+    <div className={s.changeBox}>
+      {left > 0 && (
+        <>
+          <label className={s.boxLabel}>
+            {F.changeLabel}
+            <textarea className={s.box} rows={3} maxLength={2000} placeholder={F.changePlaceholder} value={text} onChange={(e) => setText(e.target.value)} />
+          </label>
+          <FilePicker files={files} onChange={setFiles} disabled={sending} />
+          <button type="button" className={s.buttonQuiet} onClick={send} disabled={sending || text.trim().length < 3}>
+            {sending ? F.sending : F.changeButton}
+          </button>
+          <p className={s.small}>{F.changeNote}</p>
+        </>
+      )}
+      {message && (
+        <p className={s.sent} role="status">
+          {message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** The small Weekly Video Plan card. Off the page since 2026-10-28 (AimmUpsell); kept to switch back. */
+export function WeeklyPlanCard({ view, token }: { view: FreeVideoView; token: string }) {
+  const F = UNLOCK_PAGE.plan;
+  return (
+    <div className={s.upsell}>
+      <p className={s.upsellKicker}>{F.kicker}</p>
+      <h2 className={s.h2}>{F.title(view.domain)}</h2>
+      <p className={s.upsellText}>{F.text}</p>
+      <p className={s.upsellPrice}>
+        <b>{F.price}</b> <span>{F.priceUnit}</span>
+      </p>
+      <a className={s.button} href={planGoUrl(token)} target="_blank" rel="noopener noreferrer">
+        {F.button}
+      </a>
+      <a className={s.noThanks} href={PLAN_INFO_PATH} target="_blank" rel="noopener noreferrer">
+        {F.more}
+      </a>
+    </div>
+  );
+}
+
+function Note({ title, text, link }: { title: string; text: string; link?: { href: string; label: string } }) {
+  return (
+    <section className={s.section}>
+      <div className={cn(s.narrow, s.center)}>
+        <h1 className={cn(s.title, s.readyTitle)}>{title}</h1>
+        <p className={s.p}>{text}</p>
+        {link && (
+          <a className={s.button} href={link.href}>
+            {link.label}
+          </a>
+        )}
+      </div>
+    </section>
+  );
+}

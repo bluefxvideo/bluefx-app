@@ -99,6 +99,11 @@ export async function refundFailedGeneration(opts: {
       amount = Math.abs(debits[0].amount || 0);
       const m = (debits[0].metadata || {}) as Record<string, string>;
       matchedRef = m.batch_id || m.job_id || m.prediction_id;
+      // A credit bank account's debit records which bucket paid (bank or credit pack). Its
+      // refund goes back to those buckets and takes the bank part off the 30-day window usage.
+      if ((debits[0].metadata as Record<string, unknown> | null)?.credit_bank) {
+        return await refundCreditBankDebit(supabase, opts.userId, debits[0].id, matchedRef || refs[0], opts.operation);
+      }
     } else if (!debits || debits.length === 0) {
       // 2b) voice-over / music ledger
       const { data: usage } = await supabase
@@ -160,4 +165,25 @@ export async function refundFailedGeneration(opts: {
     console.error('refundFailedGeneration error:', error);
     return { refunded: false, reason: error instanceof Error ? error.message : 'refund failed' };
   }
+}
+
+/** Refund of a credit bank debit, atomically in the database (credit_bank_refund). */
+async function refundCreditBankDebit(
+  supabase: ReturnType<typeof createAdminClient>,
+  userId: string,
+  debitId: string,
+  reference: string,
+  operation: string,
+): Promise<{ refunded: boolean; amount?: number; reason?: string }> {
+  const { data, error } = await supabase.rpc('credit_bank_refund', {
+    p_user_id: userId,
+    p_debit_id: debitId,
+    p_reference: reference,
+    p_operation: operation,
+  });
+  if (error) return { refunded: false, reason: `credit bank refund failed: ${error.message}` };
+  const result = (data || {}) as { success?: boolean; amount?: number; error?: string };
+  if (!result.success) return { refunded: false, reason: result.error || 'credit bank refund failed' };
+  console.log(`💸 Refunded ${result.amount} credits to ${userId} for failed ${operation} (credit bank, ref ${reference})`);
+  return { refunded: true, amount: result.amount };
 }

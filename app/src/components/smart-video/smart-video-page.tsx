@@ -56,6 +56,10 @@ export function SmartVideoPage() {
   useEffect(() => {
     document.title = !job
       ? TOOL
+      : job.status === 'script'
+        ? `Your script is ready · ${TOOL}`
+        : job.scriptFirst && !job.approvedAt && job.status !== 'failed'
+          ? `Writing your script… · ${TOOL}`
       : job.status === 'done'
         ? `Your video ad is ready · ${TOOL}`
         : job.status === 'failed'
@@ -70,15 +74,20 @@ export function SmartVideoPage() {
   const watched = useRef<string | null>(null);
   useEffect(() => {
     if (!job) return;
-    const running = job.status !== 'done' && job.status !== 'failed';
+    const running = job.status !== 'done' && job.status !== 'failed' && job.status !== 'script';
     if (running) watched.current = job.id;
+    else if (job.status === 'script') {
+      // Script first: the script came while the page was open. The video ad is still watched once it is approved.
+      if (watched.current === job.id) toast.success('Your script is ready to read.');
+      watched.current = null;
+    }
     else if (watched.current === job.id) {
       watched.current = null;
       if (job.status === 'done') toast.success(job.parentId ? 'Your changed video ad is ready.' : 'Your video ad is ready.');
       else if (job.freeLeadId) toast.error(plainError(job.error));
       // A bonus video ad that failed is made again by the sweep (bonus-ads.ts): no alarm.
       else if (job.bonus) return;
-      else toast.error(job.parentId ? 'Your change did not go through.' : 'Your video ad could not be made.');
+      else toast.error(job.parentId ? 'Your change did not go through.' : job.scriptFirst && !job.approvedAt ? 'Your script could not be written.' : 'Your video ad could not be made.');
     }
   }, [job]);
 

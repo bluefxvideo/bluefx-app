@@ -1,3 +1,4 @@
+import { PRESENTER_LINE_MAX_WORDS } from './script-edit';
 import { isFalSafetyRefusal } from '@/actions/models/fal-error';
 import { ILLUSTRATION_LOOKS } from './audio';
 import { isIllustrated } from './types';
@@ -220,7 +221,8 @@ export async function shortenPresenterLine(line: string, brief: string): Promise
 }
 
 /** The longest scene 1 the presenter says; a longer one stays with the narrator. */
-export const PRESENTER_MAX_WORDS = 16;
+// The script page counts the same words (script-edit.ts): one number for both.
+export const PRESENTER_MAX_WORDS = PRESENTER_LINE_MAX_WORDS;
 
 /** The clip length for a line: the engine takes whole seconds. */
 export function clipSecondsFor(line: string): number {

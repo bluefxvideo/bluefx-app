@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/app/supabase/server'
 import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
 import { liftSuspensionAfterPurchase } from '@/lib/credits/subscription-entitlement'
+import { insertBuyerProfile } from '@/lib/credits/buyer-profile'
+import { grantCreditBankIfLaunched, lookupCreditBank } from '@/lib/credits/credit-bank'
 
 // Credit allocation constants - match FastSpring trial handling
 const TRIAL_CREDITS = 100;  // Trial users get limited credits (~$3-5 cost if fully used)
@@ -273,17 +275,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
     
     if (!profileData) {
       console.log(`Creating missing profile for existing user ${userId}`)
-      const cleanUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-      await supabase.from('profiles').insert({
-        id: userId,
-        email: email,
-        username: cleanUsername,
-        full_name: `${firstName} ${lastName}`.trim(),
-        bio: null,
-        avatar_url: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      await insertBuyerProfile(supabase, { userId, email: email, fullName: `${firstName} ${lastName}` })
     }
 
     // One subscription row per user (unique on user_id), whatever its status. A
@@ -305,6 +297,10 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
         console.log(`♾️ ${email} already owns lifetime; ${subscriptionType} sale leaves the plan as is`)
         return
       }
+      // Owns lifetime right now: a second lifetime sale never moves the account to the
+      // credit bank (existing lifetime buyers keep 600 every 30 days), and never resets a
+      // credit bank account to 600 either.
+      const ownsLifetime = existingSubscription.plan_type === 'lifetime' && existingSubscription.status === 'active'
       const reactivating = !['active', 'trial'].includes(existingSubscription.status)
       const periodStart = new Date()
       const periodDays = isLifetime ? 50 * 365 : (isYearly ? 365 : 30)
@@ -335,7 +331,12 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
         throw new Error(`Failed to update subscription: ${subscriptionUpdateError.message}`)
       }
 
-      await grantCredits(supabase, userId, creditsAllocation)
+      if (ownsLifetime && (await lookupCreditBank(userId, supabase)).kind !== 'legacy') {
+        console.log(`♾️ ${email} already owns lifetime on the credit bank; credits left as they are`)
+      } else {
+        await grantCredits(supabase, userId, creditsAllocation)
+      }
+      if (isLifetime && !ownsLifetime) await grantCreditBankIfLaunched(supabase, userId, `ClickBank sale ${receipt}`)
       // A returning buyer is often still suspended by their old cancellation
       if (!isTrial) await liftSuspensionAfterPurchase(supabase, userId, `ClickBank sale ${receipt}`)
 
@@ -371,17 +372,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
     console.log(`Created new ClickBank user: ${userId}`)
 
     // Create profile with a clean username (remove hyphens/special chars)
-    const cleanUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-    await supabase.from('profiles').insert({
-      id: userId,
-      email: email,
-      username: cleanUsername,
-      full_name: `${firstName} ${lastName}`.trim(),
-      bio: null,
-      avatar_url: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
+    await insertBuyerProfile(supabase, { userId, email: email, fullName: `${firstName} ${lastName}` })
 
     // Send password reset email via Supabase (uses Brevo SMTP)
     // redirectTo must point to auth-callback which verifies the token and redirects to setup-password
@@ -424,6 +415,7 @@ async function handleClickBankSale(customer: { email?: string; firstName?: strin
   }
 
   await grantCredits(supabase, userId, creditsAllocation)
+  if (isLifetime) await grantCreditBankIfLaunched(supabase, userId, `ClickBank sale ${receipt}`)
   if (existingUser && !isTrial) await liftSuspensionAfterPurchase(supabase, userId, `ClickBank sale ${receipt}`)
 
   console.log(`ClickBank subscription processed successfully for ${email}`)

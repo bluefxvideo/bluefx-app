@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, LAYOUT, LIVE, PLAYER, STATUS, SUPPORT_EMAIL, UNLOCK_COPY } from '@/lib/free-video/copy';
-import { servicePagePath, unlockGoUrl, type PagePlacement } from '@/lib/free-video/offer';
+import { servicePagePath, unlockGoUrl, unlockPagePath, type PagePlacement } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
 import type { FreeVideoUnlockState, FreeVideoUnlockView, FreeVideoView } from '@/types/free-video';
 import type { SmartVideoJobStatus } from '@/types/smart-video';
@@ -33,7 +33,7 @@ const SESSION_MS = 90 * 60_000;
 const UNLOCK_WINDOW_MS = 30 * 60_000;
 
 /** FREE_VIDEO_STEP_OF (types/free-video.ts), repeated here so the page bundle does not load zod. */
-const STEP_OF: Record<SmartVideoJobStatus, number> = { reading: 1, directing: 2, producing: 3, rendering: 4, finishing: 5, done: 5, failed: 5 };
+const STEP_OF: Record<SmartVideoJobStatus, number> = { reading: 1, directing: 2, script: 2, producing: 3, rendering: 4, finishing: 5, done: 5, failed: 5 };
 
 type UnlockInfo = FreeVideoUnlockView & { checkoutPath: string };
 
@@ -195,9 +195,12 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
 
   // The service funnel (funnel.ts): the finished video ad opens on the Unlimited Video Ads page, never the AI Media Machine offer.
   const toServicePage = !isDemo && Boolean(view.service) && view.state === 'ready' && Boolean(view.videoUrl);
+  // Funnel 2 since 2026-10-27: the finished video ad opens on the $49 page.
+  const toUnlockPage = !isDemo && Boolean(view.videoOffer) && view.state === 'ready' && Boolean(view.videoUrl);
   useEffect(() => {
     if (toServicePage) window.location.replace(servicePagePath(token));
-  }, [toServicePage, token]);
+    else if (toUnlockPage) window.location.replace(unlockPagePath(token));
+  }, [toServicePage, toUnlockPage, token]);
 
   const onCheckout = useCallback(() => {
     setUnlockClickedAt(Date.now());

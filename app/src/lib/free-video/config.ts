@@ -119,6 +119,12 @@ export const ML_GROUP_NAMES = {
 /** Every queued signup joins this group at submit (never a rejected one). No automation hangs on this group. */
 export const ML_GROUP_LEADS: string = '200567992522638921';
 /**
+ * A rejected signup (a refused or unreadable website) joins this group at submit (owner 2026-10-31). It triggers
+ * 'Free Video - No video rescue (auto)': 1 hour later, one email with the "video ad from a few lines" tutorial and
+ * the AI Media Machine. The automation excludes 'Free Video - Leads', so a retry that works cancels the email.
+ */
+export const ML_GROUP_NO_VIDEO: string = '202866392543790866';
+/**
  * Joining this group triggers 'Free Video Ad 1: Your video' (E1) and 'Free Video Ad 2: Follow-up' (E2, E3; it excludes
  * Bought and exits on it). Joined in the same upsert that sets the fields. Built through the MailerLite connector 2026-10-07.
  */
@@ -134,6 +140,8 @@ export const ML_GROUP_UNLOCKED: string = '200567993198970571';
  * the AI Media Machine ones. A service buyer joins 'Unlimited Video Ads - Joined', the follow-up's exit.
  */
 export const ML_GROUP_SERVICE_READY: string = '202278614287254624';
+/** Funnel 2 since 2026-10-27 (the $49 video ad offer, /v/<token>/unlock): its own Ready group starts its own emails. Empty = leads wait for their email. */
+export const ML_GROUP_VIDEO_READY: string = '202491974290245432';
 export const ML_GROUP_SERVICE_JOINED: string = '202278615316956617';
 
 /** True once all four group ids are filled in. */
@@ -169,6 +177,8 @@ export const CLARITY_PROJECT_ID: string = 'yw7btj04u8'; // Clarity project "Blue
 
 /** INTERNAL_NOTIFY_EMAIL of the waas funnels (bluefx-waas/client-bluefx/.env). */
 export const OWNER_ALERT_EMAIL = 'support@bluefx.net';
+/** Urgent alerts (an AI provider out of credits, owner 2026-10-27) also go to the owner's own inbox. */
+export const OWNER_URGENT_EMAILS = ['support@bluefx.net', 'contact@bluefx.net'] as const;
 /** BREVO_FROM_EMAIL of the waas funnels: a sender that already sends through Brevo. */
 export const ALERT_FROM = { email: 'support@bluefx.net', name: 'BlueFX Free Video' } as const;
 

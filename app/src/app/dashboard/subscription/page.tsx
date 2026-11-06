@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { CurrentSubscriptionSkeleton, CurrentCreditsSkeleton } from '@/components/dashboard/dashboard-skeletons'
 import { CancellationWarningModal } from '@/components/subscription/cancellation-warning-modal'
 import { CancellationFeedbackModal, type CancellationFeedback } from '@/components/subscription/cancellation-feedback-modal'
+import { useCredits } from '@/hooks/useCredits'
 import {
   CreditCard,
   AlertTriangle,
@@ -53,6 +54,8 @@ export default function SubscriptionPage() {
   const router = useRouter()
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [credits, setCredits] = useState<UserCredits | null>(null)
+  // New-model lifetime buyers: 5,000 credits once, never expiring (null for every other account)
+  const { bank: creditBank } = useCredits()
   const [user, setUser] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -337,13 +340,18 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
                 </div>
                 <div>
                   <h4 className="font-medium text-sm text-muted-foreground mb-1">
-                    {subscription.status === 'trial' ? 'Trial Credits' : 'Credits per Month'}
+                    {subscription.status === 'trial' ? 'Trial Credits' : creditBank ? 'Lifetime Credits' : 'Credits per Month'}
                   </h4>
                   <p className="text-lg font-semibold">
                     {subscription.status === 'trial'
                       ? (credits?.total_credits ?? 100).toLocaleString()
-                      : subscription.credits_per_month.toLocaleString()}
+                      : creditBank
+                        ? creditBank.bank_credits.toLocaleString()
+                        : subscription.credits_per_month.toLocaleString()}
                   </p>
+                  {creditBank && (
+                    <p className="text-xs text-muted-foreground">Never expire</p>
+                  )}
                   {subscription.status === 'trial' && (
                     <p className="text-xs text-muted-foreground">
                       {subscription.credits_per_month.toLocaleString()}/month after your trial converts
@@ -376,9 +384,11 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
                     <>
                       <p className="text-sm font-semibold">None — paid in full</p>
                       <p className="text-sm text-muted-foreground">
-                        {credits?.period_end
-                          ? `Credits refresh ${formatDate(credits.period_end)}`
-                          : 'Credits refresh monthly'}
+                        {creditBank
+                          ? 'Your credits never expire'
+                          : credits?.period_end
+                            ? `Credits refresh ${formatDate(credits.period_end)}`
+                            : 'Credits refresh monthly'}
                       </p>
                     </>
                   ) : (
@@ -397,7 +407,16 @@ ${user?.user_metadata?.full_name || 'BlueFX User'}`
               </div>
 
               {/* Lifetime explanation */}
-              {subscription.plan_type === 'lifetime' && (
+              {subscription.plan_type === 'lifetime' && creditBank && (
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Lifetime Access:</strong> You own AI Media Machine. Your {creditBank.bank_credits.toLocaleString()} credits
+                    never expire. No renewals, no billing, nothing to cancel.
+                    Need more? You can buy a credit pack anytime, and pack credits never expire either.
+                  </p>
+                </div>
+              )}
+              {subscription.plan_type === 'lifetime' && !creditBank && (
                 <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <p className="text-sm text-blue-800 dark:text-blue-200">
                     <strong>Lifetime Access:</strong> You own AI Media Machine. Your {subscription.credits_per_month.toLocaleString()} credits

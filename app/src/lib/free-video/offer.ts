@@ -5,7 +5,7 @@
  * Client-safe: no process.env and no server imports. The page components import this file.
  */
 
-import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
+import { PHANTOM_CREDITS } from '@/lib/smart-video/pricing';
 
 /**
  * Every place an offer button can sit: the thank-you page, the video ad page, the form's "one free video ad per
@@ -173,7 +173,9 @@ export const VIDEO_ADS_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / PHANTOM
  * 600 / 60 = 10 video ads a month like the free one, which opens with an AI presenter (runner.ts presenter: true, 10
  * credits more): the number the thank-you offer uses (owner 2026-10-08, one number everywhere).
  */
-export const VIDEO_ADS_LIKE_FREE_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / (PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS));
+// Kept at the approved 10 while the sales wording waits (owner 2026-11-02: the presenter is now included, so 600 credits
+// make 12; the sales pages change together, later).
+export const VIDEO_ADS_LIKE_FREE_PER_MONTH = 10;
 
 /**
  * What one video ad like the free one works out to: the lifetime price over a year of VIDEO_ADS_LIKE_FREE_PER_MONTH
@@ -181,6 +183,15 @@ export const VIDEO_ADS_LIKE_FREE_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS
  * down the math"). The page never shows the division (his girlfriend, same day: "so its 10 or 100 or ??").
  */
 export const PRICE_PER_VIDEO_AD_UNDER = `$${Math.ceil(Number(OFFER.now.replace(/\D/g, '')) / (VIDEO_ADS_LIKE_FREE_PER_MONTH * 12))}`;
+
+/**
+ * The credit bank (owner 2026-11-02, credit-bank.ts): new lifetime buyers get BANK_CREDITS once, never expiring. The
+ * sales copy switches to it when the bank is launched (credit-bank-launch.ts): 5,000 / 50 credits per video ad (the AI
+ * presenter is included) = 100 video ads, $297 / 100 = $2.97 a video ad.
+ */
+export const BANK_CREDITS = 5000;
+export const BANK_VIDEO_ADS = Math.floor(BANK_CREDITS / PHANTOM_CREDITS);
+export const PRICE_PER_BANK_VIDEO_AD = `$${(Number(OFFER.now.replace(/\D/g, '')) / BANK_VIDEO_ADS).toFixed(2)}`;
 
 /**
  * The 3-day bonus (owner 2026-10-08: "i love the deadline but its too long, 24h or 3 days"): a lead who buys the AI
@@ -224,17 +235,33 @@ export const claimUrl = (token: string) => `/go/claim?t=${encodeURIComponent(tok
  * buy-credits-dialog.tsx uses for userId; the webhook reads it back at data.tags.freeVideoLead.
  */
 export const UNLOCK = {
+  /** The regular price's product, $99 (after the launch clock). */
   product: 'video-creation',
+  /**
+   * The launch price (owner 2026-10-27): $49 on FastSpring's custom-video-ad for launchDays from the lead's first visit
+   * to the unlock page, then video-creation at $99. Both products unlock the video ad.
+   */
+  launchProduct: 'custom-video-ad',
+  /** Owner 2026-10-27: "3 days is more than enough" (was 7). */
+  launchDays: 3,
+  regularPrice: '$99',
   storefront: 'https://bluefx.onfastspring.com',
   tagKey: 'freeVideoLead',
-  price: '$99',
+  /** $49 since 2026-10-27 (owner: the unlock page sells the video ad itself, /v/<token>/unlock); the FastSpring product's own price must match. */
+  price: '$49',
   /** Not a ClickBank tid: /go/fvunlock is special-cased to the FastSpring checkout. */
   placement: 'fvunlock',
 } as const;
 
-/** The FastSpring checkout for one lead's unlock. */
-export const unlockCheckoutUrl = (token: string) =>
-  `${UNLOCK.storefront}/${UNLOCK.product}?tags=${UNLOCK.tagKey}:${encodeURIComponent(token)}`;
+/** The unlock page of one lead (owner 2026-10-27): pay once, download the video ad without the watermark, changes included. */
+export const unlockPagePath = (token: string) => `/v/${token}/unlock`;
+
+/** Every FastSpring product that unlocks a free video ad. */
+export const UNLOCK_PRODUCTS: readonly string[] = [UNLOCK.product, UNLOCK.launchProduct];
+
+/** The FastSpring checkout for one lead's unlock, at the launch price or the regular one. */
+export const unlockCheckoutUrl = (token: string, product: string = UNLOCK.launchProduct) =>
+  `${UNLOCK.storefront}/${product}?tags=${UNLOCK.tagKey}:${encodeURIComponent(token)}`;
 
 /** The same-origin link the unlock button uses: /go/fvunlock logs the click, then 302s to unlockCheckoutUrl(token). */
 export const unlockGoUrl = (token: string) => `/go/${UNLOCK.placement}?t=${encodeURIComponent(token)}`;
@@ -285,6 +312,21 @@ export const serviceCheckoutUrl = (token: string, product: string) =>
 
 /** The service emails' and old pages' checkout link: /go/fvservice logs the click, then 302s to serviceCheckoutUrl(token). */
 export const serviceGoUrl = (token: string) => `/go/${SERVICE.placement}?t=${encodeURIComponent(token)}`;
+
+/**
+ * The Weekly Video Plan offered to an unlock buyer (owner 2026-10-27: one video ad first, then the monthly plan): always the
+ * $99 product, whatever the lead's service clock says. /go/fvplan logs the click, then opens that checkout.
+ */
+export const PLAN_PLACEMENT = 'fvplan';
+/**
+ * The Weekly Video Plan with the first month free (owner 2026-10-27), a FastSpring subscription the owner creates: a
+ * 30-day free trial, then $99 a month. Its path must contain 'editing-service' (the webhook's service branch). Empty
+ * until it exists: the thank-you offer then stays off the live site and /go/fvplan keeps the plain $99 product.
+ */
+export const PLAN_TRIAL_PRODUCT: string = 'starter-editing-service-trial';
+export const planGoUrl = (token: string) => `/go/${PLAN_PLACEMENT}?t=${encodeURIComponent(token)}`;
+/** The public page that explains the plan at $99 (linked nowhere else, owner 2026-10-27). */
+export const PLAN_INFO_PATH = '/weekly-video-plan-99';
 
 /** The service page of one lead. */
 export const servicePagePath = (token: string) => `/v/${token}/unlimited`;

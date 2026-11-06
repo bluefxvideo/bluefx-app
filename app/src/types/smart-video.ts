@@ -2,9 +2,12 @@ import { z } from 'zod';
 import { cleanLink } from '@/lib/smart-video/link';
 import { VIDEO_FORMATS, VIDEO_LENGTHS, VIDEO_LOOKS, type VideoFormat, type VideoLength, type VideoLook } from '@/lib/smart-video/types';
 import { LISTING_INSTRUCTIONS_MAX, type ListingOptions } from '@/lib/smart-video/listing';
+import type { DraftScript } from '@/lib/smart-video/script-edit';
 
 export const SMART_VIDEO_MAX_FILES = 15;
 export const SMART_VIDEO_MAX_FILE_MB = 100;
+/** The longest text a client can give the Phantom: the main box, a change, and who should be on camera. */
+export const SMART_VIDEO_TEXT_MAX = 8000;
 
 export const SmartVideoUploadRequestSchema = z.object({
   files: z
@@ -14,7 +17,7 @@ export const SmartVideoUploadRequestSchema = z.object({
 
 export const SmartVideoStartSchema = z.object({
   jobId: z.string().uuid(),
-  brief: z.string().max(8000),
+  brief: z.string().max(SMART_VIDEO_TEXT_MAX),
   length: z.enum(VIDEO_LENGTHS).default('auto'),
   format: z.enum(VIDEO_FORMATS).default('vertical'),
   // 'auto' = The Phantom picks the look (the default); otherwise the client's pick.
@@ -43,7 +46,8 @@ export const SMART_VIDEO_MAX_EDIT_FILES = 5;
 export const SmartVideoReviseSchema = z
   .object({
     jobId: z.string().uuid(),
-    note: z.string().trim().max(1500),
+    // As long as the main box (owner 2026-10-30: a client's 2,200-character change list hit the old limits).
+    note: z.string().trim().max(SMART_VIDEO_TEXT_MAX, `A change can be up to ${SMART_VIDEO_TEXT_MAX.toLocaleString('en-US')} characters`),
     // Voice-over and music as the client wants them in the new version; absent = as they are.
     voiceOver: z.boolean().optional(),
     music: z.boolean().optional(),
@@ -52,7 +56,7 @@ export const SmartVideoReviseSchema = z
     uploads: z.array(z.object({ name: z.string(), path: z.string() })).max(SMART_VIDEO_MAX_EDIT_FILES).default([]),
     // "Change the presenter" (or "Add a presenter") ticked: who should be on camera, in words, and/or the client's own
     // photo of the person (uploaded like the edit's files). Both absent = not ticked.
-    presenter: z.string().trim().max(300).optional(),
+    presenter: z.string().trim().max(SMART_VIDEO_TEXT_MAX, `A change can be up to ${SMART_VIDEO_TEXT_MAX.toLocaleString('en-US')} characters`).optional(),
     presenterPhoto: z.object({ name: z.string().max(200), path: z.string().max(500) }).optional(),
     // With a photo on a video that has a presenter: true films the photo as it is; absent = the client takes the
     // current presenter's place (same place, clothes and pose; owner 2026-10-23).
@@ -68,11 +72,23 @@ export const SmartVideoReviseSchema = z
     path: ['presenter'],
   });
 
+/** Script first: the client's script, approved (script-edit.ts checks it against the draft). */
+export const SmartVideoApproveSchema = z.object({
+  jobId: z.string().uuid(),
+  // The whole voice-over as the client left it (script-edit.ts checks the words).
+  text: z.string().max(SMART_VIDEO_TEXT_MAX),
+});
+export type SmartVideoApproveInput = z.input<typeof SmartVideoApproveSchema>;
+
 export type SmartVideoReviseInput = z.input<typeof SmartVideoReviseSchema>;
 
 export type SmartVideoStartInput = z.input<typeof SmartVideoStartSchema>;
 
-export type SmartVideoJobStatus = 'reading' | 'directing' | 'producing' | 'rendering' | 'finishing' | 'done' | 'failed';
+/**
+ * 'script': script first (owner 2026-11-02). The script is written and waits for the client to read, change and approve
+ * it; nothing is charged or made before that. It does not count as running (no heartbeat, no two-at-once limit).
+ */
+export type SmartVideoJobStatus = 'reading' | 'directing' | 'script' | 'producing' | 'rendering' | 'finishing' | 'done' | 'failed';
 
 /** Job state, kept as job.json next to the job's files (admin-only trial: no table yet). */
 export interface SmartVideoJob {
@@ -100,10 +116,24 @@ export interface SmartVideoJob {
   presenterPhoto?: { name: string; path: string };
   /** With presenterPhoto: film the photo as it is instead of putting the person in the current presenter's place. */
   presenterPhotoAsIs?: boolean;
+  /**
+   * Script first (owner 2026-11-02): the job writes the script, waits as 'script' until the client approves it, and
+   * only then is charged and made. The script to read and change is in `draft`.
+   */
+  scriptFirst?: boolean;
+  draft?: DraftScript;
+  /** Script first: the client asked for the AI presenter (paid, and then `presenter`, only on approval). */
+  wantsPresenter?: boolean;
+  /** Script first: when the client approved the script. */
+  approvedAt?: string;
   /** Set on ReelEstate's automatic listing videos. */
   listing?: ListingOptions;
-  /** Listing video: the photos whose animation was charged (6 credits each), by asset id. */
+  /** Listing video: the photos whose animation was charged, by asset id. */
   clipCharges?: string[];
+  /** Listing video: the credits each charged photo cost (2 a second of its clip), by asset id. */
+  clipCredits?: Record<string, number>;
+  /** Listing video: the most its clips may cost together, quoted and checked when it started (listingClipCap). */
+  clipCap?: number;
   /** A revision: the job it changes and the client's note. */
   parentId?: string;
   note?: string;

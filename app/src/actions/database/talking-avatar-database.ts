@@ -2,7 +2,9 @@
 
 import { createClient, createAdminClient } from '@/app/supabase/server';
 import { ensureCreditsForUsage } from '@/lib/credits/subscription-entitlement';
+import { chargeClientFor } from '@/lib/credits/charge-client';
 import type { Json } from '@/types/database';
+import { spendableCredits } from '@/lib/credits/credit-bank';
 
 export interface TalkingAvatarVideo {
   id: string;
@@ -323,7 +325,7 @@ export async function getUserCredits(
       return { success: false, error: error.message };
     }
 
-    return { success: true, credits: data?.available_credits || 0 };
+    return { success: true, credits: await spendableCredits(user_id, data?.available_credits || 0) };
 
   } catch (error) {
     console.error('getUserCredits error:', error);
@@ -343,8 +345,12 @@ export async function deductCredits(
   operation: string,
   metadata?: Json
 ): Promise<{ success: boolean; remainingCredits?: number; error?: string }> {
+  // deduct_user_credits refuses 0 (a guard against negative charges); nothing to take is a success.
+  if (amount === 0) return { success: true };
   try {
-    const supabase = await createClient();
+    const charger = await chargeClientFor(user_id);
+    if (!charger.client) return { success: false, error: charger.error };
+    const supabase = charger.client;
 
     // Gate the monthly credit grant on paying status: active subscribers get their
     // monthly allotment (renewed each period); trial keeps its initial 100; cancelled/
@@ -529,6 +535,8 @@ export async function deductCreditsAdmin(
   operation: string,
   metadata?: Json
 ): Promise<{ success: boolean; remainingCredits?: number; error?: string }> {
+  // deduct_user_credits refuses 0 (a guard against negative charges); nothing to take is a success.
+  if (amount === 0) return { success: true };
   try {
     const entitlement = await ensureCreditsForUsage(user_id, amount);
     if (!entitlement.ok) {

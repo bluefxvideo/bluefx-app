@@ -444,7 +444,8 @@ async function main(): Promise<void> {
   section('10. The $99 unlock');
   const token = 'AbCdEfGhIjKlMnOpQrSt_-';
   check('the test token has the token shape', FREE_VIDEO_TOKEN_PATTERN.test(token));
-  check('checkout link', unlockCheckoutUrl(token) === `https://bluefx.onfastspring.com/${UNLOCK.product}?tags=freeVideoLead:${token}`, unlockCheckoutUrl(token));
+  check('checkout link, launch price ($49)', unlockCheckoutUrl(token) === `https://bluefx.onfastspring.com/${UNLOCK.launchProduct}?tags=freeVideoLead:${token}`, unlockCheckoutUrl(token));
+  check('checkout link, regular price ($99)', unlockCheckoutUrl(token, UNLOCK.product) === `https://bluefx.onfastspring.com/${UNLOCK.product}?tags=freeVideoLead:${token}`, unlockCheckoutUrl(token, UNLOCK.product));
   check('the token travels as a FastSpring tag (no : or , inside)', !/[:,]/.test(token) && unlockCheckoutUrl(token).endsWith(`${UNLOCK.tagKey}:${token}`));
   check('button link', unlockGoUrl(token) === `/go/fvunlock?t=${token}`);
   check("the lifetime offer opens ClickBank's checkout with the placement as vtid", checkoutUrl('fvthank') === 'https://bluefx02.pay.clickbank.net/?cbitems=1&cbfid=55851&template=aimmbt&vtid=fvthank');
@@ -625,7 +626,7 @@ async function main(): Promise<void> {
   check('an empty phrase goes back', (checkAdScript(planOf('This is the storm damage most homeowners never see.', 'Our top-notch crew fixes it.')) ?? '').includes('top-notch'));
   check('a specific script passes', checkAdScript(planOf('This is the storm damage most homeowners never see.', 'Book your free roof inspection at the website on screen.')) === null);
   check('the director reads the hook rule with the rewrite rule', SCRIPT_RULES.includes('6 to 12 words') && SCRIPT_RULES.includes('Looking for'));
-  check('the presenter costs 10 credits', PHANTOM_PRESENTER_CREDITS === 10);
+  check('the presenter is included in the video ad (no extra credits)', PHANTOM_PRESENTER_CREDITS === 0);
 
   // 17. -----------------------------------------------------------------------------------------
   section('17. The clean render is checked at full HD');

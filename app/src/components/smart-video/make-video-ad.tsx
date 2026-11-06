@@ -23,6 +23,7 @@ import { describeLink } from '@/lib/smart-video/link';
 import { PHANTOM_EXAMPLES } from '@/lib/smart-video/examples';
 import { PHANTOM_PRESENTER_CHANGE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS } from '@/lib/smart-video/pricing';
 import type { VideoLook } from '@/lib/smart-video/types';
+import { checkDraft, countWords, PRESENTER_LINE_MAX_WORDS, voiceText, WORDS_PER_MINUTE, type DraftScript } from '@/lib/smart-video/script-edit';
 import { SMART_VIDEO_MAX_EDIT_FILES, SMART_VIDEO_MAX_FILE_MB, type SmartVideoJob } from '@/types/smart-video';
 import type { BonusVideoAd } from '@/types/free-video';
 import { InsufficientCreditsNotice } from '@/components/ui/insufficient-credits-notice';
@@ -89,7 +90,9 @@ const cardById = (id: string) => STYLES.find((s) => s.id === id) ?? STYLES[0];
  * fits it, on by default, and the switch under the style turns it off). */
 const cardIdOf = (look: VideoLook) => look;
 
-const isRunning = (job: SmartVideoJob) => job.status !== 'done' && job.status !== 'failed';
+const isRunning = (job: SmartVideoJob) => job.status !== 'done' && job.status !== 'failed' && job.status !== 'script';
+/** Script first: a new video ad whose script is still being written (nothing charged yet). */
+const writingScript = (job: SmartVideoJob) => Boolean(job.scriptFirst && !job.approvedAt);
 
 export interface VideoGroup {
   /** The first version: its text names the video ad. */
@@ -414,7 +417,7 @@ export function MakeVideoAdView({
   /** The user's credits, when known. */
   balance?: number;
   /** Dev preview only: open a state that otherwise needs clicks, and sample bonus video ads. */
-  preview?: { moreOpen?: boolean; changeNote?: string; bonusAds?: BonusVideoAd[] };
+  preview?: { moreOpen?: boolean; changeNote?: string; bonusAds?: BonusVideoAd[]; scriptTried?: boolean; scriptText?: string };
 }) {
   const { job } = smart;
   const groups = groupVersions(smart.history);
@@ -429,6 +432,21 @@ export function MakeVideoAdView({
   else if (job.freeLeadId && job.status === 'failed') main = <FreeVideoProblem job={job} />;
   else if (job.freeLeadId && isRunning(job)) main = <FreeVideoArriving job={job} />;
   else if (job.bonus && job.status === 'failed') main = <BonusProblem job={job} />;
+  else if (job.status === 'script' && job.draft)
+    main = (
+      <ScriptReady
+        key={job.id}
+        job={job}
+        draft={job.draft}
+        onApprove={smart.approve}
+        approving={smart.approving}
+        onDelete={smart.deleteScript}
+        balance={balance}
+        credits={smart.creditsFor(job)}
+        tried={preview?.scriptTried}
+        startText={preview?.scriptText}
+      />
+    );
   else if (job.status === 'done' && job.videoUrl)
     main = (
       <Ready
@@ -612,7 +630,7 @@ function StartScreen({ smart, balance, moreOpen }: { smart: SmartVideo; balance?
                   <br />
                 </>
               )}
-              Most video ads are ready in about 3 minutes.
+              First you read the script and change any words you like. The credits are used only when you approve it.
             </p>
           ) : (
             <InsufficientCreditsNotice needed={smart.credits} available={balance} className="text-base" />
@@ -666,7 +684,7 @@ function StyleRow({ smart }: { smart: SmartVideo }) {
         checked={smart.presenter}
         onChange={smart.setPresenter}
         disabled={smart.isBusy}
-        text={`A person who fits the style opens your video ad and says the first line on camera. ${PHANTOM_PRESENTER_CREDITS} credits, given back if the presenter cannot be made.`}
+        text={`A person who fits the style opens your video ad and says the first line on camera. Included in the video ad's credits.`}
       />
       <StyleGallery smart={smart} open={open} onClose={() => setOpen(false)} />
     </>
@@ -820,6 +838,14 @@ function joinWords(words: string[]): string {
 
 function stepsFor(job: SmartVideoJob): { status: SmartVideoJob['status']; label: string }[] {
   const isChange = Boolean(job.parentId);
+  // Script first: writing the script is its own short wait, and the video's steps start from the approved script.
+  if (writingScript(job)) {
+    return [
+      { status: 'reading', label: job.link ? `Reading ${siteOf(job.link)}` : 'Reading your notes and photos' },
+      { status: 'directing', label: 'Writing your script' },
+      { status: 'script', label: 'Your script is ready to read' },
+    ];
+  }
   const newPresenter = Boolean(job.presenterRequest || job.presenterPhoto);
   // "Filming the presenter, recording the voice-over and music", or the parts of it this video ad has.
   const voice = job.voiceOver !== false;
@@ -827,8 +853,12 @@ function stepsFor(job: SmartVideoJob): { status: SmartVideoJob['status']; label:
   const recording = voice ? (music ? 'recording the voice-over and music' : 'recording the voice-over') : music ? 'making the music' : '';
   const making = job.presenter && !isChange ? joinWords(['filming the presenter', recording].filter(Boolean)) : recording;
   return [
-    ...(isChange ? [] : [{ status: 'reading' as const, label: job.link ? `Reading ${siteOf(job.link)}` : 'Reading your notes and photos' }]),
-    { status: 'directing', label: isChange ? 'Reading your change' : 'Writing the script' },
+    ...(job.scriptFirst
+      ? [{ status: 'script' as const, label: 'Your script is approved' }]
+      : [
+          ...(isChange ? [] : [{ status: 'reading' as const, label: job.link ? `Reading ${siteOf(job.link)}` : 'Reading your notes and photos' }]),
+          { status: 'directing' as const, label: isChange ? 'Reading your change' : 'Writing the script' },
+        ]),
     {
       status: 'producing',
       label: isChange ? (newPresenter ? 'Filming the new presenter' : 'Making the new parts') : making ? making.charAt(0).toUpperCase() + making.slice(1) : 'Getting the scenes ready',
@@ -839,6 +869,7 @@ function stepsFor(job: SmartVideoJob): { status: SmartVideoJob['status']; label:
 }
 
 function percentOf(job: SmartVideoJob): number {
+  if (writingScript(job)) return job.status === 'reading' ? 20 : 60;
   switch (job.status) {
     case 'reading':
       return 8;
@@ -857,20 +888,29 @@ function percentOf(job: SmartVideoJob): number {
 
 function Making({ job, onStartAnother }: { job: SmartVideoJob; onStartAnother: () => void }) {
   const isChange = Boolean(job.parentId);
+  const script = writingScript(job);
   const steps = stepsFor(job);
   const current = steps.findIndex((step) => step.status === job.status);
-  const minutes = useMinutesSince(job.createdAt);
+  // The video's own wait starts when the script is approved.
+  const since = job.approvedAt ?? job.createdAt;
+  const minutes = useMinutesSince(since);
   return (
     <div className="mx-auto max-w-[760px] space-y-6">
       <PageHeader
-        title={isChange ? 'Your change is being made' : 'Your video ad is being made'}
-        sub={isChange ? 'Your current version stays. The new version of your video ad shows up here in a few minutes.' : `From ${madeFrom(job)}.`}
+        title={isChange ? 'Your change is being made' : script ? 'Your script is being written' : 'Your video ad is being made'}
+        sub={
+          isChange
+            ? 'Your current version stays. The new version of your video ad shows up here in a few minutes.'
+            : script
+              ? `From ${madeFrom(job)}. You read the script and change any words you like before your video ad is made. Nothing is charged until you approve it.`
+              : `From ${madeFrom(job)}.`
+        }
         robot={false}
       />
       <Panel className="flex flex-col gap-6 sm:flex-row sm:gap-8">
         <div className="flex flex-shrink-0 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-sheet-line bg-field px-4 py-5 text-center text-[17px] font-bold text-brand sm:h-[384px] sm:w-[216px]">
           <RobotLoop className="h-[130px] w-[130px] sm:h-[170px] sm:w-[170px]" />
-          <span>{isChange ? 'Your new version is on the way' : 'Your video ad is on the way'}</span>
+          <span>{isChange ? 'Your new version is on the way' : script ? 'Your script is on the way' : 'Your video ad is on the way'}</span>
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-4">
@@ -906,22 +946,199 @@ function Making({ job, onStartAnother }: { job: SmartVideoJob; onStartAnother: (
             ))}
           </ol>
           <p className="text-base text-muted-foreground sm:text-[17px]">
-            <Elapsed since={job.createdAt} /> so far.{' '}
-            {minutes > LONGER_THAN_USUAL_MINUTES
-              ? `Your ${isChange ? 'change' : 'video ad'} is taking a little longer than usual.`
-              : `Most ${isChange ? 'changes' : 'video ads'} are ready in about 3 minutes.`}
+            <Elapsed since={since} /> so far.{' '}
+            {script
+              ? minutes > 3
+                ? 'Your script is taking a little longer than usual.'
+                : 'Most scripts are ready in about a minute.'
+              : minutes > LONGER_THAN_USUAL_MINUTES
+                ? `Your ${isChange ? 'change' : 'video ad'} is taking a little longer than usual.`
+                : `Most ${isChange ? 'changes' : 'video ads'} are ready in about 3 minutes.`}
           </p>
           <InfoLine>
-            You can leave this page. {isChange ? 'The new version' : 'Your video ad'} will be waiting for you under <b>Your video ads</b>.
+            You can leave this page. {isChange ? 'The new version' : script ? 'Your script' : 'Your video ad'} will be waiting for you under <b>Your video ads</b>.
           </InfoLine>
         </div>
       </Panel>
-      {!isChange && (
+      {!isChange && !script && (
         <LinkButton onClick={onStartAnother}>
           <Plus className="h-5 w-5" />
           Start another video ad while you wait
         </LinkButton>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Script first (owner 2026-11-02): the script, scene by scene, to read and change before anything is made or charged
+
+/** A text box that grows with its words, so a whole line is always in view (no scrolling inside a small box). */
+function GrowingText({ value, onChange, className, ...props }: Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> & { value: string; onChange: (text: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const box = ref.current;
+    if (!box) return;
+    box.style.height = 'auto';
+    box.style.height = `${box.scrollHeight + 2}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={cn(
+        'block w-full resize-none overflow-hidden rounded-xl border-2 border-field-border bg-field px-4 py-3 text-lg leading-snug text-foreground focus:border-primary focus:outline-none disabled:opacity-60 sm:text-xl',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+/** The client's unsent changes stay in this browser, so a reload or a visit later keeps them. */
+function useSavedText(jobId: string, original: string, start?: string) {
+  const key = `phantom-script-${jobId}`;
+  const [text, setText] = useState<string>(() => {
+    if (start !== undefined) return start;
+    try {
+      return window.localStorage.getItem(key) ?? original;
+    } catch {
+      return original;
+    }
+  });
+  useEffect(() => {
+    try {
+      if (text === original) window.localStorage.removeItem(key);
+      else window.localStorage.setItem(key, text);
+    } catch {
+      // no storage: the changes live until the page closes
+    }
+  }, [key, text, original]);
+  const forget = () => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // nothing to forget
+    }
+  };
+  return { text, setText, forget };
+}
+
+function ScriptReady({
+  job,
+  draft,
+  onApprove,
+  approving,
+  onDelete,
+  balance,
+  credits,
+  tried: triedBefore,
+  startText,
+}: {
+  job: SmartVideoJob;
+  draft: DraftScript;
+  onApprove: SmartVideo['approve'];
+  approving: boolean;
+  onDelete: SmartVideo['deleteScript'];
+  balance?: number;
+  credits: number;
+  /** Dev preview only: show the problem line, and the client's changes. */
+  tried?: boolean;
+  startText?: string;
+}) {
+  const original = voiceText(draft);
+  const { text, setText, forget } = useSavedText(job.id, original, startText);
+  const [tried, setTried] = useState(Boolean(triedBefore));
+  const problem = checkDraft(draft, text);
+  const words = countWords(text);
+  const over = words > draft.maxWords;
+  const presenter = draft.scenes.some((scene) => scene.presenter);
+  const enough = balance === undefined || balance >= credits;
+  const minutes = Math.round(draft.maxWords / WORDS_PER_MINUTE);
+
+  const approve = async () => {
+    setTried(true);
+    if (problem) return;
+    if (await onApprove({ text })) forget();
+  };
+
+  return (
+    <div className="mx-auto max-w-[760px] space-y-6">
+      <PageHeader
+        title="Your script is ready"
+        sub="This is what the voice-over will say. Change any words you like, then press the green button to make your video ad."
+        robot={false}
+      />
+      <Panel className="space-y-4">
+        <label htmlFor="script-text" className="block text-lg font-bold leading-snug sm:text-[21px]">
+          Your voice-over
+        </label>
+        <GrowingText
+          id="script-text"
+          value={text}
+          onChange={setText}
+          disabled={approving}
+          className={cn('min-h-[220px] leading-relaxed', over && 'border-destructive focus:border-destructive')}
+        />
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-base sm:text-[17px]">
+          <p className={cn(over ? 'font-bold text-destructive' : 'text-muted-foreground')}>
+            {words} of {draft.maxWords} words (about {minutes === 1 ? '1 minute' : `${minutes} minutes`})
+          </p>
+          {text !== original && (
+            <button type="button" onClick={() => setText(original)} disabled={approving} className="min-h-[40px] font-bold text-brand hover:underline">
+              Put back the original
+            </button>
+          )}
+        </div>
+        {presenter && (
+          <p className="text-base leading-relaxed text-muted-foreground sm:text-[17px]">
+            The first line is said by the presenter on camera: up to {PRESENTER_LINE_MAX_WORDS} words.
+          </p>
+        )}
+      </Panel>
+
+      <div className="sticky bottom-0 z-10 -mx-4 space-y-3 border-t border-sheet-line bg-background/95 px-4 pb-4 pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+        {tried && problem && (
+          <p className="flex gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-base font-semibold text-destructive">
+            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+            {problem}
+          </p>
+        )}
+        <GreenButton onClick={approve} disabled={approving || !enough} className="min-h-[60px] text-[19px] leading-tight sm:min-h-[70px] sm:text-[24px]">
+          {approving ? <Loader2 className="h-6 w-6 flex-shrink-0 animate-spin" /> : <Check className="hidden h-6 w-6 flex-shrink-0 sm:block" strokeWidth={3} />}
+          <span>
+            {approving ? 'Starting your video ad' : 'Approve and make my video ad'}
+            <span className="block text-[15px] font-semibold sm:inline sm:text-[19px]">
+              <span className="hidden sm:inline"> · </span>
+              {credits} credits
+            </span>
+          </span>
+        </GreenButton>
+      </div>
+      {enough ? (
+        <p className="text-center text-base leading-relaxed text-muted-foreground sm:text-[17px]">
+          Your video ad says these exact words. Most video ads are ready about 3 minutes after you approve.
+        </p>
+      ) : (
+        <InsufficientCreditsNotice needed={credits} available={balance} className="text-base" />
+      )}
+      <InfoLine>
+        You can leave this page. Your script waits for you under <b>Your video ads</b>, with your changes.
+      </InfoLine>
+      <LinkButton
+        onClick={() => {
+          if (window.confirm('Delete this script? Your text goes back into the box, so you can write a new one.')) {
+            forget();
+            void onDelete(job);
+          }
+        }}
+        disabled={approving}
+      >
+        <Plus className="h-5 w-5" />
+        Start over with a new script
+      </LinkButton>
     </div>
   );
 }
@@ -1296,6 +1513,8 @@ function Failed({
   backTo?: string;
 }) {
   const isChange = Boolean(job.parentId);
+  // Script first: the script itself could not be written. Nothing was charged.
+  const noScript = writingScript(job);
   const { reason, refund } = splitError(job.error);
   const retryCredits = PHANTOM_REVISION_CREDITS + (job.presenterRequest || job.presenterPhoto ? PHANTOM_PRESENTER_CHANGE_CREDITS : 0);
   return (
@@ -1305,9 +1524,12 @@ function Failed({
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/15 text-amber-500">
           <AlertTriangle className="h-7 w-7" />
         </div>
-        <h2 className="text-[24px] font-extrabold leading-tight sm:text-[26px]">{isChange ? 'Your change did not go through' : 'Your video ad could not be made'}</h2>
-        <p className="text-lg leading-relaxed">{reason}</p>
+        <h2 className="text-[24px] font-extrabold leading-tight sm:text-[26px]">
+          {isChange ? 'Your change did not go through' : noScript ? 'Your script could not be written' : 'Your video ad could not be made'}
+        </h2>
+        <p className="text-lg leading-relaxed">{noScript ? 'The AI Media Machine could not write a script from your text this time. This happens now and then. Please try again.' : reason}</p>
         {refund && <GreenLine>{isChange ? `Your video ad is unchanged. ${refund}` : refund}</GreenLine>}
+        {noScript && <GreenLine>Nothing was charged.</GreenLine>}
         {isChange ? (
           <div className="flex flex-col gap-3 sm:flex-row">
             <BlueButton onClick={() => onRetryEdit(job)} disabled={revising} className="sm:flex-1">
@@ -1544,7 +1766,14 @@ function VideoLibrary({ groups, currentId, onOpen }: { groups: VideoGroup[]; cur
                     <RobotStill className="h-24 w-24 sm:h-28 sm:w-28" />
                   </div>
                 )}
-                {running && <span className="absolute left-2 top-2 rounded-full bg-brand px-2.5 py-1 text-xs font-bold text-white">Being made</span>}
+                {running && (
+                  <span className="absolute left-2 top-2 rounded-full bg-brand px-2.5 py-1 text-xs font-bold text-white">
+                    {writingScript(latest) ? 'Script being written' : 'Being made'}
+                  </span>
+                )}
+                {latest.status === 'script' && (
+                  <span className="absolute left-2 top-2 rounded-full bg-cta px-2.5 py-1 text-xs font-bold text-cta-foreground">Script ready to approve</span>
+                )}
                 {latest.status === 'failed' &&
                   (shown ? (
                     <span className="absolute left-2 top-2 rounded-full bg-amber-500 px-2.5 py-1 text-xs font-bold text-black">Last change did not go through</span>

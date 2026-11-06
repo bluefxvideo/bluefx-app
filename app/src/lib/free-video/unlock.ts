@@ -33,7 +33,10 @@ import { frameOf, probeFile } from '@/lib/free-video/gate';
 import { asLead, getLead, getLeadByToken, leadsTable, readSettings, transitionUnlock } from '@/lib/free-video/leads';
 import { trackPurchase } from '@/lib/free-video/meta';
 import { deliverUnlock } from '@/lib/free-video/notify';
-import { UNLOCK } from '@/lib/free-video/offer';
+import { chatWordsOf, latestChangePlan } from '@/lib/free-video/change-chat';
+import { aiChangesOf, freeChangeOf, startAiChange, wantsNewStyle } from '@/lib/free-video/instant-change';
+import { changesUsed, requestChange } from '@/lib/free-video/change-requests';
+import { UNLOCK, UNLOCK_PRODUCTS } from '@/lib/free-video/offer';
 import { displayDomain, emailKeyOf } from '@/lib/free-video/website';
 import { jobDir, readPlan, upload } from '@/lib/smart-video/jobs';
 import { levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
@@ -163,7 +166,7 @@ export function readUnlockOrder(data: unknown): UnlockOrder {
     (typeof order.account === 'object' ? order.account?.contact?.email : undefined) || order.customer?.email || null;
   const token = tagValue(order.tags, UNLOCK.tagKey);
   // What the owner is paid for the unlock: the item's own subtotal in the payout currency when FastSpring sends it.
-  const item = (order.items ?? []).find((i) => i.product?.toLowerCase() === UNLOCK.product);
+  const item = (order.items ?? []).find((i) => UNLOCK_PRODUCTS.includes(i.product?.toLowerCase() ?? ''));
   const payout = num(item?.subtotalInPayoutCurrency) ?? num(order.subtotalInPayoutCurrency) ?? num(order.totalInPayoutCurrency);
   const local = num(item?.subtotal) ?? num(order.subtotal) ?? num(order.total);
   return {
@@ -186,8 +189,8 @@ export function readUnlockOrder(data: unknown): UnlockOrder {
  */
 export function freeVideoUnlockIn(data: unknown): 'only' | 'mixed' | null {
   const { products } = readUnlockOrder(data);
-  if (!products.includes(UNLOCK.product)) return null;
-  return products.every((product) => product === UNLOCK.product) ? 'only' : 'mixed';
+  if (!products.some((product) => UNLOCK_PRODUCTS.includes(product))) return null;
+  return products.every((product) => UNLOCK_PRODUCTS.includes(product)) ? 'only' : 'mixed';
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -245,7 +248,7 @@ async function confirmOrder(orderId: string): Promise<{ verdict: 'confirmed' | '
     const match = list.map((entry) => FastSpringOrderSchema.safeParse(entry ?? {})).find((r) => r.success && (r.data.id === orderId || r.data.order === orderId));
     if (!match?.success) return { verdict: 'rejected', note: `the FastSpring API returned no order ${orderId}` };
     if (match.data.completed === false) return { verdict: 'rejected', note: `order ${orderId} is not completed` };
-    if (!productsOf(match.data).includes(UNLOCK.product)) return { verdict: 'rejected', note: `order ${orderId} does not contain ${UNLOCK.product}` };
+    if (!productsOf(match.data).some((product) => UNLOCK_PRODUCTS.includes(product))) return { verdict: 'rejected', note: `order ${orderId} does not contain ${UNLOCK_PRODUCTS.join(' or ')}` };
     if (match.data.live === false && isLive()) return { verdict: 'rejected', note: `order ${orderId} is a FastSpring test order` };
     return { verdict: 'confirmed' };
   } catch (error) {
@@ -282,7 +285,7 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
 
   if (!order.id) {
     await recordUnlockEvent(`free_video_unlock_${order.reference || Date.now()}_invalid`, 'FREE_VIDEO_UNLOCK_UNMATCHED', { data: raw, reason: 'order without an id' });
-    alertLater([{ key: `unlock-unmatched:${order.reference || dayKey()}`, line: `A $99 unlock order arrived without an order id (reference ${order.reference || 'none'}). Nothing was unlocked; see webhook_events FREE_VIDEO_UNLOCK_UNMATCHED.` }], 'an unlock order could not be read');
+    alertLater([{ key: `unlock-unmatched:${order.reference || dayKey()}`, line: `A ${UNLOCK.price} unlock order arrived without an order id (reference ${order.reference || 'none'}). Nothing was unlocked; see webhook_events FREE_VIDEO_UNLOCK_UNMATCHED.` }], 'an unlock order could not be read');
     return 'invalid';
   }
 
@@ -301,14 +304,14 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
   if (check.verdict === 'rejected') {
     await recordUnlockEvent(`free_video_unlock_${order.id}_unverified`, 'FREE_VIDEO_UNLOCK_UNVERIFIED', { data: raw, reason: check.note ?? null });
     alertLater(
-      [{ key: `unlock-unverified:${order.id}`, line: `A $99 unlock webhook for order ${order.id} was NOT applied: ${check.note}. If the order is real, unlock it by hand: ${manualUnlockSql(order.id)}` }],
+      [{ key: `unlock-unverified:${order.id}`, line: `A ${UNLOCK.price} unlock webhook for order ${order.id} was NOT applied: ${check.note}. If the order is real, unlock it by hand: ${manualUnlockSql(order.id)}` }],
       'an unlock order did not check out'
     );
     return 'unverified';
   }
   if (check.verdict === 'unchecked' && check.note) {
     alertLater(
-      [{ key: `unlock-unconfirmed:${dayKey()}`, line: `$99 unlock order ${order.id} was applied without confirmation: ${check.note}. Check FASTSPRING_USERNAME / FASTSPRING_API_KEY.` }],
+      [{ key: `unlock-unconfirmed:${dayKey()}`, line: `${UNLOCK.price} unlock order ${order.id} was applied without confirmation: ${check.note}. Check FASTSPRING_USERNAME / FASTSPRING_API_KEY.` }],
       'unlocks applied without an API check'
     );
   }
@@ -319,7 +322,7 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
   if (!lead) {
     await recordUnlockEvent(`free_video_unlock_${order.id}_unmatched`, 'FREE_VIDEO_UNLOCK_UNMATCHED', { data: raw, email: order.email, token: order.token });
     alertLater(
-      [{ key: `unlock-unmatched:${order.id}`, line: `A $99 unlock was paid (order ${order.id}${order.reference ? `, ${order.reference}` : ''}, ${order.email || 'no email'}) but matches no free video lead. Find the lead and unlock it by hand: ${manualUnlockSql(order.id)}` }],
+      [{ key: `unlock-unmatched:${order.id}`, line: `A ${UNLOCK.price} unlock was paid (order ${order.id}${order.reference ? `, ${order.reference}` : ''}, ${order.email || 'no email'}) but matches no free video lead. Find the lead and unlock it by hand: ${manualUnlockSql(order.id)}` }],
       'an unlock payment matches no lead'
     );
     return 'unmatched';
@@ -354,7 +357,7 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
     if ((await leadByOrder([order.id]))?.id === lead.id) return 'duplicate';
     await recordUnlockEvent(`free_video_unlock_${order.id}_second`, 'FREE_VIDEO_UNLOCK_DUPLICATE', { data: raw, lead: lead.id, unlockStatus: lead.unlock_status });
     alertLater(
-      [{ key: `unlock-duplicate:${order.id}`, line: `A second $99 unlock payment (order ${order.id}) arrived for ${displayDomain(lead.website_domain)} (lead ${lead.id}, unlock already ${lead.unlock_status} by order ${lead.unlock_order_id || '?'}). Refund order ${order.id} in FastSpring.` }],
+      [{ key: `unlock-duplicate:${order.id}`, line: `A second ${UNLOCK.price} unlock payment (order ${order.id}) arrived for ${displayDomain(lead.website_domain)} (lead ${lead.id}, unlock already ${lead.unlock_status} by order ${lead.unlock_order_id || '?'}). Refund order ${order.id} in FastSpring.` }],
       'a second unlock payment'
     );
     return 'second-payment';
@@ -369,10 +372,47 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
     () => trackPurchase(paidLead, { id: orderId, amount: order.amount, currency: order.currency, email: order.email, ip: buyerIp }),
     true
   );
+  // The change list the buyer confirmed in the change chat before paying becomes the first change request: the owner's
+  // email with the list, and the ready page shows the changes being made (change-chat.ts).
+  inBackground(
+    'Change plan',
+    async () => {
+      const plan = await latestChangePlan(paidLead.id);
+      if (!plan) {
+        // Chatted but no list was saved (the model never wrote one): the owner gets the customer's own words.
+        const words = await chatWordsOf(paidLead.id);
+        if (words.length) {
+          await alertOwner(
+            [{ key: `unlock-chat-nolist:${paidLead.id}`, line: `${displayDomain(paidLead.website_domain)} paid ${UNLOCK.price} after using the change chat, but no change list was saved, so no change started. What they typed: ${words.map((w) => `"${w.slice(0, 120)}"`).join(', ')}. Make the changes by hand.` }],
+            'a paid buyer chatted about changes but none started'
+          );
+        }
+        return;
+      }
+      // The free change already made its own lines (the clean version is that change): only the lines asked after it
+      // start now (owner 2026-11-04: the whole list ran again, so a new presenter could be cast twice).
+      const free = await freeChangeOf(paidLead).catch(() => null);
+      const made = free && free.status !== 'failed' ? free.text.split('\n').map((l) => l.replace(/^\s*\d+\.\s*/, '').trim()) : [];
+      const fresh = plan.filter((c) => !made.includes(c.trim()));
+      if (!fresh.length) return;
+      const text = fresh.map((c, i) => `${i + 1}. ${c}`).join('\n');
+      // Owner 2026-10-27: the chat's list starts at once as instant change 1; a new style goes to the team.
+      if (!wantsNewStyle(text)) {
+        const changes = await aiChangesOf(paidLead);
+        if (!changes.length) {
+          const started = await startAiChange(paidLead, text, changes);
+          await started.run();
+          return;
+        }
+      }
+      if ((await changesUsed(paidLead.id)) === 0) await requestChange(paidLead, text, 0);
+    },
+    true
+  );
   if (updated.status === 'done') startCleanRender(updated.id, true);
   else if (updated.status === 'failed' || updated.status === 'rejected') {
     alertLater(
-      [{ key: `unlock-novideo:${lead.id}:${order.id}`, line: `$99 unlock paid (order ${order.id}) for ${displayDomain(lead.website_domain)}, but that free video ad ${updated.status === 'rejected' ? 'could not be made (website not readable)' : 'failed'}. Make a new one (it is rendered clean as soon as it is done) or refund the order: update free_video_leads set status = 'queued', attempts = 0, reason = null, not_before = null, updated_at = now() where id = '${lead.id}';` }],
+      [{ key: `unlock-novideo:${lead.id}:${order.id}`, line: `${UNLOCK.price} unlock paid (order ${order.id}) for ${displayDomain(lead.website_domain)}, but that free video ad ${updated.status === 'rejected' ? 'could not be made (website not readable)' : 'failed'}. Make a new one (it is rendered clean as soon as it is done) or refund the order: update free_video_leads set status = 'queued', attempts = 0, reason = null, not_before = null, updated_at = now() where id = '${lead.id}';` }],
       'an unlock paid for a video ad that does not exist'
     );
   }
@@ -398,7 +438,7 @@ async function handleUnlockRefund(eventType: string, order: UnlockOrder, raw: Re
     // A cancelled order that never unlocked anything needs no one's attention.
     if (eventType !== 'order.canceled') {
       alertLater(
-        [{ key: `unlock-refund:${eventKey}`, line: `A $99 unlock ${eventType} (${eventKey}) matches no unlocked lead: no unlock was taken back (a refunded second payment needs nothing else). See webhook_events FREE_VIDEO_UNLOCK_REFUND_UNMATCHED.` }],
+        [{ key: `unlock-refund:${eventKey}`, line: `A ${UNLOCK.price} unlock ${eventType} (${eventKey}) matches no unlocked lead: no unlock was taken back (a refunded second payment needs nothing else). See webhook_events FREE_VIDEO_UNLOCK_REFUND_UNMATCHED.` }],
         'an unlock refund matches no lead'
       );
     }
@@ -412,7 +452,7 @@ async function handleUnlockRefund(eventType: string, order: UnlockOrder, raw: Re
   await recordUnlockEvent(`free_video_unlock_${eventKey}_refund`, 'FREE_VIDEO_UNLOCK_REFUND', { data: raw, eventType, lead: lead.id });
   console.warn(`⚠️ [free-video] Lead ${lead.id}: $99 unlock ${eventType}, now refunded`);
   alertLater(
-    [{ key: `unlock-refund:${lead.id}:${lead.unlock_order_id || eventKey}`, line: `$99 unlock of ${displayDomain(lead.website_domain)} (lead ${lead.id}, order ${lead.unlock_order_id || '?'}): ${eventType}. The lead is marked refunded; the clean file stays where it is.` }],
+    [{ key: `unlock-refund:${lead.id}:${lead.unlock_order_id || eventKey}`, line: `${UNLOCK.price} unlock of ${displayDomain(lead.website_domain)} (lead ${lead.id}, order ${lead.unlock_order_id || '?'}): ${eventType}. The lead is marked refunded; the clean file stays where it is.` }],
     'an unlock was refunded'
   );
 }
@@ -485,7 +525,10 @@ async function renderAndStore(lead: FreeVideoLead): Promise<string> {
   const settings = await readSettings(true);
   const systemUserId = settings?.system_user_id;
   if (!systemUserId || !lead.job_id) throw new Error('No system user or job for the clean render');
-  const saved = await readPlan(systemUserId, lead.job_id);
+  // A finished free change (instant-change.ts) is what the buyer saw and paid for: its job becomes the clean version.
+  const free = await freeChangeOf(lead);
+  const sourceJob = free?.status === 'done' ? free.jobId : lead.job_id;
+  const saved = await readPlan(systemUserId, sourceJob);
   const props = cleanProps(saved.props);
   // Exactly as finish() does it: the render, then the loudness.
   const renderedUrl = await renderSmartVideo(props, () => undefined);
@@ -493,7 +536,7 @@ async function renderAndStore(lead: FreeVideoLead): Promise<string> {
   await checkCleanFile(data, props);
   // video.mp4 sits in the same folder and its URL is public, so the clean file needs a name nobody can guess.
   const name = `clean-${randomBytes(18).toString('base64url')}.mp4`;
-  return upload(`${jobDir(systemUserId, lead.job_id)}/${name}`, data, 'video/mp4');
+  return upload(`${jobDir(systemUserId, sourceJob)}/${name}`, data, 'video/mp4');
 }
 
 /** Fake mode: a short pause, then the free file stands in for the clean one. */
@@ -520,6 +563,8 @@ export async function renderCleanVersion(leadId: string): Promise<CleanOutcome> 
   const lead = await getLead(leadId);
   if (!lead || (lead.unlock_status !== 'paid' && lead.unlock_status !== 'rendering')) return 'none';
   if (lead.status !== 'done' || !lead.job_id || !lead.video_url) return 'waiting';
+  // A free change still being made: its end starts this render (instant-change.ts afterFreeChange), the sweep retries.
+  if ((await freeChangeOf(lead).catch(() => null))?.status === 'working') return 'waiting';
   const staleBefore = Date.now() - CLEAN_RENDER.staleMinutes * 60_000;
   if (lead.unlock_status === 'rendering' && lead.clean_claimed_at && Date.parse(lead.clean_claimed_at) > staleBefore) return 'none';
   if (!fakeMode() && !renderTargetAllowed()) {

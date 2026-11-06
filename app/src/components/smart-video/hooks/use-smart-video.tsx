@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
+  approveSmartVideoScript,
+  deleteSmartVideoScript,
   getSmartVideoJob,
   listSmartVideoJobs,
   requestSmartVideoUploads,
@@ -12,18 +14,20 @@ import {
 } from '@/actions/tools/smart-video';
 import { cleanLink, findWebsite } from '@/lib/smart-video/link';
 import { isStalePageError } from '@/lib/stale-page';
-import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_PRESENTER_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
+import { LISTING_CREDITS, listingClipCap, PHANTOM_PRESENTER_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
 import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount, type ListingLength } from '@/lib/smart-video/listing';
 import type { PhantomExample } from '@/lib/smart-video/examples';
 import { urlToFile } from '@/lib/url-to-file';
 import type { VideoFormat, VideoLook } from '@/lib/smart-video/types';
+import type { ApprovedScript } from '@/lib/smart-video/script-edit';
 import { SMART_VIDEO_MAX_FILE_MB, SMART_VIDEO_MAX_FILES, type SmartVideoJob } from '@/types/smart-video';
 
 const POLL_MS = 4000;
 // Your videos refreshes itself while a free video ad in it is still on its way, and whenever the tab comes back into
 // view, so a free video ad asked for in another tab shows there without a reload (owner 2026-10-14).
 const LIST_POLL_MS = 10_000;
-const isRunning = (job?: SmartVideoJob | null) => Boolean(job && job.status !== 'done' && job.status !== 'failed');
+// A script waiting for approval is not running: nothing polls it and the form stays free.
+const isRunning = (job?: SmartVideoJob | null) => Boolean(job && job.status !== 'done' && job.status !== 'failed' && job.status !== 'script');
 
 /** A listing video is made from photos (some systems give a HEIC file no type, so the name counts too). */
 const isPhoto = (file: File) => file.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|heif|avif|tiff?|gif|bmp)$/i.test(file.name);
@@ -81,7 +85,7 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
   // The list shows each job's status, so it is refreshed when the open job finishes.
   // So is the balance: a failed video gives its credits back, and a listing video pays for its clips while it is made.
   useEffect(() => {
-    if (job?.status !== 'done' && job?.status !== 'failed') return;
+    if (job?.status !== 'done' && job?.status !== 'failed' && job?.status !== 'script') return;
     queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
     queryClient.invalidateQueries({ queryKey: ['user-credits'] });
   }, [job?.status, queryClient]);
@@ -240,6 +244,44 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     [queryClient],
   );
 
+  // Script first: the client approved the script (with their changes). The same job is now charged and made.
+  const [approving, setApproving] = useState(false);
+  const approve = useCallback(
+    async (script: ApprovedScript) => {
+      if (!jobId) return false;
+      setApproving(true);
+      try {
+        const approved = await approveSmartVideoScript({ jobId, ...script });
+        if (!approved.success) throw new Error(approved.error);
+        await queryClient.invalidateQueries({ queryKey: ['smart-video-job', jobId] });
+        queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
+        queryClient.invalidateQueries({ queryKey: ['user-credits'] });
+        return true;
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Your video ad could not be started');
+        return false;
+      } finally {
+        setApproving(false);
+      }
+    },
+    [jobId, queryClient],
+  );
+
+  // Script first: a script the client does not want. The text goes back into the box, to write a new one.
+  const deleteScript = useCallback(
+    async (draft: SmartVideoJob) => {
+      const deleted = await deleteSmartVideoScript(draft.id);
+      if (!deleted.success) {
+        toast.error(deleted.error);
+        return;
+      }
+      setBrief((current) => current || draft.brief || (draft.link ? describeBoxLink(draft.link) : ''));
+      setJobId(null);
+      queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
+    },
+    [queryClient],
+  );
+
   // A failed new video: back to the form, with the text it was made from (the files have to be added again).
   const tryAgain = useCallback((failed: SmartVideoJob) => {
     if (isListing) {
@@ -285,10 +327,11 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     queryClient.invalidateQueries({ queryKey: ['smart-video-jobs'] });
   }, [queryClient]);
 
-  // Listing video: how many photos the video shows, and what animating them adds to the price
-  // (before anything is added, the price is shown for the photos a video of this length holds)
+  // Listing video: how many photos the video shows, and the most animating them adds to the price (2 credits a
+  // second of clip, the lengths known only once the voice is recorded; the server checks and caps the same number).
+  // Before anything is added, the price is shown for the photos a video of this length holds.
   const listingPhotos = listingPhotoCount(listingSeconds, (link.trim() ? listingLinkPhotos(files.length) : 0) + files.length || 99);
-  const clipCredits = isListing ? listingPhotos * LISTING_CLIP_CREDITS : 0;
+  const clipCredits = isListing ? listingClipCap(listingPhotos) : 0;
 
   return {
     listingSeconds,
@@ -322,12 +365,17 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     // The app was updated while this tab was open: its requests no longer reach the server until a reload.
     stalePage: isStalePageError(jobError?.message) || isStalePageError(historyError?.message),
     uploading,
+    // Script first: what approving this script costs (the same numbers the server charges on approval).
+    creditsFor: (draft: SmartVideoJob) => phantomCredits(draft.brief, draft.length === 'script') + (draft.wantsPresenter ? PHANTOM_PRESENTER_CREDITS : 0),
     credits: isListing ? LISTING_CREDITS : phantomCredits(brief, exactWords) + (withPresenter ? PHANTOM_PRESENTER_CREDITS : 0),
     website,
     revise,
     revising,
+    approve,
+    approving,
+    deleteScript,
     // A free video ad being made or copied in, or a bonus video ad, keeps the form free: the user did not start it.
-    isBusy: Boolean(uploading) || revising || (isRunning(job) && !job?.freeLeadId && !job?.bonus) || (Boolean(jobId) && job === undefined),
+    isBusy: Boolean(uploading) || revising || approving || (isRunning(job) && !job?.freeLeadId && !job?.bonus) || (Boolean(jobId) && job === undefined),
     start,
     reset,
     retryEdit,
