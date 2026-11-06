@@ -44,10 +44,10 @@ const fullShot = (cropped: string) => cropped.replace(/\/(before|after)\.jpg(\?|
  * whole phone page in 11 pieces of 4000 px, small enough for iPhones to show). All in the public script-videos bucket.
  */
 const ASCENT = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/website-demos/_shared/ascent';
+/** The red arrow between a BEFORE and an AFTER picture (owner 2026-11-06: points right in a row, down when stacked). */
+const ARROW = '<span class="arrow" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M8 24h28M26 12l12 12-12 12" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
 const ASCENT_FULL_PIECES = 11;
 /** Whiteboard drawings for the old way / new way rows (owner 2026-11-05): old-1..3 and new-1..3, 720 px wide. */
-const WHITEBOARD = 'https://ihzcmpngyjxraxzmckiv.supabase.co/storage/v1/object/public/script-videos/smart-video/website-demos/_shared/whiteboard';
-const WHITEBOARD_V = '2'; // cache-buster: bump when the drawings are re-uploaded
 
 async function load(token: string): Promise<{ lead: FreeVideoLead; demo: WebsiteDemo } | null> {
   if (!FREE_VIDEO_TOKEN_PATTERN.test(token)) return null;
@@ -211,30 +211,6 @@ ${setup}
 </article>`;
 }
 
-/** Old way / new way (owner 2026-11-05): each pain of their website today next to what the new website does instead. */
-const PAIRS: Array<{ oldH: string; oldP: string; oldList?: string[]; oldEnd?: string; newH: string; newP: string }> = [
-  {
-    oldH: 'Customers call the next business.',
-    oldP: 'A customer looks up a local business on their phone, and the website:',
-    oldList: ['loads slowly', 'has tiny text', 'hides the phone number'],
-    oldEnd: 'So the customer hits back and calls the next business on the list. One missed call can be the biggest job of the month.',
-    newH: 'Customers call you.',
-    newP: 'Your new site is built for the phone first: it loads quickly, has big buttons, is easy to read, and lets customers call you with one tap.',
-  },
-  {
-    oldH: 'Business owners pay every month for websites that bring no calls.',
-    oldP: 'Wix, GoDaddy or a web developer gets paid every month, whether the website brings ten calls or none.',
-    newH: 'Your website brings you new customers.',
-    newP: 'More and more people ask ChatGPT and Google\'s AI "who should I call?" Your new site is written and built so AI can read it and recommend you. Hosting is included, so you stop paying for the old one.',
-  },
-  {
-    oldH: 'Every small change means waiting.',
-    oldP: 'A new price, a new photo, new Saturday hours. The business owner emails the web developer, waits days, and sometimes pays extra for the change.',
-    newH: 'You change your website yourself in minutes.',
-    newP: 'We connect your website to your ChatGPT account. Tell ChatGPT what changed, add a photo if you like, and your website updates itself in minutes, from your phone or computer. No waiting days for a web developer, and no tech skills needed.',
-  },
-];
-
 const FAQ: Array<[string, string]> = [
   ["I'm already paying Wix, GoDaddy or someone else. Do I have to wait?", "No. Most of those plans only cover hosting, and our plans include hosting, so you'd stop paying them. If you're locked into a contract, tell us when it ends and we'll switch you that day. Your new site waits for you."],
   ['How does the ChatGPT (or Claude) connection work?', 'We connect your website to your own ChatGPT or Claude account. Then you just tell it what you want, like "change our Saturday hours to 9 to 2" or "add this job we just finished" with a few photos, and your website updates itself in minutes. It works from your phone or computer, wherever you are.'],
@@ -262,46 +238,48 @@ const CSS = `
 main{max-width:980px;margin:0 auto;padding:28px 16px 56px}
 .narrow{max-width:680px;margin-left:auto;margin-right:auto}
 h1,h2,h3{text-wrap:balance;letter-spacing:-.01em}
-h1{font-size:clamp(28px,4.6vw,42px);line-height:1.12;margin:0 0 12px}
-h2{font-size:clamp(23px,3.4vw,32px);line-height:1.2;margin:0 0 16px;text-align:center}
-p{margin:0}section{margin-top:56px}
+h1{font-size:clamp(30px,calc(2.6vw + 20px),42px);line-height:1.15;margin:0 0 12px}
+h2{font-size:clamp(26px,calc(1.8vw + 19px),34px);line-height:1.2;margin:0 0 12px;text-align:center}
+p{margin:0}section{margin-top:56px}@media (min-width:900px){section,.wc{margin-top:88px}}
 .from{color:var(--muted);font-size:16px;margin:0 0 10px}.from b{color:var(--ink)}
 .lede{color:var(--muted);margin:0 0 20px}
 .player{position:relative;max-width:980px;margin:0 auto;border-radius:16px;overflow:hidden;background:#000;box-shadow:0 14px 40px rgba(15,23,42,.22);aspect-ratio:16/9}
 video{display:block;width:100%;height:100%;background:#000}
-.ghost{display:block;margin:12px auto 0;background:var(--card);color:var(--navy);border:2px solid var(--navy);border-radius:14px;font:600 17px var(--font);padding:10px 20px;cursor:pointer}
-.btn{display:block;width:100%;border:0;border-radius:14px;background:var(--green);color:#fff;font:700 21px/1.2 var(--font);padding:19px 22px;cursor:pointer;box-shadow:0 6px 0 var(--green-d);text-align:center;text-decoration:none;transition:transform .08s}
+.ghost{display:block;margin:12px auto 0;background:var(--card);color:var(--navy);border:2px solid var(--navy);border-radius:14px;font:700 18px var(--font);padding:10px 20px;cursor:pointer}
+.btn{display:block;width:100%;border:0;border-radius:14px;background:var(--green);color:#fff;font:700 20px/1.2 var(--font);padding:19px 22px;cursor:pointer;box-shadow:0 6px 0 var(--green-d);text-align:center;text-decoration:none;transition:transform .08s}
 .btn:active{transform:translateY(3px);box-shadow:0 3px 0 var(--green-d)}
 .btn:focus-visible,.link:focus-visible,summary:focus-visible,.ghost:focus-visible{outline:3px solid var(--navy);outline-offset:3px}
 .cta-pair{display:flex;flex-direction:column;gap:12px;align-items:center;max-width:520px;margin:22px auto 0}
 .link{background:none;border:0;color:var(--navy);font:700 18px var(--font);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px}
-.ba-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.ba-grid{display:grid;grid-template-columns:1fr 44px 1fr;gap:12px;align-items:center}
+.ba figure{position:relative}.ba .tag{top:10px;left:10px}
+.ba .before{border:3px solid #b91c1c}.ba .after{border:3px solid var(--green)}
 .ba figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 6px 18px rgba(15,23,42,.08)}
 .ba img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:top}
 .ba figcaption{padding:10px 14px;font-weight:700;font-size:16px;display:flex;justify-content:space-between;gap:10px;align-items:center;text-align:left;margin:0}
 .ba .before figcaption{color:var(--muted)}.ba .after figcaption{color:var(--green)}
-.ba small{font-weight:600;font-size:14px;color:var(--navy);white-space:nowrap}
+.ba small{font-weight:700;font-size:16px;color:var(--navy);white-space:nowrap}
 .ba .shot{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in}
 .hint{color:var(--muted);font-size:16.5px;text-align:center;margin-top:12px}
-.vs-intro{text-align:center;color:var(--muted);margin:-6px auto 20px;max-width:620px}
+.vs-intro{text-align:center;color:var(--muted);margin:0 auto 24px;max-width:34em}
 .vs{max-width:940px;margin:0 auto;display:grid;gap:20px}
-.vs-head{display:grid;grid-template-columns:1fr 1fr;border-radius:14px;overflow:hidden;margin-bottom:-6px;font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.vs-head{display:grid;grid-template-columns:1fr 1fr;border-radius:14px;overflow:hidden;margin-bottom:-6px;font-size:14px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .vs-head div{padding:14px 24px}.h-old{background:#b91c1c;color:#fff}.h-new{background:var(--green);color:#fff}
 .vs-row{display:grid;grid-template-columns:1fr 1fr;border:1px solid #cbd5e1;border-radius:16px;overflow:hidden;box-shadow:0 10px 28px rgba(15,23,42,.10)}
 .c{display:flex;flex-direction:column;gap:14px;padding:22px 24px}
-.wb{display:block;width:100%;max-width:360px;height:auto;aspect-ratio:4/3;object-fit:cover;margin:0 auto;border-radius:12px;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,.06)}
+.wb{display:block;width:100%;max-width:220px;height:auto;aspect-ratio:4/3;object-fit:cover;margin:0 auto;border-radius:12px;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,.06)}
 .c.old{background:#fdf4f4}.c.new{background:#fff}
 .mk{width:42px;height:42px;border-radius:12px;display:grid;place-items:center}.mk svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .old .mk{background:#fde2e2;color:#b91c1c}.new .mk{background:#dcfce7;color:var(--green)}
-.c h3{font-size:19px;line-height:1.3;margin:0 0 6px}.old h3{color:var(--ink)}
-.c p{font-size:18.5px;color:var(--muted)}.old p{color:#1e293b}
+.c h3{font-size:21px;line-height:1.25;margin:0 0 8px}.old h3{color:var(--ink)}
+.c p{font-size:inherit;color:var(--muted)}.old p{color:#1e293b}
 .c .lbl{display:none}
-.bad{margin:8px 0;padding:0;list-style:none;display:grid;gap:4px;font-size:18px;color:#7f1d1d;font-weight:600}.bad li::before{content:"\\2715";color:#b91c1c;font-weight:800;margin-right:8px;font-size:13px}
+.bad{margin:8px 0;padding:0;list-style:none;display:grid;gap:4px;font-size:inherit;color:#7f1d1d;font-weight:600}.bad li::before{content:"\\2715";color:#b91c1c;font-weight:800;margin-right:8px;font-size:13px}
 .c .end{margin-top:2px}
 @media (max-width:700px){.vs{gap:16px}.vs-head{display:none}.vs-row{grid-template-columns:1fr}
- .c{padding:18px 18px;gap:12px}.c .lbl{display:block;font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;margin-bottom:4px}
+ .c{padding:18px 18px;gap:12px}.wb{max-width:180px}.c .lbl{display:block;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
  .old .lbl{color:#b91c1c}.new .lbl{color:var(--green)}.c.new{border-top:1px solid var(--line)}}
-.case-intro{color:var(--muted);margin:-4px 0 18px;text-align:center}
+.case-intro{color:var(--muted);margin:0 auto 24px;max-width:34em;text-align:left}
 .case-shots{display:grid;grid-template-columns:minmax(0,.42fr) minmax(0,1fr);gap:14px;align-items:end}
 .case-shots figure,.graders figure,.score{margin:0}
 .case-shots img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line);box-shadow:0 8px 22px rgba(15,23,42,.12)}
@@ -309,58 +287,58 @@ video{display:block;width:100%;height:100%;background:#000}
 figcaption{font-size:15.5px;color:var(--muted);text-align:center;margin-top:6px}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:22px}
 .stats div{background:var(--navy);color:#fff;border-radius:14px;padding:14px 12px;text-align:center;display:flex;flex-direction:column;gap:4px}
-.stats .k{font-size:14px;color:#bfdbfe;letter-spacing:.04em;text-transform:uppercase;font-weight:700}
+.stats .k{font-size:13px;color:#bfdbfe;letter-spacing:.06em;text-transform:uppercase;font-weight:700}
 .stats .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15}.stats i{font-style:normal;font-size:15px;color:#93c5fd;font-weight:600}
 .stats-note{font-size:15.5px;color:var(--muted);text-align:center;margin-top:8px}
 .graders{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:18px}
 .graders img,.score img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line);background:#fff}
 .score{margin-top:14px}
-.testi{margin:22px 0 0;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;font-size:18px;color:var(--ink)}
+.testi{margin:22px 0 0;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;font-size:inherit;line-height:1.55;color:var(--ink);border-left:4px solid var(--green)}
 .testi p+p{margin-top:10px}
 .testi .who{display:flex;align-items:center;gap:14px;margin-bottom:14px}
 .testi .who img{width:72px;height:72px;border-radius:50%;object-fit:cover}
 .testi .who b{display:block;font-size:18px}.testi .who span{color:var(--muted);font-size:16px}
 .trust{color:var(--muted);font-size:16.5px;text-align:center;margin-top:14px}
-.plans-intro{color:var(--muted);text-align:center;max-width:560px;margin:-6px auto 22px}
+.plans-intro{color:var(--muted);text-align:center;max-width:34em;margin:0 auto 24px}
 .plans{display:grid;grid-template-columns:1fr 1.08fr 1fr;gap:16px;align-items:start}
 .plan{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 20px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .plan.pop{border:3px solid var(--green);box-shadow:0 14px 34px rgba(21,128,61,.16);position:relative}
-.badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:13px;font-weight:800;letter-spacing:.08em;padding:5px 12px;border-radius:20px;white-space:nowrap}
+.badge{position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:14px;text-transform:uppercase;font-weight:800;letter-spacing:.08em;padding:5px 12px;border-radius:20px;white-space:nowrap}
 .plan h3{font-size:21px;margin:0}
 .price{font-size:40px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}.price span{font-size:18px;font-weight:600;color:var(--muted)}
-.setup{font-size:17px;color:var(--muted)}.setup s{margin-right:4px}.setup b{color:var(--green)}
-.for{font-size:17.5px;color:var(--muted)}
-.plan ul{margin:0;padding:0;list-style:none;display:grid;gap:8px;font-size:17.5px}
+.setup{font-size:inherit;color:var(--muted)}.setup s{margin-right:4px}.setup b{color:var(--green)}
+.for{font-size:inherit;color:var(--muted)}
+.plan ul{margin:0;padding:0;list-style:none;display:grid;gap:8px;font-size:inherit}
 .plan li{display:grid;grid-template-columns:20px 1fr;gap:8px}
 .plan li::before{content:"";width:16px;height:16px;margin-top:4px;border-radius:50%;background:var(--green);box-shadow:inset 0 0 0 4px #dcfce7}
 .plan li.bonus{background:var(--gold-bg);border-radius:10px;padding:8px 10px;margin:0 -4px}
 .plan li.bonus::before{background:var(--gold);box-shadow:inset 0 0 0 4px #fde68a}
-.plan .btn{font-size:19px;padding:16px 18px;margin-top:4px}
+.plan .btn{font-size:20px;padding:16px 18px;margin-top:4px}
 .fine{font-size:15.5px;color:var(--muted);text-align:center}
 .talk{text-align:center;font-size:17px;color:var(--muted);margin-top:-4px}.talk .link{font-size:17px;padding:2px}
 details{border-top:1px solid var(--line);padding-top:10px}
-summary{cursor:pointer;color:var(--navy);font-weight:700;font-size:17px}
-details ul{margin-top:10px!important;font-size:16.5px!important}
+summary{cursor:pointer;color:var(--navy);font-weight:700;font-size:18px}
+details ul{margin-top:10px!important}
 .inc-lead{font-size:16.5px;font-weight:700;margin-top:10px}
 .guarantee{display:grid;grid-template-columns:56px 1fr;gap:16px;align-items:start;background:var(--card);border:2px dashed var(--green);border-radius:16px;padding:20px;margin-top:22px}
 .seal{width:56px;height:56px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;line-height:1.05;text-align:center}
-.guarantee h3{margin:0 0 6px;font-size:20px}.guarantee p{font-size:18px;color:var(--muted)}
+.guarantee h3{margin:0 0 6px;font-size:21px}.guarantee p{font-size:inherit;color:var(--muted)}
 .guarantee a{color:var(--navy);font-weight:700;font-size:16.5px;display:inline-block;margin-top:8px}
-.bigger{text-align:center;color:var(--muted);margin-top:18px;font-size:18px}.bigger .link{font-size:18px}
-.steps{list-style:none;margin:0;padding:0;display:grid;gap:14px;counter-reset:s}
+.bigger{text-align:center;color:var(--muted);margin-top:18px;font-size:inherit}.bigger .link{font-size:inherit}
+.steps{list-style:none;margin:0;padding:0;display:grid;gap:18px;counter-reset:s}
 .steps li{display:grid;grid-template-columns:40px 1fr;gap:14px;counter-increment:s}
 .steps li::before{content:counter(s);width:40px;height:40px;border-radius:50%;background:var(--navy);color:#fff;font-weight:800;display:grid;place-items:center}
-.steps b{display:block}.steps span{color:var(--muted);font-size:18.5px}
+.steps b{display:block;font-size:inherit;margin-bottom:2px}.steps span{color:var(--muted);font-size:inherit}
 .steps-note{color:var(--muted);font-size:17px;margin-top:14px;text-align:center}
 .about{display:grid;grid-template-columns:96px 1fr;gap:18px;align-items:start;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
 .about .photo{width:96px;height:96px;border-radius:50%;object-fit:cover}
-.about p{font-size:18.5px;color:var(--muted)}.about p+p{margin-top:10px}
-.about .btn{margin-top:16px;font-size:19px;padding:15px 18px}
+.about p{font-size:inherit;color:var(--muted)}.about p+p{margin-top:10px}
+.about .btn{margin-top:16px;padding:15px 18px}
 .about .mail{font-size:16.5px;margin-top:10px}.about .mail a{color:var(--navy);font-weight:700}
 .faq{display:grid;gap:10px}
 .faq details{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 18px}
-.faq summary{color:var(--ink);font-size:18px}
-.faq p{color:var(--muted);font-size:18.5px;margin-top:8px}
+.faq summary{color:var(--ink);font-size:inherit}
+.faq p{color:var(--muted);font-size:inherit;margin-top:8px}
 .final{text-align:center;background:var(--soft);border-radius:18px;padding:30px 20px}
 .final p{color:var(--muted);max-width:520px;margin:0 auto}
 .lb{position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.94);display:none;flex-direction:column}
@@ -374,7 +352,40 @@ details ul{margin-top:10px!important;font-size:16.5px!important}
 #alb .lb-scroll img{max-width:430px}
 #lbi{border-radius:10px}
 @media (max-width:820px){.plans{grid-template-columns:1fr;gap:26px}}
-@media (max-width:640px){html,body{font-size:18px}main{padding:18px 16px 40px}.player{margin:0 -10px}.ba-grid{grid-template-columns:1fr}.about{grid-template-columns:1fr;justify-items:start}.player{border-radius:12px}.stats .v{font-size:19px}.stats .k{font-size:12px}.lb-bar button{font-size:15px;padding:9px 12px}}
+@media (max-width:640px){html,body{font-size:18px}main{padding:18px 16px 40px}.player{margin:0 -10px}.ba-grid{grid-template-columns:1fr;justify-items:stretch}.ba-grid .arrow svg{transform:rotate(90deg);width:48px;height:48px}.about{grid-template-columns:1fr;justify-items:start}.player{border-radius:12px}.stats{grid-template-columns:1fr;gap:8px}.stats div{flex-direction:row;justify-content:space-between;align-items:center;text-align:left;padding:14px 18px;gap:12px}.stats .k{font-size:13px}.stats .v{font-size:22px;white-space:nowrap}h1{line-height:1.15}.lb-bar button{font-size:15px;padding:9px 12px}}
+.pair-note,.from,.hint,figcaption,.ba figcaption,.stats-note,.trust,.fine,.steps-note,.talk,.talk .link,.about .mail,.guarantee a,.inc-lead,details ul{font-size:16px!important;line-height:1.5}
+@media (min-width:641px){.pair-note,.ba small,.from,.hint,figcaption,.ba figcaption,.stats-note,.trust,.fine,.steps-note,.talk,.talk .link,.about .mail,.guarantee a,.inc-lead,details ul{font-size:17px!important}}
+@media (min-width:821px){.plan ul{font-size:17px;line-height:1.45;gap:10px}.plan .btn{font-size:18px;padding:16px 12px}.for,.setup{font-size:17px}}
+@media (min-width:641px){.sub,.plan h3,.guarantee h3,.oto-fixes-t{font-size:22px!important}}
+.res{margin-top:0;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.res-row{display:grid;grid-template-columns:1.25fr 1fr 1fr;align-items:center;border-top:1px solid var(--line)}
+.res-row>span{padding:14px 16px}
+.res-head{border-top:0;font-size:14px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.res-head .res-old{color:#b91c1c}.res-head .res-new{color:var(--green)}
+.res-k{font-weight:700;color:var(--ink);line-height:1.3}
+.res-old,.res-new{text-align:center;font-variant-numeric:tabular-nums}
+.res-row:not(.res-head) .res-old{background:#fdf4f4;color:#7f1d1d;font-size:24px;font-weight:800}
+.res-row:not(.res-head) .res-new{background:#f0fdf4;color:var(--green);font-size:24px;font-weight:800}
+.res-head .res-old{background:#fdf4f4}.res-head .res-new{background:#f0fdf4}
+.res small{font-size:.6em;font-weight:600;margin-left:1px}
+.reports{margin-top:0;display:grid;gap:28px}
+.pair{display:grid;align-items:center;gap:10px}
+.pair--row{grid-template-columns:1fr 44px 1fr}
+.pair--stack{grid-template-columns:1fr;justify-items:center}
+.pair figure{position:relative;margin:0;width:100%}
+.pair img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line);background:#fff}
+.pair .pb img{border:3px solid #b91c1c}.pair .pa img{border:3px solid var(--green)}
+.tag{position:absolute;top:0;left:12px;z-index:1;padding:6px 14px;border-radius:10px;color:#fff;font-size:18px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 4px 12px rgba(15,23,42,.18)}
+.tag-b{background:#b91c1c}.tag-a{background:var(--green)}
+.arrow{display:grid;place-items:center;color:#dc2626}.arrow svg{width:44px;height:44px}
+.pair--stack .arrow svg{transform:rotate(90deg);width:48px;height:48px}
+.pair figure{padding-top:22px}.pair-note{grid-column:1/-1;text-align:center;color:var(--muted);font-size:16px}
+.hl{background:#fef08a;color:var(--ink);border-radius:6px;padding:0 6px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.kick{margin:0 0 6px;text-align:center;color:var(--green);font-size:14px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.sub{margin:32px 0 12px;padding-left:12px;border-left:4px solid var(--navy);color:var(--ink);font-size:21px;font-weight:700;line-height:1.3}
+.case-intro+.sub{margin-top:8px}
+.reports .graders{margin-top:0}.reports .score{margin-top:18px}
+@media (max-width:640px){.res-row{grid-template-columns:1.2fr 1fr 1fr}.res-row>span{padding:12px 10px}.res-head{font-size:14px}.res-row:not(.res-head) .res-old,.res-row:not(.res-head) .res-new{font-size:21px}.res-k{font-size:16px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}html{scroll-behavior:auto}}
 `;
 
@@ -417,34 +428,45 @@ ${demo.poster ? `<meta property="og:image" content="${esc(demo.poster)}">` : ''}
 <button type="button" class="ghost" id="fs">&#x26F6; Watch full screen</button>
 <div class="cta-pair">${wantIt}${talkFirst}</div>
 ${demo.before && demo.after ? `<section class="ba" aria-labelledby="ba-h"><h2 id="ba-h">Before and after</h2><div class="ba-grid">
-<figure class="before"><button type="button" class="shot" data-shot="0" aria-label="See your website today, full page"><img src="${esc(demo.before)}" alt="Your website today" loading="lazy"></button><figcaption>Your website today <small>See full page</small></figcaption></figure>
-<figure class="after"><button type="button" class="shot" data-shot="1" aria-label="See your new homepage, full page"><img src="${esc(demo.after)}" alt="Your new homepage" loading="lazy"></button><figcaption>Your new homepage <small>See full page</small></figcaption></figure>
+<figure class="before"><span class="tag tag-b">Before</span><button type="button" class="shot" data-shot="0" aria-label="See your website today, full page"><img src="${esc(demo.before)}" alt="Your website today" loading="lazy"></button><figcaption>Your website today <small>See full page</small></figcaption></figure>
+${ARROW}
+<figure class="after"><span class="tag tag-a">After</span><button type="button" class="shot" data-shot="1" aria-label="See your new homepage, full page"><img src="${esc(demo.after)}" alt="Your new homepage" loading="lazy"></button><figcaption>Your new homepage <small>See full page</small></figcaption></figure>
 </div><p class="hint">Tap either picture to see the whole page. This is a preview, so anything on it can be changed.</p></section>
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Before and after, full page"><div class="lb-bar"><button type="button" class="tab" data-tab="0">Your website today</button><button type="button" class="tab" data-tab="1">Your new homepage</button><button type="button" class="x" id="lbx">&#x2715; Close</button></div><div class="lb-scroll" id="lbs"><img id="lbi" alt=""></div></div>` : ''}
 ${check ? renderWebsiteCheck(check) : ''}
-<section aria-labelledby="pain-h"><h2 id="pain-h">Your next customer is looking you up right now</h2><p class="vs-intro">Here's what usually happens next, and what your new website does instead.</p>
-<div class="vs"><div class="vs-head"><div class="h-old">Most websites today</div><div class="h-new">Your new website</div></div>
-${PAIRS.map((pair, i) => `<div class="vs-row"><div class="c old"><img class="wb" src="${WHITEBOARD}/old-${i + 1}.jpg?v=${WHITEBOARD_V}" alt="" loading="lazy" width="720" height="540"><div><span class="lbl">Most websites today</span><h3>${esc(pair.oldH)}</h3><p>${esc(pair.oldP)}</p>${pair.oldList ? `<ul class="bad">${pair.oldList.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>` : ''}${pair.oldEnd ? `<p class="end">${esc(pair.oldEnd)}</p>` : ''}</div></div><div class="c new"><img class="wb" src="${WHITEBOARD}/new-${i + 1}.jpg?v=${WHITEBOARD_V}" alt="" loading="lazy" width="720" height="540"><div><span class="lbl">Your new website</span><h3>${esc(pair.newH)}</h3><p>${esc(pair.newP)}</p></div></div></div>`).join('\n')}
-</div></section>
 <section class="narrow" aria-labelledby="proof-h">
-<h2 id="proof-h">A website my team rebuilt: Ascent Equipment</h2>
+<p class="kick">Case study</p>
+<h2 id="proof-h">How our client Ascent Equipment got a <mark class="hl">45% increase in organic traffic</mark> in 14 days after we rebuilt his website</h2>
 <p class="case-intro">Dave Rom's company makes machines that bend metal letters for sign shops all over the US, and has been in business for eleven years. His old site took 10 seconds to load, was clumsy on phones, and when buyers asked AI who to buy from, his name came up zero times.</p>
+<p class="sub">The new website</p>
 <div class="case-shots">
 <figure class="phone"><img src="${ASCENT}/phone.jpg" alt="Ascent Equipment's new website on a phone" loading="lazy"><figcaption>On a phone</figcaption></figure>
 <figure class="desk"><img src="${ASCENT}/desk.jpg" alt="Ascent Equipment's new website on a computer" loading="lazy"><figcaption>On a computer</figcaption></figure>
 </div>
 <button type="button" class="ghost" id="openfull">See the whole website</button>
-<div class="stats">
-<div><span class="k">Website grade</span><span class="v">71 <i>to</i> 93</span></div>
-<div><span class="k">Time to load</span><span class="v">10.2s <i>to</i> 4.6s</span></div>
-<div><span class="k">AI answers naming him</span><span class="v">0% <i>to</i> 50%</span></div>
+<p class="sub">The results: old site vs new site</p>
+<div class="res" role="table" aria-label="Ascent Equipment, old site and new site">
+<div class="res-row res-head" role="row"><span role="columnheader"></span><span class="res-old" role="columnheader">Old site</span><span class="res-new" role="columnheader">New site</span></div>
+<div class="res-row" role="row"><span class="res-k" role="rowheader">Website grade</span><span class="res-old" role="cell">71<small>/100</small></span><span class="res-new" role="cell">93<small>/100</small></span></div>
+<div class="res-row" role="row"><span class="res-k" role="rowheader">Time to load</span><span class="res-old" role="cell">10.2<small>s</small></span><span class="res-new" role="cell">4.6<small>s</small></span></div>
+<div class="res-row" role="row"><span class="res-k" role="rowheader">AI answers naming him</span><span class="res-old" role="cell">0%</span><span class="res-new" role="cell">50%</span></div>
 </div>
 <p class="stats-note">All three measured 14 days after the new site went live.</p>
-<div class="graders">
-<figure><img src="${ASCENT}/grader-before.png" alt="HubSpot Website Grader: old site scored 71 out of 100" loading="lazy"><figcaption>Old site: 71/100</figcaption></figure>
-<figure><img src="${ASCENT}/grader-after.png" alt="HubSpot Website Grader: new site scored 93 out of 100" loading="lazy"><figcaption>New site: 93/100</figcaption></figure>
+<p class="sub">The original reports</p>
+<div class="reports">
+<div class="pair pair--row">
+<figure class="pb"><span class="tag tag-b">Before</span><img src="${ASCENT}/grader-before.png" alt="HubSpot Website Grader: old site scored 71 out of 100" loading="lazy"><figcaption>Old site: 71/100</figcaption></figure>
+${ARROW}
+<figure class="pa"><span class="tag tag-a">After</span><img src="${ASCENT}/grader-after.png" alt="HubSpot Website Grader: new site scored 93 out of 100" loading="lazy"><figcaption>New site: 93/100</figcaption></figure>
+<p class="pair-note">Scores from HubSpot Website Grader.</p>
 </div>
-<figure class="score"><img src="${ASCENT}/shot-score.png" alt="Ascent's AI visibility 14 days after launch: 50% of AI answers" loading="lazy"><figcaption>How often AI names Ascent, 14 days after launch</figcaption></figure>
+<div class="pair pair--stack">
+<figure class="pb"><span class="tag tag-b">Before</span><img src="/free-video/ascent/ai-visibility-before.png" alt="Ascent's AI visibility before the rebuild: 0% of AI answers" loading="lazy" width="852" height="445"><figcaption>How often AI named Ascent before the rebuild</figcaption></figure>
+${ARROW}
+<figure class="pa"><span class="tag tag-a">After</span><img src="${ASCENT}/shot-score.png" alt="Ascent's AI visibility 14 days after launch: 50% of AI answers" loading="lazy" width="852" height="445"><figcaption>How often AI names Ascent, 14 days after launch</figcaption></figure>
+</div>
+</div>
+<p class="sub">What Dave says</p>
 <blockquote class="testi">
 <div class="who"><img src="${ASCENT}/dov-rom.jpg" alt="Dave Rom" width="72" height="72" loading="lazy"><div><b>Dave (Dov) Rom</b><span>President, Ascent Equipment</span></div></div>
 <p>"I rarely give public endorsements, but my experience with BlueFx was so positive that I am compelled to share it. They recently completed the overhaul of our company website and integrated cutting-edge SEO AI solutions that have fundamentally transformed how we acquire and engage customers online.</p>
