@@ -21,9 +21,7 @@ So we send that moment to every lead again, before each major holiday, with a fr
    > Watch it here: [link]
    >
    > Szilard
-4. **What we sell with it:**
-   - $49 removes the logo, the same as today
-   - a holiday pack bundles the next 2 or 3 holidays clean, for example "Black Friday + Christmas + New Year, all clean, $97"
+4. **What we sell with it:** the same offer as today. $49 unlocks the clean video, then the existing AI Media Machine upsell funnel follows. No holiday pack and no new offers.
 
 ## Calendar (US holidays; send window = the days the email goes out)
 | Holiday | Date | Send window | Build by |
