@@ -7,6 +7,30 @@ Ideas from coaching sessions in Nov 2026. These are ideas only, not work orders.
 - **Trade show exhibitors as a cold email source.** Owner liked it. Exhibitors are established companies with money, and they need a video for their booth screen. A few weeks before each show: "your booth video for {show} is ready". Research and emails are in trade-show-prospecting.md.
 - **One YouTube video per industry.** Owner: "we can definitely do one for each". About 60% of channel views come from search. The plan is in youtube-industry-videos.md.
 
+## Big idea: go after whales (saved 2026-11-06)
+Owner: "a good idea... 10 of these, $10,000 or more a month". It makes logical sense to him, but he doesn't yet have the gut feeling about it.
+- **Core insight:** business owners want customers, not videos or websites. The value of one new customer decides how much we can help and charge: about $50 for a salon, $20k to $100k for an equipment maker like Dov. Our work costs us about the same for both.
+- **Offer:** be the AI-powered marketing department for businesses where one customer is worth $10k or more, starting with B2B equipment makers:
+  - found on Google and ChatGPT
+  - a demo video per product
+  - a new website
+  - trade show videos
+  - quote-request follow-up
+  - a monthly report
+
+  Price: $2,500 to $4,000/mo, or a base plus a bonus per qualified quote request. About 30 clients is $100k/mo.
+- **The "whale page" for each target company:** their new homepage (before and after), a sales video made for them, an AI search finding ("ChatGPT names competitor A and B, not you"), and the Ascent case study (71 to 93 grade, 10.2s to 4.6s, 0% to 50% of AI answers in 14 days, +45% traffic).
+- **Reaching them:** not mass cold email. ThomasNet failed because of generic info@ addresses, big companies, no proof and a single email. Instead:
+  - 25 to 50 hand-picked owner-run companies a week, 10 to 200 staff, products worth $10k+
+  - lists from trade show exhibitors, association members, and Dov's introductions and distributors
+  - 4 touches per company:
+    1. a personal email to the owner by name
+    2. LinkedIn: a connection request plus LinkedIn ads targeted to those exact companies (company-list upload)
+    3. for the top 50, a printed before/after with a QR code, or a video brochure mailer
+    4. retargeting anyone who opens their page, then calling them when they watch
+- **Don't pitch Ascent's direct competitors.** Use Ascent as proof in other equipment industries.
+- **Rough estimate:** 300 companies, 10 to 15% engage, 3 to 6 clients at $2k to $4k/mo.
+
 ## Liked, not started
 - **"How to run your ad for $5 a day."** Owner especially liked this one. Many people get the free video and never post it. A short how-to email brings them back, and anyone stuck can book the existing $99 Facebook setup call.
 - **"Where you stand today" on the website demo page.** Reuse the AI Spartan engine and the quick website check (client-bluefx website-check.js) to show the AI visibility score, which competitors AI names instead, load time and 3 problems, then "your new website fixes all three". A brief has been given to the website demos session.
