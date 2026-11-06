@@ -176,25 +176,6 @@ function splitError(error?: string): { reason: string; refund: string | null } {
   };
 }
 
-/** Words of a change that only say what to do, never which words to change. */
-const CHANGE_WORDS = new Set(
-  'remove delete take drop change replace instead word words just only make please the and from that this with out line first say says saying should'.split(' ')
-);
-
-/**
- * The word of a change that only the presenter says (in the first line, nowhere else), e.g. "right" in "remove right".
- * A plain change keeps the presenter's clip as it was filmed, so the page says so before the client pays for nothing
- * (drficco 2026-11-06 paid twice for the same video).
- */
-function presenterOnlyWord(note: string, script: SmartVideoJob['script']): string | null {
-  const first = script?.[0];
-  if (!first?.presenter || !note.trim()) return null;
-  const words = (text: string) => text.toLowerCase().match(/[a-z0-9']+/g) ?? [];
-  const presenter = new Set(words(first.say));
-  const rest = new Set((script ?? []).slice(1).flatMap((scene) => [...words(scene.say), ...scene.show.flatMap(words)]));
-  return words(note).find((w) => w.length >= 3 && !CHANGE_WORDS.has(w) && presenter.has(w) && !rest.has(w)) ?? null;
-}
-
 /** What a change asked for, for the line under the versions. */
 function changeText(job: SmartVideoJob): string {
   const presenter = Boolean(job.presenterRequest || job.presenterPhoto);
@@ -1307,7 +1288,6 @@ function ChangeBox({
   // question; the button under the change opens it for any wording.
   const asksForPerson = Boolean(photo) || (PERSON_WORDS.test(note) && (!VOICE_WORDS.test(note) || ON_CAMERA_WORDS.test(note)));
   const showPresenter = canHavePresenter && (asksForPerson || presenterOpen);
-  const presenterWord = hasPresenter ? presenterOnlyWord(note, job.script) : null;
   const soundChanged = sound.voiceOver !== has.voiceOver || sound.music !== has.music;
   const canChange = note.trim().length >= 3 || soundChanged;
   const presenterTotal = PHANTOM_REVISION_CREDITS + PHANTOM_PRESENTER_CHANGE_CREDITS;
@@ -1439,13 +1419,6 @@ function ChangeBox({
           {asksForPerson && (
             <p className="text-base leading-relaxed text-muted-foreground">
               {ownOpening ? 'Your video ad opens with your own clip, so you stay on camera.' : 'A listing video ad has no presenter.'}
-            </p>
-          )}
-          {presenterWord && (
-            <p className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 text-base leading-relaxed text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
-              “{presenterWord}” is in the first line, which the presenter says on camera. A normal change keeps that clip as it was
-              filmed. To change the presenter&apos;s words, press Change the person on camera below and write that you want the same
-              person.
             </p>
           )}
           <BlueButton onClick={() => send(false)} disabled={revising || !canChange}>

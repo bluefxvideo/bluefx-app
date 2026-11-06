@@ -434,11 +434,8 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
 }
 
 /** Why an edit made no new video. */
-const NOTHING_CHANGED = 'Nothing in the video changed from your note, so no new version was made. Try saying which words or which scene to change.';
-const NOTHING_CHANGED_PRESENTER =
-  'Nothing in the video changed, so no new version was made. If your change is about the first line, that line is said by the presenter on camera, ' +
-  'and a normal change keeps their clip as it was filmed. To change what the presenter says, press Change the person on camera, ' +
-  'write that you want the same person, and type the new words.';
+const NOTHING_CHANGED = 'Nothing in the video changed from your note, so no new version was made.';
+const NOTHING_CHANGED_PRESENTER = `${NOTHING_CHANGED} The first line is said by the presenter on camera and stays as it was filmed. To change it, press Change the person on camera.`;
 
 async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob, uploads: { name: string; path: string }[]): Promise<void> {
   let job = initial;
