@@ -5,6 +5,7 @@ import { hasInternalCookie } from '@/lib/free-video/internal-visit';
 import { getLeadByToken } from '@/lib/free-video/leads';
 import { displayDomain } from '@/lib/free-video/website';
 import { recordWebsiteEvent, WEBSITE_EVENTS, websiteDemoOf, type WebsiteDemo, type WebsiteEvent } from '@/lib/free-video/website-demo';
+import { fetchWebsiteCheck, renderWebsiteCheck, WEBSITE_CHECK_CSS, type WebsiteCheck } from '@/lib/free-video/website-check';
 import { FREE_VIDEO_TOKEN_PATTERN, type FreeVideoLead } from '@/types/free-video';
 
 /**
@@ -58,6 +59,8 @@ async function load(token: string): Promise<{ lead: FreeVideoLead; demo: Website
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  // The website check from bluefx.net (owner 2026-11-06) runs next to the lead lookup; it never waits more than 2.5 s.
+  const checkPromise = FREE_VIDEO_TOKEN_PATTERN.test(token) ? fetchWebsiteCheck(token) : Promise.resolve(null);
   let found;
   try {
     found = await load(token);
@@ -67,8 +70,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   }
   if (!found) return notFound();
   const internal = req.nextUrl.searchParams.get('internal') === '1' || hasInternalCookie(req.headers.get('cookie'));
+  const check = await checkPromise; // null when it isn't ready yet: the page shows without it
   // The sales page is the default for every lead since 2026-11-05 (owner); ?preview=sales links keep working.
-  return new NextResponse(renderPage(token, found.lead, found.demo, internal), { status: 200, headers: HTML_HEADERS });
+  return new NextResponse(renderPage(token, found.lead, found.demo, internal, check), { status: 200, headers: HTML_HEADERS });
 }
 
 function sameOrigin(origin: string | null): boolean {
@@ -374,7 +378,7 @@ details ul{margin-top:10px!important;font-size:16.5px!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}html{scroll-behavior:auto}}
 `;
 
-function renderPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, internal: boolean): string {
+function renderPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, internal: boolean, check: WebsiteCheck | null): string {
   const word = (lead.first_name || '').trim().split(/\s+/)[0] || '';
   const first = word ? word.charAt(0).toUpperCase() + word.slice(1) : ''; // "sam" typed in the form → "Sam"
   const business = demo.business || displayDomain(lead.website_domain);
@@ -403,7 +407,7 @@ function renderPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, inter
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>${esc(title)}</title>
 ${demo.poster ? `<meta property="og:image" content="${esc(demo.poster)}">` : ''}
-<style>${CSS}</style></head><body><main>
+<style>${CSS}${check ? WEBSITE_CHECK_CSS : ''}</style></head><body><main>
 <div class="narrow">
 <p class="from">A video from <b>Szilard at BlueFX</b></p>
 <h1>${esc(title)}</h1>
@@ -417,6 +421,7 @@ ${demo.before && demo.after ? `<section class="ba" aria-labelledby="ba-h"><h2 id
 <figure class="after"><button type="button" class="shot" data-shot="1" aria-label="See your new homepage, full page"><img src="${esc(demo.after)}" alt="Your new homepage" loading="lazy"></button><figcaption>Your new homepage <small>See full page</small></figcaption></figure>
 </div><p class="hint">Tap either picture to see the whole page. This is a preview, so anything on it can be changed.</p></section>
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Before and after, full page"><div class="lb-bar"><button type="button" class="tab" data-tab="0">Your website today</button><button type="button" class="tab" data-tab="1">Your new homepage</button><button type="button" class="x" id="lbx">&#x2715; Close</button></div><div class="lb-scroll" id="lbs"><img id="lbi" alt=""></div></div>` : ''}
+${check ? renderWebsiteCheck(check) : ''}
 <section aria-labelledby="pain-h"><h2 id="pain-h">Your next customer is looking you up right now</h2><p class="vs-intro">Here's what usually happens next, and what your new website does instead.</p>
 <div class="vs"><div class="vs-head"><div class="h-old">Most websites today</div><div class="h-new">Your new website</div></div>
 ${PAIRS.map((pair, i) => `<div class="vs-row"><div class="c old"><img class="wb" src="${WHITEBOARD}/old-${i + 1}.jpg?v=${WHITEBOARD_V}" alt="" loading="lazy" width="720" height="540"><div><span class="lbl">Most websites today</span><h3>${esc(pair.oldH)}</h3><p>${esc(pair.oldP)}</p>${pair.oldList ? `<ul class="bad">${pair.oldList.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>` : ''}${pair.oldEnd ? `<p class="end">${esc(pair.oldEnd)}</p>` : ''}</div></div><div class="c new"><img class="wb" src="${WHITEBOARD}/new-${i + 1}.jpg?v=${WHITEBOARD_V}" alt="" loading="lazy" width="720" height="540"><div><span class="lbl">Your new website</span><h3>${esc(pair.newH)}</h3><p>${esc(pair.newP)}</p></div></div></div>`).join('\n')}
@@ -481,6 +486,7 @@ function send(e,p){if(c.internal)return;try{fetch(c.url,{method:'POST',headers:{
 var v=document.getElementById('v'),played=false,watched=false;
 document.getElementById('fs').addEventListener('click',function(){try{if(v.requestFullscreen){v.requestFullscreen()}else if(v.webkitEnterFullscreen){v.webkitEnterFullscreen()}else if(v.webkitRequestFullscreen){v.webkitRequestFullscreen()}}catch(x){}var p=v.play();if(p&&p.catch)p.catch(function(){})});
 v.addEventListener('play',function(){if(!played){played=true;send('website_play')}});
+var pl=document.querySelector('#plans .plans');if(pl&&window.IntersectionObserver){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){io.disconnect();send('website_plans')}})},{rootMargin:'0px 0px -50% 0px'});io.observe(pl)}
 v.addEventListener('timeupdate',function(){if(!watched&&v.duration&&v.currentTime/v.duration>=0.6){watched=true;send('website_watched')}});
 function talk(){send('website_interest');
  var q=new URLSearchParams({name:c.prefill.name,email:c.prefill.email,utm_source:c.utm.utmSource,utm_campaign:c.utm.utmCampaign,utm_content:c.utm.utmContent});

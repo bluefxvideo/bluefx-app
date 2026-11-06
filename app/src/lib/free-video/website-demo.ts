@@ -12,7 +12,7 @@ import type { FreeVideoLead } from '@/types/free-video';
  * the owner's calendar, and his email. The owner also calls the people who click (Dylan Power's warm call).
  *
  * The demo itself is a 'website_demo' event on the lead (meta: video, poster, business), written by the upload script,
- * so there is no new table. The newest one wins. The page's own events: website_play, website_watched (most of the
+ * so there is no new table. The newest one wins. The page's own events: website_play, website_plans (the plans came into view, no email), website_watched (most of the
  * video seen), website_interest (Let's talk / Book a call) and website_checkout (a plan's "Yes, start my new website",
  * meta.plan). The owner gets an email at the first watched and the first interest of each lead, and at the first checkout
  * click of each lead and plan. A paid plan (FastSpring webhook) is a website_purchase event and an email to the owner.
@@ -29,7 +29,7 @@ export interface WebsiteDemo {
   business: string;
 }
 
-export const WEBSITE_EVENTS = ['website_play', 'website_watched', 'website_interest', 'website_checkout'] as const;
+export const WEBSITE_EVENTS = ['website_play', 'website_plans', 'website_watched', 'website_interest', 'website_checkout'] as const;
 export type WebsiteEvent = (typeof WEBSITE_EVENTS)[number];
 
 /** The lead's newest demo, or null when there is none. Throws on a database error. */
@@ -93,7 +93,7 @@ async function emailOwner(subject: string, text: string): Promise<void> {
 export async function recordWebsiteEvent(lead: FreeVideoLead, demo: WebsiteDemo, event: WebsiteEvent, visitorId: string | null, planKey: string | null = null): Promise<void> {
   const plan = event === 'website_checkout' ? websitePlanByKey(planKey || '') : null;
   if (event === 'website_checkout' && !plan) return;
-  const first = event === 'website_play' ? false : !(await hasEvent(lead.id, event, plan?.key));
+  const first = event === 'website_play' || event === 'website_plans' ? false : !(await hasEvent(lead.id, event, plan?.key));
   await recordEvent({ event, leadId: lead.id, visitorId, placement: 'website', ref: lead.ref, meta: plan ? { plan: plan.key } : null });
   if (!first) return;
   const who = `${lead.first_name || 'Someone'} (${demo.business || displayDomain(lead.website_domain)}, ${lead.email})`;
