@@ -193,6 +193,36 @@ export async function swapIntoPresenter(presenterPhoto: Buffer, person: Buffer, 
   return Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer());
 }
 
+/**
+ * The presenter's photo with the client's own product in their hand (owner 2026-11-07: the Mills book video showed a
+ * plain gray book, because the photo was made from words only): the same person, place, clothes and framing, now holding
+ * the product from the client's photo with its front to the camera. One call to the edit model, about $0.07.
+ */
+export async function holdProduct(presenterPhoto: Buffer, product: Buffer, horizontal = false): Promise<Buffer> {
+  const dataUri = (data: Buffer) => `data:image/jpeg;base64,${data.toString('base64')}`;
+  const res = await fetch(`https://fal.run/${EDIT_MODEL}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Key ${key('FAL_KEY')}` },
+    body: JSON.stringify({
+      prompt:
+        'Image 1 is a person. Image 2 is a product. Make image 1 again with the same person, face, hair, clothes, pose, place, light and camera, but they now hold the product from image 2 in one hand (instead of anything they held before), its front facing the camera, upright, fully visible and sharp, exactly as in image 2: the same shape, colors, pictures and words. Looking into the camera, mouth closed, a slight smile. Photorealistic, realistic skin texture.',
+      image_urls: [dataUri(presenterPhoto), dataUri(product)],
+      image_size: horizontal ? { width: 1920, height: 1088 } : { width: 1088, height: 1920 },
+      quality: 'high',
+      output_format: 'jpeg',
+      num_images: 1,
+    }),
+    signal: AbortSignal.timeout(240_000),
+  });
+  if (!res.ok) throw new Error(`Putting the product in the presenter's hand failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  const json = await res.json();
+  usage.presenterPhoto();
+  return Buffer.from(await (await fetch(json.images[0].url)).arrayBuffer());
+}
+
+/** What the presenter does while saying their first words when they hold the client's product. */
+export const HOLD_ACTION = 'They hold the product up a little toward the camera, its front to the lens, and keep facing the camera while they talk.';
+
 /** A first line too long for the presenter, said again in at most PRESENTER_MAX_WORDS words with the same meaning (about $0.001). Null when the answer is still too long. */
 export async function shortenPresenterLine(line: string, brief: string): Promise<string | null> {
   const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${WRITER_MODEL}:generateContent`, {

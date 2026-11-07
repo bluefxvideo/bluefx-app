@@ -26,6 +26,7 @@ The client gave you ONLY a piece of text and some files. They will do nothing el
 
 STEP 1 — Understand every file. Look at each asset and decide its role:
 - logo: a brand mark. Note whether it sits on one flat background colour (logoOnSolidBackground).
+- For every "product" asset also set "handheld": true when the photo clearly shows a physical product a person can hold up in one hand to the camera (a book, a bottle, a jar, a box, a small gadget), false for anything else (a big item, software, a screenshot, a service). The AI presenter holds a handheld product in the video.
 - photo / clip: real footage of the place, people or the product in use. Best material; use it generously.
 - product: a packshot: the product alone on a plain (usually white) background. It can be shown with media {cutout:true}, which removes the background so the product floats on the scene. Infographic images with printed text are artwork, not product.
 - artwork: designed graphics such as a poster or flyer. READ it: posters often hold facts the text lacks (prices, salary, dates, phone, email, address). List them in factsFound and USE them. Artwork without large text in its upper part also works as an "imageTop" background.
@@ -279,6 +280,8 @@ async function askDirector(
  */
 const NewPresenterSchema = z.object({
   same: z.boolean().nullish(),
+  /** The asset id of the client's product the presenter holds in their hand (presenter.ts holdProduct). */
+  holds: z.string().nullish(),
   photo: z.string().nullish(),
   action: z.string().nullish(),
   /** The client's own photo: where the person's face is ("x% y%"), so the vertical frame is cut around it. */
@@ -407,7 +410,7 @@ function presenterTask({ current, photo, request, uploaded }: RevisePresenter): 
       ...(current
         ? [`- This video opens with an AI presenter${photo ? ' (their photo is shown after this text)' : ''}: a person the AI Media Machine generated and filmed saying scene 1 on camera.`]
         : []),
-      `- THE CLIENT TICKED "${current ? 'Change the presenter' : 'Add a presenter'}" AND WROTE WHO SHOULD BE ON CAMERA: "${request.replace(/"/g, "'")}". Return, at the top level of the JSON next to "scenes": "newPresenter": {"photo": "one sentence describing their photo: gender, age, look, clothes, the place, the prop, a vertical smartphone selfie or a phone on a stand, mouth closed", "action": "one sentence: the small movement they make while saying their first words"}. Cast a made-up everyday person who fits those words: never a real, named or famous person, and never the client or anyone they name. When the words name a real or famous person, cast a made-up person of the same gender, age and look, and add to "warnings": "The presenter is a made-up person who looks the part, not the person you named."${current && photo ? ' Keep the place, the prop and the framing of the current photo unless the client\'s words change them. When the client wants the same person (for example "the same woman", "same person"), return "newPresenter": {"same": true} instead: they are filmed again saying scene 1.' : ''}`,
+      `- THE CLIENT TICKED "${current ? 'Change the presenter' : 'Add a presenter'}" AND WROTE WHO SHOULD BE ON CAMERA: "${request.replace(/"/g, "'")}". Return, at the top level of the JSON next to "scenes": "newPresenter": {"photo": "one sentence describing their photo: gender, age, look, clothes, the place, the prop, a vertical smartphone selfie or a phone on a stand, mouth closed", "action": "one sentence: the small movement they make while saying their first words"}. Cast a made-up everyday person who fits those words: never a real, named or famous person, and never the client or anyone they name. When the words name a real or famous person, cast a made-up person of the same gender, age and look, and add to "warnings": "The presenter is a made-up person who looks the part, not the person you named."${current && photo ? ' Keep the place, the prop and the framing of the current photo unless the client\'s words change them. When the client wants the same person (for example "the same woman", "same person"), return "newPresenter": {"same": true} instead: they are filmed again saying scene 1.' : ''} When the client wants the presenter to hold or show their product (for example "the book in her hand"), also add "holds": "the id of the asset that shows that product" to "newPresenter": the AI Media Machine puts that exact product in the presenter\'s hand, so never warn that it cannot.`,
       narrated,
     ];
   }
