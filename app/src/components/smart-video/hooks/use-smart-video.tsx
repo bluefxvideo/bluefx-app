@@ -18,6 +18,7 @@ import { LISTING_CREDITS, listingClipCap, PHANTOM_PRESENTER_CREDITS, phantomCred
 import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount, type ListingLength } from '@/lib/smart-video/listing';
 import type { PhantomExample } from '@/lib/smart-video/examples';
 import { urlToFile } from '@/lib/url-to-file';
+import { uploadableFile } from '@/lib/smart-video/uploadable-file';
 import type { VideoFormat, VideoLook } from '@/lib/smart-video/types';
 import type { ApprovedScript } from '@/lib/smart-video/script-edit';
 import { SMART_VIDEO_MAX_FILE_MB, SMART_VIDEO_MAX_FILES, type SmartVideoJob } from '@/types/smart-video';
@@ -118,18 +119,20 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
     }
     try {
       setUploading({ done: 0, total: files.length });
-      const requested = await requestSmartVideoUploads({ files: files.map((f) => ({ name: f.name, size: f.size })) });
+      // AVIF photos go up as PNG (uploadable-file.ts).
+      const sending = await Promise.all(files.map(uploadableFile));
+      const requested = await requestSmartVideoUploads({ files: sending.map((f) => ({ name: f.name, size: f.size })) });
       if (!requested.success) throw new Error(requested.error);
 
       // Files go straight to storage; a server action would cap them at 1 MB of text.
       for (const [i, slot] of requested.data.slots.entries()) {
         const res = await fetch(slot.uploadUrl, {
           method: 'PUT',
-          headers: { 'Content-Type': files[i].type || 'application/octet-stream' },
-          body: files[i],
+          headers: { 'Content-Type': sending[i].type || 'application/octet-stream' },
+          body: sending[i],
         });
-        if (!res.ok) throw new Error(`Uploading ${files[i].name} failed`);
-        setUploading({ done: i + 1, total: files.length });
+        if (!res.ok) throw new Error(`Uploading ${sending[i].name} failed`);
+        setUploading({ done: i + 1, total: sending.length });
       }
 
       const started = await startSmartVideo({
@@ -174,7 +177,8 @@ export function useSmartVideo(mode: 'phantom' | 'listing' = 'phantom') {
         let uploads: { name: string; path: string }[] = [];
         let presenterPhoto: { name: string; path: string } | undefined;
         // The presenter's photo goes up with the edit's files, under the same id, but it is not one of the video's files.
-        const files = presenter?.photo ? [...added, presenter.photo] : added;
+        // AVIF photos go up as PNG (uploadable-file.ts).
+        const files = await Promise.all((presenter?.photo ? [...added, presenter.photo] : added).map(uploadableFile));
         if (files.length) {
           const requested = await requestSmartVideoUploads({ files: files.map((f) => ({ name: f.name, size: f.size })) });
           if (!requested.success) throw new Error(requested.error);
