@@ -30,7 +30,7 @@ Owner, 2026-11-06: "the real change is VIP treatment". Every now and then a whal
 5. **Put VIP leads first in the daily website demo run,** at the best quality.
 6. **Change nothing for the lead.** Same emails, same offers, and no automatic replies to them.
 7. **Fail safe.** If scoring fails, send no alert and log the error. The funnel must never break because of this.
-8. **Backfill.** Mark the existing VIP leads listed in app/docs/vip-leads.md the same way: the MailerLite field and the group.
+8. **Backfill.** Mark the existing VIP leads the same way: the MailerLite field and the group. Szilard has the list (kept out of the repo because it holds contact details).
 
 ## Scoring rules
 **Must have (otherwise never VIP):**
