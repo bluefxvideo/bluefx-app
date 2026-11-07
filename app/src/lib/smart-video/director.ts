@@ -375,7 +375,13 @@ export async function reviseVideo(
   const sameAllowed = Boolean(presenter?.current && presenter.photo && !presenter.uploaded);
   const revised = await askDirector(
     parts,
-    (candidate, lastChance) => checkPlan(candidate, assets, brief, 'auto', true, lastChance, null, listing, false, ticked),
+    (candidate, lastChance) => {
+      // A re-filmed presenter takes scene 1 over: its background and blocks never show. The director kept copying the old
+      // presenter scene and the checks sent it back until the edit failed (owner 2026-11-07: "keep the same presenter,
+      // the book in her hand" failed 3 of 3), so scene 1 is put right here instead of sent back.
+      if (ticked) refilmOpening(candidate);
+      return checkPlan(candidate, assets, brief, 'auto', true, lastChance, null, listing, false, ticked);
+    },
     280_000,
     undefined,
     (answer) => {
@@ -390,6 +396,15 @@ export async function reviseVideo(
     }
   );
   return { plan: listing ? asListingPlan(revised) : revised, newPresenter, removePresenter };
+}
+
+/** Scene 1 of an edit that films the presenter again, made a plain narrated scene: no speaker, nothing of the old presenter clip. */
+function refilmOpening(plan: DirectorPlan): void {
+  const opening = plan.scenes[0];
+  if (!opening) return;
+  opening.speaker = null;
+  if (opening.background.asset === PRESENTER_ASSET) opening.background = { type: 'brand', asset: null, focus: null };
+  opening.blocks = opening.blocks.filter((b) => !('asset' in b && b.asset === PRESENTER_ASSET) && !('assets' in b && b.assets.includes(PRESENTER_ASSET))) as typeof opening.blocks;
 }
 
 /**
@@ -410,7 +425,7 @@ function presenterTask({ current, photo, request, uploaded }: RevisePresenter): 
       ...(current
         ? [`- This video opens with an AI presenter${photo ? ' (their photo is shown after this text)' : ''}: a person the AI Media Machine generated and filmed saying scene 1 on camera.`]
         : []),
-      `- THE CLIENT TICKED "${current ? 'Change the presenter' : 'Add a presenter'}" AND WROTE WHO SHOULD BE ON CAMERA: "${request.replace(/"/g, "'")}". Return, at the top level of the JSON next to "scenes": "newPresenter": {"photo": "one sentence describing their photo: gender, age, look, clothes, the place, the prop, a vertical smartphone selfie or a phone on a stand, mouth closed", "action": "one sentence: the small movement they make while saying their first words"}. Cast a made-up everyday person who fits those words: never a real, named or famous person, and never the client or anyone they name. When the words name a real or famous person, cast a made-up person of the same gender, age and look, and add to "warnings": "The presenter is a made-up person who looks the part, not the person you named."${current && photo ? ' Keep the place, the prop and the framing of the current photo unless the client\'s words change them. When the client wants the same person (for example "the same woman", "same person"), return "newPresenter": {"same": true} instead: they are filmed again saying scene 1.' : ''} When the client wants the presenter to hold or show their product (for example "the book in her hand"), also add "holds": "the id of the asset that shows that product" to "newPresenter": the AI Media Machine puts that exact product in the presenter\'s hand, so never warn that it cannot.`,
+      `- THE CLIENT TICKED "${current ? 'Change the presenter' : 'Add a presenter'}" AND WROTE WHO SHOULD BE ON CAMERA: "${request.replace(/"/g, "'")}". Return, at the top level of the JSON next to "scenes": "newPresenter": {"photo": "one sentence describing their photo: gender, age, look, clothes, the place, the prop, a vertical smartphone selfie or a phone on a stand, mouth closed", "action": "one sentence: the small movement they make while saying their first words"}. Cast a made-up everyday person who fits those words: never a real, named or famous person, and never the client or anyone they name. When the words name a real or famous person, cast a made-up person of the same gender, age and look, and add to "warnings": "The presenter is a made-up person who looks the part, not the person you named."${current && photo ? ' Keep the place, the prop and the framing of the current photo unless the client\'s words change them. When the client wants the same person (for example "the same woman", "same person"), return "newPresenter": {"same": true} instead: they are filmed again saying scene 1.' : ''} When the client wants the presenter to hold or show their product (for example "the book in her hand"), also add "holds": "the id of the asset that shows that product (when several files show it, the cleanest photo of it: no marks, scribbles, stickers or highlights)" to "newPresenter": the AI Media Machine puts that exact product in the presenter\'s hand, so never warn that it cannot.`,
       narrated,
     ];
   }
@@ -484,7 +499,7 @@ function checkPlan(
     // Looser rules (free video ads): a title alone carries a scene; each extra required block cost a 30-70 s rewrite.
     // The AI presenter's scene carries no text (pipeline.ts addPresenter): the person and the prop stay clear.
     // A presenter-opened video's scene 1 too (the director kept failing it on a vintage ad, 2026-10-24).
-    const presenterScene = scene.speaker?.asset === PRESENTER_ASSET || (opening && i === 0);
+    const presenterScene = scene.speaker?.asset === PRESENTER_ASSET || ((opening || refilm) && i === 0);
     const minimum = presenterScene || (listing && scene.background.type === 'mediaFull') ? 0 : loose ? 1 : scene.background.type === 'drawing' ? 1 : scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : (isIllustrated(plan.style) && (scene.blocks.some((b) => b.type === 'media' && cartoonIds.has(b.asset)) || (isBigPicture(plan.style) && scene.background.type === 'imageTop'))) || ((isBoard(plan.style) || plan.style === 'scrapbook') && scene.blocks.some((b) => b.type === 'media' || b.type === 'gallery')) ? 2 : 3;
     // A thin stack is taste, not a broken scene (a title alone renders, see looser rules): the last try only needs one block.
     // 2026-11-02: a tennis elbow ad with no files failed twice in News and Clean on "scene 2 has only 2 blocks".
