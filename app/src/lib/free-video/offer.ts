@@ -5,7 +5,7 @@
  * Client-safe: no process.env and no server imports. The page components import this file.
  */
 
-import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
+import { PHANTOM_CREDITS } from '@/lib/smart-video/pricing';
 
 /**
  * Every place an offer button can sit: the thank-you page, the video ad page, the form's "one free video ad per
@@ -173,7 +173,9 @@ export const VIDEO_ADS_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / PHANTOM
  * 600 / 60 = 10 video ads a month like the free one, which opens with an AI presenter (runner.ts presenter: true, 10
  * credits more): the number the thank-you offer uses (owner 2026-10-08, one number everywhere).
  */
-export const VIDEO_ADS_LIKE_FREE_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS / (PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS));
+// Kept at the approved 10 while the sales wording waits (owner 2026-11-02: the presenter is now included, so 600 credits
+// make 12; the sales pages change together, later).
+export const VIDEO_ADS_LIKE_FREE_PER_MONTH = 10;
 
 /**
  * What one video ad like the free one works out to: the lifetime price over a year of VIDEO_ADS_LIKE_FREE_PER_MONTH
@@ -181,6 +183,15 @@ export const VIDEO_ADS_LIKE_FREE_PER_MONTH = Math.floor(LIFETIME_MONTHLY_CREDITS
  * down the math"). The page never shows the division (his girlfriend, same day: "so its 10 or 100 or ??").
  */
 export const PRICE_PER_VIDEO_AD_UNDER = `$${Math.ceil(Number(OFFER.now.replace(/\D/g, '')) / (VIDEO_ADS_LIKE_FREE_PER_MONTH * 12))}`;
+
+/**
+ * The credit bank (owner 2026-11-02, credit-bank.ts): new lifetime buyers get BANK_CREDITS once, never expiring. The
+ * sales copy switches to it when the bank is launched (credit-bank-launch.ts): 5,000 / 50 credits per video ad (the AI
+ * presenter is included) = 100 video ads, $297 / 100 = $2.97 a video ad.
+ */
+export const BANK_CREDITS = 5000;
+export const BANK_VIDEO_ADS = Math.floor(BANK_CREDITS / PHANTOM_CREDITS);
+export const PRICE_PER_BANK_VIDEO_AD = `$${(Number(OFFER.now.replace(/\D/g, '')) / BANK_VIDEO_ADS).toFixed(2)}`;
 
 /**
  * The 3-day bonus (owner 2026-10-08: "i love the deadline but its too long, 24h or 3 days"): a lead who buys the AI

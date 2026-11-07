@@ -6,6 +6,7 @@ import { executeVoiceOver, VoiceOverRequest, VoiceOption, GeneratedVoice, execut
 import { getVoiceOverHistory, deleteGeneratedVoice } from '@/actions/database/voice-over-database';
 import { getUserClonedVoices, deleteClonedVoice, saveClonedVoice } from '@/actions/database/cloned-voices-database';
 import { prepareVoiceUpload, cloneVoiceFromStorage } from '@/actions/services/minimax-clone-service';
+import { voiceOverCredits } from '@/lib/voice-pricing';
 import { generateMinimaxVoice } from '@/actions/services/minimax-voice-service';
 import { createClient } from '@/app/supabase/client';
 import { User } from '@supabase/supabase-js';
@@ -105,7 +106,7 @@ export function useVoiceOver() {
     isLoading: false,
     error: null,
     credits: 0,
-    estimatedCredits: 2,
+    estimatedCredits: voiceOverCredits(''),
     clonedVoices: [],
     isCloning: false,
     isChangingVoice: false,
@@ -183,28 +184,13 @@ export function useVoiceOver() {
     }
   }, [activeTab, user, loadVoiceHistory]);
 
-  // Update estimated credits based on settings
+  // The price shown before generating: 3 credits per started 1,000 characters (the server charges the same)
   useEffect(() => {
-    const calculateEstimatedCredits = () => {
-      const wordCount = state.scriptText.trim().split(/\s+/).filter(Boolean).length;
-      let baseCost = 2;
-      
-      // Quality multiplier
-      if (state.quality === 'hd') baseCost *= 1.5;
-      
-      // Length multiplier
-      if (wordCount > 500) {
-        baseCost *= (1 + ((wordCount - 500) * 0.001));
-      }
-      
-      return Math.ceil(baseCost);
-    };
-
     setState(prev => ({
       ...prev,
-      estimatedCredits: calculateEstimatedCredits(),
+      estimatedCredits: voiceOverCredits(state.scriptText),
     }));
-  }, [state.scriptText, state.quality]);
+  }, [state.scriptText]);
 
   // Handle voice preview playback
   const handleVoicePlayback = useCallback((voiceId: string, sampleUrl: string) => {
@@ -283,7 +269,7 @@ export function useVoiceOver() {
             ...response.generated_audio,
             user_id: 'current-user',
             batch_id: response.batch_id || 'unknown',
-            credits_used: 2
+            credits_used: response.credits_used
           }] : [],
           currentBatchId: response.batch_id,
           credits: response.remaining_credits,

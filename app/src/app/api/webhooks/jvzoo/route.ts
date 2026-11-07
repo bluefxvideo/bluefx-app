@@ -5,6 +5,7 @@ import { subscribeToMailerLite, mailerLiteGroupsForJvzooProduct } from '@/lib/ma
 import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
 import { liftSuspensionAfterPurchase } from '@/lib/credits/subscription-entitlement'
 import { insertBuyerProfile } from '@/lib/credits/buyer-profile'
+import { grantCreditBankIfLaunched, lookupCreditBank } from '@/lib/credits/credit-bank'
 
 // JVZoo IPN handler for the AI Media Machine funnel on aimediamachine.com.
 // JVZoo posts one form-encoded IPN per product transaction; cverify is the
@@ -230,7 +231,7 @@ async function provisionLifetime(sale: { email: string; custName: string; receip
 
     const { data: existingSubscription } = await supabase
       .from('user_subscriptions')
-      .select('id')
+      .select('id, plan_type, status')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -258,19 +259,27 @@ async function provisionLifetime(sale: { email: string; custName: string; receip
         throw new Error(`Failed to update subscription: ${subscriptionUpdateError.message}`)
       }
 
-      const { error: creditsUpdateError } = await supabase
-        .from('user_credits')
-        .update({
-          total_credits: FULL_CREDITS,
-          used_credits: 0,
-          period_start: currentPeriodStart.toISOString(),
-          period_end: creditsPeriodEnd.toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId)
-      if (creditsUpdateError) {
-        throw new Error(`Failed to update credits: ${creditsUpdateError.message}`)
+      // Owns lifetime right now: never moved to the credit bank by a second sale, and a
+      // credit bank account is never reset to 600.
+      const ownsLifetime = existingSubscription.plan_type === 'lifetime' && existingSubscription.status === 'active'
+      if (ownsLifetime && (await lookupCreditBank(userId, supabase)).kind !== 'legacy') {
+        console.log(`♾️ ${email} already owns lifetime on the credit bank; credits left as they are`)
+      } else {
+        const { error: creditsUpdateError } = await supabase
+          .from('user_credits')
+          .update({
+            total_credits: FULL_CREDITS,
+            used_credits: 0,
+            period_start: currentPeriodStart.toISOString(),
+            period_end: creditsPeriodEnd.toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId)
+        if (creditsUpdateError) {
+          throw new Error(`Failed to update credits: ${creditsUpdateError.message}`)
+        }
       }
+      if (!ownsLifetime) await grantCreditBankIfLaunched(supabase, userId, `JVZoo sale ${receipt}`)
 
       // A returning buyer is often still suspended by their old cancellation
       await liftSuspensionAfterPurchase(supabase, userId, `JVZoo sale ${receipt}`)
@@ -281,6 +290,7 @@ async function provisionLifetime(sale: { email: string; custName: string; receip
     // Existing auth user without a subscription row falls through to the
     // insert path below.
     await insertSubscriptionAndCredits(supabase, userId, email)
+    await grantCreditBankIfLaunched(supabase, userId, `JVZoo sale ${receipt}`)
     await liftSuspensionAfterPurchase(supabase, userId, `JVZoo sale ${receipt}`)
     return
   }
@@ -322,6 +332,7 @@ async function provisionLifetime(sale: { email: string; custName: string; receip
   }
 
   await insertSubscriptionAndCredits(supabase, userId, email)
+  await grantCreditBankIfLaunched(supabase, userId, `JVZoo sale ${receipt}`)
 }
 
 async function insertSubscriptionAndCredits(supabase: ReturnType<typeof createAdminClient>, userId: string, email: string) {

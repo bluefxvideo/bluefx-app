@@ -11,10 +11,11 @@ export const PHANTOM_EXTRA_MINUTE_CREDITS = 20;
 /** A change to a finished video from a note. */
 export const PHANTOM_REVISION_CREDITS = 10;
 /**
- * The AI presenter who opens a video (tall or wide) and says the first line (presenter.ts: about $0.58 at the APIs, the same
- * rate as ReelEstate's animated photos). Charged on its own and given back when the presenter does not make it into the video.
+ * The AI presenter who opens a video (tall or wide) and says the first line (presenter.ts: about $0.47 more at the APIs).
+ * Included in the video ad's credits since owner 2026-11-02 ("make the cost 50 even with presenter", for everyone: 5,000
+ * credits = 100 video ads). 0 = no separate charge (chargePresenter skips it); changing the presenter later stays paid.
  */
-export const PHANTOM_PRESENTER_CREDITS = 10;
+export const PHANTOM_PRESENTER_CREDITS = 0;
 /**
  * An edit with "Change the presenter" (or "Add a presenter"): a new AI presenter, or the same one saying new words
  * (owner 2026-10-13: its own choice and its own price, never decided from the note). On top of
@@ -24,7 +25,23 @@ export const PHANTOM_PRESENTER_CHANGE_CREDITS = 30;
 
 /** The automatic listing video (ReelEstate): the video itself, plus each photo that becomes a moving clip. */
 export const LISTING_CREDITS = 25;
-export const LISTING_CLIP_CREDITS = 6;
+/**
+ * A photo's moving clip: 2 credits per second of clip (fal LTX 2.3 fast, $0.04 a second; owner-approved 2026-11-02).
+ * A clip is 6, 8, 10 or 12 seconds (listingClipSeconds), as long as its photo is on screen: 12 to 24 credits.
+ */
+export const LISTING_CLIP_CREDITS_PER_SECOND = 2;
+export const listingClipCredits = (clipSeconds: number) => clipSeconds * LISTING_CLIP_CREDITS_PER_SECOND;
+/** The shortest clip, the one most photos get (a room is on screen about 3 seconds). */
+export const LISTING_SHORTEST_CLIP_SECONDS = 6;
+/**
+ * The clip lengths are only known once the voice is recorded, so the page quotes a ceiling: 6 seconds a photo plus
+ * these seconds for the photos that stay on screen longer (the price with the figures, the last photo with the
+ * contact card). The balance is checked against it before the video starts and the clips are never charged above it.
+ */
+export const LISTING_LONGER_CLIP_SECONDS = 10;
+/** The most the moving clips of a video with this many photos cost. */
+export const listingClipCap = (photos: number) =>
+  listingClipCredits(photos * LISTING_SHORTEST_CLIP_SECONDS + LISTING_LONGER_CLIP_SECONDS);
 
 export const MAX_LIFESTYLE_PHOTOS = 3;
 export const MAX_ANIMATED_PHOTOS = 2;

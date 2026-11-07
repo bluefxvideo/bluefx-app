@@ -331,6 +331,8 @@ export interface FreeVideoView {
   nextAds?: FreeVideoNextAdCard[];
   /** ready: the next 3 video ads are being written right now, so the page asks again in a few seconds. */
   nextAdsPending?: boolean;
+  /** ready: the credit bank is launched (credit-bank-launch.ts), so the sales copy says 100 video ads once instead of 10 every month. */
+  bankCopy?: boolean;
 }
 
 /**
@@ -399,6 +401,7 @@ export const FREE_VIDEO_STEP_COUNT = 5;
 export const FREE_VIDEO_STEP_OF: Record<SmartVideoJobStatus, 1 | 2 | 3 | 4 | 5> = {
   reading: 1,
   directing: 2,
+  script: 2, // a Phantom script waiting for approval; free video ads never wait
   producing: 3,
   rendering: 4,
   finishing: 5,
@@ -439,7 +442,8 @@ export type TutorialOpenSource = (typeof TUTORIAL_OPEN_SOURCES)[number];
  */
 /** service_paid: a paid Unlimited Video Ads order of this lead (service-order.ts). */
 /** change_request: a change an unlock buyer typed on the unlock page (meta {text, round}). */
-export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused' | 'service_paid' | 'change_request' | 'change_chat' | 'change_plan' | 'ai_change';
+/** vip_scored: the lead's VIP mark (lib/free-video/vip.ts, meta VipMark); the newest one wins. */
+export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused' | 'service_paid' | 'change_request' | 'change_chat' | 'change_plan' | 'ai_change' | 'ai_preview' | 'free_change_email' | 'checkout_reminder_email' | 'website_demo' | 'website_play' | 'website_plans' | 'website_watched' | 'website_interest' | 'website_checkout' | 'website_purchase' | 'vip_scored';
 
 export const FreeVideoEventSchema = z.object({
   e: z.enum(FREE_VIDEO_EVENTS),

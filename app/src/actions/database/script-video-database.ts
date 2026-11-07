@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { Json } from '@/types/database';
+import { spendableCredits } from '@/lib/credits/credit-bank';
 
 // Lazy initialization to avoid build-time errors
 function getSupabaseClient() {
@@ -390,7 +391,7 @@ export async function getUserCredits(user_id: string) {
 
     return {
       success: true,
-      credits: data?.available_credits || 0
+      credits: await spendableCredits(user_id, data?.available_credits || 0)
     };
   } catch (error) {
     console.error('Error getting user credits:', error);
@@ -408,6 +409,8 @@ export async function deductCredits(
   operation_type: string,
   metadata: Json
 ) {
+  // deduct_user_credits refuses 0 (a guard against negative charges); nothing to take is a success.
+  if (amount === 0) return { success: true, error: undefined, remainingCredits: undefined, transaction_id: undefined };
   const supabase = getSupabaseClient();
   try {
     // Use the same RPC function as thumbnail-machine

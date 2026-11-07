@@ -34,9 +34,10 @@ import { asLead, getLead, getLeadByToken, leadsTable, readSettings, transitionUn
 import { trackPurchase } from '@/lib/free-video/meta';
 import { deliverUnlock } from '@/lib/free-video/notify';
 import { chatWordsOf, latestChangePlan } from '@/lib/free-video/change-chat';
-import { aiChangesOf, startAiChange, wantsNewStyle } from '@/lib/free-video/instant-change';
+import { aiChangesOf, freeChangeOf, startAiChange, wantsNewStyle } from '@/lib/free-video/instant-change';
 import { changesUsed, requestChange } from '@/lib/free-video/change-requests';
 import { UNLOCK, UNLOCK_PRODUCTS } from '@/lib/free-video/offer';
+import { vipPing } from '@/lib/free-video/vip';
 import { displayDomain, emailKeyOf } from '@/lib/free-video/website';
 import { jobDir, readPlan, upload } from '@/lib/smart-video/jobs';
 import { levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
@@ -372,6 +373,9 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
     () => trackPurchase(paidLead, { id: orderId, amount: order.amount, currency: order.currency, email: order.email, ip: buyerIp }),
     true
   );
+  // A VIP's payment emails the owner, and a payment can make a lead VIP (vip.ts, owner 2026-11-07).
+  const paid = order.amount ? `${!order.currency || order.currency === 'USD' ? '$' : ''}${Math.round(order.amount)}${order.currency && order.currency !== 'USD' ? ` ${order.currency}` : ''}` : UNLOCK.price;
+  inBackground('VIP ping', () => vipPing(paidLead, { kind: 'paid', amount: order.amount, label: `paid ${paid} for their clean video` }, `vip-paid:${orderId}`), true);
   // The change list the buyer confirmed in the change chat before paying becomes the first change request: the owner's
   // email with the list, and the ready page shows the changes being made (change-chat.ts).
   inBackground(
@@ -389,7 +393,13 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
         }
         return;
       }
-      const text = plan.map((c, i) => `${i + 1}. ${c}`).join('\n');
+      // The free change already made its own lines (the clean version is that change): only the lines asked after it
+      // start now (owner 2026-11-04: the whole list ran again, so a new presenter could be cast twice).
+      const free = await freeChangeOf(paidLead).catch(() => null);
+      const made = free && free.status !== 'failed' ? free.text.split('\n').map((l) => l.replace(/^\s*\d+\.\s*/, '').trim()) : [];
+      const fresh = plan.filter((c) => !made.includes(c.trim()));
+      if (!fresh.length) return;
+      const text = fresh.map((c, i) => `${i + 1}. ${c}`).join('\n');
       // Owner 2026-10-27: the chat's list starts at once as instant change 1; a new style goes to the team.
       if (!wantsNewStyle(text)) {
         const changes = await aiChangesOf(paidLead);
@@ -519,7 +529,10 @@ async function renderAndStore(lead: FreeVideoLead): Promise<string> {
   const settings = await readSettings(true);
   const systemUserId = settings?.system_user_id;
   if (!systemUserId || !lead.job_id) throw new Error('No system user or job for the clean render');
-  const saved = await readPlan(systemUserId, lead.job_id);
+  // A finished free change (instant-change.ts) is what the buyer saw and paid for: its job becomes the clean version.
+  const free = await freeChangeOf(lead);
+  const sourceJob = free?.status === 'done' ? free.jobId : lead.job_id;
+  const saved = await readPlan(systemUserId, sourceJob);
   const props = cleanProps(saved.props);
   // Exactly as finish() does it: the render, then the loudness.
   const renderedUrl = await renderSmartVideo(props, () => undefined);
@@ -527,7 +540,7 @@ async function renderAndStore(lead: FreeVideoLead): Promise<string> {
   await checkCleanFile(data, props);
   // video.mp4 sits in the same folder and its URL is public, so the clean file needs a name nobody can guess.
   const name = `clean-${randomBytes(18).toString('base64url')}.mp4`;
-  return upload(`${jobDir(systemUserId, lead.job_id)}/${name}`, data, 'video/mp4');
+  return upload(`${jobDir(systemUserId, sourceJob)}/${name}`, data, 'video/mp4');
 }
 
 /** Fake mode: a short pause, then the free file stands in for the clean one. */
@@ -554,6 +567,8 @@ export async function renderCleanVersion(leadId: string): Promise<CleanOutcome> 
   const lead = await getLead(leadId);
   if (!lead || (lead.unlock_status !== 'paid' && lead.unlock_status !== 'rendering')) return 'none';
   if (lead.status !== 'done' || !lead.job_id || !lead.video_url) return 'waiting';
+  // A free change still being made: its end starts this render (instant-change.ts afterFreeChange), the sweep retries.
+  if ((await freeChangeOf(lead).catch(() => null))?.status === 'working') return 'waiting';
   const staleBefore = Date.now() - CLEAN_RENDER.staleMinutes * 60_000;
   if (lead.unlock_status === 'rendering' && lead.clean_claimed_at && Date.parse(lead.clean_claimed_at) > staleBefore) return 'none';
   if (!fakeMode() && !renderTargetAllowed()) {

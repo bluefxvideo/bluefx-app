@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { generateAvatarImage, type AvatarGeneratorRequest } from '@/actions/tools/avatar-generator';
 import type { AvatarExample } from '../examples';
 import { AvatarTips } from '../avatar-examples';
+import { VOICE_CLONE_CREDITS } from '@/lib/voice-pricing';
 
 const AVATAR_GENERATION_CREDIT_COST = 4;
 const AVATAR_PAGE_SIZE = 24;
@@ -1782,7 +1783,7 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
             {/* Clone Button */}
             <Button
               onClick={handleCloneSubmit}
-              disabled={!cloneFile || !cloneVoiceName.trim() || state.isCloning || credits < 50}
+              disabled={!cloneFile || !cloneVoiceName.trim() || state.isCloning || credits < VOICE_CLONE_CREDITS}
               className="w-full"
             >
               {state.isCloning ? (
@@ -1793,13 +1794,13 @@ export function GeneratorTab({ avatarState, credits, creditsLoading, isActive = 
               ) : (
                 <>
                   <Mic2 className="w-4 h-4 mr-2" />
-                  Clone Voice (50 credits)
+                  Clone Voice ({VOICE_CLONE_CREDITS} credits)
                 </>
               )}
             </Button>
-            {credits < 50 && cloneFile && cloneVoiceName.trim() && (
+            {credits < VOICE_CLONE_CREDITS && cloneFile && cloneVoiceName.trim() && (
               <p className="text-xs text-destructive text-center">
-                Not enough credits. A cloned voice costs 50 credits.
+                Not enough credits. A cloned voice costs {VOICE_CLONE_CREDITS} credits.
               </p>
             )}
           </div>

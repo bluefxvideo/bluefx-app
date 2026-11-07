@@ -30,13 +30,14 @@ import {
   WATCHDOG_MINUTES,
 } from '@/lib/free-video/config';
 import { isoMinutesAgo, leadsTable, readSettings, settingsTable } from '@/lib/free-video/leads';
-import { addToBoughtGroup, deliverLead, deliverUnlock, viewUrl } from '@/lib/free-video/notify';
+import { addToBoughtGroup, deliverLead, deliverUnlock, sendCheckoutReminders, viewUrl } from '@/lib/free-video/notify';
 import { type SettleOutcome, settleLead } from '@/lib/free-video/runner';
 import { cleanRendersRunning, startCleanRender } from '@/lib/free-video/unlock';
 import { copyLeadsToAccounts } from '@/lib/free-video/claim';
 import { writeMissingNextAds } from '@/lib/free-video/next-ads';
 import { cleanWorkingFiles } from '@/lib/free-video/cleanup';
 import { leadPrefixOfVtid, UNLOCK } from '@/lib/free-video/offer';
+import { vipBought } from '@/lib/free-video/vip';
 import { displayDomain } from '@/lib/free-video/website';
 import { jobsTable } from '@/lib/smart-video/jobs';
 import type { FreeVideoGateResult, FreeVideoSettings } from '@/types/free-video';
@@ -72,6 +73,8 @@ export interface SweepReport {
   unlock: { waiting: number; rendering: number; started: number; emailed: number };
   /** P1: leads newly marked as bought. */
   bought: number;
+  /** Missed-payment emails sent (a $49 buy tap without a payment 30 minutes later). */
+  checkoutReminders: number;
   /** Bought leads whose video ad this sweep started copying into the buyer's account (claim.ts). */
   claimed: number;
   /** Finished leads whose next 3 video ads this sweep started writing (next-ads.ts). */
@@ -139,6 +142,7 @@ function emptyReport(dry: boolean): SweepReport {
     paidBusy: null,
     unlock: { waiting: 0, rendering: 0, started: 0, emailed: 0 },
     bought: 0,
+    checkoutReminders: 0,
     claimed: 0,
     nextAds: 0,
     cleaned: null,
@@ -227,6 +231,7 @@ export async function sweepFreeVideos({ dry }: { dry: boolean }): Promise<SweepR
 
   // 5. P1: sales; once an hour, the old working files.
   if (!dry) report.bought = await attributeSales();
+  if (!dry) report.checkoutReminders = await sendCheckoutReminders();
   if (!dry) report.claimed = await copyLeadsToAccounts(own);
   if (!dry) report.nextAds = await writeMissingNextAds(own);
   if (!dry && new Date().getUTCMinutes() < 3) report.cleaned = await cleanWorkingFiles(own, settings.system_user_id);
@@ -595,6 +600,8 @@ async function attributeSales(): Promise<number> {
       bought++;
       console.log(`✅ [free-video] Lead ${lead.id} bought (${sale.ref}${sale.email === lead.email ? '' : `, by its tracking id, paid as ${sale.email}`})`);
       await addToBoughtGroup(lead.email);
+      // A VIP's purchase emails the owner, and buying makes a lead VIP unless it is on the never-list (vip.ts).
+      await vipBought(lead.id);
     }
     return bought;
   } catch (error) {

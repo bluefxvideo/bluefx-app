@@ -12,7 +12,7 @@ import {
   Upload, Loader2, ImagePlus, Sparkles, Film, RefreshCw, X, Download, RotateCcw, Mic,
 } from 'lucide-react';
 import type { AgentCloneShot, AgentCloneDuration } from '@/types/reelestate';
-import { AGENT_CLONE_DURATIONS } from '@/types/reelestate';
+import { AGENT_CLONE_ANIMATION_CREDITS_PER_SECOND, AGENT_CLONE_DURATIONS } from '@/types/reelestate';
 import type { AgentCloneExample } from '../examples';
 import { AgentCloneTips } from '../reelestate-examples';
 
@@ -243,7 +243,8 @@ export function AgentCloneTab({
   // ─── Credit Checks ────────────────────────────
 
   const canGenerate = credits >= 2;
-  const canAnimate = shot ? credits >= shot.duration : false;
+  const animateCredits = shot ? shot.duration * AGENT_CLONE_ANIMATION_CREDITS_PER_SECOND : 0;
+  const canAnimate = shot ? credits >= animateCredits : false;
   const canSwitchVoice = credits >= 4 && (!!voiceFile || (useLastSample && !!lastVoiceSample));
 
   return (
@@ -585,7 +586,7 @@ export function AgentCloneTab({
 
                   <Button onClick={() => onAnimateShot(shot.id)} disabled={!canAnimate || isWorking} className="w-full">
                     <Film className="w-4 h-4 mr-2" />
-                    {hasVideo ? 'Re-animate' : 'Animate'} {canAnimate ? `(${shot.duration} credits)` : `(need ${shot.duration} credits)`}
+                    {hasVideo ? 'Re-animate' : 'Animate'} {canAnimate ? `(${animateCredits} credits)` : `(need ${animateCredits} credits)`}
                   </Button>
                 </div>
               </>

@@ -566,7 +566,10 @@ function PushIn({ at, rotate = 0, zIndex = 5, children }) {
 const TITLE_SIZE = { xl: 150, l: 110, m: 92, s: 72 };
 const TITLE_CHARS = { xl: 11, l: 15, m: 18, s: 24 };
 const HAND_FRAMES_PER_CHAR = 1.4;
-const HAND_LIST_CHARS = 16; // a handwritten list line longer than this is written in two lines
+// A handwritten list item is written on one line, the way a person writes a list (owner 2026-11-01: "it should be
+// on one line and a bit bigger"). Only an item too long for the column at full size is written in two lines.
+// Caveat bold is about 0.42 of its size a letter.
+const handListChars = (room, size) => Math.max(16, Math.floor(room / (size * 0.42)));
 
 function titlePaint(look, theme, tone, size, textColor) {
   const kind = look.title.kind;
@@ -933,17 +936,17 @@ const CHIP_COLORS = ['accent', 'blue', 'green', 'orange', 'purple'];
 function Chip({ item, index }) {
   const { theme, look } = usePlan();
   const textColor = useTextColor();
-  const [ref, size] = useFit(look.chip.icon === 'check' ? 72 : 50, useColumn() - 2 * SIDE - (look.chip.icon === 'check' ? 90 : 190));
+  const column = useColumn();
+  const [ref, size] = useFit(look.chip.icon === 'check' ? 72 : 50, column - 2 * SIDE - (look.chip.icon === 'check' ? 90 : 190));
   const chip = look.chip;
   if (chip.icon === 'check') {
     return (
-      // A long line is written in two: shorter lines let the whole list be written bigger.
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 22 }}>
         <span style={{ width: 60, flexShrink: 0, display: 'flex', justifyContent: 'center', paddingTop: size * 0.1 }}>
           <Tick size={size * 0.72} color={theme.accent} />
         </span>
         <div ref={ref} style={{ fontFamily: look.fonts.body[0], fontWeight: 700, fontSize: size, lineHeight: 1.05, color: textColor, whiteSpace: 'pre' }}>
-          {autoBreak(item.text, HAND_LIST_CHARS)}
+          {autoBreak(item.text, handListChars(column - 2 * SIDE - 90, 72))}
         </div>
       </div>
     );
@@ -1003,8 +1006,10 @@ function Chip({ item, index }) {
 }
 
 function Chips({ block }) {
+  const { look } = usePlan();
+  // A handwritten list keeps its ticks in one straight line, the way a person writes one.
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: look.chip.icon === 'check' ? 'flex-start' : 'center', gap: 24 }}>
       {block.items.map((item, i) => (
         <PopIn key={i} at={item.at ?? block.at} anim="left">
           <Chip item={item} index={i} />
@@ -1099,7 +1104,7 @@ function Row({ item }) {
         <span style={{ width: 58, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
           <Tick size={size * 0.7} color={theme.accent} />
         </span>
-        <span ref={ref} style={{ whiteSpace: 'pre', lineHeight: 1.05 }}>{autoBreak(item.text, HAND_LIST_CHARS)}</span>
+        <span ref={ref} style={{ whiteSpace: 'pre', lineHeight: 1.05 }}>{autoBreak(item.text, handListChars(820 - 80, 64))}</span>
       </div>
     );
   }

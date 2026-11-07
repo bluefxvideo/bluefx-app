@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/app/supabase/server'
 import { cancelFastSpringSubscription } from '@/lib/credits/subscription-entitlement'
 import { insertBuyerProfile } from '@/lib/credits/buyer-profile'
+import { grantCreditBankIfLaunched } from '@/lib/credits/credit-bank'
 import type { Json } from '@/types/database'
 import crypto from 'crypto'
 import { findAuthUser, findAuthUserByEmail } from '@/lib/auth-user-lookup'
 import { handleServiceOrder } from '@/lib/free-video/service-order'
 import { freeVideoUnlockIn, handleFreeVideoUnlockEvent } from '@/lib/free-video/unlock'
+import { handleWebsitePlanOrder } from '@/lib/free-video/website-demo'
+import { WEBSITE_PLAN_MARKER } from '@/lib/free-video/website-plans'
 
 export const maxDuration = 30 // Allow up to 30s for webhook processing (multiple API calls)
 
@@ -105,6 +108,8 @@ const WEBSITE_EVENT_TYPE = 'VIDEO_AD_WEBSITE'
 // logged with the website ones (event_type VIDEO_AD_WEBSITE, products names which), so the charge lookups find
 // them too. Every path containing 'editing-service' counts (the old service's variants).
 const SERVICE_PRODUCT_MARKER = 'editing-service'
+// The website plans sold on a lead's website video page (owner 2026-11-04, lib/free-video/website-plans.ts): done-for-you
+// websites, same branch. Every path containing 'new-website' counts; a paid order emails the owner (website-demo.ts).
 
 /** A FastSpring product field as a path: a string, or an object with .product (expanded webhooks). */
 function productPathOf(product: unknown): string {
@@ -118,7 +123,7 @@ function productPathOf(product: unknown): string {
 
 function isWebsiteProductPath(path: string): boolean {
   const p = path.trim().toLowerCase()
-  return p !== '' && (WEBSITE_PRODUCTS.has(p) || p.includes(WEBSITE_PRODUCT_MARKER) || p.includes(SERVICE_PRODUCT_MARKER))
+  return p !== '' && (WEBSITE_PRODUCTS.has(p) || p.includes(WEBSITE_PRODUCT_MARKER) || p.includes(SERVICE_PRODUCT_MARKER) || p.includes(WEBSITE_PLAN_MARKER))
 }
 
 /** A subscription field as an id: a string, or an object with .id / .subscription (expanded webhooks). */
@@ -484,6 +489,8 @@ async function processFastSpringEvent(eventType: string, eventData: FastSpringEv
     const firstTime = await logWebsiteProductEvent(eventData, eventType, website)
     // Unlimited Video Ads (the service funnel): Facebook's Purchase and the end of its sales emails, once per order.
     if (firstTime && website.products.some(p => p.includes(SERVICE_PRODUCT_MARKER))) await handleServiceOrder(eventType, eventData)
+    // A website plan from the website video page: the owner is emailed the sale.
+    if (firstTime && website.products.some(p => p.toLowerCase().includes(WEBSITE_PLAN_MARKER))) await handleWebsitePlanOrder(eventType, eventData)
     if (website.scope === 'only') return
     await processFastSpringEvent(eventType, website.rest)
     return
@@ -785,6 +792,10 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
         throw new Error(`Failed to grant lifetime credits: ${lifetimeCreditsError.message}`)
       }
 
+      // A lifetime bought after the credit bank launch: 5,000 credits once instead of
+      // 600 every 30 days (does nothing while the launch switch is off).
+      await grantCreditBankIfLaunched(supabase, userId, `FastSpring ${productId}`)
+
       // Cancel the superseded monthly/trial/yearly subscription in FastSpring so the
       // customer is never billed again.
       const oldSubId = existingSubscription.fastspring_subscription_id
@@ -1017,6 +1028,10 @@ async function handleFastSpringSubscription(data: FastSpringEventData, eventType
     throw new Error(`Failed to create credits: ${creditsError.message}`)
   }
   console.log(`✅ Created ${creditsAllocation} credits for user ${customerEmail}`)
+
+  // A lifetime bought after the credit bank launch: 5,000 credits once instead of 600 every
+  // 30 days (does nothing while the launch switch is off).
+  if (isLifetime) await grantCreditBankIfLaunched(supabase, userId, `FastSpring ${productId}`)
 
   // A previously-cancelled (suspended) customer who buys again — monthly, yearly
   // or lifetime — must get access back; cancellation is the only thing that suspends.

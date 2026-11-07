@@ -85,8 +85,8 @@ export function AnimateBanner() {
   if (!isReelEstate || dismissed) return null;
   if (pending.length === 0 && !isAnimating && !lastRun) return null;
 
-  // 1 credit per second of clip
-  const creditCost = pending.reduce((sum, photo) => sum + photo.seconds, 0);
+  // 2 credits per second of clip (same as the server, app/api/editor/animate-image)
+  const creditCost = pending.reduce((sum, photo) => sum + photo.seconds * 2, 0);
 
   const handleAnimateAll = async () => {
     if (isAnimating || pending.length === 0) return;

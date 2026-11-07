@@ -119,6 +119,12 @@ export const ML_GROUP_NAMES = {
 /** Every queued signup joins this group at submit (never a rejected one). No automation hangs on this group. */
 export const ML_GROUP_LEADS: string = '200567992522638921';
 /**
+ * A rejected signup (a refused or unreadable website) joins this group at submit (owner 2026-10-31). It triggers
+ * 'Free Video - No video rescue (auto)': 1 hour later, one email with the "video ad from a few lines" tutorial and
+ * the AI Media Machine. The automation excludes 'Free Video - Leads', so a retry that works cancels the email.
+ */
+export const ML_GROUP_NO_VIDEO: string = '202866392543790866';
+/**
  * Joining this group triggers 'Free Video Ad 1: Your video' (E1) and 'Free Video Ad 2: Follow-up' (E2, E3; it excludes
  * Bought and exits on it). Joined in the same upsert that sets the fields. Built through the MailerLite connector 2026-10-07.
  */
@@ -175,6 +181,13 @@ export const OWNER_ALERT_EMAIL = 'support@bluefx.net';
 export const OWNER_URGENT_EMAILS = ['support@bluefx.net', 'contact@bluefx.net'] as const;
 /** BREVO_FROM_EMAIL of the waas funnels: a sender that already sends through Brevo. */
 export const ALERT_FROM = { email: 'support@bluefx.net', name: 'BlueFX Free Video' } as const;
+/**
+ * VIP lead emails (vip.ts). Owner 2026-11-07: never the lead, "it's enough if it goes to my support email"; a Gmail
+ * filter on the subject "VIP lead" there labels and stars them.
+ */
+export const VIP_ALERT_TO: readonly string[] = ['support@bluefx.net'];
+/** The sender name of VIP emails, so a phone notification reads "VIP lead". */
+export const VIP_ALERT_FROM_NAME = 'VIP lead';
 
 // ---------------------------------------------------------------------------------------------
 // Hosts the website reader must never touch, and hosts the free video ad refuses

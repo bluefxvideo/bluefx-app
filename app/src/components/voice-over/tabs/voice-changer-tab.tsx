@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Repeat2, Upload, Mic2, AlertCircle, Sparkles, FileVideo, Download } fro
 import { TabContentWrapper, TabBody, TabFooter } from '@/components/tools/tab-content-wrapper';
 import { StandardStep } from '@/components/tools/standard-step';
 import { toast } from 'sonner';
+import { VOICE_CHANGER_CREDITS_PER_MINUTE, VOICE_CHANGER_TOO_LONG, voiceChangerCredits, voiceChangerTooLong } from '@/lib/voice-pricing';
 
 interface VoiceChangerTabProps {
   onChangeVoice: (
@@ -23,15 +24,28 @@ interface VoiceChangerTabProps {
   changedResultType: 'audio' | 'video' | null;
 }
 
-const BASE_CREDITS = 3;
-const HQ_CREDITS = 4;
-
 const AUDIO_TYPES = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a'];
 const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a'];
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
 const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.webm'];
 const MAX_AUDIO_SIZE = 20 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 200 * 1024 * 1024;
+
+/** The length of a local audio or video file in seconds, read by the browser; null when it cannot tell. */
+function readFileSeconds(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const media = document.createElement(isVideoFile(file) ? 'video' : 'audio');
+    const done = (seconds: number | null) => {
+      URL.revokeObjectURL(url);
+      resolve(seconds);
+    };
+    media.preload = 'metadata';
+    media.onloadedmetadata = () => done(Number.isFinite(media.duration) && media.duration > 0 ? media.duration : null);
+    media.onerror = () => done(null);
+    media.src = url;
+  });
+}
 
 function isVideoFile(file: File): boolean {
   const ext = '.' + (file.name.split('.').pop()?.toLowerCase() || '');
@@ -52,7 +66,24 @@ export function VoiceChangerTab({
   const [dragActive, setDragActive] = useState(false);
   const [targetDragActive, setTargetDragActive] = useState(false);
 
-  const creditCost = highQuality ? HQ_CREDITS : BASE_CREDITS;
+  // The price follows the source's length: 2 credits per started minute (the server measures it again before charging).
+  const [sourceSeconds, setSourceSeconds] = useState<number | null>(null);
+  useEffect(() => {
+    let current = true;
+    setSourceSeconds(null);
+    if (sourceFile) {
+      readFileSeconds(sourceFile).then((seconds) => {
+        if (!current) return;
+        setSourceSeconds(seconds);
+        if (seconds !== null && voiceChangerTooLong(seconds)) toast.error(VOICE_CHANGER_TOO_LONG);
+      });
+    }
+    return () => {
+      current = false;
+    };
+  }, [sourceFile]);
+  const tooLong = sourceSeconds !== null && voiceChangerTooLong(sourceSeconds);
+  const creditCost = voiceChangerCredits(sourceSeconds ?? 0, highQuality);
   const sourceIsVideo = sourceFile ? isVideoFile(sourceFile) : false;
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -153,7 +184,7 @@ export function VoiceChangerTab({
     }
   };
 
-  const canGenerate = sourceFile && targetVoiceFile && !isChanging && credits >= creditCost;
+  const canGenerate = sourceFile && targetVoiceFile && !isChanging && !tooLong && credits >= creditCost;
 
   return (
     <TabContentWrapper>
@@ -185,6 +216,7 @@ export function VoiceChangerTab({
                 <p className="font-medium">{sourceFile.name}</p>
                 <p className="text-sm text-muted-foreground">
                   {(sourceFile.size / 1024 / 1024).toFixed(2)} MB
+                  {sourceSeconds !== null && ` · ${Math.floor(Math.round(sourceSeconds) / 60)}:${String(Math.round(sourceSeconds) % 60).padStart(2, '0')}`}
                   {sourceIsVideo && (
                     <span className="ml-2 text-xs bg-blue-500/15 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
                       Video
@@ -213,7 +245,7 @@ export function VoiceChangerTab({
                   </Button>
                 </label>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Audio: MP3, WAV, M4A (max 20MB) | Video: MP4, MOV, WebM (max 200MB)
+                  Audio: MP3, WAV, M4A (max 20MB) | Video: MP4, MOV, WebM (max 100MB) | Up to 10 minutes
                 </p>
               </div>
             )}
@@ -361,11 +393,16 @@ export function VoiceChangerTab({
           ) : (
             <>
               <Repeat2 className="w-4 h-4 mr-2" />
-              Change Voice ({creditCost} credits)
+              Change Voice ({sourceFile && sourceSeconds === null ? `from ${creditCost}` : creditCost} credits)
             </>
           )}
         </Button>
-        {credits < creditCost && sourceFile && (
+        <p className="text-xs text-muted-foreground text-center mt-2">
+          {tooLong
+            ? VOICE_CHANGER_TOO_LONG
+            : `${VOICE_CHANGER_CREDITS_PER_MINUTE} credits per started minute of the recording, at least ${voiceChangerCredits(0, highQuality)} credits. Up to 10 minutes.`}
+        </p>
+        {!tooLong && credits < creditCost && sourceFile && (
           <p className="text-xs text-destructive text-center mt-2">
             Insufficient credits. You need {creditCost} credits to change voice.
           </p>

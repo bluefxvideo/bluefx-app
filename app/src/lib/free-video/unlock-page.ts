@@ -83,6 +83,39 @@ export const UNLOCK_PAGE = {
     thinking: 'Typing...',
     listTitle: 'Your changes are saved:',
     listNote: 'Tap the green button. Right after you pay, our AI engine makes these changes on your page, in about 5 to 10 minutes. Not quite right? A real person on my team fixes it. Thought of something else? Add it here any time.',
+    /** One free instant change before paying (owner 2026-10-31 plan): made by the AI engine, the SAMPLE mark stays. */
+    free: {
+      note: 'Want to see it first? Our AI engine makes these changes right now, free, in about 5 minutes. Your video ad keeps the SAMPLE mark until you pay.',
+      tryLine: 'Try your first change free',
+      button: 'See My Changes Free',
+      starting: 'Starting...',
+      failed: 'Sorry, that change did not work this time. Please try again.',
+      refusals: {
+        style: 'A whole new video style is made by my team after you pay. Try a different change for free.',
+        used: 'Your free change is already made. Get your video ad to keep changing it.',
+        noList: 'Tell us your change in the chat first.',
+        notReady: 'Your video ad is not ready yet. Please try again in a minute.',
+        paid: 'Your video ad is already yours. Make your changes in the box above.',
+      },
+      orBuy: (price: string) => `Or skip the wait and get it clean for ${price}`,
+      working: 'Making your changes...',
+      workingNote: 'About 5 minutes. Keep this page open: your new video ad shows up right here.',
+      doneKicker: 'Your changes are in',
+      doneTitle: 'Watch your new video ad',
+      before: 'Before',
+      after: 'After',
+      // Owner 2026-11-04 (Shannon's page): after the free change the box kept "free" wording and ticked new requests as
+      // if made, so people tapped the button not knowing they were paying. Now it says the free change is used.
+      doneHead: 'Your free change is done. Watch the After version.',
+      madeTitle: 'Made for free:',
+      nextTitle: 'Your next change:',
+      doneNote: (price: string) => `Like it? Unlock your video ad for ${price}: no SAMPLE mark, and as many changes as you like, made on your page in about 5 to 10 minutes.`,
+      doneButton: (price: string) => `Unlock My Video Ad, ${price}`,
+      nextNote: (price: string) => `Your free change is used. Unlock your video ad for ${price}, and this change is made on your page right after, at no extra cost.`,
+      nextButton: (price: string) => `Unlock My Video Ad + This Change, ${price}`,
+      /** The chat's answer once the free change is used (a fixed line: the AI promised changes that never ran). */
+      usedReply: (price: string) => `Noted. Your free change is already used. Unlock your video ad for ${price}, and this change is made on your page right after, at no extra cost.`,
+    },
     limit: 'You sent a lot of messages today. Please email your changes to support@bluefx.net.',
     error: 'Sorry, my answer did not come through. Please try again, or email support@bluefx.net.',
   },
@@ -304,15 +337,15 @@ export const UNLOCK_PAGE = {
     signName: 'Szilard',
     declined: 'No problem. Your video ad is all yours.',
   },
-  /** The two ways to change a paid video ad (owner 2026-10-27): 3 instant AI changes, the team always available. */
+  /** The two ways to change a paid video ad (owner 2026-10-27): unlimited instant AI changes, the team always available. */
   changes: {
     open: 'Want something changed? Tap here',
     /** The heading over the open change tool on the paid page (owner 2026-10-29: "hard to see, easy to miss"). */
     panelTitle: 'Want something changed?',
     panelTitleRed: 'Change it right here',
     instantTitle: 'Instant: our AI engine makes your change right here',
-    instantNote: (left: number) => `About 5 to 10 minutes. You have ${left} of 3 instant changes left.`,
-    instantNone: 'You used your 3 instant changes. My team makes any other change for you.',
+    instantNote: (_left: number) => 'About 5 to 10 minutes. Make as many changes as you like.',
+    instantNone: 'My team makes any other change for you.',
     placeholder: 'Example: Put 555-123-4567 on the last screen, and use a man\u2019s voice.',
     instantButton: 'Make My Change Now',
     starting: 'Starting...',
@@ -341,7 +374,7 @@ export const UNLOCK_PAGE = {
     refusals: {
       style: 'A completely new style is made by my team. Tap \u201cAsk My Team Instead\u201d and tell us which style you want.',
       busy: 'Your last change is still being made. Give it a few minutes.',
-      noneLeft: 'You used your 3 instant changes. My team makes any other change for you.',
+      noneLeft: 'My team makes any other change for you.',
       notPaid: 'Changes open once your payment is in.',
       generic: 'Your change did not start. Please try again, or ask my team.',
     },

@@ -9,7 +9,7 @@ import { refundFailedGeneration, refundSentence } from '@/lib/credits/refund';
 import { waitingFreeVideos } from '@/lib/free-video/claim';
 import { transcribeWords } from '@/lib/smart-video/audio';
 import { reviseSmartVideo, withSubtitleLook, type SmartVideoMedia } from '@/lib/smart-video/pipeline';
-import { LISTING_CLIP_CREDITS, LISTING_CREDITS, PHANTOM_PRESENTER_CHANGE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
+import { LISTING_CLIP_CREDITS_PER_SECOND, LISTING_CREDITS, listingClipCap, PHANTOM_PRESENTER_CHANGE_CREDITS, PHANTOM_PRESENTER_CREDITS, PHANTOM_REVISION_CREDITS, phantomCredits } from '@/lib/smart-video/pricing';
 import { LISTING_MIN_PHOTOS, listingLinkPhotos, listingPhotoCount, type ListingOptions } from '@/lib/smart-video/listing';
 import { IMAGE_FILE, prepareAssets, presenterPhotoFromUpload, type ClientFile } from '@/lib/smart-video/prepare-assets';
 import { PRESENTER_ASSET } from '@/lib/smart-video/presenter';
@@ -29,7 +29,12 @@ import {
   presenterReference,
   readPlan,
   refundPresenter,
+  runApprovedJob,
+  runScriptJob,
   runSmartVideoJob,
+  readScript,
+  unapprovedScriptsToday,
+  waitingScripts,
   runningJobs,
   safeName,
   scriptOf,
@@ -40,10 +45,14 @@ import {
   type JobRow,
 } from '@/lib/smart-video/jobs';
 import { createApiError, createApiSuccess, type ApiResponse } from '@/types/validation';
+import { spendableCredits } from '@/lib/credits/credit-bank';
+import { applyDraft, draftOf } from '@/lib/smart-video/script-edit';
 import {
+  SmartVideoApproveSchema,
   SmartVideoReviseSchema,
   SmartVideoStartSchema,
   SmartVideoUploadRequestSchema,
+  type SmartVideoApproveInput,
   type SmartVideoJob,
   type SmartVideoReviseInput,
   type SmartVideoStartInput,
@@ -133,7 +142,7 @@ async function charge(userId: string, jobId: string, credits: number, operation 
 /** Credits a user can spend right now. */
 async function availableCredits(userId: string): Promise<number> {
   const { data } = await createAdminClient().from('user_credits').select('available_credits').eq('user_id', userId).single();
-  return data?.available_credits ?? 0;
+  return spendableCredits(userId, data?.available_credits ?? 0);
 }
 
 /** Step 2: start the job. Returns at once; the work happens in after(). */
@@ -157,23 +166,36 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
     if (listing && !parsed.link && parsed.uploads.length < LISTING_MIN_PHOTOS) {
       return createApiError(`Add at least ${LISTING_MIN_PHOTOS} photos of the home, or paste the listing link`);
     }
-    const credits = listing ? LISTING_CREDITS : phantomCredits(parsed.brief, parsed.length === 'script');
+    // Script first (owner 2026-11-02): a Phantom video starts by writing its script only. The client reads and changes
+    // it, and is charged when they approve it (approveSmartVideoScript). A listing video is still made in one go.
+    if (!listing) return await startScript(userId, parsed);
+    const credits = LISTING_CREDITS;
     // The AI presenter opens tall and wide Phantom videos (presenter.ts films 9:16 or 16:9); it is charged on its own.
     const presenter = parsed.presenter && !listing;
     if (presenter) {
       const needed = credits + PHANTOM_PRESENTER_CREDITS;
       const balance = await availableCredits(userId);
       if (balance < needed) {
-        return createApiError(`This video needs ${needed} credits: ${credits} for the video and ${PHANTOM_PRESENTER_CREDITS} for the AI presenter. You have ${balance}.`);
+        return createApiError(
+          PHANTOM_PRESENTER_CREDITS > 0
+            ? `This video needs ${needed} credits: ${credits} for the video and ${PHANTOM_PRESENTER_CREDITS} for the AI presenter. You have ${balance}.`
+            : `This video needs ${needed} credits. You have ${balance}.`
+        );
       }
     }
+    let clipCap: number | undefined;
     if (listing) {
       // The clips are charged photo by photo while the video is made: the balance has to cover all of them now.
       const photos = listingPhotoCount(listing.seconds, (parsed.link ? listingLinkPhotos(parsed.uploads.length) : 0) + parsed.uploads.length);
-      const needed = credits + photos * LISTING_CLIP_CREDITS;
+      // Each clip costs 2 credits a second and its length is only known once the voice is recorded: the balance
+      // has to cover the most the clips can cost (listingClipCap), and they are never charged above it.
+      clipCap = listingClipCap(photos);
+      const needed = credits + clipCap;
       const balance = await availableCredits(userId);
       if (balance < needed) {
-        return createApiError(`This video needs ${needed} credits: ${credits} for the video and ${LISTING_CLIP_CREDITS} for each of ${photos} animated photos. You have ${balance}.`);
+        return createApiError(
+          `This video needs up to ${needed} credits: ${credits} for the video and up to ${clipCap} to animate ${photos} photos (${LISTING_CLIP_CREDITS_PER_SECOND} credits per second of clip). You have ${balance}.`
+        );
       }
     }
     const chargeError = await charge(userId, parsed.jobId, credits, listing ? 'listing-video' : 'smart-video');
@@ -193,7 +215,7 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
       voiceOver: parsed.voiceOver,
       music: parsed.music,
       ...(presenterPaid ? { presenter: true } : {}),
-      ...(listing ? { listing } : {}),
+      ...(listing ? { listing, clipCap } : {}),
       creditsUsed: credits + (presenterPaid ? PHANTOM_PRESENTER_CREDITS : 0),
       createdAt: now,
       updatedAt: now,
@@ -203,6 +225,123 @@ export async function startSmartVideo(input: SmartVideoStartInput): Promise<ApiR
   } catch (error) {
     console.error('❌ startSmartVideo error:', error);
     return createApiError(readable(error, 'Could not start the video'));
+  }
+}
+
+/**
+ * Scripts are free, so they are limited: at most SCRIPTS_PER_DAY written in a day and never approved, and
+ * SCRIPTS_WAITING waiting for approval at once (a new one past that asks to approve or delete one first).
+ */
+const SCRIPTS_PER_DAY = 10;
+const SCRIPTS_WAITING = 5;
+
+async function startScript(userId: string, parsed: ReturnType<typeof SmartVideoStartSchema.parse>): Promise<ApiResponse<{ jobId: string }>> {
+  if ((await waitingScripts(userId)) >= SCRIPTS_WAITING) {
+    return createApiError(`You have ${SCRIPTS_WAITING} scripts waiting under Your video ads. Make a video from one of them, or delete one, then write a new one.`);
+  }
+  if ((await unapprovedScriptsToday(userId)) >= SCRIPTS_PER_DAY) {
+    return createApiError(`You wrote ${SCRIPTS_PER_DAY} scripts today without making a video from them. Make a video from one of them, or come back tomorrow.`);
+  }
+  // The balance is checked now too, so nobody writes a script they cannot make (they are charged only on approval).
+  const credits = phantomCredits(parsed.brief, parsed.length === 'script') + (parsed.presenter ? PHANTOM_PRESENTER_CREDITS : 0);
+  const balance = await availableCredits(userId);
+  if (balance < credits) return createApiError(`This video ad needs ${credits} credits. You have ${balance}.`);
+  const now = new Date().toISOString();
+  const job = await createJob({
+    id: parsed.jobId,
+    userId,
+    status: 'reading',
+    scriptFirst: true,
+    brief: parsed.brief,
+    link: parsed.link || undefined,
+    length: parsed.length,
+    format: parsed.format,
+    look: parsed.look,
+    voiceOver: parsed.voiceOver,
+    music: parsed.music,
+    ...(parsed.presenter ? { wantsPresenter: true } : {}),
+    creditsUsed: 0,
+    createdAt: now,
+    updatedAt: now,
+  });
+  after(() => runScriptJob(job, parsed.uploads));
+  return createApiSuccess({ jobId: job.id });
+}
+
+/**
+ * Script first: the client approved the script (as written, or with their changes). Now the video is charged and made
+ * from exactly these words, without another rewrite.
+ */
+export async function approveSmartVideoScript(input: SmartVideoApproveInput): Promise<ApiResponse<{ jobId: string }>> {
+  try {
+    const userId = await currentUserId();
+    if (!userId) return createApiError('Please sign in again');
+    const parsed = SmartVideoApproveSchema.parse(input);
+    const job = await readJob(userId, parsed.jobId);
+    if (!job || !job.scriptFirst) return createApiError('This script could not be found. Please reload the page.');
+    if (job.status !== 'script' || !job.draft) return createApiError('This video is already being made.');
+    const saved = await readScript(userId, job.id);
+    const edited = applyDraft(saved.plan, job.draft, parsed.text);
+    if ('error' in edited) return createApiError(edited.error);
+    if ((await runningJobs(userId)) >= MAX_RUNNING_JOBS) return createApiError(TOO_MANY);
+
+    const credits = phantomCredits(job.brief, job.length === 'script');
+    const presenter = Boolean(job.wantsPresenter);
+    const needed = credits + (presenter ? PHANTOM_PRESENTER_CREDITS : 0);
+    const balance = await availableCredits(userId);
+    if (balance < needed) return createApiError(`This video ad needs ${needed} credits. You have ${balance}.`);
+
+    // One approval only: the row moves from 'script' to 'producing' before anything is charged, so a double click
+    // (or two tabs) makes one video and one charge.
+    const { data: claimed, error: claimError } = await jobsTable()
+      .update({ status: 'producing', updated_at: new Date().toISOString() })
+      .eq('id', job.id)
+      .eq('user_id', userId)
+      .eq('status', 'script')
+      .select('id');
+    if (claimError) return createApiError('Your video ad could not be started. Please try again.');
+    if (!claimed?.length) return createApiError('This video is already being made.');
+    const chargeError = await charge(userId, job.id, credits);
+    if (chargeError) {
+      await jobsTable().update({ status: 'script', updated_at: new Date().toISOString() }).eq('id', job.id);
+      return createApiError(chargeError);
+    }
+    const presenterPaid = presenter ? await chargePresenter(userId, job.id) : false;
+    const approved = await writeJob(job, {
+      status: 'producing',
+      approvedAt: new Date().toISOString(),
+      ...(presenterPaid ? { presenter: true } : {}),
+      creditsUsed: credits + (presenterPaid ? PHANTOM_PRESENTER_CREDITS : 0),
+      draft: draftOf(edited.plan, presenter, job.length === 'script'),
+      script: scriptOf(edited.plan),
+    }).catch(async (error) => {
+      // A job that could not be saved never runs: its credits come back here.
+      await refundFailedGeneration({ userId, referenceIds: [job.id], operation: 'Phantom video' });
+      if (presenterPaid) await refundPresenter({ ...job, presenter: true });
+      await jobsTable().update({ status: 'script' }).eq('id', job.id);
+      throw error;
+    });
+    after(() => runApprovedJob(approved, saved, edited.plan, edited.changed));
+    return createApiSuccess({ jobId: job.id });
+  } catch (error) {
+    console.error('❌ approveSmartVideoScript error:', error);
+    return createApiError(readable(error, 'Your video ad could not be started'));
+  }
+}
+
+/** Script first: a script the client does not want. Only a script still waiting for approval can be deleted. */
+export async function deleteSmartVideoScript(jobId: string): Promise<ApiResponse<{ jobId: string }>> {
+  try {
+    const userId = await currentUserId();
+    if (!userId) return createApiError('Please sign in again');
+    if (!/^[0-9a-f-]{36}$/.test(jobId)) return createApiError('This script could not be found');
+    const { data, error } = await jobsTable().delete().eq('id', jobId).eq('user_id', userId).eq('status', 'script').select('id');
+    if (error) return createApiError('The script could not be deleted. Please try again.');
+    if (!data?.length) return createApiError('This script is already being made into a video.');
+    return createApiSuccess({ jobId });
+  } catch (error) {
+    console.error('❌ deleteSmartVideoScript error:', error);
+    return createApiError('The script could not be deleted');
   }
 }
 
@@ -294,6 +433,10 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
   }
 }
 
+/** Why an edit made no new video. */
+const NOTHING_CHANGED = 'Nothing in the video changed from your note, so no new version was made.';
+const NOTHING_CHANGED_PRESENTER = `${NOTHING_CHANGED} The first line is said by the presenter on camera and stays as it was filmed. To change it, press Change the person on camera.`;
+
 async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob, uploads: { name: string; path: string }[]): Promise<void> {
   let job = initial;
   const heartbeat = setInterval(() => touchJob(job.id).catch(() => undefined), 45_000);
@@ -335,6 +478,13 @@ async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob, upload
     );
     // A video that shows subtitles only while a person talks on camera (a free video ad and its copies) keeps that look.
     const result = withSubtitleLook(revised, saved, job.note || '');
+    // An edit that would render the same video makes none: the client gets the reason and the credits back
+    // (drficco 2026-11-06: "remove right", a word only the presenter says, twice made the same video at 10 credits each).
+    if (!added.length && !result.newPresenter?.made && JSON.stringify(result.props) === JSON.stringify(saved.props)) {
+      const presenterLine = saved.plan.scenes[0]?.speaker?.asset === PRESENTER_ASSET;
+      await failAndRefund(job, presenterLine ? NOTHING_CHANGED_PRESENTER : NOTHING_CHANGED);
+      return;
+    }
     if (photoFailed) {
       const hadPresenter = saved.plan.scenes[0]?.speaker?.asset === PRESENTER_ASSET;
       result.newPresenter = { made: false, why: `Your photo of the presenter could not be read, so ${hadPresenter ? 'the presenter stays as it was' : 'no presenter was added'}.` };

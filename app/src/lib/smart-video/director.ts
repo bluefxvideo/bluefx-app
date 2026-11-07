@@ -486,7 +486,9 @@ function checkPlan(
     // A presenter-opened video's scene 1 too (the director kept failing it on a vintage ad, 2026-10-24).
     const presenterScene = scene.speaker?.asset === PRESENTER_ASSET || (opening && i === 0);
     const minimum = presenterScene || (listing && scene.background.type === 'mediaFull') ? 0 : loose ? 1 : scene.background.type === 'drawing' ? 1 : scene.background.type === 'mediaFull' ? (plan.captions || scene.speaker ? 1 : 2) : (isIllustrated(plan.style) && (scene.blocks.some((b) => b.type === 'media' && cartoonIds.has(b.asset)) || (isBigPicture(plan.style) && scene.background.type === 'imageTop'))) || ((isBoard(plan.style) || plan.style === 'scrapbook') && scene.blocks.some((b) => b.type === 'media' || b.type === 'gallery')) ? 2 : 3;
-    if (scene.blocks.length < minimum) return `scene ${i + 1} has only ${scene.blocks.length} blocks; it needs at least ${minimum} (see the scene recipes).`;
+    // A thin stack is taste, not a broken scene (a title alone renders, see looser rules): the last try only needs one block.
+    // 2026-11-02: a tennis elbow ad with no files failed twice in News and Clean on "scene 2 has only 2 blocks".
+    if (scene.blocks.length < (lastChance ? Math.min(minimum, 1) : minimum)) return `scene ${i + 1} has only ${scene.blocks.length} blocks; it needs at least ${minimum} (see the scene recipes).`;
   }
   // A listing video has its own recipe; the general taste rules below (word floor, file spread) do not fit it.
   if (listing) return revision || lastChance ? null : checkListingPlan(plan, assets, listing);

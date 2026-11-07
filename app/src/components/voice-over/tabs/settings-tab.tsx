@@ -4,8 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Settings, RotateCcw, Info } from 'lucide-react';
+import { Settings, RotateCcw } from 'lucide-react';
 import { TabContentWrapper, TabHeader, TabBody } from '@/components/tools/tab-content-wrapper';
 import { VoiceOverState } from '../hooks/use-voice-over';
 
@@ -104,16 +103,12 @@ export function SettingsTab({ voiceOverState }: SettingsTabProps) {
           <Label className="mb-3">Credit Usage</Label>
           <div className="space-y-2 text-xs">
             <div className="flex justify-between">
-              <span>Base cost per voice:</span>
-              <span>2 credits</span>
+              <span>Every started 1,000 characters:</span>
+              <span>3 credits</span>
             </div>
             <div className="flex justify-between">
-              <span>HD quality multiplier:</span>
-              <span>+50%</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Long content (500+ words):</span>
-              <span>Small increase</span>
+              <span>Quality and file format:</span>
+              <span>Same price</span>
             </div>
             <div className="border-t pt-2 mt-2 flex justify-between font-medium">
               <span>Current estimated cost:</span>

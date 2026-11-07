@@ -74,7 +74,7 @@ const CAMERA_MOTIONS = [
 	{ value: "Nearly static shot with very subtle movement. Locked camera on tripod, no vibration.", label: "Nearly Static" },
 ];
 
-const CREDITS_PER_SECOND = 1;
+const CREDITS_PER_SECOND = 2;
 
 const DURATIONS = [
 	{ value: "6", label: "6 seconds" },
@@ -399,7 +399,7 @@ export function AnimateImageControl({ trackItem }: AnimateImageControlProps) {
 			</Button>
 
 			<p className="text-xs text-muted-foreground">
-				Turns the image into a video clip using AI. Takes 1-3 minutes. Costs 1 credit per second.
+				Turns the image into a video clip using AI. Takes 1-3 minutes. Costs 2 credits per second.
 			</p>
 		</Card>
 	);

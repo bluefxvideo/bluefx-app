@@ -157,11 +157,57 @@ const bonusFailed: SmartVideoJob = {
   updatedAt: ago(400),
 };
 
+/** Script first: a made-up laser clinic's script, as the director writes it (with the kind of claim a clinic edits). */
+const clinicDraft = {
+  scenes: [
+    { say: 'Tennis elbow pain keeping you off the court?', presenter: true },
+    { say: 'Laser therapy at Bright Path Clinic can eliminate tennis elbow pain in just a few sessions.' },
+    { say: 'Each session takes fifteen minutes, with no needles and no downtime.' },
+    { say: 'Over two thousand patients in Tampa trust us with their recovery.' },
+    { say: 'Book your free consultation today at brightpathclinic.com.' },
+  ],
+  maxWords: 150,
+};
+const clinicText = clinicDraft.scenes.map((scene) => scene.say).join('\n\n');
+const clinicEdited = clinicText.replace('can eliminate tennis elbow pain in just a few sessions', 'may ease tennis elbow pain in a few sessions');
+const clinicScript: SmartVideoJob = {
+  id: id(30),
+  userId: 'preview',
+  status: 'script',
+  scriptFirst: true,
+  wantsPresenter: true,
+  brief: 'brightpathclinic.com\nTennis elbow laser therapy. Free consultation.',
+  link: 'https://brightpathclinic.com/',
+  format: 'vertical',
+  look: 'clean',
+  creditsUsed: 0,
+  draft: clinicDraft,
+  createdAt: ago(75),
+  updatedAt: ago(10),
+};
+
 function jobsFor(state: PreviewState): { job: SmartVideoJob | null; history: SmartVideoJob[] } {
   const library = [original, change1, productAd, realtorAd];
   switch (state) {
     case 'making':
       return { job: making, history: [making, ...library] };
+    case 'script-writing': {
+      const writing = { ...clinicScript, status: 'directing' as const, draft: undefined, createdAt: ago(38) };
+      return { job: writing, history: [writing, ...library] };
+    }
+    case 'script-ready':
+    case 'script-edited':
+    case 'script-problem':
+    case 'script-approving':
+      return { job: clinicScript, history: [clinicScript, ...library] };
+    case 'script-building': {
+      const building = { ...clinicScript, status: 'producing' as const, presenter: true, approvedAt: ago(52), creditsUsed: 50 };
+      return { job: building, history: [building, ...library] };
+    }
+    case 'script-failed': {
+      const noScript = { ...clinicScript, status: 'failed' as const, draft: undefined, error: 'Director call failed (503)' };
+      return { job: noScript, history: [noScript, ...library] };
+    }
     case 'slow':
       return { job: { ...making, status: 'rendering', renderProgress: 72, createdAt: ago(7 * 60 + 14) }, history: library };
     case 'ready':
@@ -245,7 +291,19 @@ export function MakeVideoAdPreview({ state, theme, empty, bare }: { state: Previ
     reset: noop,
     tryAgain: noop,
     retryEdit: noopAsync,
+    approve: noopAsync,
+    approving: state === 'script-approving',
+    deleteScript: noop,
+    creditsFor: () => 50,
   } as unknown as SmartVideo;
+
+  // Script first: the client's changes (ScriptReady keeps them in the browser; the preview passes sample ones).
+  const scriptText =
+    state === 'script-edited' || state === 'script-approving'
+      ? clinicEdited
+      : state === 'script-problem'
+        ? clinicEdited.replace('Tennis elbow pain keeping you off the court?', 'Is tennis elbow pain keeping you off the court and away from the game you love every single weekend?')
+        : undefined;
 
   const href = (next: { state?: string; theme?: string }) =>
     `?state=${next.state ?? state}&theme=${next.theme ?? theme}${empty ? '&empty=1' : ''}`;
@@ -260,6 +318,8 @@ export function MakeVideoAdPreview({ state, theme, empty, bare }: { state: Previ
           preview={{
             moreOpen: state === 'options',
             changeNote: state === 'presenter' ? 'Use a woman presenter in her 50s.' : undefined,
+            scriptTried: state === 'script-problem',
+            scriptText,
             bonusAds:
               state === 'bonus'
                 ? bonusAds(['new', 'new', 'new'])

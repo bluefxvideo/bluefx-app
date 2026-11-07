@@ -626,7 +626,7 @@ async function main(): Promise<void> {
   check('an empty phrase goes back', (checkAdScript(planOf('This is the storm damage most homeowners never see.', 'Our top-notch crew fixes it.')) ?? '').includes('top-notch'));
   check('a specific script passes', checkAdScript(planOf('This is the storm damage most homeowners never see.', 'Book your free roof inspection at the website on screen.')) === null);
   check('the director reads the hook rule with the rewrite rule', SCRIPT_RULES.includes('6 to 12 words') && SCRIPT_RULES.includes('Looking for'));
-  check('the presenter costs 10 credits', PHANTOM_PRESENTER_CREDITS === 10);
+  check('the presenter is included in the video ad (no extra credits)', PHANTOM_PRESENTER_CREDITS === 0);
 
   // 17. -----------------------------------------------------------------------------------------
   section('17. The clean render is checked at full HD');

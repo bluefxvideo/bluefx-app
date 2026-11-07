@@ -2,8 +2,9 @@
 
 import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Check, Sparkles } from 'lucide-react';
 import { RESULT_PAGE } from '@/lib/free-video/result-page';
-import { RESULT_SALES, SALES_PAGE_HERO_VIMEO, TOOL_GROUPS, type SalesTool } from '@/lib/free-video/result-sales';
+import { RESULT_SALES, SALES_PAGE_HERO_VIMEO, salesCopy, type SalesTool } from '@/lib/free-video/result-sales';
 import { goUrl, OFFER, type ResultPagePlacement } from '@/lib/free-video/offer';
 import { PLAYER } from '@/lib/free-video/copy';
 import type { FreeVideoView, TutorialOpenSource } from '@/types/free-video';
@@ -12,10 +13,10 @@ import { cn } from '@/lib/utils';
 import { ChatLauncher } from './chat-launcher';
 import { OfferButton } from './offer-button';
 import { VideoAdPlayer } from './video-ad-player';
+import { ArrowNote, ChangeChat, nextChanges, useFreeChange } from './unlock-page';
+import u from './unlock-page.module.css';
 import {
-  Confetti,
   Legal,
-  Robot,
   LoopVideo,
   PayCards,
   PlayIcon,
@@ -45,6 +46,9 @@ interface ResultSalesPageProps {
   afterUnlock?: boolean;
 }
 
+/** The tutorial plays where the sales video was, and the bottom walkthrough goes (owner 2026-11-02). */
+const SALES_VIDEO_IS_TUTORIAL = true;
+
 /**
  * The result page "the sales page way" (design board J, owner 2026-10-22): result-sales.ts has the words and the order.
  * Every button opens ClickBank's checkout through /go (fvres1 price box, fvresads bonus, fvres2 how, fvrestools the 4
@@ -52,6 +56,8 @@ interface ResultSalesPageProps {
  */
 export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound, onComplete, afterUnlock = false }: ResultSalesPageProps) {
   const { domain, firstName } = view;
+  // Today's words, or the credit bank's once it is launched (view.bankCopy, set by the server).
+  const { copy: C, groups } = salesCopy(view.bankCopy);
   const videoUrl = view.videoUrl as string;
   const cards = view.nextAds ?? null;
   const written = bonus && (Boolean(cards) || Boolean(view.nextAdsPending));
@@ -82,16 +88,32 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
   // The $49 thank-you page: one sale clock per browser that never restarts; once it ends, the lines about it change.
   const thanksClock = useThanksDeadline(afterUnlock);
   const noTimer = afterUnlock && thanksClock.expired;
-  const T = RESULT_SALES.afterUnlock.noTimer;
+  const T = C.afterUnlock.noTimer;
   const timerUntil = afterUnlock ? thanksClock.until : bonus ? view.cleanUntil : undefined;
-  const change = RESULT_SALES.top.change;
-  const { banner, top, hero, salesVideo, price, button, how, tools, oldWay, customers, founder, lifetime, own, guarantee, still, faq, ps } = RESULT_SALES;
+  // The free change at the top (owner 2026-11-02): the $49 page's chat, one change made free by the AI engine.
+  const FT = C.freeTop;
+  const free = useFreeChange(token, null, FT.free, !afterUnlock);
+  const [plan, setPlanState] = useState<string[] | null>(null);
+  const [pending] = useState<{ text: string | null; n: number }>({ text: null, n: 0 });
+  const [shown, setShown] = useState<'before' | 'after'>('after');
+  const chatRef = useRef<HTMLDivElement>(null);
+  const freeRef = useRef(free);
+  freeRef.current = free;
+  // A finished list starts the free change at once, as on the $49 page.
+  const setPlan = useCallback((next: string[]) => {
+    setPlanState(next);
+    const f = freeRef.current;
+    if (f.state === 'none' && !f.busy) f.start();
+  }, []);
+  const toPrice = () => priceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const heroSrc = free.state === 'done' && shown === 'after' && free.videoUrl ? free.videoUrl : videoUrl;
+  const { banner, top, hero, salesVideo, price, button, how, tools, oldWay, customers, founder, lifetime, own, guarantee, still, faq, ps } = C;
   const dov = RESULT_PAGE.stack.proof[0];
 
   return (
     <div className={cn(rp.page, s.page)}>
-      {/* No red banner on the $49 thank-you page (owner 2026-10-28). */}
-      {!afterUnlock && (
+      {/* No red banner (owner 2026-10-28 on the $49 thank-you page, 2026-11-02 here too: "take it off"). */}
+      {false && (
         <p className={s.banner}>
           <strong>{banner.strong}</strong> {banner.text} <u>{banner.off}</u> {banner.end}
         </p>
@@ -106,40 +128,108 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
                 <span className={s.titleRed}>{red}</span>
                 {end}
               </>
-            ))(RESULT_SALES.afterUnlock.titleParts(firstName))}
+            ))(C.afterUnlock.titleParts(firstName))}
           </h1>
-          <p className={s.afterUnlockSub}>{RESULT_SALES.afterUnlock.sub}</p>
+          <p className={cn(s.freeOfferWhy, s.afterUnlockWhy)}>{C.freeTop.why}</p>
+          <p className={s.afterUnlockSub}>{C.afterUnlock.sub}</p>
         </section>
       ) : (
       <section className={cn(rp.wrap, s.top)} aria-labelledby="fv-sales-title">
         <div className={s.topVideo}>
-          <VideoAdPlayer src={videoUrl} label={PLAYER.label(domain)} onPlayWithSound={onPlayWithSound} onComplete={onComplete} className={rp.heroPlayerFrame} tapToPlay />
-          <button type="button" className={s.changeButton} onClick={() => openTutorial(change.quick ? 'quick' : change.at, 'button')}>
-            <PencilIcon />
-            <span>{change.quick ? `${change.label} (${change.quick.minutes} min)` : change.label}</span>
-          </button>
-          {/* The looks a buyer can pick, right under their own video ad (owner 2026-10-27: version A, small). On a computer the wide copy below takes over. */}
-          <StyleStrip className={s.styleStripPhone} />
+          {free.state === 'done' && (
+            <div className={cn(u.freeTabs, s.freeDone)} role="tablist" id="free-change-result">
+              <p className={cn(u.freeKicker, s.freeDoneKicker)}>
+                <Check size={16} strokeWidth={3} aria-hidden="true" /> {FT.free.doneKicker}
+              </p>
+              <div className={cn(u.freeToggle, s.freeDoneToggle)}>
+                {(['before', 'after'] as const).map((k) => (
+                  <button key={k} type="button" role="tab" aria-selected={shown === k} className={cn(shown === k && u.freeOn, shown === k && s.freeDoneOn)} onClick={() => setShown(k)}>
+                    {k === 'before' ? FT.free.before : FT.free.after}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {free.state === 'working' && (
+            <div className={u.freeWorking} aria-live="polite">
+              <p>
+                <Sparkles size={16} strokeWidth={2.5} aria-hidden="true" /> {FT.free.working}
+              </p>
+              <span className={u.freeBar}>
+                <i style={{ width: `${free.progress}%` }} />
+              </span>
+              <small>{FT.free.workingNote}</small>
+            </div>
+          )}
+          <VideoAdPlayer key={heroSrc} src={heroSrc} label={PLAYER.label(domain)} onPlayWithSound={onPlayWithSound} onComplete={onComplete} className={rp.heroPlayerFrame} tapToPlay />
         </div>
-        {/* On a phone the title sits above the video (display: contents); on a computer the words fill the space beside it and lead down the page (owner 2026-10-22). */}
+        {/* On a phone the title sits above the video (display: contents); on a computer the headline and the change chat sit beside it. */}
         <div className={s.topText}>
-          {/* The robot with its confetti burst, as on the classic page (owner 2026-10-22: "the lil robot is gone"). */}
           <div className={s.topHead}>
-            <Confetti />
-            <Robot className={cn(rp.robot, s.topRobot)} label={RESULT_PAGE.hero.robot} burst />
-            <span className={rp.robotLabel}>{RESULT_PAGE.hero.robotLabel}</span>
-            <h1 id="fv-sales-title" className={s.topTitle}>
-              {top.title(firstName)}
+            <h1 id="fv-sales-title" className={cn(s.topTitle, s.freeTopTitle)}>
+              {FT.title(firstName)}
             </h1>
-            <p className={s.topFor}>{top.forWho}</p>
           </div>
-          <p className={s.topResell}>{top.resell}</p>
-          <p className={s.topSample}>{top.sample}</p>
+          <div ref={chatRef} className={cn(u.heroChat, s.freeChat)} id="changes-chat">
+            {free.state === 'none' && <ArrowNote text={FT.tryLine} />}
+            <ChangeChat
+              copy={FT.chat}
+              token={token}
+              plan={plan}
+              onPlan={setPlan}
+              pending={pending}
+              made={free.state === 'done' ? { items: free.made, madeTitle: FT.free.madeTitle, nextTitle: FT.free.nextTitle, headNote: FT.free.doneHead } : null}
+              note={
+                free.state === 'none' ? FT.free.note : free.state === 'done' ? (nextChanges(plan, free.made).length ? FT.free.nextNote : FT.free.doneNote) : FT.free.workingNote
+              }
+              buy={
+                free.state === 'none' ? (
+                  <>
+                    {free.message && <p className={u.freeMessage}>{free.message}</p>}
+                    <button type="button" className={cn(u.button, u.freeButton)} onClick={free.start} disabled={free.busy}>
+                      <Sparkles size={18} strokeWidth={2.5} aria-hidden="true" /> {free.busy ? FT.free.starting : FT.free.button}
+                    </button>
+                    <button type="button" className={u.freeOrBuy} onClick={toPrice}>
+                      {FT.free.orBuy}
+                    </button>
+                  </>
+                ) : free.state === 'working' ? (
+                  <button type="button" className={u.freeOrBuy} onClick={toPrice}>
+                    {FT.free.orBuy}
+                  </button>
+                ) : (
+                  <>
+                    {free.message && <p className={u.freeMessage}>{free.message}</p>}
+                    <button type="button" className={u.button} onClick={toPrice}>
+                      {nextChanges(plan, free.made).length ? FT.free.nextButton : FT.free.doneButton}
+                    </button>
+                  </>
+                )
+              }
+            />
+          </div>
+          <div className={s.freeSample}>
+            <p className={s.freeSampleTitle}>{FT.sample.title}</p>
+            <p className={s.freeSampleText}>{FT.sample.text}</p>
+            <p className={s.freeSamplePrice}>{FT.sample.price}</p>
+          </div>
           <TutorialWindow token={token} at={tutorialAt} onOpen={openTutorial} onClose={closeTutorial} />
-          <div className={s.topNext}>
-            <p className={s.topKicker}>{hero.kicker}</p>
-          </div>
         </div>
+        {/* The offer, full width above the styles (owner 2026-11-02). */}
+        <div className={s.freeOffer}>
+          <p className={s.freeOfferTitle}>
+            {FT.offerParts[0]}
+            <span className={s.titleRed}>{FT.offerParts[1]}</span>
+            {FT.offerParts[2]}
+          </p>
+          <p className={s.freeOfferWhy}>{FT.why}</p>
+          <p className={s.afterUnlockSub}>{FT.sub}</p>
+          <button type="button" className={s.freeOfferButton} onClick={toPrice}>
+            {FT.seeAll} <span aria-hidden="true">↓</span>
+          </button>
+        </div>
+        {/* Phone: the looks a buyer can pick, under the offer; on a computer the wide copy below takes over. */}
+        <StyleStrip className={s.styleStripPhone} />
         {/* Computer: the styles across the full width under the video ad and the words (owner 2026-10-27). */}
         <StyleStrip className={s.styleStripWide} />
       </section>
@@ -147,7 +237,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
 
       <section className={s.hero} aria-labelledby={afterUnlock ? undefined : 'fv-sales-hero'}>
         <div className={cn(rp.wrap, s.heroText)}>
-          <p className={cn(s.heroKicker, !afterUnlock && s.phoneOnly)}>{hero.kicker}</p>
+          <p className={s.heroKicker}>{hero.kicker}</p>
           {/* The $49 thank-you page goes straight from the kicker to the video ads (all 3 experts: a second headline fights the first). */}
           {!afterUnlock && (
             <>
@@ -195,20 +285,28 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         </div>
       </section>
 
-      <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-video">
-        <h2 id="fv-sales-video" className={rp.h2}>
-          {afterUnlock ? RESULT_SALES.afterUnlock.salesVideoTitle : salesVideo.title}
-        </h2>
-        <SalesVideo />
-        <p className={s.caption}>{salesVideo.caption}</p>
-      </section>
+      {/* Owner 2026-11-02: the new Phantom tutorial takes the sales video's spot on both pages (the sales video says things
+          that are no longer true); SALES_VIDEO_IS_TUTORIAL = false brings the sales video back. */}
+      {SALES_VIDEO_IS_TUTORIAL ? (
+        <Walkthrough token={token} video={C.walkthroughVideo} />
+      ) : (
+        <section className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-video">
+          <h2 id="fv-sales-video" className={rp.h2}>
+            {afterUnlock ? C.afterUnlock.salesVideoTitle : salesVideo.title}
+          </h2>
+          <SalesVideo />
+          <p className={s.caption}>{salesVideo.caption}</p>
+        </section>
+      )}
 
-      <section ref={priceRef} className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby="fv-sales-price">
-        <h2 id="fv-sales-price" className={rp.h2}>
-          {price.title}
-        </h2>
+      <section ref={priceRef} className={cn(rp.wrap, rp.narrow, s.section)} aria-labelledby={price.title ? "fv-sales-price" : undefined}>
+        {price.title && (
+          <h2 id="fv-sales-price" className={rp.h2}>
+            {price.title}
+          </h2>
+        )}
         <div className={s.priceBox}>
-          <p className={s.priceReason}>{afterUnlock ? RESULT_SALES.afterUnlock.priceReason : price.reason}</p>
+          <p className={s.priceReason}>{afterUnlock ? C.afterUnlock.priceReason : price.reason}</p>
           <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={timerUntil} external={afterUnlock} />
           <div className={s.prices}>
             <p className={s.priceRegular}>
@@ -246,20 +344,20 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             <span className={s.resellIcon} aria-hidden="true">
               $
             </span>
-            <h3 className={s.resellTitle}>{RESULT_SALES.resell.title}</h3>
+            <h3 className={s.resellTitle}>{C.resell.title}</h3>
           </div>
-          <p>{RESULT_SALES.resell.text}</p>
-          <p>{RESULT_SALES.resell.proof}</p>
-          <p>{RESULT_SALES.resell.more}</p>
+          <p>{C.resell.text}</p>
+          <p>{C.resell.proof}</p>
+          <p>{C.resell.more}</p>
         </div>
       </section>
 
       {bonus && (
         <section id={RESULT_PAGE.written.anchor} className={cn(rp.wrap, s.section, s.bonusSection)} aria-labelledby="fv-sales-bonus">
           <h2 id="fv-sales-bonus" className={rp.h2}>
-            {RESULT_SALES.bonus.title(domain)}
+            {C.bonus.title(domain)}
           </h2>
-          <p className={cn(rp.text, s.intro)}>{RESULT_SALES.bonus.text(domain, deadline?.day ?? null)}</p>
+          <p className={cn(rp.text, s.intro)}>{C.bonus.text(domain, deadline?.day ?? null)}</p>
           {written && (
             <ul className={rp.ads}>
               {(cards ?? ([2, 3, 4] as const).map((n) => ({ n, pending: true }) as const)).map((card) =>
@@ -272,7 +370,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             </ul>
           )}
           <ul className={s.bonusItems}>
-            {RESULT_SALES.bonus.items.map((item) => (
+            {C.bonus.items.map((item) => (
               <li key={item.label}>
                 <strong>{item.label}</strong> {item.text}
               </li>
@@ -288,7 +386,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         </h2>
         <ol className={rp.steps}>
           {RESULT_PAGE.how.steps.map((base, index) => {
-            const step = afterUnlock && index === 2 ? { ...base, title: RESULT_SALES.afterUnlock.step3.title, text: () => RESULT_SALES.afterUnlock.step3.text } : base;
+            const step = afterUnlock && index === 2 ? { ...base, title: C.afterUnlock.step3.title, text: () => C.afterUnlock.step3.text } : base;
             return (
             <li key={step.title} className={cn(rp.step, step.done && rp.stepDone)}>
               <span className={cn(rp.stepIcon, !step.done && rp.stepIconNext)} aria-hidden="true">
@@ -305,10 +403,10 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           })}
         </ol>
         <div className={s.sceneWrap}>
-          <ResultScene domain={domain} />
+          <ResultScene domain={domain} note={view.bankCopy ? how.resultText : undefined} />
         </div>
         <h3 className={cn(s.h3, s.subSection, s.leftHead)}>{how.scrollTitle}</h3>
-        <p className={rp.text}>{afterUnlock ? RESULT_SALES.afterUnlock.scrollText : how.scrollText}</p>
+        <p className={rp.text}>{afterUnlock ? C.afterUnlock.scrollText : how.scrollText}</p>
         <figure className={s.leads}>
           <Image src={how.leadsImage} alt={how.leadsAlt} width={1320} height={192} sizes="(min-width: 760px) 712px, 100vw" />
           <figcaption>{how.leads}</figcaption>
@@ -326,9 +424,10 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
         </h2>
         <p className={s.toolsLead}>{tools.lead(domain)}</p>
         <p className={s.toolsNote}>{tools.note}</p>
+        {tools.amountsNote && <p className={s.toolsNote}>{tools.amountsNote}</p>}
         {(() => {
           let number = 0;
-          return TOOL_GROUPS.map((group, index) => (
+          return groups.map((group, index) => (
             <div key={group.title} className={s.group}>
               <p className={s.groupTitle}>{group.title}</p>
               {group.lead && <p className={rp.text}>{group.lead}</p>}
@@ -336,7 +435,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
                 number += 1;
                 return <ToolCard key={tool.name} n={number} tool={tool} domain={domain} />;
               })}
-              {(index === 1 || index === TOOL_GROUPS.length - 1) && <SalesBuy token={token} placement="fvrestools" />}
+              {(index === 1 || index === groups.length - 1) && <SalesBuy token={token} placement="fvrestools" />}
             </div>
           ));
         })()}
@@ -372,9 +471,9 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             <div key={card.name} className={cn(s.costCard, index === 1 && s.costCardUs)}>
               <p className={s.costName}>{card.name}</p>
               <p className={s.costLine}>{card.line1}</p>
-              <p className={s.costLine}>{card.line2}</p>
+              {card.line2 && <p className={s.costLine}>{card.line2}</p>}
               <p className={s.costPrice}>{card.price}</p>
-              <p className={s.costPer}>{card.per}</p>
+              {card.per && <p className={s.costPer}>{card.per}</p>}
             </div>
           ))}
         </div>
@@ -532,20 +631,20 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
       </section>
       </div>
 
-      <Walkthrough token={token} video={RESULT_SALES.walkthroughVideo} />
+      {!SALES_VIDEO_IS_TUTORIAL && <Walkthrough token={token} video={C.walkthroughVideo} />}
       <div className={cn(rp.wrap, rp.narrow, s.sectionTight)}>
         <SalesBuy token={token} placement="fvres3" />
       </div>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-label="P.S.">
         <p className={s.body}>
-          <strong>P.S.</strong> <Bold text={afterUnlock ? RESULT_SALES.afterUnlock.ps1(firstName, domain) : ps.p1(firstName, domain)} words={ps.bold} />
+          <strong>P.S.</strong> <Bold text={afterUnlock ? C.afterUnlock.ps1(firstName, domain) : ps.p1(firstName, domain)} words={ps.bold} />
         </p>
         <p className={s.body}>
-          <Bold text={afterUnlock ? RESULT_SALES.afterUnlock.ps2 : ps.p2} words={ps.bold} />
+          <Bold text={afterUnlock ? C.afterUnlock.ps2 : ps.p2} words={ps.bold} />
         </p>
         <p className={s.body}>
-          <Bold text={noTimer ? T.ps3 : afterUnlock ? RESULT_SALES.afterUnlock.ps3 : ps.p3} words={ps.bold} />
+          <Bold text={noTimer ? T.ps3 : afterUnlock ? C.afterUnlock.ps3 : ps.p3} words={ps.bold} />
         </p>
         {written && (
           <p className={s.body}>
@@ -693,15 +792,6 @@ function TutorialWindow({
         )}
       </div>
     </div>
-  );
-}
-
-/** The pencil on the "Change Your Video Ad" button. */
-function PencilIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor" />
-    </svg>
   );
 }
 

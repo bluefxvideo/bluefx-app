@@ -2396,6 +2396,17 @@
   height: 20px;
 }
 
+/* A change asked after the free one: not made yet, so an empty circle instead of the green tick. */
+.openTick {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border: 2px solid var(--green);
+  border-radius: 999px;
+  background: #fff;
+}
+
 .chatForm.chatReady button:not(:disabled) {
   background: #47801c;
 }
@@ -3755,4 +3766,184 @@
   border: 2px solid #143d70;
   background: #ffffff;
   color: #143d70;
+}
+
+/* One free instant change before paying (mock 2026-10-31). */
+.freeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+}
+.freeOrBuy {
+  display: block;
+  margin-top: 10px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: inherit;
+  opacity: 0.75;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.freeUsed {
+  margin-top: 10px;
+  font-size: 13px;
+  opacity: 0.75;
+  text-align: center;
+}
+.freeTabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.freeKicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-weight: 800;
+  font-size: 15px;
+  color: #d91c1c;
+}
+.freeToggle {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.07);
+}
+.freeToggle button {
+  border: 0;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  color: inherit;
+}
+.freeToggle .freeOn {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+.freeWorking {
+  margin-bottom: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff7e6;
+  border: 1px solid #f3d38a;
+}
+.freeWorking p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-weight: 800;
+}
+.freeWorking small {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+.freeBar {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+.freeBar i {
+  display: block;
+  height: 100%;
+  background: #1fa64a;
+  transition: width 0.8s ease;
+}
+.freeTabs,
+.freeWorking {
+  grid-area: free;
+  width: 100%;
+}
+
+@media (max-width: 859px) {
+  .hero:has(.freeTabs, .freeWorking) {
+    grid-template-areas:
+      'kicker kicker'
+      'title title'
+      'chips chips'
+      'free free'
+      'video price'
+      'action action'
+      'trust trust'
+      'styles styles'
+      'sub sub'
+      'chat chat';
+  }
+}
+.freeMessage {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #b42318;
+}
+.freeTry {
+  grid-area: freetry;
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  color: #2f5f12;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+@media (max-width: 859px) {
+  .hero:has(.freeTry) {
+    grid-template-areas:
+      'kicker kicker'
+      'title title'
+      'chips chips'
+      'freetry freetry'
+      'video price'
+      'action action'
+      'trust trust'
+      'styles styles'
+      'sub sub'
+      'chat chat';
+  }
+}
+
+@media (min-width: 860px) {
+  .hero:has(.freeTry) {
+    grid-template-areas:
+      'kicker side'
+      'title side'
+      'chips side'
+      'freetry side'
+      'sub side'
+      'price side'
+      'action side'
+      'trust side'
+      'styles side';
+    grid-template-rows: auto auto auto auto auto auto auto auto 1fr;
+  }
+
+  .freeTry {
+    justify-self: start;
+  }
+}
+.freeTabs {
+  scroll-margin-top: 12px;
 }

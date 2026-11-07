@@ -24,7 +24,6 @@ import type {
   ScriptSegment,
   ImageAnalysisResult,
 } from '@/types/reelestate';
-import { cameraMotionToKenBurns } from '@/types/reelestate';
 import type { Json } from '@/types/database';
 
 // ═══════════════════════════════════════════
@@ -35,7 +34,7 @@ const CREDITS = {
   SCRAPE: 1,
   ANALYZE_PER_BATCH: 1, // per 5 photos
   SCRIPT: 1,
-  CLIP: 6, // per clip (6 seconds @ 1080p, 1 credit/sec)
+  CLIP: 12, // per clip (6 seconds @ 1080p on Replicate, $0.36: 2 credits a second, owner-approved 2026-11-02)
   VOICEOVER: 2,
   ASSEMBLY: 2,
   CLEANUP: 2, // per photo

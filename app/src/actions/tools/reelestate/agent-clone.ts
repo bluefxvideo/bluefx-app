@@ -11,11 +11,12 @@ import { getUserCredits } from '@/actions/credit-management';
 import { downloadAndUploadImage, downloadAndUploadVideo } from '@/actions/supabase-storage';
 import { storeAgentCloneGeneration, updateAgentCloneGeneration } from '@/actions/database/agent-clone-database';
 import type { Json } from '@/types/database';
-import type { AgentCloneCameraMotion, AgentCloneDuration } from '@/types/reelestate';
+import { AGENT_CLONE_ANIMATION_CREDITS_PER_SECOND, type AgentCloneCameraMotion, type AgentCloneDuration } from '@/types/reelestate';
 
 const CREDITS = {
   COMPOSITE: 2,
-  ANIMATION_PER_SECOND: 1,
+  /** Replicate LTX 2.5 fast 1080p with sound costs $0.06 a second (owner-approved 2026-11-02: 1 -> 2). */
+  ANIMATION_PER_SECOND: AGENT_CLONE_ANIMATION_CREDITS_PER_SECOND,
   /** Same as the Voice Changer's high-quality price (always HQ here). */
   VOICE_SWITCH: 4,
 };

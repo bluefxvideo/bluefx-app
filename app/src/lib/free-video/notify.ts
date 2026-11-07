@@ -9,7 +9,8 @@
  * video ad on the page only.
  *
  * A visitor's typing never renames a subscriber (review SEC-3): the first name is sent only for an address
- * MailerLite does not know yet, or knows without a name. Rejected leads never reach MailerLite at all.
+ * MailerLite does not know yet, or knows without a name. A rejected lead joins only 'Free Video - No video
+ * (auto)', whose automation sends the one rescue email (joinNoVideoGroup).
  *
  * Off the live server nobody is mailed except FREE_VIDEO_TEST_EMAIL (the owner's inbox, plus-tags allowed).
  */
@@ -21,14 +22,16 @@ import {
   ML_FIELDS,
   ML_GROUP_BOUGHT,
   ML_GROUP_LEADS,
+  ML_GROUP_NO_VIDEO,
   ML_GROUP_READY,
   ML_GROUP_VIDEO_READY,
   ML_GROUP_UNLOCKED,
   SITE_URL,
+  STATS_EXCLUDED_EMAILS,
   testInbox,
 } from '@/lib/free-video/config';
 import { alertOwner } from '@/lib/free-video/alerts';
-import { isServiceRef } from '@/lib/free-video/funnel';
+import { isOwnerTestRef, isServiceRef } from '@/lib/free-video/funnel';
 import { unlockPagePath } from '@/lib/free-video/offer';
 import { offerOf, offerSwitchOf } from '@/lib/free-video/offer-switch';
 import { eventsTable, getLead, leadsTable } from '@/lib/free-video/leads';
@@ -78,9 +81,8 @@ async function nameFor(lead: Pick<FreeVideoLead, 'email' | 'first_name'>): Promi
 
 /**
  * A queued signup joins 'Free Video - Leads' (no automation hangs on this group). A rejected lead (an
- * unreadable or refused website) never does: the row already keeps the email, and the form must not be a
- * way to add strangers' addresses to the list (review SEC-3). Called from the POST's after().
- * Returns true when MailerLite took the subscriber.
+ * unreadable or refused website) never does; it goes to joinNoVideoGroup instead. Called from the POST's
+ * after(). Returns true when MailerLite took the subscriber.
  */
 export async function joinLeadsGroup(lead: Pick<FreeVideoLead, 'email' | 'first_name' | 'website_domain' | 'status'>): Promise<boolean> {
   try {
@@ -98,6 +100,31 @@ export async function joinLeadsGroup(lead: Pick<FreeVideoLead, 'email' | 'first_
     return result.ok;
   } catch (error) {
     console.error('❌ [free-video] joinLeadsGroup failed:', error);
+    return false;
+  }
+}
+
+/**
+ * A rejected signup (a refused or unreadable website, owner 2026-10-31: "once they fill it out, they fill it
+ * out") joins 'Free Video - No video (auto)'. Its automation waits 1 hour and sends the rescue email, unless the
+ * person joined 'Free Video - Leads' by then (a retry with a working link). The owner's own tests never join.
+ * Called from the POST's after(). Returns true when MailerLite took the subscriber.
+ */
+export async function joinNoVideoGroup(
+  lead: Pick<FreeVideoLead, 'email' | 'first_name' | 'website_domain' | 'status' | 'ref' | 'source'>
+): Promise<boolean> {
+  try {
+    if (lead.status !== 'rejected' || lead.source === 'test' || isOwnerTestRef(lead.ref) || !mailAllowed(lead.email)) return false;
+    if (!ML_GROUP_NO_VIDEO) return false;
+    const result = await subscribeToMailerLite({
+      email: lead.email,
+      fullName: await nameFor(lead),
+      groups: [ML_GROUP_NO_VIDEO],
+      fields: { [ML_FIELDS.site]: displayDomain(lead.website_domain) },
+    });
+    return result.ok;
+  } catch (error) {
+    console.error('❌ [free-video] joinNoVideoGroup failed:', error);
     return false;
   }
 }
@@ -307,4 +334,158 @@ export async function addToBoughtGroup(email: string): Promise<boolean> {
     console.error('❌ [free-video] addToBoughtGroup failed:', error);
     return false;
   }
+}
+
+/** The free change email (owner 2026-11-01: "of course we want to send the email"): one plain-text email through Brevo. */
+export const FREE_CHANGE_EMAIL = {
+  subject: 'Your changed video ad is ready',
+  text: (firstName: string, link: string) =>
+    [
+      `Hi ${firstName},`,
+      '',
+      'Your changes are done. Watch your new video ad here:',
+      link,
+      '',
+      'Like it? You can remove the SAMPLE watermark right on that page, and keep changing anything you like until it feels just right.',
+      '',
+      'Szilard',
+    ].join('\n'),
+} as const;
+
+/** The same email for a lead on the AI Media Machine offer (owner 2026-11-02): the free thank-you page, no $49. */
+export const FREE_CHANGE_EMAIL_MACHINE = {
+  subject: 'Your changed video ad is ready',
+  text: (firstName: string, link: string) =>
+    [
+      `Hi ${firstName},`,
+      '',
+      'Your changes are done. Watch your new video ad here:',
+      link,
+      '',
+      'Like it? With the AI Media Machine, your video ads come without the SAMPLE watermark, and you make every next change yourself in about 3 minutes. It is all on that page.',
+      '',
+      'Szilard',
+    ].join('\n'),
+} as const;
+
+/** Sends FREE_CHANGE_EMAIL once per lead (a 'free_change_email' event marks it). Never throws. */
+export async function sendFreeChangeReady(lead: FreeVideoLead): Promise<'sent' | 'skipped' | 'failed'> {
+  try {
+    const { eventsTable, recordEvent } = await import('@/lib/free-video/leads');
+    const { count } = await eventsTable().select('id', { count: 'exact', head: true }).eq('lead_id', lead.id).eq('event', 'free_change_email');
+    if (count) return 'skipped';
+    if (!mailAllowed(lead.email)) {
+      console.log(`⚠️ [free-video] Lead ${lead.id}: free change email skipped (not the live server, not the test inbox)`);
+      return 'skipped';
+    }
+    const apiKey = process.env.BREVO_API_KEY;
+    if (!apiKey) return 'failed';
+    const { offerOf, offerSwitchOf } = await import('@/lib/free-video/offer-switch');
+    const machine = offerOf(lead, await offerSwitchOf(lead.id).catch(() => null)) === 'machine';
+    const email = machine ? FREE_CHANGE_EMAIL_MACHINE : FREE_CHANGE_EMAIL;
+    const link = `${SITE_URL}${machine ? `/v/${lead.view_token}` : unlockPagePath(lead.view_token)}`;
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        sender: { email: 'support@bluefx.net', name: 'Szilard Gyorfi' },
+        to: [{ email: lead.email }],
+        subject: email.subject,
+        textContent: email.text(lead.first_name?.trim() || 'there', link),
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      console.error(`❌ [free-video] Free change email of lead ${lead.id} failed: Brevo ${res.status}`);
+      return 'failed';
+    }
+    await recordEvent({ event: 'free_change_email', leadId: lead.id, ref: lead.ref });
+    console.log(`✅ [free-video] Lead ${lead.id}: free change email sent`);
+    return 'sent';
+  } catch (error) {
+    console.error(`❌ [free-video] Free change email of lead ${lead.id} failed:`, error);
+    return 'failed';
+  }
+}
+
+/**
+ * The missed-payment email (owner 2026-11-01: "sort of a shopping cart abandon email"): a lead who tapped the $49
+ * buy button and has not paid 30 minutes later gets one plain email from Szilard. Wording approved by the owner.
+ */
+export const CHECKOUT_REMINDER_EMAIL = {
+  subject: (firstName: string | null) => (firstName ? `${firstName}, did something go wrong?` : 'Did something go wrong?'),
+  text: (firstName: string | null, site: string, link: string) =>
+    [
+      `Hi ${firstName || 'there'},`,
+      '',
+      `I saw you started getting your video ad for ${site}, but the payment didn't go through.`,
+      '',
+      `Here's your page again: ${link}`,
+      '',
+      "Your $49 price is still there. If your card didn't work, PayPal works too. Or just reply to this email and I'll help you.",
+      '',
+      'Szilard',
+    ].join('\n'),
+} as const;
+
+/** How long after the buy tap the email waits, and how far back a tap still counts. */
+const CHECKOUT_REMINDER_AFTER_MS = 30 * 60_000;
+const CHECKOUT_REMINDER_WINDOW_MS = 24 * 60 * 60_000;
+
+/**
+ * Sends CHECKOUT_REMINDER_EMAIL to every lead whose $49 buy tap ('cta_click' fvunlock) is 30 minutes to 24 hours old,
+ * who has not paid or bought, and who never got it (a 'checkout_reminder_email' event marks it). Returns how many
+ * were sent. Never throws.
+ */
+export async function sendCheckoutReminders(): Promise<number> {
+  let sent = 0;
+  try {
+    const { recordEvent } = await import('@/lib/free-video/leads');
+    const now = Date.now();
+    const { data: taps, error } = await eventsTable()
+      .select('lead_id')
+      .eq('event', 'cta_click')
+      .eq('placement', 'fvunlock')
+      .lt('at', new Date(now - CHECKOUT_REMINDER_AFTER_MS).toISOString())
+      .gt('at', new Date(now - CHECKOUT_REMINDER_WINDOW_MS).toISOString())
+      .not('lead_id', 'is', null);
+    if (error) throw new Error(error.message);
+    const ids = [...new Set(((taps ?? []) as Array<{ lead_id: string }>).map((row) => row.lead_id))];
+    if (!ids.length) return 0;
+    const { data: done } = await eventsTable().select('lead_id').eq('event', 'checkout_reminder_email').in('lead_id', ids);
+    const already = new Set(((done ?? []) as Array<{ lead_id: string }>).map((row) => row.lead_id));
+    const apiKey = process.env.BREVO_API_KEY;
+    for (const id of ids) {
+      if (already.has(id)) continue;
+      const lead = await getLead(id).catch(() => null);
+      if (!lead || lead.unlock_status !== 'none' || lead.bought_at || lead.is_customer) continue;
+      // The owner's own test taps get no email (he read the wording in chat).
+      if (STATS_EXCLUDED_EMAILS.includes(lead.email.trim().toLowerCase())) continue;
+      if (!mailAllowed(lead.email) || !apiKey) continue;
+      const first = lead.first_name?.trim() || null;
+      const site = lead.website_domain ? displayDomain(lead.website_domain) : 'your business';
+      const link = `${SITE_URL}${unlockPagePath(lead.view_token)}`;
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          sender: { email: 'support@bluefx.net', name: 'Szilard Gyorfi' },
+          to: [{ email: lead.email }],
+          subject: CHECKOUT_REMINDER_EMAIL.subject(first),
+          textContent: CHECKOUT_REMINDER_EMAIL.text(first, site, link),
+        }),
+        signal: AbortSignal.timeout(10_000),
+      }).catch(() => null);
+      if (!res?.ok) {
+        console.error(`❌ [free-video] Missed-payment email of lead ${id} failed: Brevo ${res?.status ?? 'no answer'}`);
+        continue;
+      }
+      await recordEvent({ event: 'checkout_reminder_email', leadId: id, ref: lead.ref });
+      console.log(`✅ [free-video] Lead ${id}: missed-payment email sent`);
+      sent++;
+    }
+  } catch (error) {
+    console.error('❌ [free-video] Missed-payment emails failed:', error);
+  }
+  return sent;
 }

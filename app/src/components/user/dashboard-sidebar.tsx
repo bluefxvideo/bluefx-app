@@ -49,6 +49,7 @@ import { createClient } from '@/app/supabase/client'
 import { ThemeSwitch } from './theme-switch'
 import { Badge } from '@/components/ui/badge'
 import { BuyCreditsDialog } from '@/components/ui/buy-credits-dialog'
+import { bankLimitMessage } from '@/lib/credits/credit-bank-messages'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -335,8 +336,11 @@ export function DashboardSidebar({
   const [isAdmin, setIsAdmin] = useState(false)
   // The balance comes from the page-wide credits query (hooks/useCredits.ts), which keeps it live; the sidebar
   // used to run its own copy per instance (two per page) with its own channel and a poll each.
-  const { credits: creditBalance } = useCredits()
-  const credits = creditBalance?.available_credits ?? null
+  const { credits: creditBalance, bank, bankNote } = useCredits()
+  // The full balance (a credit bank account's tools may see less while its 30-day window is used up).
+  const credits = creditBalance?.balance_credits ?? null
+  // Credit bank accounts only: a small note from about 1,200 used in the window, the full message once it is used up.
+  const bankLine = bank && bank.window_left <= 0 && bank.bank_left > 0 ? bankLimitMessage(bank) : bankNote
   const [showBuyCredits, setShowBuyCredits] = useState(false)
   const accountDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -758,6 +762,9 @@ export function DashboardSidebar({
               <p>{credits !== null ? `${credits.toLocaleString()} credits — click to buy more` : 'Loading credits…'}</p>
             </TooltipContent>
           </Tooltip>
+          {bankLine && !isCollapsed && (
+            <p className="px-2 pb-1 text-[11px] leading-snug text-muted-foreground">{bankLine}</p>
+          )}
           <BuyCreditsDialog open={showBuyCredits} onOpenChange={setShowBuyCredits} />
 
           {/* My Account Dropdown */}

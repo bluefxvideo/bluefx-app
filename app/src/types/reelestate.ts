@@ -310,6 +310,8 @@ export type AgentCloneCameraMotion = typeof AGENT_CLONE_CAMERA_MOTIONS[number];
 
 export const AGENT_CLONE_DURATIONS = [6, 8, 10, 12, 14, 16, 18, 20] as const;
 export type AgentCloneDuration = typeof AGENT_CLONE_DURATIONS[number];
+/** Agent Clone animation price: credits per second of video (the server charges it, the tab and the examples show it). */
+export const AGENT_CLONE_ANIMATION_CREDITS_PER_SECOND = 2;
 
 export interface AgentCloneShot {
   id: string;

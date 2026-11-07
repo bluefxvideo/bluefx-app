@@ -11,8 +11,8 @@
  * Phantom" alone ("Phantom Ad Maker" is the tool), no stacked negation, social media first (owner 2026-10-22: his buyers
  * mostly don't run ads; they want customers from social media).
  */
-import { OFFER, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
-import { PHANTOM_CREDITS, PHANTOM_PRESENTER_CREDITS } from '@/lib/smart-video/pricing';
+import { BANK_CREDITS, BANK_VIDEO_ADS, OFFER, PRICE_PER_BANK_VIDEO_AD, VIDEO_ADS_LIKE_FREE_PER_MONTH } from './offer';
+import { PHANTOM_CREDITS } from '@/lib/smart-video/pricing';
 
 const MONTH = VIDEO_ADS_LIKE_FREE_PER_MONTH;
 const YEAR = MONTH * 12;
@@ -212,7 +212,7 @@ export const RESULT_SALES = {
    * so the page shows exactly what the app offers.
    */
   styles: {
-    title: 'In the full version, choose from 8 video styles.',
+    title: 'With the AI Media Machine, choose from 8 video styles.',
     more: 'New styles added every month.',
     yours: 'Your free video ad',
     items: [
@@ -284,19 +284,20 @@ export const RESULT_SALES = {
    */
   walkthroughVideo: {
     anchor: 'walkthrough',
-    youtubeId: 'pgBrSmI1cOE',
-    poster: 'https://i.ytimg.com/vi/pgBrSmI1cOE/maxresdefault.jpg?v=2',
+    /** Owner 2026-11-02: the new Phantom Ad Maker tutorial (YouTube PSfn9Au02JY, 14:53), chapters from its YouTube chapters. */
+    youtubeId: 'PSfn9Au02JY',
+    poster: 'https://i.ytimg.com/vi/PSfn9Au02JY/maxresdefault.jpg',
     title: 'Watch me use the AI Media Machine on my own screen',
-    lead: '11 minutes: I change a video ad for dentists, put myself on camera, change the music and the voice, show the 3 extra video ads and open every tool you get.',
-    playLabel: 'Play the 11 minute walkthrough',
+    lead: '15 minutes: I type a website and get a finished video ad, change it with my own face and logo, then make a News studio video ad from a few lines.',
+    playLabel: 'Play the 15 minute walkthrough',
     chapters: [
-      { label: 'Change a video ad', at: 174 },
-      { label: 'Put yourself on camera', at: 288 },
-      { label: 'Music and voice', at: 327 },
-      { label: 'Your 3 extra video ads', at: 433 },
-      { label: 'Every tool', at: 511 },
+      { label: 'Pick a style', at: 98 },
+      { label: 'Paste your website', at: 270 },
+      { label: 'Your finished video ad', at: 328 },
+      { label: 'Make a change', at: 379 },
+      { label: 'A video ad from a few lines', at: 687 },
     ],
-    length: '11:08',
+    length: '14:53',
   },
 
   hero: {
@@ -329,7 +330,8 @@ export const RESULT_SALES = {
      * on the page 7 times and made it about the owner). The birthday is said once, here, as the reason for the sale;
      * everywhere else it is the reader's own sale price. Every line stays true for a reader who returns to a fresh timer.
      */
-    title: 'Lifetime access to the AI Media Machine, on sale for a short time',
+    /** Kennedy review 2026-11-02 (owner "oki"): no heading here; the birthday line leads into the timer. */
+    title: '',
     reason: "Why the sale? I just turned 40, and I only turn 40 once, so I'm celebrating with a sale that runs for a short time.",
     timer: 'Your sale price ends in',
     /** While the 3-day bonus runs, 1 deadline for both (Krug). */
@@ -337,8 +339,8 @@ export const RESULT_SALES = {
     regular: 'Regular price:',
     birthday: 'Your sale price:',
     /** The monthly-fee objection, answered at the price (owner 2026-10-26: leads wrote "$99 is not in my business budget monthly"). */
-    payOnce: 'No monthly fee. Pay once, use the AI Media Machine for life.',
-    line: `All 12 tools are yours, and your account refills with ${MONTH} complete video ads every month. Need more? Add a credit pack any time, with nothing recurring.`,
+    payOnce: 'One payment. Absolutely no monthly fees.',
+    line: `All 12 tools are yours for life, and your account refills with ${MONTH} complete video ads every month.`,
   },
 
   button: {
@@ -368,7 +370,7 @@ export const RESULT_SALES = {
     text: `Type any business's website, and the AI Media Machine makes a video ad for that business. Your account makes ${MONTH} complete video ads every month, for your business or for theirs.`,
     proof: 'One of our buyers, a marketing agency owner in California, already makes video ads for 7 client websites with his account.',
     /** Owner 2026-10-26: "10 videos, but what if I get 20 videos?" The 1,000-credit pack (buy-credits-dialog.tsx) at 60 credits per video ad like the free one. */
-    more: `Need more than ${MONTH} a month for your clients? Add a credit pack any time: 1,000 credits ($69.99) make about ${Math.floor(1000 / (PHANTOM_CREDITS + PHANTOM_PRESENTER_CREDITS))} more video ads, with nothing recurring.`,
+    more: `Need more than ${MONTH} a month for your clients? Add a credit pack any time: 1,000 credits ($69.99) make about ${Math.floor(1000 / 60)} more video ads, with nothing recurring.`,
   },
 
   bonus: {
@@ -403,6 +405,8 @@ export const RESULT_SALES = {
       `Phantom Ad Maker made your video ad for ${domain}. Here are all 12 tools, with what each tool makes for your business and what the same job rents for elsewhere. One payment gets you all 12 tools.`,
     /** Said once here instead of under every demo (Krug). */
     note: 'Every demo below is real output from the AI Media Machine, not edited.',
+    /** The line above the tool list that says what the amounts mean; the bank copy only (RESULT_SALES_BANK). */
+    amountsNote: null as string | null,
     forBusiness: 'For your business:',
     value: 'Real-World Value:',
     elsewhere: 'elsewhere',
@@ -474,7 +478,7 @@ export const RESULT_SALES = {
       { lead: 'So lifetime access', text: ` works differently: pay once, and the AI Media Machine is yours forever. Lifetime access sells for ${OFFER.was}. One payment instead of $5,520 every year.` },
       { lead: 'Is this for real?', text: ` Yes. One payment of ${OFFER.now} gets you the full AI Media Machine: all 12 tools, everything you see on this page, every update we ship in the future, and ${MONTH} complete video ads like yours every month, for life.` },
       { lead: `Why ${OFFER.now} and not ${OFFER.was}?`, text: ` ${OFFER.now} is your sale price until the timer hits zero.` },
-      { lead: "What's the catch?", text: ` The timer. Your sale price of ${OFFER.now} lasts until the timer on this page hits zero. The regular price of lifetime access is ${OFFER.was}.` },
+      { lead: "What's the catch?", text: ` The timer. I turned 40, and this birthday sale ends when the timer on this page hits zero. Then lifetime access goes back to ${OFFER.was}.` },
     ],
   },
 
@@ -484,7 +488,7 @@ export const RESULT_SALES = {
     image: '/free-video/aimm-product.jpg',
     imageAlt: 'All 12 tools of the AI Media Machine',
     rows: [
-      { text: `${MONTH} complete video ads like yours, every month, for life`, value: 'included' },
+      { text: `${MONTH} complete video ads like yours, every month, for life`, value: `$${FREELANCER * MONTH}/mo` },
       { text: 'Phantom Ad Maker, the tool that made your video ad', value: '$100/mo' },
       { text: 'Video Clip Maker, any short video ad, up to 4K', value: '$59/mo' },
       { text: 'AI Avatar, 246 presenters', value: '$29/mo' },
@@ -541,7 +545,7 @@ export const RESULT_SALES = {
     items: [
       {
         q: 'Is the AI Media Machine a monthly subscription?',
-        a: [`No. You pay ${OFFER.now} once, and there's no monthly fee. Every month, for life, your account refills with ${MONTH} new video ads like yours. You also have 30 days to get your money back.`],
+        a: [`No. You pay ${OFFER.now} once, and there are absolutely no monthly fees. Every month, for life, your account refills with ${MONTH} new video ads like yours. You also have 30 days to get your money back.`],
       },
       {
         q: 'How many video ads can I make, and do the other 11 tools cost extra?',
@@ -588,7 +592,7 @@ export const RESULT_SALES = {
       {
         q: 'Do I have to use all 12 tools?',
         a: [
-          'No. Start with Phantom Ad Maker, the tool that made your video ad: type your website, and Phantom Ad Maker makes your next video ad. Open the other 11 tools when your business needs a new kind of video ad, a voice-over, music or an ebook. The 11-minute walkthrough below shows all 12 tools.',
+          'No. Start with Phantom Ad Maker, the tool that made your video ad: type your website, and Phantom Ad Maker makes your next video ad. Open the other 11 tools when your business needs a new kind of video ad, a voice-over, music or an ebook. The 15-minute walkthrough above shows Phantom Ad Maker step by step.',
         ],
       },
     ],
@@ -599,6 +603,79 @@ export const RESULT_SALES = {
    * Media Machine", replacing the Weekly Video Plan). Their video ad is already above, so the page starts with this
    * headline instead of the video ad block. The headline is a placeholder: the owner will write the final one.
    */
+  /**
+   * The top of the free thank-you page, modeled on the $297 upsell (owner 2026-11-02: "so much unnecessary bulk of
+   * text, tiring to read. instead the changer, and the headline with 100 video ads sort of thing"): the headline with a
+   * red part, one line under it, and the $49 page's change chat with one free change made by the AI engine (the SAMPLE
+   * stamp stays). The big "Best Deal" headline and the $5,520 line stay below as the anchor (owner: no $49 paid here).
+   */
+  freeTop: {
+    /** Owner 2026-11-02: the first sentence on top, the changer, then the offer question and the line under it below the changer. */
+    title: (name: string) => `${name}, the AI Media Machine just made your first video ad.`,
+    offerParts: ['What if you could make ', `${MONTH} more every month, for life`, '?'] as const,
+    /** Owner 2026-11-02: "why so many?" is answered right where the number first shows. */
+    why: "That's a new video ad every 3 days, so more customers find your business and call you first.",
+    sub: 'One payment. Absolutely no monthly fees.',
+    /** Under the change chat (owner 2026-11-02): the free video ad is a sample; the full version is for real use, without the stamp. */
+    sample: {
+      title: 'Your free video ad is a sample.',
+      text: 'The full version comes without the SAMPLE stamp and with a commercial license, so you can post your video ad for your business, or sell video ads to your clients.',
+      price: `You get the full version of this video ad, plus ${MONTH} new video ads every month, for ${OFFER.now}, one time.`,
+      button: 'Get the Full Version',
+    },
+    /** The button under the offer (the owner's words on the offer card, OFFER_CARD.seeAll); it scrolls to the price box. */
+    seeAll: 'See Everything You Get',
+    tryLine: 'Try your first change free',
+    chat: {
+      title: 'What would you like changed?',
+      note: 'Your first change is free.',
+      hello: '',
+      ideas: [
+        { label: 'Add my phone number', ask: 'Please add my phone number.' },
+        { label: 'A different person', ask: "I'd like a different person on camera." },
+        { label: 'Change the wording', ask: "I'd like to change some of the wording." },
+        { label: 'Other music or voice', ask: "I'd like other music or a different voice." },
+        { label: 'Your offer or your prices', ask: "I'd like to change the offer or the prices." },
+      ],
+      thinking: 'Typing...',
+      listTitle: 'Your changes:',
+      listNote: 'Tap the green button, and our AI engine makes these changes right here, free, in about 5 minutes.',
+      placeholder: 'Type your change here',
+      send: 'Send',
+      limit: 'You sent a lot of messages today. Please email your changes to support@bluefx.net.',
+      error: 'Sorry, my answer did not come through. Please try again, or email support@bluefx.net.',
+    },
+    free: {
+      note: 'Our AI engine makes these changes right now, free, in about 5 minutes. Your video ad keeps the SAMPLE stamp.',
+      button: 'See My Changes Free',
+      starting: 'Starting...',
+      failed: 'Sorry, that change did not work this time. Please try again.',
+      refusals: {
+        style: 'A whole new video style comes with the AI Media Machine, where you pick any of the 8 styles. Try a different change for free.',
+        used: 'Your free change is already made. With the AI Media Machine, you make every next change yourself in about 3 minutes.',
+        noList: 'Tell me your change in the chat first.',
+        notReady: 'Your video ad is not ready yet. Please try again in a minute.',
+        paid: 'Your video ad is already yours.',
+      },
+      orBuy: 'Or get the AI Media Machine and change anything yourself',
+      working: 'Making your changes...',
+      workingNote: 'About 5 minutes. Keep this page open: your new video ad shows up right here.',
+      doneKicker: 'Your change is in',
+      before: 'Before',
+      after: 'After',
+      // Owner 2026-11-04 (Shannon): after the free change the box still said "Your first change is free" and ticked her
+      // new request as if made. Now it says the free change is used and what the next change takes.
+      doneHead: 'Your free change is done. Watch the After version.',
+      madeTitle: 'Made for free:',
+      nextTitle: 'Your next change:',
+      doneNote: 'Want more changes? With the AI Media Machine, you make every next change yourself, typed just like here, in about 3 minutes, without the SAMPLE stamp.',
+      doneButton: 'Get the AI Media Machine',
+      nextNote: 'Your free change is used. With the AI Media Machine, you make this change yourself, typed just like here, in about 3 minutes, without the SAMPLE stamp.',
+      nextButton: 'Get the AI Media Machine and Make This Change',
+      /** The chat's answer once the free change is used (a fixed line: the AI promised changes that never ran). */
+      usedReply: "Noted. Your free change is already used, so this one you make yourself in the AI Media Machine: type it there just like here, and it's done in about 3 minutes.",
+    },
+  },
   afterUnlock: {
     /** Owner 2026-10-28 ("10 is much more palatable" than 120 a year); the price moved to the line under it on the copy expert's advice. */
     /** Owner 2026-10-28 picked the shorter version (10 a month, not 120 a year; the price on the line under it). */
@@ -606,7 +683,7 @@ export const RESULT_SALES = {
     /** Owner 2026-10-29: "the headline needs a bit of red on some words plus an arrow": the same headline in 3 parts, the middle one red. */
     titleParts: (name: string) => [`${name}, the AI Media Machine made your video ad. What if you could make `, `${MONTH} more every month, for life`, '?'] as const,
     /** All 3 experts (Ogilvy, Hormozi, Kennedy, 2026-10-28): no $297 at the top, someone who just paid $49 compares the two first. */
-    sub: 'One payment. No monthly fee.',
+    sub: 'One payment. Absolutely no monthly fees.',
     /** Owner OK'd the panel's changes for THIS page only (2026-10-28): lines written for a stranger, said for a buyer. */
     salesVideoTitle: 'Watch me open all 12 tools:',
     priceReason: 'Why $297? Because you already bought from me today.',
@@ -644,3 +721,176 @@ export const RESULT_SALES = {
       `Here's the math. A freelancer charges about $${FREELANCER} for 1 video ad like yours, so ${YEAR} video ads a year cost about ${FREELANCER_YEAR}. With the AI Media Machine, you pay ${OFFER.now}, once. Every video ad is one more chance for new customers to find ${domain}.`,
   },
 } as const;
+
+// ---------------------------------------------------------------------------------------------------------------
+// The credit bank copy (owner-approved 2026-11-02): new lifetime buyers get 5,000 credits once that never expire, so
+// "10 complete video ads every month, for life" becomes "100 complete video ads, ready whenever you need them". Shown
+// only once the bank is launched (FreeVideoView.bankCopy, credit-bank-launch.ts); until then the pages show
+// RESULT_SALES and TOOL_GROUPS above, unchanged. The software itself stays "for life" (the buttons keep
+// "$297 once, for life"). Rules: never "credits" in a headline, "video ad(s)" by name, never "unlimited" for video ads.
+
+/** The same shape as RESULT_SALES with plain strings, so the bank copy can say other words. */
+type Widen<T> = T extends string
+  ? string
+  : T extends number
+    ? number
+    : T extends boolean
+      ? boolean
+      : T extends (...args: infer A) => infer R
+        ? (...args: A) => Widen<R>
+        : T extends readonly (infer U)[]
+          ? readonly Widen<U>[]
+          : T extends object
+          ? { readonly [K in keyof T]: Widen<T[K]> }
+          : T;
+export type SalesCopy = Widen<typeof RESULT_SALES>;
+
+const BANK = BANK_VIDEO_ADS;
+const BANK_CREDITS_TEXT = BANK_CREDITS.toLocaleString('en-US');
+const FREELANCER_BANK = `$${(FREELANCER * BANK).toLocaleString('en-US')}`;
+const READY = 'ready whenever you need them';
+/** Image Maker's cheapest picture (1K, actions/tools/image-maker.ts CREDIT_COST): the FAQ's mix. */
+const PICTURE_CREDITS = 2;
+const MIX_ADS = 80;
+const MIX_PICTURES = (BANK_CREDITS - MIX_ADS * PHANTOM_CREDITS) / PICTURE_CREDITS;
+
+/**
+ * What 5,000 credits make in each tool on its own, from the prices in the code on 2026-11-02 (rounded down):
+ * Phantom 50 a video ad; Video Clip Maker 12 a 6-second Fast clip (2/s, the default); AI Avatar 40 a 20-second Fast
+ * video (2/s); Video Swap 8 a second; Video Analyzer 6 a link, a cloned video ad about 304 (6 scenes of 5 seconds);
+ * Image Maker 2 a 1K picture; Thumbnail Maker 10; Voice 3 per started 1,000 characters; Music 6 a track; ReelEstate
+ * at most 129 for a 30-second listing video (25 + 7 clips at 2 a clip second); Ebook Writer 79 as the page quotes it.
+ */
+const BANK_TOOLS: Record<string, { amount: string; forBusiness?: string }> = {
+  'Phantom Ad Maker': {
+    amount: `${BANK} complete video ads`,
+    forBusiness: `${BANK} new video ads to post on YouTube, Instagram, Facebook and TikTok: 2 new video ads every week for a full year.`,
+  },
+  'Video Clip Maker': { amount: 'Up to about 400 short clips' },
+  'AI Avatar': { amount: 'Up to about 125 talking videos' },
+  'Video Swap': { amount: 'Up to about 625 seconds of video' },
+  'Video Analyzer & Ad Cloner': { amount: 'Up to about 800 video analyses, or about 16 cloned video ads' },
+  'Find Video Ads': { amount: 'Unlimited' },
+  'Image Maker': { amount: 'Up to 2,500 pictures' },
+  'Thumbnail Maker': { amount: 'Up to about 500 thumbnails' },
+  Voice: { amount: 'Up to about 1,600 voice-overs' },
+  Music: { amount: 'Up to about 800 music tracks' },
+  ReelEstate: { amount: 'Up to about 38 listing videos of 30 seconds' },
+  'Ebook Writer': { amount: 'Up to about 60 ebooks' },
+};
+
+export const TOOL_GROUPS_BANK: typeof TOOL_GROUPS = TOOL_GROUPS.map((group) => ({
+  ...group,
+  tools: group.tools.map((tool) => ({ ...tool, ...BANK_TOOLS[tool.name] })),
+}));
+
+const S = RESULT_SALES;
+const BANK_PACK = `Add a credit pack any time: 1,000 credits ($69.99) make ${Math.floor(1000 / PHANTOM_CREDITS)} more video ads, with nothing recurring.`;
+const bankRecharge = `Busy season? ${BANK_PACK}`;
+
+export const RESULT_SALES_BANK: SalesCopy = {
+  ...S,
+  price: {
+    ...S.price,
+    line: `All 12 tools are yours for life, plus ${BANK} complete video ads that never expire.`,
+  },
+  resell: {
+    ...S.resell,
+    text: `Type any business's website, and the AI Media Machine makes a video ad for that business. Your account makes ${BANK} complete video ads, for your business or for theirs.`,
+    more: `Need more than ${BANK} video ads for your clients? ${BANK_PACK}`,
+  },
+  bonus: {
+    ...S.bonus,
+    items: [S.bonus.items[0], { ...S.bonus.items[1], text: `your next 3 video ads, already made and ready with one click, on top of your ${BANK} complete video ads ($600 value)` }],
+  },
+  how: {
+    ...S.how,
+    resultText: `The AI Media Machine makes your next ${BANK} video ads, so more new customers come to you.`,
+    scrollText: S.how.scrollText.replace('posts a new video every 3 days', 'posts 2 new video ads every week'),
+  },
+  tools: {
+    ...S.tools,
+    amountsNote: `Use your account in any tool you like. The number under each tool is how many that tool makes if you use only that tool: for example ${BANK} video ads, or ${(BANK_CREDITS / PICTURE_CREDITS).toLocaleString('en-US')} pictures, or a mix of both.`,
+  },
+  oldWay: {
+    ...S.oldWay,
+    new: [...S.oldWay.new.slice(0, 3), `${BANK} complete video ads, ${READY}`],
+    costTitle: `What ${BANK} video ads cost you`,
+    freelancer: { ...S.oldWay.freelancer, line1: `$${FREELANCER} for each video ad`, line2: `× ${BANK} video ads`, price: `= ${FREELANCER_BANK}`, per: '' },
+    machine: { ...S.oldWay.machine, line1: `${BANK} video ads`, line2: '', price: `= ${OFFER.now}, once`, per: `That's ${PRICE_PER_BANK_VIDEO_AD} a video ad` },
+    after: (domain: string) => `${BANK} video ads means ${BANK} chances for new customers to find ${domain}.`,
+  },
+  lifetime: {
+    ...S.lifetime,
+    paragraphs: S.lifetime.paragraphs.map((paragraph) =>
+      paragraph.lead === 'Is this for real?'
+        ? {
+            ...paragraph,
+            text: ` Yes. One payment of ${OFFER.now} gets you the full AI Media Machine: all 12 tools, everything you see on this page, every update we ship in the future, and ${BANK} complete video ads like yours, ${READY}.`,
+          }
+        : paragraph
+    ),
+  },
+  own: {
+    ...S.own,
+    rows: [{ ...S.own.rows[0], text: `${BANK} complete video ads like yours, ${READY}`, value: `$${(FREELANCER * BANK).toLocaleString('en-US')} at a freelancer` }, ...S.own.rows.slice(1)],
+    recharge: bankRecharge,
+  },
+  still: {
+    ...S.still,
+    title: 'Your unfair advantage',
+    text: [
+      `91% of businesses now use video to get customers (Wyzowl Video Marketing Report 2026). So the question is not whether your competitors post videos. It's how often. With the AI Media Machine, your business posts 2 new video ads every week for a full year, because ${BANK} complete video ads are included. Others pay a freelancer $${FREELANCER} for each video ad. You pay ${OFFER.now}, once. That's your unfair advantage.`,
+      ...S.still.text.slice(1),
+    ],
+  },
+  faq: {
+    ...S.faq,
+    items: S.faq.items.map((item, index) =>
+      index === 0
+        ? {
+            ...item,
+            a: [
+              `No, your investment is ${OFFER.now}, one time, and there are absolutely no monthly fees. Your account gets ${BANK_CREDITS_TEXT} credits, enough for ${BANK} video ads like yours, and the credits never expire. You also have 30 days to get your money back.`,
+            ],
+          }
+        : index === 1
+          ? {
+              ...item,
+              a: [
+                `You get ${BANK} complete video ads like yours, ${READY}, and the other 11 tools come with no extra payment.`,
+                `Your account gets ${BANK_CREDITS_TEXT} credits that never expire, and all 12 tools use the same ${BANK_CREDITS_TEXT} credits. Put all ${BANK_CREDITS_TEXT} credits into video ads, and you get ${BANK} complete video ads. Or mix: ${MIX_ADS} complete video ads plus ${MIX_PICTURES} pictures also uses ${BANK_CREDITS_TEXT} credits. Find Video Ads uses no credits at all.`,
+                bankRecharge,
+              ],
+            }
+          : item.a.some((line) => line.includes('every 3 days'))
+            ? { ...item, a: item.a.map((line) => line.replace('posts a new video every 3 days', 'posts 2 new video ads every week')) }
+            : item
+    ),
+  },
+  freeTop: {
+    ...S.freeTop,
+    offerParts: ['What if your next ', `${BANK} video ads cost just ${PRICE_PER_BANK_VIDEO_AD} each`, '?'] as const,
+    why: "That's 2 new video ads every week for a full year, so more customers find your business and call you first.",
+    sample: { ...S.freeTop.sample, price: `You get the full version of this video ad, plus your next ${BANK} video ads, for ${OFFER.now}, one time.` },
+  },
+  afterUnlock: {
+    ...S.afterUnlock,
+    scrollText: S.afterUnlock.scrollText.replace('posts a new video every 3 days', 'posts 2 new video ads every week'),
+    title: (name: string) => `${name}, the AI Media Machine just made your first video ad. What if your next ${BANK} video ads cost just ${PRICE_PER_BANK_VIDEO_AD} each?`,
+    titleParts: (name: string) => [`${name}, the AI Media Machine just made your first video ad. What if your next `, `${BANK} video ads cost just ${PRICE_PER_BANK_VIDEO_AD} each`, '?'] as const,
+    sub: 'One payment. Absolutely no monthly fees.',
+    ps1: (name: string, domain: string) => `${name}, your $49 video ad for ${domain} is yours to keep. With the AI Media Machine, your next ${BANK} video ads are included, ${READY}.`,
+    ps2: 'The AI Media Machine makes each video ad for you, ready to post in about 3 minutes, and all 12 tools are yours with absolutely no monthly fees.',
+  },
+  ps: {
+    ...S.ps,
+    p2: `With the AI Media Machine, you type any change and get the new version of your video ad in about 3 minutes, without the stamp. You also get all 12 tools and ${BANK} complete video ads, ${READY}.`,
+    pps: (domain: string) =>
+      `Here's the math. A freelancer charges about $${FREELANCER} for 1 video ad like yours, so ${BANK} video ads would cost about ${FREELANCER_BANK} if you hired a freelancer. With the AI Media Machine, you pay only ${OFFER.now}, one time! That's just ${PRICE_PER_BANK_VIDEO_AD} a video ad. Every video ad is one more chance for new customers to find ${domain}.`,
+  },
+};
+
+/** The words for a page: the bank copy once the credit bank is launched, else today's. */
+export const salesCopy = (bank: boolean | undefined): { copy: SalesCopy; groups: typeof TOOL_GROUPS } =>
+  bank ? { copy: RESULT_SALES_BANK, groups: TOOL_GROUPS_BANK } : { copy: RESULT_SALES, groups: TOOL_GROUPS };

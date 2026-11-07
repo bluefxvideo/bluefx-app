@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/app/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
+import { bankLimitMessage } from '@/lib/credits/credit-bank-messages';
 import {
   BarChart,
   Upload,
@@ -40,7 +41,9 @@ export default function DashboardPage() {
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isBuyCreditsDialogOpen, setIsBuyCreditsDialogOpen] = useState(false);
-  const { credits, isLoading: isLoadingCredits, isPurchasing } = useCredits();
+  const { credits, bank, bankNote, isLoading: isLoadingCredits, isPurchasing } = useCredits();
+  // Credit bank accounts only: the note from about 1,200 used in the 30-day window, the full message once it is used up
+  const bankLine = bank && bank.window_left <= 0 && bank.bank_left > 0 ? bankLimitMessage(bank) : bankNote;
 
   // Trial users get 100 one-time credits — surface that (and the upgrade path)
   // on the main dashboard instead of only on the subscription page.
@@ -500,15 +503,18 @@ export default function DashboardPage() {
               )}
               <div>
                 <p className="text-3xl font-bold text-foreground">
-                  {credits?.available_credits || 0}
+                  {credits?.balance_credits || 0}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   Credits remaining
                 </p>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Credits refresh monthly with your subscription
+                {bank ? 'Your lifetime credits never expire' : 'Credits refresh monthly with your subscription'}
               </p>
+              {bankLine && (
+                <p className="text-xs text-muted-foreground mt-1">{bankLine}</p>
+              )}
             </div>
             <div className="flex items-center gap-3 mt-4">
               <Button 

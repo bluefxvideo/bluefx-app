@@ -40,7 +40,7 @@ const CAMERA_MOTIONS = [
 	{ value: "Nearly static shot with very subtle movement. Locked camera on tripod, no vibration.", label: "Nearly Static" },
 ];
 
-const CREDITS_PER_SECOND = 1;
+const CREDITS_PER_SECOND = 2;
 
 const DURATIONS = [
 	{ value: "6", label: "6 seconds" },
@@ -512,7 +512,7 @@ export function BatchAnimateControl({
 				<p className="text-xs text-muted-foreground">
 					Turns all {imageItems.length} images into video clips
 					(max {MAX_CONCURRENT} at a time). Takes 1-3 minutes per
-					image. Costs 1 credit per second.
+					image. Costs 2 credits per second.
 				</p>
 			)}
 		</Card>

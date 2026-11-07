@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Play, Pause, Download, Volume2, Mic, Square, Check, ExternalLink, Video, Music } from 'lucide-react';
 import { MINIMAX_VOICE_OPTIONS, type VoiceOption } from '@/components/shared/voice-constants';
 import { executeVoiceOver } from '@/actions/tools/voice-over';
+import { voiceOverCredits } from '@/lib/voice-pricing';
 import { toast } from 'sonner';
 
 interface VoiceOverStepProps {
@@ -69,7 +70,7 @@ export function VoiceOverStep({
       } else {
         toast.error(result.error || 'Failed to generate voice over');
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to generate voice over');
     }
     setIsGenerating(false);
@@ -268,9 +269,9 @@ export function VoiceOverStep({
           {isGenerating ? (
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating Voice Over...</>
           ) : voiceAudioUrl ? (
-            <><Volume2 className="w-4 h-4 mr-2" /> Regenerate Voice Over (2 credits)</>
+            <><Volume2 className="w-4 h-4 mr-2" /> Regenerate Voice Over ({voiceOverCredits(narrationScript ?? '')} credits)</>
           ) : (
-            <><Volume2 className="w-4 h-4 mr-2" /> Generate Voice Over (2 credits)</>
+            <><Volume2 className="w-4 h-4 mr-2" /> Generate Voice Over ({voiceOverCredits(narrationScript ?? '')} credits)</>
           )}
         </Button>
       </Card>
