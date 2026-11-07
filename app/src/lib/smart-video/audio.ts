@@ -261,6 +261,8 @@ export async function transcribeWords(wav: Buffer, iso6391: string): Promise<Spo
 
 /** Removes the background of a product photo (fal BiRefNet); returns a transparent PNG. */
 export async function cutOutProduct(image: Buffer, mimeType: string): Promise<Buffer> {
+  // Only a packshot on a plain background floats (owner 2026-11-07: a book cover lost its dark background, the cover itself).
+  if (!(await onPlainBackground(image))) throw new Error('not on a plain background: shown as it is');
   const json = await fal('fal-ai/birefnet/v2', {
     image_url: `data:${mimeType};base64,${image.toString('base64')}`,
     model: 'General Use (Heavy)',
@@ -270,6 +272,26 @@ export async function cutOutProduct(image: Buffer, mimeType: string): Promise<Bu
   });
   usage.cutout();
   return Buffer.from(await (await fetch(json.image.url)).arrayBuffer());
+}
+
+/**
+ * Whether a product photo sits on a plain background (a packshot): most pixels around its edge are one colour. A book
+ * cover, a box front or a poster filling the frame edge to edge is not, and removing "its background" eats the product.
+ */
+export async function onPlainBackground(image: Buffer): Promise<boolean> {
+  const size = 64;
+  const { data } = await sharp(image).flatten({ background: '#ffffff' }).resize(size, size, { fit: 'fill' }).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+  const edge: number[][] = [];
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (x > 2 && x < size - 3 && y > 2 && y < size - 3) continue;
+      const i = (y * size + x) * 3;
+      edge.push([data[i], data[i + 1], data[i + 2]]);
+    }
+  }
+  const median = [0, 1, 2].map((c) => edge.map((p) => p[c]).sort((a, b) => a - b)[edge.length >> 1]);
+  const near = edge.filter((p) => Math.hypot(p[0] - median[0], p[1] - median[1], p[2] - median[2]) < 40).length;
+  return near / edge.length >= 0.85;
 }
 
 /** A new frame-filling photo of the client's real product in use, generated from its packshot. */

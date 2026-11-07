@@ -28,7 +28,7 @@ STEP 1 — Understand every file. Look at each asset and decide its role:
 - logo: a brand mark. Note whether it sits on one flat background colour (logoOnSolidBackground).
 - For every "product" asset also set "handheld": true when the photo clearly shows a physical product a person can hold up in one hand to the camera (a book, a bottle, a jar, a box, a small gadget), false for anything else (a big item, software, a screenshot, a service). The AI presenter holds a handheld product in the video.
 - photo / clip: real footage of the place, people or the product in use. Best material; use it generously.
-- product: a packshot: the product alone on a plain (usually white) background. It can be shown with media {cutout:true}, which removes the background so the product floats on the scene. Infographic images with printed text are artwork, not product.
+- product: a packshot: the product alone on a plain (usually white) background. It can be shown with media {cutout:true}, which removes the background so the product floats on the scene. Never cutout a photo that fills the frame edge to edge (a book cover, a box front, a poster, a label): its background is part of the product; show it as a normal media card. Infographic images with printed text are artwork, not product.
 - artwork: designed graphics such as a poster or flyer. READ it: posters often hold facts the text lacks (prices, salary, dates, phone, email, address). List them in factsFound and USE them. Artwork without large text in its upper part also works as an "imageTop" background.
 - document: certificates, screenshots, paperwork. Read for facts; normally do not show it.
 - skip: irrelevant, duplicate or too poor to show.
