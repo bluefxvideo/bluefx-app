@@ -181,6 +181,13 @@ export const OWNER_ALERT_EMAIL = 'support@bluefx.net';
 export const OWNER_URGENT_EMAILS = ['support@bluefx.net', 'contact@bluefx.net'] as const;
 /** BREVO_FROM_EMAIL of the waas funnels: a sender that already sends through Brevo. */
 export const ALERT_FROM = { email: 'support@bluefx.net', name: 'BlueFX Free Video' } as const;
+/**
+ * VIP lead emails (vip.ts). Owner 2026-11-07: never the lead, "it's enough if it goes to my support email"; a Gmail
+ * filter on the subject "VIP lead" there labels and stars them.
+ */
+export const VIP_ALERT_TO: readonly string[] = ['support@bluefx.net'];
+/** The sender name of VIP emails, so a phone notification reads "VIP lead". */
+export const VIP_ALERT_FROM_NAME = 'VIP lead';
 
 // ---------------------------------------------------------------------------------------------
 // Hosts the website reader must never touch, and hosts the free video ad refuses

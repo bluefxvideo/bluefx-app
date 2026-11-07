@@ -37,6 +37,7 @@ import { copyLeadsToAccounts } from '@/lib/free-video/claim';
 import { writeMissingNextAds } from '@/lib/free-video/next-ads';
 import { cleanWorkingFiles } from '@/lib/free-video/cleanup';
 import { leadPrefixOfVtid, UNLOCK } from '@/lib/free-video/offer';
+import { vipBought } from '@/lib/free-video/vip';
 import { displayDomain } from '@/lib/free-video/website';
 import { jobsTable } from '@/lib/smart-video/jobs';
 import type { FreeVideoGateResult, FreeVideoSettings } from '@/types/free-video';
@@ -599,6 +600,8 @@ async function attributeSales(): Promise<number> {
       bought++;
       console.log(`✅ [free-video] Lead ${lead.id} bought (${sale.ref}${sale.email === lead.email ? '' : `, by its tracking id, paid as ${sale.email}`})`);
       await addToBoughtGroup(lead.email);
+      // A VIP's purchase emails the owner, and buying makes a lead VIP unless it is on the never-list (vip.ts).
+      await vipBought(lead.id);
     }
     return bought;
   } catch (error) {
