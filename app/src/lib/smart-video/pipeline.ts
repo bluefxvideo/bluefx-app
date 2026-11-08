@@ -21,7 +21,7 @@ import { alignScript, cueTime } from './timing';
 import { buildTheme, cropToFrame, cutOutLogo } from './brand';
 import { tracePng } from './drawing-path';
 import { faceKey, findFaces, type FaceThird } from './faces';
-import { ANCHOR_ACTION, castPersona, castPresenter, PRESENTER_ASSET, PRESENTER_MAX_WORDS, shortenPresenterLine, swapIntoPresenter, talkingPresenter } from './presenter';
+import { ANCHOR_ACTION, castPersona, castPresenter, HOLD_ACTION, holdProduct, PRESENTER_ASSET, PRESENTER_MAX_WORDS, shortenPresenterLine, swapIntoPresenter, talkingPresenter } from './presenter';
 import {
   LISTING_MAX_PAUSE,
   LISTING_MIN_PHOTOS,
@@ -299,7 +299,22 @@ async function produce(
       ? presenterPhoto
           .then(async (cast) => {
             if (!cast) return null;
-            const clip = await talkingPresenter(cast.photo, firstLine, cast.action, look, horizontal);
+            // The client's own product in the presenter's hand (owner 2026-11-07), when the director found one to hold.
+            const product = productToHold(plan, assets);
+            let { photo, action } = cast;
+            if (product && !presenterCast) {
+              const holding = await holdProduct(photo, product, horizontal).catch((error) => {
+                console.warn('⚠️ The product could not be put in the presenter\'s hand, filmed as cast:', String(error).slice(0, 160));
+                return null;
+              });
+              if (holding) {
+                console.log('🎭 Presenter holds the client\'s product');
+                photo = holding;
+                action = HOLD_ACTION;
+                await store(photo, 'presenter.jpg', 'image/jpeg');
+              }
+            }
+            const clip = await talkingPresenter(photo, firstLine, action, look, horizontal);
             return { clip, url: await store(clip, 'presenter.mp4', 'video/mp4') };
           })
           .catch((error) => {
@@ -627,9 +642,23 @@ export async function reviseSmartVideo(
               return castPresenter(String(cast.photo), previous.plan.style, wide);
             });
           }
+          // The client's product in the presenter's hand when they asked for it (owner 2026-11-07: "the book in her hand").
+          const product = cast.holds ? await productPhoto(cast.holds.trim(), added, previous.media.assets) : null;
+          let action = cast.action?.trim() || '';
+          if (product) {
+            const holding = await holdProduct(photo, product, wide).catch((error) => {
+              console.warn('⚠️ The product could not be put in the presenter\'s hand, filmed as it was:', String(error).slice(0, 160));
+              return null;
+            });
+            if (holding) {
+              console.log(`🎭 Presenter holds the client's product (${cast.holds})`);
+              photo = holding;
+              action = action || HOLD_ACTION;
+            }
+          }
           // Beside the clip, so a later edit finds the person again.
           await store(photo, 'presenter.jpg', 'image/jpeg');
-          const clip = await talkingPresenter(photo, line, cast.action?.trim() || '', previous.plan.style, wide);
+          const clip = await talkingPresenter(photo, line, action, previous.plan.style, wide);
           return { clip, url: await store(clip, 'presenter.mp4', 'video/mp4') };
         })().catch((error) => {
           console.warn('⚠️ New presenter not made:', String(error).slice(0, 160));
@@ -780,6 +809,27 @@ function heldScenes(previous: { plan: DirectorPlan; media: SmartVideoMedia }, pl
     from = k + 1;
   }
   return found;
+}
+
+/** The client's handheld product photo the presenter holds in a new video: photo-real looks only (a news anchor sits at a desk, a drawn presenter is not a photo). */
+function productToHold(plan: DirectorPlan, assets: SmartAsset[]): Buffer | null {
+  if (plan.style === 'news' || isIllustrated(plan.style)) return null;
+  const id = plan.assets.find((a) => a.role === 'product' && a.handheld)?.id;
+  return assets.find((a) => a.id === id && a.kind === 'image')?.data ?? null;
+}
+
+/** The photo of the product an edit puts in the presenter's hand: a file added with the edit, or one the video already has. */
+async function productPhoto(id: string, added: SmartAsset[], stored: SmartVideoMedia['assets']): Promise<Buffer | null> {
+  const fresh = added.find((a) => a.id === id && a.kind === 'image');
+  if (fresh) return fresh.data;
+  const old = stored[id];
+  if (!old || old.kind !== 'image' || !old.url) return null;
+  try {
+    const res = await fetch(old.url, { signal: AbortSignal.timeout(30_000) });
+    return res.ok ? Buffer.from(await res.arrayBuffer()) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** The photo an AI presenter's clip was made from: presenter.jpg beside presenter.mp4, or null when it is not there. */

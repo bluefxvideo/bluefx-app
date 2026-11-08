@@ -1,6 +1,7 @@
 import { getDoneLeadByEmail, getLeadByToken, eventsTable, recordEvent } from '@/lib/free-video/leads';
-import { ALERT_FROM, isLive, SITE_URL } from '@/lib/free-video/config';
+import { ALERT_FROM, isLive, SITE_URL, VIP_ALERT_FROM_NAME, VIP_ALERT_TO } from '@/lib/free-video/config';
 import { readUnlockOrder } from '@/lib/free-video/unlock';
+import { vipAfterAction, type VipAction } from '@/lib/free-video/vip';
 import { planPriceLine, WEBSITE_PLAN_MARKER, websitePlanByKey, websitePlanOfProducts } from '@/lib/free-video/website-plans';
 import { displayDomain } from '@/lib/free-video/website';
 import type { FreeVideoLead } from '@/types/free-video';
@@ -67,17 +68,21 @@ async function hasEvent(leadId: string, event: string, plan?: string): Promise<b
 /** The owner's inboxes for website leads: they matter more than routine funnel alerts. */
 const WEBSITE_ALERT_TO = ['contact@bluefx.net', 'support@bluefx.net'];
 
+/** A VIP's email (a "VIP lead:" subject) also reaches VIP_ALERT_TO, from the sender name "VIP lead" (vip.ts). */
 async function emailOwner(subject: string, text: string): Promise<void> {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) {
     console.warn('⚠️ [website-demo] BREVO_API_KEY not set, no owner email:', subject);
     return;
   }
+  const vip = subject.startsWith('VIP lead:');
+  const to = vip ? [...new Set([...WEBSITE_ALERT_TO, ...VIP_ALERT_TO])] : WEBSITE_ALERT_TO;
+  const sender = vip ? { email: ALERT_FROM.email, name: VIP_ALERT_FROM_NAME } : ALERT_FROM;
   try {
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: { 'api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ sender: ALERT_FROM, to: WEBSITE_ALERT_TO.map((email) => ({ email })), subject, textContent: text }),
+      body: JSON.stringify({ sender, to: to.map((email) => ({ email })), subject, textContent: text }),
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) console.error('❌ [website-demo] Owner email failed:', res.status, (await res.text().catch(() => '')).slice(0, 200));
@@ -98,32 +103,49 @@ export async function recordWebsiteEvent(lead: FreeVideoLead, demo: WebsiteDemo,
   if (!first) return;
   const who = `${lead.first_name || 'Someone'} (${demo.business || displayDomain(lead.website_domain)}, ${lead.email})`;
   const page = `${SITE_URL}/v/${lead.view_token}/website?internal=1`;
+  // A VIP's emails say "VIP lead" (owner 2026-11-07), and Let's talk or a plan click can make a lead VIP (vip.ts).
+  const action: VipAction = plan
+    ? { kind: 'checkout', label: `clicked to start the ${plan.name} website` }
+    : event === 'website_interest'
+      ? { kind: 'talk', label: "clicked Let's talk" }
+      : { kind: 'watched', label: 'watched their website video' };
+  const { mark, promoted } = await vipAfterAction(lead, action);
+  const tag = mark?.vip ? 'VIP lead' : 'Website lead';
+  const vipLines = mark?.vip
+    ? [
+        '',
+        `VIP lead${promoted ? ' from this click on' : ''}: ${mark.reasons.join('; ')}.`,
+        `Phone: ${mark.facts.phone ? `${mark.facts.phone} (from their website)` : 'not on their website'}`,
+      ]
+    : [];
   if (plan) {
     await emailOwner(
-      `Website lead: ${lead.first_name || lead.email} clicked Yes, start my new website (${plan.name})`,
+      `${tag}: ${lead.first_name || lead.email} clicked Yes, start my new website (${plan.name})`,
       [
         `${who} clicked "Yes, start my new website" on the ${plan.name} plan (${planPriceLine(plan)}), so the FastSpring checkout opened for them.`,
         '',
         'You get another email when they pay. If no sale comes in, call them today (Dylan: warm leads go cold fast).',
         `Their website: https://${lead.website_domain}`,
         `Their page: ${page}`,
+        ...vipLines,
       ].join('\n'),
     );
   } else if (event === 'website_interest') {
     await emailOwner(
-      `Website lead: ${lead.first_name || lead.email} clicked Let's talk, call now`,
+      `${tag}: ${lead.first_name || lead.email} clicked Let's talk, call now`,
       [
         `${who} clicked "Let's talk" on their website video page (your calendar opened for them; Calendly emails you if they book).`,
         '',
         'Call them now (Dylan: warm leads go cold fast). Their number is on their website / Google listing.',
         `Their website: https://${lead.website_domain}`,
         `Their page: ${page}`,
+        ...vipLines,
       ].join('\n'),
     );
   } else {
     await emailOwner(
-      `Website lead: ${lead.first_name || lead.email} watched their video`,
-      [`${who} watched most of their website video.`, '', 'Good moment for a call or a short reply in their thread.', `Their page: ${page}`].join('\n'),
+      `${tag}: ${lead.first_name || lead.email} watched their video`,
+      [`${who} watched most of their website video.`, '', 'Good moment for a call or a short reply in their thread.', `Their page: ${page}`, ...vipLines].join('\n'),
     );
   }
 }

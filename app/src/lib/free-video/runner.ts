@@ -41,6 +41,7 @@ import { LIVE_DEMO } from '@/lib/free-video/live-demo';
 import { NEXT_ADS_USAGE, nextAdsWanted, startNextAds } from '@/lib/free-video/next-ads';
 import { deliverLead } from '@/lib/free-video/notify';
 import { startCleanRender } from '@/lib/free-video/unlock';
+import { scoreNewLead } from '@/lib/free-video/vip';
 import { displayDomain, isUnreadable, readBusinessSite } from '@/lib/free-video/website';
 import { adFacts, fallbackWhy, whyItWorks } from '@/lib/free-video/why-it-works';
 import { PHANTOM_EXAMPLES } from '@/lib/smart-video/examples';
@@ -417,6 +418,8 @@ function freeHooks(lead: FreeVideoLead, watch: Ownership): { hooks: SmartVideoRu
       const [read, needed] = await Promise.all([readBusinessSite(link), nextAdsWanted(lead.id)]);
       siteText = read.brief;
       nextAdsNeeded = needed;
+      // The VIP check (owner 2026-11-07, vip.ts) reads the same text in the background: the video never waits on it.
+      void scoreNewLead(lead, read.brief);
       return read;
     },
     options: (base, assets) => {

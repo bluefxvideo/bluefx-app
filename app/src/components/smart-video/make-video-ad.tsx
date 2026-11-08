@@ -190,7 +190,7 @@ function changeText(job: SmartVideoJob): string {
  */
 function plainWarning(warning: string): string {
   if (/tick (Change|Add) (the|a) presenter/i.test(warning)) {
-    return `To put a different person on camera, press Change the person on camera under Type a change. A new presenter costs ${PHANTOM_PRESENTER_CHANGE_CREDITS} credits more than other changes.`;
+    return `The presenter's words and face stay as they were filmed. To change what the presenter says or who it is, press Change the person on camera under Type a change. That costs ${PHANTOM_PRESENTER_CHANGE_CREDITS} credits more than other changes.`;
   }
   return warning;
 }

@@ -127,6 +127,8 @@ export const DirectorPlanSchema = z.object({
       description: z.string(),
       factsFound: z.array(z.string()).nullish(),
       logoOnSolidBackground: z.boolean().nullish(),
+      /** Role product only: a physical thing a person can hold up in one hand (a book, bottle, jar, box), shown clearly in this photo. */
+      handheld: z.boolean().nullish(),
     })
   ),
   warnings: z.array(z.string()).nullish().describe('What the client should know: missing contact, unusable files, facts that conflict'),

@@ -166,7 +166,16 @@ export async function alertOwner(items: AlertItem[], subject: string): Promise<n
 /** One plain-text email to the owner through Brevo's transactional API (10 s timeout). */
 export async function sendBrevo(subject: string, text: string): Promise<{ ok: boolean; error?: string }> {
   // An urgent alert ("URGENT: ..." subject) reaches the owner's own inbox too.
-  const to = subject.startsWith('URGENT') ? OWNER_URGENT_EMAILS.map((email) => ({ email })) : [{ email: OWNER_ALERT_EMAIL }];
+  return sendBrevoTo(subject.startsWith('URGENT') ? OWNER_URGENT_EMAILS : [OWNER_ALERT_EMAIL], `[Free video] ${subject}`, text);
+}
+
+/** One plain-text email to the owner's own inboxes, subject as given (10 s timeout). */
+export async function sendBrevoTo(
+  to: readonly string[],
+  subject: string,
+  text: string,
+  fromName: string = ALERT_FROM.name
+): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) return { ok: false, error: 'BREVO_API_KEY not set' };
   try {
@@ -174,9 +183,9 @@ export async function sendBrevo(subject: string, text: string): Promise<{ ok: bo
       method: 'POST',
       headers: { 'api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
-        sender: ALERT_FROM,
-        to,
-        subject: `[Free video] ${subject}`,
+        sender: { email: ALERT_FROM.email, name: fromName },
+        to: to.map((email) => ({ email })),
+        subject,
         textContent: text,
       }),
       signal: AbortSignal.timeout(10_000),

@@ -37,6 +37,7 @@ import { chatWordsOf, latestChangePlan } from '@/lib/free-video/change-chat';
 import { aiChangesOf, freeChangeOf, startAiChange, wantsNewStyle } from '@/lib/free-video/instant-change';
 import { changesUsed, requestChange } from '@/lib/free-video/change-requests';
 import { UNLOCK, UNLOCK_PRODUCTS } from '@/lib/free-video/offer';
+import { vipPing } from '@/lib/free-video/vip';
 import { displayDomain, emailKeyOf } from '@/lib/free-video/website';
 import { jobDir, readPlan, upload } from '@/lib/smart-video/jobs';
 import { levelLoudness, renderSmartVideo } from '@/lib/smart-video/render';
@@ -372,6 +373,9 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
     () => trackPurchase(paidLead, { id: orderId, amount: order.amount, currency: order.currency, email: order.email, ip: buyerIp }),
     true
   );
+  // A VIP's payment emails the owner, and a payment can make a lead VIP (vip.ts, owner 2026-11-07).
+  const paid = order.amount ? `${!order.currency || order.currency === 'USD' ? '$' : ''}${Math.round(order.amount)}${order.currency && order.currency !== 'USD' ? ` ${order.currency}` : ''}` : UNLOCK.price;
+  inBackground('VIP ping', () => vipPing(paidLead, { kind: 'paid', amount: order.amount, label: `paid ${paid} for their clean video` }, `vip-paid:${orderId}`), true);
   // The change list the buyer confirmed in the change chat before paying becomes the first change request: the owner's
   // email with the list, and the ready page shows the changes being made (change-chat.ts).
   inBackground(

@@ -433,6 +433,10 @@ export async function reviseSmartVideoJob(input: SmartVideoReviseInput): Promise
   }
 }
 
+/** Why an edit made no new video. */
+const NOTHING_CHANGED = 'Nothing in the video changed from your note, so no new version was made.';
+const NOTHING_CHANGED_PRESENTER = `${NOTHING_CHANGED} The first line is said by the presenter on camera and stays as it was filmed. To change it, press Change the person on camera.`;
+
 async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob, uploads: { name: string; path: string }[]): Promise<void> {
   let job = initial;
   const heartbeat = setInterval(() => touchJob(job.id).catch(() => undefined), 45_000);
@@ -474,6 +478,13 @@ async function runRevision(initial: SmartVideoJob, parent: SmartVideoJob, upload
     );
     // A video that shows subtitles only while a person talks on camera (a free video ad and its copies) keeps that look.
     const result = withSubtitleLook(revised, saved, job.note || '');
+    // An edit that would render the same video makes none: the client gets the reason and the credits back
+    // (drficco 2026-11-06: "remove right", a word only the presenter says, twice made the same video at 10 credits each).
+    if (!added.length && !result.newPresenter?.made && JSON.stringify(result.props) === JSON.stringify(saved.props)) {
+      const presenterLine = saved.plan.scenes[0]?.speaker?.asset === PRESENTER_ASSET;
+      await failAndRefund(job, presenterLine ? NOTHING_CHANGED_PRESENTER : NOTHING_CHANGED);
+      return;
+    }
     if (photoFailed) {
       const hadPresenter = saved.plan.scenes[0]?.speaker?.asset === PRESENTER_ASSET;
       result.newPresenter = { made: false, why: `Your photo of the presenter could not be read, so ${hadPresenter ? 'the presenter stays as it was' : 'no presenter was added'}.` };

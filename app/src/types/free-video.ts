@@ -442,7 +442,8 @@ export type TutorialOpenSource = (typeof TUTORIAL_OPEN_SOURCES)[number];
  */
 /** service_paid: a paid Unlimited Video Ads order of this lead (service-order.ts). */
 /** change_request: a change an unlock buyer typed on the unlock page (meta {text, round}). */
-export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused' | 'service_paid' | 'change_request' | 'change_chat' | 'change_plan' | 'ai_change' | 'ai_preview' | 'free_change_email' | 'checkout_reminder_email' | 'website_demo' | 'website_play' | 'website_plans' | 'website_watched' | 'website_interest' | 'website_checkout' | 'website_purchase';
+/** vip_scored: the lead's VIP mark (lib/free-video/vip.ts, meta VipMark); the newest one wins. */
+export type FreeVideoServerEvent = FreeVideoEvent | 'cta_click' | 'meta_ids' | 'capi' | 'cb_hop' | 'form_refused' | 'service_paid' | 'change_request' | 'change_chat' | 'change_plan' | 'ai_change' | 'ai_preview' | 'free_change_email' | 'checkout_reminder_email' | 'website_demo' | 'website_play' | 'website_plans' | 'website_watched' | 'website_interest' | 'website_checkout' | 'website_purchase' | 'vip_scored';
 
 export const FreeVideoEventSchema = z.object({
   e: z.enum(FREE_VIDEO_EVENTS),

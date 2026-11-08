@@ -333,23 +333,25 @@ function SwitchOffer({ lead, onSwitched }: { lead: FreeVideoLeadRow; onSwitched:
   return (
     <div className="mt-2 max-w-[190px] text-xs">
       <div className="text-muted-foreground">
-        Shows: <span className="font-medium text-foreground">{OFFER_NAME[lead.offer]}</span>
+        Offer on their page: <span className="font-medium text-foreground">{OFFER_NAME[lead.offer]}</span>
         {lead.switchedAt && <div>switched {when(lead.switchedAt)}</div>}
       </div>
       {!open ? (
-        <div className="mt-1 flex flex-col items-start gap-0.5">
+        <div className="mt-1 flex flex-col items-start gap-1">
           {targets.map((t) => (
-            <button
+            <Button
               key={t}
               type="button"
+              size="sm"
+              variant="outline"
               onClick={() => {
                 setTo(t);
                 setOpen(true);
               }}
-              className="font-semibold text-primary hover:underline"
+              className="h-auto whitespace-normal px-2 py-1 text-left text-xs"
             >
               Switch to {OFFER_NAME[t]}
-            </button>
+            </Button>
           ))}
         </div>
       ) : (
