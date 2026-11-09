@@ -52,6 +52,7 @@ const ASCENT_FULL_PIECES = 11;
  * Owner 2026-11-08: no prices on the page; Dylan Power's process (website-demos/dylan-power/DYLAN-PROCESS.md): the one ask
  * is a 15-minute walkthrough, and the price (and any setup-fee waiver) is given on the call. Set to true to bring back
  * the 3 plans, the guarantee and checkout.
+ * Owner 2026-11-09: ?plans=1 shows them on one link, for showing the prices on a call; the lead's own link stays without.
  */
 const SHOW_PRICES = false;
 /** Whiteboard drawings for the old way / new way rows (owner 2026-11-05): old-1..3 and new-1..3, 720 px wide. */
@@ -79,7 +80,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   const internal = req.nextUrl.searchParams.get('internal') === '1' || hasInternalCookie(req.headers.get('cookie'));
   const check = await checkPromise; // null when it isn't ready yet: the page shows without it
   // The sales page is the default for every lead since 2026-11-05 (owner); ?preview=sales links keep working.
-  return new NextResponse(renderPage(token, found.lead, found.demo, internal, check), { status: 200, headers: HTML_HEADERS });
+  const showPrices = SHOW_PRICES || req.nextUrl.searchParams.get('plans') === '1';
+  return new NextResponse(renderPage(token, found.lead, found.demo, internal, check, showPrices), { status: 200, headers: HTML_HEADERS });
 }
 
 function sameOrigin(origin: string | null): boolean {
@@ -395,12 +397,12 @@ details ul{margin-top:10px!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}html{scroll-behavior:auto}}
 `;
 
-function renderPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, internal: boolean, check: WebsiteCheck | null): string {
+function renderPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, internal: boolean, check: WebsiteCheck | null, showPrices = SHOW_PRICES): string {
   const word = (lead.first_name || '').trim().split(/\s+/)[0] || '';
   const first = word ? word.charAt(0).toUpperCase() + word.slice(1) : ''; // "sam" typed in the form → "Sam"
   const business = demo.business || displayDomain(lead.website_domain);
   const domain = displayDomain(lead.website_domain);
-  const title = SHOW_PRICES
+  const title = showPrices
     ? first ? `${first}, we made ${business} a new website` : `We made ${business} a new website`
     : first ? `${first}, here's a draft of your new homepage` : `Here's a draft of a new homepage for ${business}`;
   const storefront = isLive() ? WEBSITE_CHECKOUT.popupStorefront : WEBSITE_CHECKOUT.popupTestStorefront;
@@ -421,10 +423,10 @@ function renderPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, inter
   }).replace(/</g, '\\u003c');
   const talkFirst = '<button type="button" class="link js-talk">Book a call</button>';
   const replyHref = `mailto:${REACH_EMAIL}?subject=${encodeURIComponent('Re: your new website')}&body=${encodeURIComponent(`Hi Szilard,\n\nI watched the video. My thoughts:\n\n${first}`)}`;
-  const wantIt = SHOW_PRICES
+  const wantIt = showPrices
     ? '<a class="btn" href="#plans">Yes, I want my new website</a>'
     : '<button type="button" class="btn js-talk">Walk me through it (15 min)</button>';
-  const noPitch = SHOW_PRICES ? '' : `<p class="nopitch">Or just <a class="js-reply" href="${esc(replyHref)}">reply to my email</a>.</p>`;
+  const noPitch = showPrices ? '' : `<p class="nopitch">Or just <a class="js-reply" href="${esc(replyHref)}">reply to my email</a>.</p>`;
   const fullPieces = Array.from({ length: ASCENT_FULL_PIECES }, (_, i) => `<img src="${ASCENT}/full-${i + 1}.jpg" alt="" loading="lazy">`).join('');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
@@ -438,13 +440,13 @@ ${demo.poster ? `<meta property="og:image" content="${esc(demo.poster)}">` : ''}
 </div>
 <div class="player"><video id="v" src="${esc(demo.video)}"${demo.poster ? ` poster="${esc(demo.poster)}"` : ''} controls playsinline preload="metadata"></video></div>
 <button type="button" class="ghost" id="fs">&#x26F6; Watch full screen</button>
-<div class="cta-pair">${wantIt}${SHOW_PRICES ? talkFirst : ''}</div>
+<div class="cta-pair">${wantIt}${showPrices ? talkFirst : ''}</div>
 ${noPitch}
 ${demo.before && demo.after ? `<section class="ba" aria-labelledby="ba-h"><h2 id="ba-h">Before and after</h2><div class="ba-grid">
 <figure class="before"><span class="tag tag-b">Before</span><button type="button" class="shot" data-shot="0" aria-label="See your website today, full page"><img src="${esc(demo.before)}" alt="Your website today" loading="lazy"></button><figcaption>Your website today <small>See full page</small></figcaption></figure>
 ${ARROW}
 <figure class="after"><span class="tag tag-a">After</span><button type="button" class="shot" data-shot="1" aria-label="See your new homepage, full page"><img src="${esc(demo.after)}" alt="Your new homepage" loading="lazy"></button><figcaption>Your new homepage <small>See full page</small></figcaption></figure>
-</div><p class="hint">${SHOW_PRICES ? 'Tap either picture to see the whole page. This is a preview, so anything on it can be changed.' : "Tap either picture to see the whole page. This is a draft of your homepage. On a quick call I'll walk you through it, show you how the rest of the site would work, and give you the price."}</p></section>
+</div><p class="hint">${showPrices ? 'Tap either picture to see the whole page. This is a preview, so anything on it can be changed.' : "Tap either picture to see the whole page. This is a draft of your homepage. On a quick call I'll walk you through it, show you how the rest of the site would work, and give you the price."}</p></section>
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Before and after, full page"><div class="lb-bar"><button type="button" class="tab" data-tab="0">Your website today</button><button type="button" class="tab" data-tab="1">Your new homepage</button><button type="button" class="x" id="lbx">&#x2715; Close</button></div><div class="lb-scroll" id="lbs"><img id="lbi" alt=""></div></div>` : ''}
 ${check ? renderWebsiteCheck(check) : ''}
 <section class="narrow" aria-labelledby="proof-h">
@@ -486,7 +488,7 @@ ${ARROW}
 </blockquote>
 </section>
 <div class="lb" id="alb" role="dialog" aria-modal="true" aria-label="Ascent Equipment, whole website"><div class="lb-bar"><span>ascentequipment.com, whole page on a phone</span><button type="button" class="x" id="albx">&#x2715; Close</button></div><div class="lb-scroll" id="albs">${fullPieces}</div></div>
-${SHOW_PRICES ? `<section id="plans" aria-labelledby="plans-h">
+${showPrices ? `<section id="plans" aria-labelledby="plans-h">
 <h2 id="plans-h">Your site is ready. Pick how you want it to grow.</h2>
 <p class="plans-intro">No setup fee on the first two plans. You've seen your new site before you pay a cent. For scale: $299 a month is less than one new customer.</p>
 <div class="plans">${WEBSITE_PLANS.map((plan) => planCard(plan, token)).join('\n')}</div>
@@ -494,7 +496,7 @@ ${SHOW_PRICES ? `<section id="plans" aria-labelledby="plans-h">
 <p class="bigger">Bigger company or more than one location? Let's price it together on a call. <button type="button" class="link js-talk">Book a call</button></p>
 </section>` : ''}
 <section class="narrow" aria-labelledby="next-h"><h2 id="next-h">What happens next</h2><ol class="steps">
-${(SHOW_PRICES ? STEPS : [NO_PRICE_FIRST_STEP, ...STEPS.slice(1)]).map(([b, t]) => `<li><div><b>${esc(b)}</b><span>${esc(t)}</span></div></li>`).join('\n')}
+${(showPrices ? STEPS : [NO_PRICE_FIRST_STEP, ...STEPS.slice(1)]).map(([b, t]) => `<li><div><b>${esc(b)}</b><span>${esc(t)}</span></div></li>`).join('\n')}
 </ol></section>
 <section class="narrow" aria-labelledby="who-h"><h2 id="who-h">Who's behind this</h2><div class="about">
 <img class="photo" src="${PHOTO_URL}" alt="Szilard Gyorfi" width="96" height="96" loading="lazy">
@@ -506,12 +508,12 @@ ${(SHOW_PRICES ? STEPS : [NO_PRICE_FIRST_STEP, ...STEPS.slice(1)]).map(([b, t]) 
 <section class="narrow" aria-labelledby="faq-h"><h2 id="faq-h">Questions business owners ask us</h2><div class="faq">
 ${FAQ.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('\n')}
 </div></section>
-<section class="narrow final" aria-labelledby="final-h"><h2 id="final-h">${esc(SHOW_PRICES ? (first ? `Your new website is ready, ${first}.` : 'Your new website is ready.') : (first ? `Your new homepage is ready, ${first}.` : 'Your new homepage is ready.'))}</h2>
+<section class="narrow final" aria-labelledby="final-h"><h2 id="final-h">${esc(showPrices ? (first ? `Your new website is ready, ${first}.` : 'Your new website is ready.') : (first ? `Your new homepage is ready, ${first}.` : 'Your new homepage is ready.'))}</h2>
 <p>Right now your customers are looking you up on their phones and asking AI who to call. Let's make sure they find the new ${esc(business)}.</p>
-<div class="cta-pair">${wantIt}${SHOW_PRICES ? talkFirst : ''}</div>${noPitch}</section>
+<div class="cta-pair">${wantIt}${showPrices ? talkFirst : ''}</div>${noPitch}</section>
 </main>
 <script>function onFSPopupClosed(order){if(order&&window.fastspring&&window.fastspring.builder){try{window.fastspring.builder.reset()}catch(e){}}}</script>
-${SHOW_PRICES ? `<script id="fsc-api" src="https://sbl.onfastspring.com/sbl/1.0.5/fastspring-builder.min.js" type="text/javascript" data-storefront="${storefront}" data-popup-closed="onFSPopupClosed" async></script>` : ''}
+${showPrices ? `<script id="fsc-api" src="https://sbl.onfastspring.com/sbl/1.0.5/fastspring-builder.min.js" type="text/javascript" data-storefront="${storefront}" data-popup-closed="onFSPopupClosed" async></script>` : ''}
 <script>(function(){var c=${config};var vid;try{vid=localStorage.getItem('fv_vid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.setItem('fv_vid',vid)}catch(e){vid=null}
 function send(e,p){if(c.internal)return;try{fetch(c.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({e:e,v:vid,p:p||null}),keepalive:true})}catch(x){}}
 var v=document.getElementById('v'),played=false,watched=false;
