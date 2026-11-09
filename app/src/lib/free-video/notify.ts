@@ -26,6 +26,7 @@ import {
   ML_GROUP_READY,
   ML_GROUP_VIDEO_READY,
   ML_GROUP_UNLOCKED,
+  ML_GROUP_WEBSITE_WATCHED,
   SITE_URL,
   STATS_EXCLUDED_EMAILS,
   testInbox,
@@ -125,6 +126,28 @@ export async function joinNoVideoGroup(
     return result.ok;
   } catch (error) {
     console.error('❌ [free-video] joinNoVideoGroup failed:', error);
+    return false;
+  }
+}
+
+/**
+ * A website lead pressed play on their page for the first time: they join 'Website watched', whose automation sends
+ * the first follow-up 15 minutes later (config.ts). The owner's own tests never join. Returns true when MailerLite took it.
+ */
+export async function joinWebsiteWatchedGroup(
+  lead: Pick<FreeVideoLead, 'email' | 'first_name' | 'website_domain' | 'view_token' | 'ref' | 'source'>
+): Promise<boolean> {
+  try {
+    if (!ML_GROUP_WEBSITE_WATCHED || lead.source === 'test' || isOwnerTestRef(lead.ref) || !mailAllowed(lead.email)) return false;
+    const result = await subscribeToMailerLite({
+      email: lead.email,
+      fullName: await nameFor(lead),
+      groups: [ML_GROUP_WEBSITE_WATCHED],
+      fields: { [ML_FIELDS.site]: displayDomain(lead.website_domain), [ML_FIELDS.token]: lead.view_token },
+    });
+    return result.ok;
+  } catch (error) {
+    console.error('❌ [free-video] joinWebsiteWatchedGroup failed:', error);
     return false;
   }
 }

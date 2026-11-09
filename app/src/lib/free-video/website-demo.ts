@@ -1,5 +1,6 @@
 import { getDoneLeadByEmail, getLeadByToken, eventsTable, recordEvent } from '@/lib/free-video/leads';
 import { ALERT_FROM, isLive, SITE_URL, VIP_ALERT_FROM_NAME, VIP_ALERT_TO } from '@/lib/free-video/config';
+import { joinWebsiteWatchedGroup } from '@/lib/free-video/notify';
 import { readUnlockOrder } from '@/lib/free-video/unlock';
 import { vipAfterAction, type VipAction } from '@/lib/free-video/vip';
 import { planPriceLine, WEBSITE_PLAN_MARKER, websitePlanByKey, websitePlanOfProducts } from '@/lib/free-video/website-plans';
@@ -99,7 +100,10 @@ export async function recordWebsiteEvent(lead: FreeVideoLead, demo: WebsiteDemo,
   const plan = event === 'website_checkout' ? websitePlanByKey(planKey || '') : null;
   if (event === 'website_checkout' && !plan) return;
   const first = event === 'website_play' || event === 'website_plans' ? false : !(await hasEvent(lead.id, event, plan?.key));
+  // The first play starts the 15-minute follow-up (owner 2026-11-09). Checked before this play is stored.
+  const firstPlay = event === 'website_play' && !(await hasEvent(lead.id, 'website_play'));
   await recordEvent({ event, leadId: lead.id, visitorId, placement: 'website', ref: lead.ref, meta: plan ? { plan: plan.key } : null });
+  if (firstPlay) await joinWebsiteWatchedGroup(lead);
   if (!first) return;
   const who = `${lead.first_name || 'Someone'} (${demo.business || displayDomain(lead.website_domain)}, ${lead.email})`;
   const page = `${SITE_URL}/v/${lead.view_token}/website?internal=1`;
