@@ -426,7 +426,7 @@ function renderShortPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, 
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>${esc(title)}</title>
 ${demo.poster ? `<meta property="og:image" content="${esc(demo.poster)}">` : ''}
-<style>${CSS}.short h1{font-size:clamp(22px,calc(5.6vw + 4px),42px)}.short .lede{font-size:clamp(16px,calc(3.6vw + 4px),21px);margin:0 0 20px;text-wrap:balance}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}.call ul{list-style:none;padding:0;max-width:560px;margin:16px auto 0}.call li{display:flex;gap:12px;margin:12px 0}.call li::before{content:"";flex:none;width:16px;height:16px;margin-top:7px;border-radius:50%;background:var(--green);box-shadow:inset 0 0 0 4px #dcfce7}.call .go{text-align:center;margin:22px 0 0}.sig{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:34px}.sig img{width:64px;height:64px;border-radius:50%;object-fit:cover}.sig b{display:block;font-size:18px}.sig span{display:block;color:var(--muted);font-size:16px}</style></head><body><main class="short">
+<style>${CSS}.short .from,.short h1,.short .lede{text-align:center}.short h1{font-size:clamp(18px,5.4vw,36px);white-space:nowrap}.short .lede{font-size:clamp(16px,calc(3.6vw + 4px),21px);margin:0 0 20px;text-wrap:balance}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}.call ul{list-style:none;padding:0;max-width:560px;margin:16px auto 0}.call li{display:flex;gap:12px;margin:12px 0}.call li::before{content:"";flex:none;width:16px;height:16px;margin-top:7px;border-radius:50%;background:var(--green);box-shadow:inset 0 0 0 4px #dcfce7}.call .go{text-align:center;margin:22px 0 0}.sig{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:34px}.sig img{width:64px;height:64px;border-radius:50%;object-fit:cover}.sig b{display:block;font-size:18px}.sig span{display:block;color:var(--muted);font-size:16px}</style></head><body><main class="short">
 <div class="narrow">
 <p class="from">A video from <b>Szilard at BlueFX</b></p>
 <h1>${esc(title)}</h1>
@@ -450,6 +450,7 @@ ${ARROW}
 </main>
 <script>(function(){var c=${config};var vid;try{vid=localStorage.getItem('fv_vid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.setItem('fv_vid',vid)}catch(e){vid=null}
 function send(e,p){if(c.internal)return;try{fetch(c.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({e:e,v:vid,p:p||null}),keepalive:true})}catch(x){}}
+var h=document.querySelector('h1');if(h){var fz=parseFloat(getComputedStyle(h).fontSize);while(h.scrollWidth>h.clientWidth&&fz>16){fz-=0.5;h.style.fontSize=fz+'px'}if(h.scrollWidth>h.clientWidth)h.style.whiteSpace='normal'}
 var v=document.getElementById('v'),played=false,watched=false;
 document.getElementById('fs').addEventListener('click',function(){try{if(v.requestFullscreen){v.requestFullscreen()}else if(v.webkitEnterFullscreen){v.webkitEnterFullscreen()}else if(v.webkitRequestFullscreen){v.webkitRequestFullscreen()}}catch(x){}var p=v.play();if(p&&p.catch)p.catch(function(){})});
 v.addEventListener('play',function(){if(!played){played=true;send('website_play')}});
