@@ -12,6 +12,8 @@ import { FREE_VIDEO_TOKEN_PATTERN, type FreeVideoLead } from '@/types/free-video
  * /v/<token>/website (owner 2026-11-03): the lead's personal website video (website-demo.ts), and since 2026-11-04 the
  * whole sales page around it (copy: docs/website-demo-sales-page-copy.md, final and approved; plans: website-plans.ts).
  * Since 2026-11-08 the plans are hidden (SHOW_PRICES): no prices on the page, the green button is a "yes" email reply.
+ * Since 2026-11-10 the lead's own link is the short page (renderShortPage): headline, video, "Email me", before/after.
+ * ?plans=1 still shows the whole sales page with the 3 plans.
  * A full HTML page of its own, like /unlimited: no funnel header, no ad pixels.
  * GET: the page (404 when the lead has no demo). POST {e, v, p}: the page's events (play, watched, interest, checkout + plan).
  * ?internal=1 or the owner's fv_internal cookie: nothing is stored and nobody is emailed.
@@ -68,7 +70,8 @@ async function load(token: string): Promise<{ lead: FreeVideoLead; demo: Website
 export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   // The website check from bluefx.net (owner 2026-11-06) runs next to the lead lookup; it never waits more than 2.5 s.
-  const checkPromise = FREE_VIDEO_TOKEN_PATTERN.test(token) ? fetchWebsiteCheck(token) : Promise.resolve(null);
+  const showPrices = SHOW_PRICES || req.nextUrl.searchParams.get('plans') === '1';
+  const checkPromise = showPrices && FREE_VIDEO_TOKEN_PATTERN.test(token) ? fetchWebsiteCheck(token) : Promise.resolve(null);
   let found;
   try {
     found = await load(token);
@@ -80,7 +83,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   const internal = req.nextUrl.searchParams.get('internal') === '1' || hasInternalCookie(req.headers.get('cookie'));
   const check = await checkPromise; // null when it isn't ready yet: the page shows without it
   // The sales page is the default for every lead since 2026-11-05 (owner); ?preview=sales links keep working.
-  const showPrices = SHOW_PRICES || req.nextUrl.searchParams.get('plans') === '1';
   return new NextResponse(renderPage(token, found.lead, found.demo, internal, check, showPrices), { status: 200, headers: HTML_HEADERS });
 }
 
@@ -397,7 +399,66 @@ details ul{margin-top:10px!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}html{scroll-behavior:auto}}
 `;
 
+/**
+ * The short page (owner 2026-11-10): headline, video, one "Email me" button with the address under it, before/after.
+ * The video-only page of 2026-11-03 got 16% Let's talk clicks; the long sales page got 1%. Email replaces the calendar
+ * because bookings were hit and miss. The click is website_interest with p = 'reply' (the owner is emailed once).
+ */
+function renderShortPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, internal: boolean): string {
+  const word = (lead.first_name || '').trim().split(/\s+/)[0] || '';
+  const first = word ? word.charAt(0).toUpperCase() + word.slice(1) : '';
+  const business = demo.business || displayDomain(lead.website_domain);
+  const title = first ? `${first}, I made ${business} a new website` : `I made ${business} a new website`;
+  const hasShots = Boolean(demo.before && demo.after);
+  const config = JSON.stringify({
+    url: `/v/${token}/website`,
+    internal,
+    shots: hasShots
+      ? [
+          { full: fullShot(demo.before as string), crop: demo.before, label: 'Your website today, full page' },
+          { full: fullShot(demo.after as string), crop: demo.after, label: 'Your new homepage, full page' },
+        ]
+      : [],
+  }).replace(/</g, '\\u003c');
+  const mailHref = `mailto:${REACH_EMAIL}?subject=${encodeURIComponent('Re: your new website')}&body=${encodeURIComponent(`Hi Szilard,\n\nI watched the video about my new website.\n\n${first}`)}`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>${esc(title)}</title>
+${demo.poster ? `<meta property="og:image" content="${esc(demo.poster)}">` : ''}
+<style>${CSS}.short h1{text-align:center;margin-bottom:20px}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}</style></head><body><main class="short">
+<div class="narrow"><h1>${esc(title)}</h1></div>
+<div class="player"><video id="v" src="${esc(demo.video)}"${demo.poster ? ` poster="${esc(demo.poster)}"` : ''} controls playsinline preload="metadata"></video></div>
+<button type="button" class="ghost" id="fs">&#x26F6; Watch full screen</button>
+<div class="cta-pair"><a class="btn js-reply" href="${esc(mailHref)}">Email me</a></div>
+<p class="reach"><a class="js-reply" href="${esc(mailHref)}">${REACH_EMAIL}</a></p>
+${hasShots ? `<section class="ba" aria-labelledby="ba-h"><h2 id="ba-h">Before and after</h2><div class="ba-grid">
+<figure class="before"><span class="tag tag-b">Before</span><button type="button" class="shot" data-shot="0" aria-label="See your website today, full page"><img src="${esc(demo.before as string)}" alt="Your website today" loading="lazy"></button><figcaption>Your website today <small>See full page</small></figcaption></figure>
+${ARROW}
+<figure class="after"><span class="tag tag-a">After</span><button type="button" class="shot" data-shot="1" aria-label="See your new homepage, full page"><img src="${esc(demo.after as string)}" alt="Your new homepage" loading="lazy"></button><figcaption>Your new homepage <small>See full page</small></figcaption></figure>
+</div><p class="hint">Tap either picture to see the whole page.</p></section>
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Before and after, full page"><div class="lb-bar"><button type="button" class="tab" data-tab="0">Your website today</button><button type="button" class="tab" data-tab="1">Your new homepage</button><button type="button" class="x" id="lbx">&#x2715; Close</button></div><div class="lb-scroll" id="lbs"><img id="lbi" alt=""></div></div>` : ''}
+</main>
+<script>(function(){var c=${config};var vid;try{vid=localStorage.getItem('fv_vid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.setItem('fv_vid',vid)}catch(e){vid=null}
+function send(e,p){if(c.internal)return;try{fetch(c.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({e:e,v:vid,p:p||null}),keepalive:true})}catch(x){}}
+var v=document.getElementById('v'),played=false,watched=false;
+document.getElementById('fs').addEventListener('click',function(){try{if(v.requestFullscreen){v.requestFullscreen()}else if(v.webkitEnterFullscreen){v.webkitEnterFullscreen()}else if(v.webkitRequestFullscreen){v.webkitRequestFullscreen()}}catch(x){}var p=v.play();if(p&&p.catch)p.catch(function(){})});
+v.addEventListener('play',function(){if(!played){played=true;send('website_play')}});
+v.addEventListener('timeupdate',function(){if(!watched&&v.duration&&v.currentTime/v.duration>=0.6){watched=true;send('website_watched')}});
+[].forEach.call(document.querySelectorAll('.js-reply'),function(a){a.addEventListener('click',function(){send('website_interest','reply')})});
+var lb=document.getElementById('lb');if(lb){var shots=c.shots,lbi=document.getElementById('lbi'),lbs=document.getElementById('lbs');
+ function close(){lb.classList.remove('open');document.body.style.overflow=''}
+ document.getElementById('lbx').addEventListener('click',close);lbs.addEventListener('click',function(e){if(e.target===lbs)close()});
+ document.addEventListener('keydown',function(e){if(e.key==='Escape'&&lb.classList.contains('open'))close()});
+ function show(i){lbi.onerror=function(){if(lbi.src!==shots[i].crop){lbi.src=shots[i].crop}};lbi.src=shots[i].full;lbi.alt=shots[i].label;lbs.scrollTop=0;
+  [].forEach.call(lb.querySelectorAll('.tab'),function(t){t.classList.toggle('on',+t.getAttribute('data-tab')===i)})}
+ [].forEach.call(document.querySelectorAll('.shot'),function(b){b.addEventListener('click',function(){show(+b.getAttribute('data-shot'));lb.classList.add('open');document.body.style.overflow='hidden'})});
+ [].forEach.call(lb.querySelectorAll('.tab'),function(t){t.addEventListener('click',function(){show(+t.getAttribute('data-tab'))})});}
+})();</script>
+</body></html>`;
+}
+
 function renderPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, internal: boolean, check: WebsiteCheck | null, showPrices = SHOW_PRICES): string {
+  if (!showPrices) return renderShortPage(token, lead, demo, internal);
   const word = (lead.first_name || '').trim().split(/\s+/)[0] || '';
   const first = word ? word.charAt(0).toUpperCase() + word.slice(1) : ''; // "sam" typed in the form → "Sam"
   const business = demo.business || displayDomain(lead.website_domain);
