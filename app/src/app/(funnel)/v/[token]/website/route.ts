@@ -446,7 +446,8 @@ ${ARROW}
 <section class="narrow call" aria-labelledby="call-h"><h2 id="call-h">On a quick 15-minute call, I'll show you:</h2>
 <ul><li>Your new homepage, and we change anything you want.</li><li>Where you come up on Google when people search for you.</li><li>What ChatGPT tells your customers when they ask about you.</li></ul>
 <p class="go">Email me and we'll find a good time.</p>
-<div class="cta-pair"><a class="btn js-reply" href="${esc(mailHref)}">Email me</a></div></section>
+<div class="cta-pair"><a class="btn js-reply" href="${esc(mailHref)}">Email me</a></div>
+<p class="reach"><a class="js-reply" href="${esc(mailHref)}">${REACH_EMAIL}</a></p></section>
 </main>
 <script>(function(){var c=${config};var vid;try{vid=localStorage.getItem('fv_vid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.setItem('fv_vid',vid)}catch(e){vid=null}
 function send(e,p){if(c.internal)return;try{fetch(c.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({e:e,v:vid,p:p||null}),keepalive:true})}catch(x){}}
