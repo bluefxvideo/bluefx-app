@@ -143,6 +143,12 @@ export const ML_GROUP_SERVICE_READY: string = '202278614287254624';
 /** Funnel 2 since 2026-10-27 (the $49 video ad offer, /v/<token>/unlock): its own Ready group starts its own emails. Empty = leads wait for their email. */
 export const ML_GROUP_VIDEO_READY: string = '202491974290245432';
 export const ML_GROUP_SERVICE_JOINED: string = '202278615316956617';
+/**
+ * 'Website watched' (owner 2026-11-09): a website lead joins it the first time they press play on /v/<token>/website.
+ * It starts 'Website watched (15 min, 3 emails)': 15 minutes later the first follow-up, then day 3 and day 8. The regular
+ * 'Website follow-up (3 emails)' excludes this group and exits on it, so a watcher never gets both.
+ */
+export const ML_GROUP_WEBSITE_WATCHED: string = '203677733710989023';
 
 /** True once all four group ids are filled in. */
 export function mailerLiteGroupsReady(): boolean {

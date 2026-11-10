@@ -1,5 +1,6 @@
 import { getDoneLeadByEmail, getLeadByToken, eventsTable, recordEvent } from '@/lib/free-video/leads';
 import { ALERT_FROM, isLive, SITE_URL, VIP_ALERT_FROM_NAME, VIP_ALERT_TO } from '@/lib/free-video/config';
+import { joinWebsiteWatchedGroup } from '@/lib/free-video/notify';
 import { readUnlockOrder } from '@/lib/free-video/unlock';
 import { vipAfterAction, type VipAction } from '@/lib/free-video/vip';
 import { planPriceLine, WEBSITE_PLAN_MARKER, websitePlanByKey, websitePlanOfProducts } from '@/lib/free-video/website-plans';
@@ -97,9 +98,14 @@ async function emailOwner(subject: string, text: string): Promise<void> {
  */
 export async function recordWebsiteEvent(lead: FreeVideoLead, demo: WebsiteDemo, event: WebsiteEvent, visitorId: string | null, planKey: string | null = null): Promise<void> {
   const plan = event === 'website_checkout' ? websitePlanByKey(planKey || '') : null;
+  // The short page's "Email me" button (owner 2026-11-10) is website_interest with p = 'reply'.
+  const byEmail = event === 'website_interest' && planKey === 'reply';
   if (event === 'website_checkout' && !plan) return;
   const first = event === 'website_play' || event === 'website_plans' ? false : !(await hasEvent(lead.id, event, plan?.key));
+  // The first play starts the 15-minute follow-up (owner 2026-11-09). Checked before this play is stored.
+  const firstPlay = event === 'website_play' && !(await hasEvent(lead.id, 'website_play'));
   await recordEvent({ event, leadId: lead.id, visitorId, placement: 'website', ref: lead.ref, meta: plan ? { plan: plan.key } : null });
+  if (firstPlay) await joinWebsiteWatchedGroup(lead);
   if (!first) return;
   const who = `${lead.first_name || 'Someone'} (${demo.business || displayDomain(lead.website_domain)}, ${lead.email})`;
   const page = `${SITE_URL}/v/${lead.view_token}/website?internal=1`;
@@ -107,7 +113,7 @@ export async function recordWebsiteEvent(lead: FreeVideoLead, demo: WebsiteDemo,
   const action: VipAction = plan
     ? { kind: 'checkout', label: `clicked to start the ${plan.name} website` }
     : event === 'website_interest'
-      ? { kind: 'talk', label: "clicked Let's talk" }
+      ? { kind: 'talk', label: byEmail ? 'clicked Email me' : "clicked Let's talk" }
       : { kind: 'watched', label: 'watched their website video' };
   const { mark, promoted } = await vipAfterAction(lead, action);
   const tag = mark?.vip ? 'VIP lead' : 'Website lead';
@@ -132,9 +138,11 @@ export async function recordWebsiteEvent(lead: FreeVideoLead, demo: WebsiteDemo,
     );
   } else if (event === 'website_interest') {
     await emailOwner(
-      `${tag}: ${lead.first_name || lead.email} clicked Let's talk, call now`,
+      byEmail ? `${tag}: ${lead.first_name || lead.email} clicked Email me` : `${tag}: ${lead.first_name || lead.email} clicked Let's talk, call now`,
       [
-        `${who} clicked "Let's talk" on their website video page (your calendar opened for them; Calendly emails you if they book).`,
+        byEmail
+          ? `${who} clicked "Email me" on their website video page, so their email app opened with a message to you. If no email arrives, write or call them.`
+          : `${who} clicked "Let's talk" on their website video page (your calendar opened for them; Calendly emails you if they book).`,
         '',
         'Call them now (Dylan: warm leads go cold fast). Their number is on their website / Google listing.',
         `Their website: https://${lead.website_domain}`,
