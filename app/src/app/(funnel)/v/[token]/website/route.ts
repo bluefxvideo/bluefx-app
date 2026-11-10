@@ -427,7 +427,7 @@ function renderShortPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, 
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>${esc(title)}</title>
 ${demo.poster ? `<meta property="og:image" content="${esc(demo.poster)}">` : ''}
-<style>${CSS}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}</style></head><body><main class="short">
+<style>${CSS}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}.ba-sub{text-align:center;max-width:620px;margin:0 auto 18px}.call ul{list-style:none;padding:0;max-width:560px;margin:16px auto 0}.call li{display:flex;gap:12px;margin:12px 0}.call li::before{content:"";flex:none;width:16px;height:16px;margin-top:7px;border-radius:50%;background:var(--green);box-shadow:inset 0 0 0 4px #dcfce7}.call .go{text-align:center;margin:22px 0 0}</style></head><body><main class="short">
 <div class="narrow">
 <p class="from">A video from <b>Szilard at BlueFX</b></p>
 <h1>${esc(title)}</h1>
@@ -437,12 +437,16 @@ ${demo.poster ? `<meta property="og:image" content="${esc(demo.poster)}">` : ''}
 <button type="button" class="ghost" id="fs">&#x26F6; Watch full screen</button>
 <div class="cta-pair"><a class="btn js-reply" href="${esc(mailHref)}">Email me</a></div>
 <p class="reach"><a class="js-reply" href="${esc(mailHref)}">${REACH_EMAIL}</a></p>
-${hasShots ? `<section class="ba" aria-labelledby="ba-h"><h2 id="ba-h">Before and after</h2><div class="ba-grid">
+${hasShots ? `<section class="ba" aria-labelledby="ba-h"><h2 id="ba-h">Before and after</h2><p class="ba-sub">I kept everything about your business the way it was. I just made it look more modern and work well on phones, where most people look you up.</p><div class="ba-grid">
 <figure class="before"><span class="tag tag-b">Before</span><button type="button" class="shot" data-shot="0" aria-label="See your website today, full page"><img src="${esc(demo.before as string)}" alt="Your website today" loading="lazy"></button><figcaption>Your website today <small>See full page</small></figcaption></figure>
 ${ARROW}
 <figure class="after"><span class="tag tag-a">After</span><button type="button" class="shot" data-shot="1" aria-label="See your new homepage, full page"><img src="${esc(demo.after as string)}" alt="Your new homepage" loading="lazy"></button><figcaption>Your new homepage <small>See full page</small></figcaption></figure>
 </div><p class="hint">Tap either picture to see the whole page.</p></section>
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Before and after, full page"><div class="lb-bar"><button type="button" class="tab" data-tab="0">Your website today</button><button type="button" class="tab" data-tab="1">Your new homepage</button><button type="button" class="x" id="lbx">&#x2715; Close</button></div><div class="lb-scroll" id="lbs"><img id="lbi" alt=""></div></div>` : ''}
+<section class="narrow call" aria-labelledby="call-h"><h2 id="call-h">On a quick 15-minute call, I'll show you:</h2>
+<ul><li>Your new homepage, and we change anything you want.</li><li>Where you come up on Google when people search for you.</li><li>What ChatGPT tells your customers when they ask about you.</li></ul>
+<p class="go">Email me and we'll find a good time.</p>
+<div class="cta-pair"><a class="btn js-reply" href="${esc(mailHref)}">Email me</a></div></section>
 </main>
 <script>(function(){var c=${config};var vid;try{vid=localStorage.getItem('fv_vid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.setItem('fv_vid',vid)}catch(e){vid=null}
 function send(e,p){if(c.internal)return;try{fetch(c.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({e:e,v:vid,p:p||null}),keepalive:true})}catch(x){}}
