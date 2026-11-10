@@ -408,9 +408,8 @@ function renderShortPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, 
   const word = (lead.first_name || '').trim().split(/\s+/)[0] || '';
   const first = word ? word.charAt(0).toUpperCase() + word.slice(1) : '';
   const business = demo.business || displayDomain(lead.website_domain);
-  const domain = displayDomain(lead.website_domain);
-  // The headline and subhead of the full page (owner 2026-11-10: "the current headline is better, the current subhead is also better").
-  const title = first ? `${first}, here's a draft of your new homepage` : `Here's a draft of a new homepage for ${business}`;
+  // One line on a phone, no subhead (owner 2026-11-10).
+  const title = first ? `${first}, your new homepage` : `Your new homepage for ${business}`;
   const hasShots = Boolean(demo.before && demo.after);
   const config = JSON.stringify({
     url: `/v/${token}/website`,
@@ -427,17 +426,16 @@ function renderShortPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, 
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>${esc(title)}</title>
 ${demo.poster ? `<meta property="og:image" content="${esc(demo.poster)}">` : ''}
-<style>${CSS}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}.ba-sub{text-align:center;max-width:620px;margin:0 auto 18px}.call ul{list-style:none;padding:0;max-width:560px;margin:16px auto 0}.call li{display:flex;gap:12px;margin:12px 0}.call li::before{content:"";flex:none;width:16px;height:16px;margin-top:7px;border-radius:50%;background:var(--green);box-shadow:inset 0 0 0 4px #dcfce7}.call .go{text-align:center;margin:22px 0 0}</style></head><body><main class="short">
+<style>${CSS}.short h1{font-size:clamp(22px,calc(5.6vw + 4px),42px)}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}.call ul{list-style:none;padding:0;max-width:560px;margin:16px auto 0}.call li{display:flex;gap:12px;margin:12px 0}.call li::before{content:"";flex:none;width:16px;height:16px;margin-top:7px;border-radius:50%;background:var(--green);box-shadow:inset 0 0 0 4px #dcfce7}.call .go{text-align:center;margin:22px 0 0}</style></head><body><main class="short">
 <div class="narrow">
 <p class="from">A video from <b>Szilard at BlueFX</b></p>
 <h1>${esc(title)}</h1>
-<p class="lede">When we made your video ad, I spent some time on ${esc(domain)} and couldn't help myself. Here's what I built for you. Watch the short video first.</p>
 </div>
 <div class="player"><video id="v" src="${esc(demo.video)}"${demo.poster ? ` poster="${esc(demo.poster)}"` : ''} controls playsinline preload="metadata"></video></div>
 <button type="button" class="ghost" id="fs">&#x26F6; Watch full screen</button>
 <div class="cta-pair"><a class="btn js-reply" href="${esc(mailHref)}">Email me</a></div>
 <p class="reach"><a class="js-reply" href="${esc(mailHref)}">${REACH_EMAIL}</a></p>
-${hasShots ? `<section class="ba" aria-labelledby="ba-h"><h2 id="ba-h">Before and after</h2><p class="ba-sub">I kept everything about your business the way it was. I just made it look more modern and work well on phones, where most people look you up.</p><div class="ba-grid">
+${hasShots ? `<section class="ba" aria-labelledby="ba-h"><h2 id="ba-h">Before and after</h2><div class="ba-grid">
 <figure class="before"><span class="tag tag-b">Before</span><button type="button" class="shot" data-shot="0" aria-label="See your website today, full page"><img src="${esc(demo.before as string)}" alt="Your website today" loading="lazy"></button><figcaption>Your website today <small>See full page</small></figcaption></figure>
 ${ARROW}
 <figure class="after"><span class="tag tag-a">After</span><button type="button" class="shot" data-shot="1" aria-label="See your new homepage, full page"><img src="${esc(demo.after as string)}" alt="Your new homepage" loading="lazy"></button><figcaption>Your new homepage <small>See full page</small></figcaption></figure>
@@ -446,7 +444,6 @@ ${ARROW}
 <section class="narrow call" aria-labelledby="call-h"><h2 id="call-h">On a quick 15-minute call, I'll show you:</h2>
 <ul><li>Your new homepage, and we change anything you want.</li><li>Where you come up on Google when people search for you.</li><li>What ChatGPT tells your customers when they ask about you.</li></ul>
 <p class="go">Email me and we'll find a good time.</p>
-<div class="cta-pair"><a class="btn js-reply" href="${esc(mailHref)}">Email me</a></div>
 <p class="reach"><a class="js-reply" href="${esc(mailHref)}">${REACH_EMAIL}</a></p></section>
 </main>
 <script>(function(){var c=${config};var vid;try{vid=localStorage.getItem('fv_vid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.setItem('fv_vid',vid)}catch(e){vid=null}
