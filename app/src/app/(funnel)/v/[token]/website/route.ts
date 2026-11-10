@@ -408,7 +408,9 @@ function renderShortPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, 
   const word = (lead.first_name || '').trim().split(/\s+/)[0] || '';
   const first = word ? word.charAt(0).toUpperCase() + word.slice(1) : '';
   const business = demo.business || displayDomain(lead.website_domain);
-  const title = first ? `${first}, I made ${business} a new website` : `I made ${business} a new website`;
+  const domain = displayDomain(lead.website_domain);
+  // The headline and subhead of the full page (owner 2026-11-10: "the current headline is better, the current subhead is also better").
+  const title = first ? `${first}, here's a draft of your new homepage` : `Here's a draft of a new homepage for ${business}`;
   const hasShots = Boolean(demo.before && demo.after);
   const config = JSON.stringify({
     url: `/v/${token}/website`,
@@ -425,8 +427,12 @@ function renderShortPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, 
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>${esc(title)}</title>
 ${demo.poster ? `<meta property="og:image" content="${esc(demo.poster)}">` : ''}
-<style>${CSS}.short h1{text-align:center;margin-bottom:20px}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}</style></head><body><main class="short">
-<div class="narrow"><h1>${esc(title)}</h1></div>
+<style>${CSS}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}</style></head><body><main class="short">
+<div class="narrow">
+<p class="from">A video from <b>Szilard at BlueFX</b></p>
+<h1>${esc(title)}</h1>
+<p class="lede">When we made your video ad, I spent some time on ${esc(domain)} and couldn't help myself. Here's what I built for you. Watch the short video first.</p>
+</div>
 <div class="player"><video id="v" src="${esc(demo.video)}"${demo.poster ? ` poster="${esc(demo.poster)}"` : ''} controls playsinline preload="metadata"></video></div>
 <button type="button" class="ghost" id="fs">&#x26F6; Watch full screen</button>
 <div class="cta-pair"><a class="btn js-reply" href="${esc(mailHref)}">Email me</a></div>
