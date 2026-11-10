@@ -409,7 +409,7 @@ function renderShortPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, 
   const first = word ? word.charAt(0).toUpperCase() + word.slice(1) : '';
   const business = demo.business || displayDomain(lead.website_domain);
   // One line on a phone, no subhead (owner 2026-11-10).
-  const title = first ? `${first}, your new homepage` : `Your new homepage for ${business}`;
+  const title = first ? `${first}, I made you a new homepage` : `I made ${business} a new homepage`;
   const hasShots = Boolean(demo.before && demo.after);
   const config = JSON.stringify({
     url: `/v/${token}/website`,
@@ -426,11 +426,11 @@ function renderShortPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, 
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>${esc(title)}</title>
 ${demo.poster ? `<meta property="og:image" content="${esc(demo.poster)}">` : ''}
-<style>${CSS}.short h1{font-size:clamp(22px,calc(5.6vw + 4px),42px)}.short .lede{font-size:clamp(16px,calc(3.6vw + 4px),21px);margin:0 0 20px}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}.call ul{list-style:none;padding:0;max-width:560px;margin:16px auto 0}.call li{display:flex;gap:12px;margin:12px 0}.call li::before{content:"";flex:none;width:16px;height:16px;margin-top:7px;border-radius:50%;background:var(--green);box-shadow:inset 0 0 0 4px #dcfce7}.call .go{text-align:center;margin:22px 0 0}</style></head><body><main class="short">
+<style>${CSS}.short h1{font-size:clamp(22px,calc(5.6vw + 4px),42px)}.short .lede{font-size:clamp(16px,calc(3.6vw + 4px),21px);margin:0 0 20px;text-wrap:balance}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}.call ul{list-style:none;padding:0;max-width:560px;margin:16px auto 0}.call li{display:flex;gap:12px;margin:12px 0}.call li::before{content:"";flex:none;width:16px;height:16px;margin-top:7px;border-radius:50%;background:var(--green);box-shadow:inset 0 0 0 4px #dcfce7}.call .go{text-align:center;margin:22px 0 0}</style></head><body><main class="short">
 <div class="narrow">
 <p class="from">A video from <b>Szilard at BlueFX</b></p>
 <h1>${esc(title)}</h1>
-<p class="lede">It's a draft. Tell me what you'd change.</p>
+<p class="lede">It's a draft, so anything on it can be changed.</p>
 </div>
 <div class="player"><video id="v" src="${esc(demo.video)}"${demo.poster ? ` poster="${esc(demo.poster)}"` : ''} controls playsinline preload="metadata"></video></div>
 <button type="button" class="ghost" id="fs">&#x26F6; Watch full screen</button>
