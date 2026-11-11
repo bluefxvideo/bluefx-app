@@ -33,7 +33,8 @@ const article = (noun: string) => (/^[aeiou]/i.test(noun) ? 'an' : 'a');
 function publicSwaps(): Array<[string, string]> {
   const swaps: Array<[string, string]> = [
     ['<meta name="robots" content="noindex, nofollow">', ''],
-    ['<p class="congrats">Congratulations, {{NAME}}!<br>Your video ad is ready.</p>', '<p class="congrats">A video ad my team made for a local hauling company.</p>'],
+    // The owner's 3-minute video on top, wide (owner 2026-11-11), so the line above it names it.
+    ['<p class="congrats">Congratulations, {{NAME}}!<br>Your video ad is ready.</p>', '<p class="congrats">Watch my 3-minute video: how my team makes your video ads</p>'],
     ['<span class="stamp" aria-hidden="true">SAMPLE<small>bluefx.net</small></span>', ''],
     ['<p>Want your video ad without the SAMPLE stamp, plus a new video for your business every week?</p>', '<p>Want a video like this for your business, plus a new video every week?</p>'],
     ['<button type="button" class="replay">Watch your video ad again</button>', '<button type="button" class="replay">Watch the video ad again</button>'],
@@ -55,8 +56,8 @@ function publicSwaps(): Array<[string, string]> {
       '<p>You just watched a video ad my team made. Before you see 12 more example video ads, let me answer 3 questions you might have about this offer:</p>',
     ],
     [
-      '<p><b>PROOF:</b> You already have your first video ad, made from {{DOMAIN}}. Join, and my team sends you a new video every week.</p>',
-      '<p><b>PROOF:</b> Every example video ad on this page was made by my team. Join, and my team sends you a new video every week.</p>',
+      '<p><b>PROOF:</b> You already have your first video ad, made from {{DOMAIN}}. Join, and you can get a new video every week.</p>',
+      '<p><b>PROOF:</b> Every example video ad on this page was made by my team. Join, and you can get a new video every week.</p>',
     ],
     ["      <p>We're offering this service first to the people who tried our free video ad maker.</p>\n", ''],
     // Question 3 ("Why are you doing this?") without the free video ad the reader never made
@@ -75,7 +76,7 @@ function publicSwaps(): Array<[string, string]> {
     ],
     [
       '<p class="ps"><b>P.S.</b> Your first video ad is already made. Join today, and my team removes the SAMPLE stamp and makes every change you want, back the same day.',
-      '<p class="ps"><b>P.S.</b> Send your first idea today, and your first video arrives within 1 business day. Then a new video every Tuesday, and any change comes back the same day.',
+      '<p class="ps"><b>P.S.</b> Send your first idea today, and your first video arrives within 1 business day. Then you can get a new video every week, and any change comes back the same day.',
     ],
     // the examples become numbered styles, so members can ask for "Style 3"
     ["<section class=\"alt\">\n  <div class=\"wrap\">\n    <h2>Here's what you can request</h2>", "<section class=\"alt\" id=\"styles\">\n  <div class=\"wrap\">\n    <h2>Pick your style</h2>"],
@@ -105,6 +106,75 @@ function numberStyles(html: string): string {
   return out;
 }
 
+/** The owner's sales video, re-edited with captions and example ads (owner 2026-11-11). */
+const TOP_VIDEO = { src: `${SERVICE_MEDIA_BASE}/weekly-vsl-v1.mp4`, poster: `${SERVICE_MEDIA_BASE}/weekly-vsl-v1.jpg` };
+
+/**
+ * Owner 2026-11-11: his 3-minute video replaces the sample ad at the top, in a wide 16:9 frame above the headline,
+ * and the same talk lower down (the old "Watch my 3-minute video" block) goes. Lead pages keep their own ad on top.
+ */
+function wideVideoTop(html: string): string {
+  let out = html;
+  const start = out.indexOf('<div class="samplead">');
+  const end = out.indexOf('<div class="topcopy">', start);
+  if (start === -1 || end === -1) {
+    console.error('❌ [service-public] Sample video block not found: top video not swapped');
+    return out;
+  }
+  // Top copy from the owner's original video service page (ai.bluefx.net/video-service), owner 2026-11-11:
+  // the benefit headline above the video, then the price, one line on their part, the button and the guarantee.
+  const copyEnd = out.indexOf('<div class="offer" id="join">', end);
+  const copy = copyEnd === -1 ? '' : out.slice(end, copyEnd);
+  const button = copy.match(/<a class="btn top-btn"[\s\S]*?<\/a>/)?.[0];
+  const logos = copy.match(/<div class="paylogos"[\s\S]*?<\/div>/)?.[0] ?? '';
+  const congratsAt = out.lastIndexOf('<p class="congrats">', start);
+  if (!button || congratsAt === -1) {
+    console.error('❌ [service-public] Top copy not found: top not rebuilt');
+    return out;
+  }
+  const top = `<p class="kicker">Want us to do all the work for you?</p>
+    <h1>My Team Makes You A New Video Every Week That Brings You <mark>Leads And Clients</mark></h1>
+    <div class="vsl topvsl"><video src="${TOP_VIDEO.src}" poster="${TOP_VIDEO.poster}" controls playsinline preload="metadata"></video></div>
+    <div class="topcopy">
+    <p class="proofline">Our videos have brought <b>222,712 leads</b> and <b>36,000 customers</b> to our own business. Now my team makes them for yours.</p>
+    <p class="priceline">A new video every week: <b>52 videos a year for {{P}} a month</b> {{S_WAS}} No contract. Cancel anytime.</p>
+    <p class="part">Tell us what your video should be about, and my team makes it.</p>
+    ${button}
+    <div class="trust">${logos}<p class="guar"><b>30-day money-back guarantee.</b> Not happy? We refund your {{P}}.</p></div>
+    </div>
+    </div>
+    `;
+  out = out.slice(0, congratsAt) + top + out.slice(copyEnd);
+  out = out.replace('<div class="top">', '<div class="top widetop">');
+  const lower = out.indexOf('<p class="vsltitle">');
+  const lowerEnd = lower === -1 ? -1 : out.indexOf('</div>', out.indexOf('<div class="vsl">', lower));
+  if (lower === -1 || lowerEnd === -1) console.error('❌ [service-public] Lower video block not found: not removed');
+  else out = out.slice(0, lower) + out.slice(lowerEnd + '</div>'.length);
+  const css = `<style>
+.hero .top.widetop { display: block; text-align: center; }
+.hero .top.widetop .kicker { font-family: var(--body); font-weight: 900; font-size: 26px; line-height: 1.3; color: var(--red); margin: 0; }
+.hero .top.widetop h1 { font-size: clamp(34px, 5.4vw, 56px); max-width: 980px; margin: 8px auto 0; text-wrap: balance; }
+.hero .top.widetop .topvsl { margin: 22px auto 0; }
+.hero .top.widetop .topcopy { max-width: 760px; margin: 18px auto 0; }
+.hero .top.widetop .proofline { font-size: 22px; line-height: 1.5; }
+.hero .top.widetop .priceline { font-size: 24px; line-height: 1.4; margin-top: 12px; }
+.hero .top.widetop .priceline b { background: var(--yellow); padding: 0 .15em; }
+.hero .top.widetop .priceline .was { color: var(--muted); }
+.hero .top.widetop .part { margin: 10px auto 0; font-size: 22px; }
+.hero .top.widetop .top-btn { margin-inline: auto; }
+.hero .top.widetop .trust { margin-inline: auto; text-align: center; }
+.hero .top.widetop .paylogos { justify-content: center; }
+.hero .top.widetop .trust .guar { text-align: center; }
+@media (max-width: 560px) { .hero .top.widetop .kicker { font-size: 21px; } .hero .top.widetop .proofline, .hero .top.widetop .part { font-size: 20px; } .hero .top.widetop .priceline { font-size: 21px; } }
+</style>
+`;
+  out = out.replace('</head>', `${css}</head>`);
+  return out;
+}
+
+/** Regular price shown struck out on the evergreen $99 page (owner 2026-11-11). */
+const EVERGREEN_REGULAR_PRICE = 299;
+
 let cached: string | null = null;
 
 /** The public page's template: the per-lead template with the public swaps (built once per server). */
@@ -115,7 +185,7 @@ function publicTemplate(): string {
     if (!html.includes(from)) console.error(`❌ [service-public] Line not found, not swapped: ${from.slice(0, 80)}`);
     html = html.split(from).join(to);
   }
-  cached = numberStyles(html);
+  cached = wideVideoTop(numberStyles(html));
   return cached;
 }
 
@@ -134,7 +204,8 @@ export function renderPublicServicePage(price?: number): string {
     videoUrl: `${SERVICE_MEDIA_BASE}/full-hauling.mp4`,
     poster: `${SERVICE_MEDIA_BASE}/full-hauling.jpg`,
     nextAds: null,
-    now: { phase, nextPrice: null, endsAt: null, regularPrice: phase === publicPhase ? null : publicPhase.price },
+    // The $99 page shows $299 as the regular price (owner 2026-11-11: $599 is too much); the full page keeps none.
+    now: { phase, nextPrice: null, endsAt: null, regularPrice: phase === publicPhase ? null : EVERGREEN_REGULAR_PRICE },
     internal: true,
     template: publicTemplate(),
     checkoutUrl: checkout,

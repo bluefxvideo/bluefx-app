@@ -157,7 +157,7 @@ function phaseSlots({ phase, nextPrice, endsAt, regularPrice }: ServicePhaseNow)
   const p = `$${phase.price}`;
   // The struck-out regular price in the price boxes, labelled "regular price" (owner 2026-10-25).
   const strike = (price: string) =>
-    `<span style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.05"><s>${price}</s><small style="font:700 12px/1.2 Lato,Arial,sans-serif;color:#5e5e5e;letter-spacing:0;text-transform:none;margin-top:4px">regular price</small></span>`;
+    `<span style="display:inline-flex;flex-direction:column;align-items:center;line-height:1.05"><s>${price}</s><small style="font:700 15px/1.2 Lato,Arial,sans-serif;color:#5e5e5e;letter-spacing:0;text-transform:none;margin-top:4px">regular price</small></span>`;
   if (endsAt !== null && nextPrice !== null && phase.hours !== null) {
     const nx = `$${nextPrice}`;
     const days = Math.round(phase.hours / 24);
