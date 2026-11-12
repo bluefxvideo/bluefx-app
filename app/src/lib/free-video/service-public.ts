@@ -107,7 +107,7 @@ function numberStyles(html: string): string {
 }
 
 /** The owner's sales video, re-edited with captions and example ads (owner 2026-11-11). */
-const TOP_VIDEO = { src: `${SERVICE_MEDIA_BASE}/weekly-vsl-v1.mp4`, poster: `${SERVICE_MEDIA_BASE}/weekly-vsl-v1.jpg` };
+const TOP_VIDEO = { src: `${SERVICE_MEDIA_BASE}/weekly-vsl-v2.mp4`, poster: `${SERVICE_MEDIA_BASE}/weekly-vsl-v2.jpg` };
 
 /**
  * Owner 2026-11-11: his 3-minute video replaces the sample ad at the top, in a wide 16:9 frame above the headline,
