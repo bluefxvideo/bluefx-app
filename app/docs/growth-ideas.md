@@ -7,6 +7,8 @@ Ideas from coaching sessions in Nov 2026. These are ideas only, not work orders.
 - **Trade show exhibitors as a cold email source.** Owner liked it. Exhibitors are established companies with money, and they need a video for their booth screen. A few weeks before each show: "your booth video for {show} is ready". Research and emails are in trade-show-prospecting.md.
 - **One YouTube video per industry.** Owner: "we can definitely do one for each". About 60% of channel views come from search. The plan is in youtube-industry-videos.md.
 
+- **Teaching video: the 3 things your website needs to get you clients** (2026-11-12). Design, a video on the site, getting found on Google and ChatGPT. Ends with a free homepage mockup plus a free Google/ChatGPT check: they submit their website, so they come to us. Full notes in video-3-things-website.md.
+
 ## Big idea: go after whales (saved 2026-11-06)
 Owner: "a good idea... 10 of these, $10,000 or more a month". It makes logical sense to him, but he doesn't yet have the gut feeling about it.
 - **Core insight:** business owners want customers, not videos or websites. The value of one new customer decides how much we can help and charge: about $50 for a salon, $20k to $100k for an equipment maker like Dov. Our work costs us about the same for both.
