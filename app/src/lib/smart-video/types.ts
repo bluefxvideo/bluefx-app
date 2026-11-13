@@ -97,6 +97,11 @@ export const DirectorPlanSchema = z.object({
   styleReason: z.string(),
   theme: z.object({ bg: z.string().nullish(), accent: z.string().nullish() }).nullish(),
   voice: z.object({ gender: z.enum(['female', 'male']), direction: z.string() }),
+  pronounce: z
+    .array(z.object({ written: z.string(), say: z.string() }))
+    .max(12)
+    .nullish()
+    .describe('How the voices say a word that text-to-speech gets wrong: the narration keeps the written word, the voice reads the sound-it-out spelling'),
   musicPrompt: z.string(),
   lifestyleShots: z
     .array(z.object({ id: z.string(), fromAsset: z.string(), prompt: z.string() }))

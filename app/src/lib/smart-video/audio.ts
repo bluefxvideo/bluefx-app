@@ -78,15 +78,37 @@ export function changeTempo(pcm: Buffer, rate: number, tempo: number): Promise<B
   });
 }
 
+export type Pronunciation = { written: string; say: string };
+
+/**
+ * A line as the voices read it: each written word of the pronunciation list becomes its sound-it-out spelling
+ * ("Red N. Asyl" → "Red-NAY-sul"). Owner 2026-11-13 (Red N. Asyl, before him Kathy's Islamorada and Jim's Carlough):
+ * the voice guessed names, places and websites, and each voice guessed differently. Only what is heard changes: the
+ * captions line up the recording with the written script, so they keep the real spelling.
+ */
+export function sayAs(line: string, pronounce?: Pronunciation[] | null): string {
+  const list = (pronounce ?? []).filter((p) => p.written.trim() && p.say.trim()).sort((a, b) => b.written.length - a.written.length);
+  let out = line;
+  for (const { written, say } of list) {
+    const escaped = written.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'giu'), say.trim());
+  }
+  return out;
+}
+
 export async function generateVoice(
   narration: string[],
   languageName: string,
-  voice: { gender: 'female' | 'male'; direction: string }
+  voice: { gender: 'female' | 'male'; direction: string },
+  pronounce?: Pronunciation[] | null
 ): Promise<{ pcm: Buffer; rate: number; durationSeconds: number }> {
+  const spoken = narration.map((line) => sayAs(line, pronounce));
+  const respelled = spoken.some((line, i) => line !== narration[i]);
   const prompt =
     `Read the transcript below aloud in ${languageName}, as a native speaker. ` +
     `Delivery: ${voice.direction} Natural pace, clear diction, a short breath between paragraphs. ` +
-    `Speak ONLY the transcript.\n\nTRANSCRIPT:\n${narration.join('\n')}`;
+    (respelled ? 'Words written with hyphens and a CAPITAL syllable are names spelled the way they sound: say them exactly like that, stressing the capital syllable, as one smooth word. ' : '') +
+    `Speak ONLY the transcript.\n\nTRANSCRIPT:\n${spoken.join('\n')}`;
   const json = await gemini(
     TTS_MODEL,
     {

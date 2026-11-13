@@ -1,6 +1,6 @@
 import { PRESENTER_LINE_MAX_WORDS } from './script-edit';
 import { isFalSafetyRefusal } from '@/actions/models/fal-error';
-import { ILLUSTRATION_LOOKS } from './audio';
+import { ILLUSTRATION_LOOKS, sayAs, type Pronunciation } from './audio';
 import { isIllustrated } from './types';
 import { usage } from './usage';
 
@@ -261,8 +261,32 @@ export function clipSecondsFor(line: string): number {
   return seconds % 2 ? seconds + 1 : seconds;
 }
 
+/**
+ * The presenter's video model reads a sound-it-out spelling as plain words, not syllables: "Red-NAY-sul" came out
+ * "Red NIGH-sul" and "Red Nay-suhl" "Red NIGH-sul", while "Red Naysul" was said right (2026-11-13). So a capital
+ * syllable starts a new word, the other hyphens go, and each respelled word is written like a name ("Red Naysul").
+ */
+export function plainSpellings(pronounce?: Pronunciation[] | null): Pronunciation[] | null | undefined {
+  return pronounce?.map(({ written, say }) => ({
+    written,
+    say: say
+      .split(/\s+/)
+      .map((word) =>
+        word.includes('-')
+          ? word
+              .replace(/-(?=\p{Lu}{2,}|\p{Lu}\b)/gu, ' ')
+              .replace(/-/g, '')
+              .split(' ')
+              .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+              .join(' ')
+          : word
+      )
+      .join(' '),
+  }));
+}
+
 /** The presenter doing their action and saying the line, with their own voice (LTX 2.5 Fast with sound, 720p, $0.09 a second). */
-export async function talkingPresenter(photo: Buffer, line: string, action = '', style?: string | null, horizontal = false): Promise<Buffer> {
+export async function talkingPresenter(photo: Buffer, line: string, action = '', style?: string | null, horizontal = false, pronounce?: Pronunciation[] | null): Promise<Buffer> {
   // A drawn presenter (cartoon, comic) stays drawn: a soft watercolor face came back photoreal (2026-10-24), so keep the style explicit.
   const drawn = isIllustrated(style) && ILLUSTRATION_LOOKS[style].drawnPresenter ? `Keep the exact art style of the image in every frame (${ILLUSTRATION_LOOKS[style].look.split(',')[0].toLowerCase()}): it stays an illustration and never turns into a photo or live action.` : '';
   const seconds = clipSecondsFor(line);
@@ -274,7 +298,8 @@ export async function talkingPresenter(photo: Buffer, line: string, action = '',
     'The person is already talking from the very first frame: the first word starts within the first half second, with no silent pause before it.',
     action ? `While they say the first words: ${action}` : '',
     'They speak clearly to the viewer at a natural conversational pace, looking into the camera, steady framing, subtle natural head movement. They stay in frame and keep facing the camera until the end of the clip.',
-    `They say: "${line.replace(/"/g, "'")}"`,
+    // Names in the line are spelled the way they sound (pronunciation list), so the person says them right.
+    `They say: "${sayAs(line, plainSpellings(pronounce)).replace(/"/g, "'")}"`,
     drawn,
     "Audio: only the person's voice with natural room ambience, no background music, no soundtrack, no melody.",
     'No captions, no subtitles, no on-screen text, no logos.',

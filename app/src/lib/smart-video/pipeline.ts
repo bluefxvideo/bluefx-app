@@ -314,7 +314,7 @@ async function produce(
                 await store(photo, 'presenter.jpg', 'image/jpeg');
               }
             }
-            const clip = await talkingPresenter(photo, firstLine, action, look, horizontal);
+            const clip = await talkingPresenter(photo, firstLine, action, look, horizontal, plan.pronounce);
             return { clip, url: await store(clip, 'presenter.mp4', 'video/mp4') };
           })
           .catch((error) => {
@@ -604,6 +604,8 @@ export async function reviseSmartVideo(
           )
         : { plan: previous.plan, newPresenter: null, removePresenter: false };
     const plan = revised.plan;
+    // How names are said carries over to every edit unless the edit changed it.
+    if (!plan.pronounce?.length && previous.plan.pronounce?.length) plan.pronounce = previous.plan.pronounce;
     const warnings: string[] = [];
     if (swapFailed) warnings.push("Your photo could not be put in the presenter's place this time, so it is filmed as it is.");
     // Without "Change the presenter" the presenter's scene stays as it was filmed (their clip says the old words),
@@ -658,7 +660,7 @@ export async function reviseSmartVideo(
           }
           // Beside the clip, so a later edit finds the person again.
           await store(photo, 'presenter.jpg', 'image/jpeg');
-          const clip = await talkingPresenter(photo, line, action, previous.plan.style, wide);
+          const clip = await talkingPresenter(photo, line, action, previous.plan.style, wide, plan.pronounce);
           return { clip, url: await store(clip, 'presenter.mp4', 'video/mp4') };
         })().catch((error) => {
           console.warn('⚠️ New presenter not made:', String(error).slice(0, 160));
@@ -684,7 +686,9 @@ export async function reviseSmartVideo(
     const clipWords = media.clipWords || {};
     const needed = plan.scenes.map((_, i) => i).filter((i) => !(plan.scenes[i].speaker && clipWords[plan.scenes[i].speaker!.asset]));
     const held = heldScenes(previous, plan);
-    const sameVoice = plan.voice.gender === previous.plan.voice.gender && sameWords(plan.voice.direction) === sameWords(previous.plan.voice.direction);
+    // A changed pronunciation list is recorded again, the same lines said the new way.
+    const sameSaying = JSON.stringify(plan.pronounce ?? []) === JSON.stringify(previous.plan.pronounce ?? []);
+    const sameVoice = sameSaying && plan.voice.gender === previous.plan.voice.gender && sameWords(plan.voice.direction) === sameWords(previous.plan.voice.direction);
     if (held && sameVoice && needed.every((i) => held.includes(i))) {
       // Its lines found again in this plan: scenes added, removed or moved by the edit cannot shift them (2026-10-13).
       media.voice = { ...media.voice!, scenes: held };
@@ -1174,7 +1178,7 @@ export async function recordVoice(narration: string[], languageName: string, pla
       let best: { pcm: Buffer; rate: number; words: SpokenWord[]; durationSeconds: number; worst: number } | null = null;
       for (let take = 1; take <= VOICE_TAKES; take++) {
         console.log(`🎤 Generating voice (part ${p + 1}/${parts.length}, take ${take})...`);
-        const voice = await generateVoice(lines, languageName, plan.voice);
+        const voice = await generateVoice(lines, languageName, plan.voice, plan.pronounce);
         const words = await transcribeWords(pcmToWav(voice.pcm, voice.rate), plan.language);
         const coverage = alignScript(lines, words).sceneCoverage;
         const worst = Math.min(...coverage);
