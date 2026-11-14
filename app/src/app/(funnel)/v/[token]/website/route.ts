@@ -83,7 +83,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   const internal = req.nextUrl.searchParams.get('internal') === '1' || hasInternalCookie(req.headers.get('cookie'));
   const check = await checkPromise; // null when it isn't ready yet: the page shows without it
   // The sales page is the default for every lead since 2026-11-05 (owner); ?preview=sales links keep working.
-  return new NextResponse(renderPage(token, found.lead, found.demo, internal, check, showPrices), { status: 200, headers: HTML_HEADERS });
+  // Owner 2026-11-14 picked layout B: a big before/after slider on top, the video under it (default when the demo has
+  // both pictures). ?layout=video shows the old layout with the video on top.
+  const slider = !showPrices && req.nextUrl.searchParams.get('layout') !== 'video' && Boolean(found.demo.before && found.demo.after);
+  const html = slider ? renderShortPage(token, found.lead, found.demo, internal, true) : renderPage(token, found.lead, found.demo, internal, check, showPrices);
+  return new NextResponse(html, { status: 200, headers: HTML_HEADERS });
 }
 
 function sameOrigin(origin: string | null): boolean {
@@ -400,11 +404,49 @@ details ul{margin-top:10px!important}
 `;
 
 /**
+ * The website offer (owner 2026-11-14): we build the whole website, $0 for the first 30 days, then $99 a month, cancel
+ * anytime, no calls. Card taken at checkout with a 30-day $0 trial. TRIAL_PRODUCT is the FastSpring product path once the
+ * owner has made it (it must contain WEBSITE_PLAN_MARKER); while it is empty, "Yes, build my website" is a "yes" email.
+ */
+const TRIAL_PRODUCT = '';
+/** Owner 2026-11-14: AI search ready is the speciality; modern design second; never how they edit the site later. */
+const TRIAL_INCLUDED = [
+  'Built for AI search, so ChatGPT and other AI tools can read your website and recommend your business',
+  'A modern design, so visitors stay on your website and call you instead of leaving',
+  'Your whole website, every page, built from your new homepage',
+  'Looks right on a phone and loads fast',
+  'Hosting, security and daily backups included',
+  'Your web address stays yours',
+  'Any change you want while we build your website, just tell us',
+];
+const TRIAL_WHY = [
+  'More and more people ask ChatGPT and other AI tools which business to call, instead of searching Google.',
+  'ChatGPT reads websites to decide which businesses to recommend. When ChatGPT can\'t read your website, ChatGPT sends those customers to another business.',
+  "You already gave us your website and tried our video ad maker. Now I want your website ready for AI search too, so you don't lose those customers.",
+];
+const TRIAL_STEPS: Array<[string, string]> = [
+  ['Start your free month.', "It takes a minute. You pay $0 today."],
+  ['Tell us what to change.', 'Send your logo, a few photos and anything you want different on your new homepage. Just reply to our email.'],
+  ['We build every page, and you review your new website.', 'Within 7 days you get a private link to check every page. We change whatever you ask.'],
+  ['Your new website goes live when you say yes.', 'Your current website stays exactly as it is until then. Then we switch your web address over.'],
+];
+const TRIAL_FAQ: Array<[string, string]> = [
+  ['What does "ready for AI search" mean?', "When someone asks ChatGPT, Google's AI answers or another AI tool for a business like yours, the AI tool reads websites to pick who to recommend. We build every page of your website so AI tools can read your website: clear answers to the questions your customers ask, and the setup AI tools look for."],
+  ['What happens after 30 days?', 'On day 30 your card is charged $99, and then $99 every month. If you cancel before day 30, you pay $0.'],
+  ['How do I cancel?', 'Send us an email, any time. Your website stays online until the end of the month you paid for, and we send you all your texts and photos.'],
+  ['What do I need to send you?', "Your logo and a few photos if you have them, plus anything you'd change. If you don't have photos, we use what's on your current website."],
+  ['Do I keep my web address?', "Yes. Your web address always belongs to you. We connect your web address to the new website only after you've approved the new website."],
+  ['Will I lose my Google rankings?', "No. Your old page addresses forward to the new ones, so the Google rankings you've earned move over to your new website."],
+  ["I'm already paying Wix, GoDaddy or someone else. What happens to that?", 'The $99 includes hosting, so once your new website is live you can stop paying them. If you have a contract, tell us when it ends and we switch you that day.'],
+];
+
+/**
  * The short page (owner 2026-11-10): headline, video, one "Email me" button with the address under it, before/after.
+ * Since 2026-11-14 the 15-minute call section is replaced by the website offer (TRIAL_*), with "Yes, build my website".
  * The video-only page of 2026-11-03 got 16% Let's talk clicks; the long sales page got 1%. Email replaces the calendar
  * because bookings were hit and miss. The click is website_interest with p = 'reply' (the owner is emailed once).
  */
-function renderShortPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, internal: boolean): string {
+function renderShortPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, internal: boolean, slider = false): string {
   const word = (lead.first_name || '').trim().split(/\s+/)[0] || '';
   const first = word ? word.charAt(0).toUpperCase() + word.slice(1) : '';
   const business = demo.business || displayDomain(lead.website_domain);
@@ -422,30 +464,60 @@ function renderShortPage(token: string, lead: FreeVideoLead, demo: WebsiteDemo, 
       : [],
   }).replace(/</g, '\\u003c');
   const mailHref = `mailto:${REACH_EMAIL}?subject=${encodeURIComponent('Re: your new website')}&body=${encodeURIComponent(`Hi Szilard,\n\nI watched the video about my new website.\n\n${first}`)}`;
+  const yesHref = TRIAL_PRODUCT
+    ? `${WEBSITE_CHECKOUT.storefront}/${TRIAL_PRODUCT}?tags=${WEBSITE_CHECKOUT.tagKey}:${encodeURIComponent(token)}`
+    : `mailto:${REACH_EMAIL}?subject=${encodeURIComponent(`Yes, build my website (${business})`)}&body=${encodeURIComponent(`Hi Szilard,\n\nYes, please build my new website.\n\n${first}`)}`;
+  const yesAttrs = TRIAL_PRODUCT ? ' target="_blank" rel="noopener"' : '';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
 <title>${esc(title)}</title>
 ${demo.poster ? `<meta property="og:image" content="${esc(demo.poster)}">` : ''}
-<style>${CSS}.short .from,.short h1,.short .lede{text-align:center}.short h1{font-size:clamp(18px,5.4vw,36px);white-space:nowrap}.short .lede{font-size:clamp(16px,calc(3.6vw + 4px),21px);margin:0 0 20px;text-wrap:balance}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}.call ul{list-style:none;padding:0;max-width:560px;margin:16px auto 0}.call li{display:flex;gap:12px;margin:12px 0}.call li::before{content:"";flex:none;width:16px;height:16px;margin-top:7px;border-radius:50%;background:var(--green);box-shadow:inset 0 0 0 4px #dcfce7}.call .go{text-align:center;margin:22px 0 0}.sig{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:34px}.sig img{width:64px;height:64px;border-radius:50%;object-fit:cover}.sig b{display:block;font-size:18px}.sig span{display:block;color:var(--muted);font-size:16px}</style></head><body><main class="short">
+<style>${CSS}.short .from,.short h1,.short .lede{text-align:center}.short h1{font-size:clamp(18px,5.4vw,36px);white-space:nowrap}.short .lede{font-size:clamp(16px,calc(3.6vw + 4px),21px);margin:0 0 20px;text-wrap:balance}.reach{text-align:center;margin-top:14px;font-size:18px}.reach a{color:var(--navy);font-weight:700}.call ul{list-style:none;padding:0;max-width:560px;margin:16px auto 0}.call li{display:flex;gap:12px;margin:12px 0}.call li::before{content:"";flex:none;width:16px;height:16px;margin-top:7px;border-radius:50%;background:var(--green);box-shadow:inset 0 0 0 4px #dcfce7}.call .go{text-align:center;margin:22px 0 0}.sig{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:34px}.sig img{width:64px;height:64px;border-radius:50%;object-fit:cover}.sig b{display:block;font-size:18px}.sig span{display:block;color:var(--muted);font-size:16px}.offer{background:var(--card);border:3px solid var(--green);border-radius:18px;padding:26px 22px;box-shadow:0 14px 34px rgba(21,128,61,.14);display:flex;flex-direction:column;gap:14px;margin-top:20px}.o-price{display:flex;align-items:baseline;justify-content:center;gap:10px;flex-wrap:wrap}.o-price b{font-size:64px;line-height:1;color:var(--green)}.o-price span{font-size:20px;font-weight:700}.o-then{text-align:center;font-weight:700;font-size:20px;margin-top:-4px}.o-list{list-style:none;margin:4px 0;padding:0;display:grid;gap:10px}.o-list li{display:grid;grid-template-columns:22px 1fr;gap:10px}.o-list li::before{content:"";width:18px;height:18px;margin-top:5px;border-radius:50%;background:var(--green);box-shadow:inset 0 0 0 4px #dcfce7}.final .sig{margin-top:26px}.final .reach{margin-top:20px}.why{display:grid;gap:14px;margin-top:16px}.why p{color:var(--muted)}.why p:last-child{color:var(--ink);font-weight:600}.o-intro{text-align:center;color:var(--muted);margin:0 auto;max-width:32em}.o-limit{text-align:center;font-weight:700;color:var(--gold);font-size:16.5px;margin-top:-4px}.cmp{position:relative;max-width:980px;margin:0 auto;aspect-ratio:16/9;border-radius:16px;overflow:hidden;box-shadow:0 14px 40px rgba(15,23,42,.22);background:#fff;user-select:none;touch-action:pan-y}.cmp img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;display:block;pointer-events:none}.cmp-before{position:absolute;inset:0;clip-path:inset(0 calc(100% - var(--pos)) 0 0)}.cmp-line{position:absolute;top:0;bottom:0;left:var(--pos);width:4px;margin-left:-2px;background:#fff;box-shadow:0 0 8px rgba(0,0,0,.4);pointer-events:none}.cmp-knob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:52px;height:52px;border-radius:50%;background:#fff;color:var(--navy);display:grid;place-items:center;font:800 22px var(--font);box-shadow:0 4px 14px rgba(0,0,0,.35)}.cmp-range{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:ew-resize;-webkit-appearance:none;appearance:none}.cmp .tag{top:12px}.cmp-tb{left:12px}.cmp-ta{left:auto;right:12px}.hint .link{font-size:inherit;padding:0 2px}@media (max-width:640px){.cmp{margin:0 -10px;border-radius:12px}.cmp-knob{width:44px;height:44px;font-size:18px}.cmp .tag{font-size:13px;padding:4px 10px;top:8px}.cmp-tb{left:8px}.cmp-ta{right:8px}}</style></head><body><main class="short">
 <div class="narrow">
 <p class="from">A video from <b>Szilard at BlueFX</b></p>
 <h1>${esc(title)}</h1>
 <p class="lede">It's a draft, so anything on it can be changed.</p>
 </div>
+${slider ? `<div class="cmp" id="cmp" style="--pos:50%"><img class="cmp-after" src="${esc(demo.after as string)}" alt="Your new homepage"><div class="cmp-before"><img src="${esc(demo.before as string)}" alt="Your website today"></div>
+<span class="tag tag-b cmp-tb">Before</span><span class="tag tag-a cmp-ta">After</span><div class="cmp-line" aria-hidden="true"><span class="cmp-knob">&#x2039; &#x203A;</span></div>
+<input class="cmp-range" id="cmpr" type="range" min="0" max="100" value="50" aria-label="Slide to compare your website today and your new homepage"></div>
+<p class="hint">Drag the slider to compare. See the whole page: <button type="button" class="link shot" data-shot="0">Your website today</button> &middot; <button type="button" class="link shot" data-shot="1">Your new homepage</button></p>
+<div class="cta-pair"><a class="btn" href="#offer">Yes, build my website</a></div>
+<p class="reach">$0 for 30 days, then $99 a month. Cancel anytime.</p>
+<section aria-labelledby="vid-h"><h2 id="vid-h">Watch: why I made your new website</h2>
 <div class="player"><video id="v" src="${esc(demo.video)}"${demo.poster ? ` poster="${esc(demo.poster)}"` : ''} controls playsinline preload="metadata"></video></div>
+<button type="button" class="ghost" id="fs">&#x26F6; Watch full screen</button></section>
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Before and after, full page"><div class="lb-bar"><button type="button" class="tab" data-tab="0">Your website today</button><button type="button" class="tab" data-tab="1">Your new homepage</button><button type="button" class="x" id="lbx">&#x2715; Close</button></div><div class="lb-scroll" id="lbs"><img id="lbi" alt=""></div></div>` : `<div class="player"><video id="v" src="${esc(demo.video)}"${demo.poster ? ` poster="${esc(demo.poster)}"` : ''} controls playsinline preload="metadata"></video></div>
 <button type="button" class="ghost" id="fs">&#x26F6; Watch full screen</button>
-<div class="cta-pair"><a class="btn js-reply" href="${esc(mailHref)}">Email me</a></div>
-<p class="reach"><a class="js-reply" href="${esc(mailHref)}">${REACH_EMAIL}</a></p>
-${hasShots ? `<section class="ba" aria-labelledby="ba-h"><h2 id="ba-h">Before and after</h2><div class="ba-grid">
+<div class="cta-pair"><a class="btn" href="#offer">Yes, build my website</a></div>
+<p class="reach">$0 for 30 days, then $99 a month. Cancel anytime.</p>`}
+${hasShots && !slider ? `<section class="ba" aria-labelledby="ba-h"><h2 id="ba-h">Before and after</h2><div class="ba-grid">
 <figure class="before"><span class="tag tag-b">Before</span><button type="button" class="shot" data-shot="0" aria-label="See your website today, full page"><img src="${esc(demo.before as string)}" alt="Your website today" loading="lazy"></button><figcaption>Your website today <small>See full page</small></figcaption></figure>
 ${ARROW}
 <figure class="after"><span class="tag tag-a">After</span><button type="button" class="shot" data-shot="1" aria-label="See your new homepage, full page"><img src="${esc(demo.after as string)}" alt="Your new homepage" loading="lazy"></button><figcaption>Your new homepage <small>See full page</small></figcaption></figure>
 </div><p class="hint">Tap either picture to see the whole page.</p></section>
 <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Before and after, full page"><div class="lb-bar"><button type="button" class="tab" data-tab="0">Your website today</button><button type="button" class="tab" data-tab="1">Your new homepage</button><button type="button" class="x" id="lbx">&#x2715; Close</button></div><div class="lb-scroll" id="lbs"><img id="lbi" alt=""></div></div>` : ''}
-<section class="narrow call" aria-labelledby="call-h"><h2 id="call-h">On a quick 15-minute call, I'll show you:</h2>
-<ul><li>Your new homepage, and we change anything you want.</li><li>Where you come up on Google when people search for you.</li><li>What ChatGPT tells your customers when they ask about you.</li></ul>
-<p class="go">Email me and we'll find a good time.</p>
-<p class="reach"><a class="js-reply" href="${esc(mailHref)}">${REACH_EMAIL}</a></p>
+<section class="narrow" aria-labelledby="why-h"><h2 id="why-h">Your customers are asking ChatGPT now</h2>
+<div class="why">${TRIAL_WHY.map((line) => `<p>${esc(line)}</p>`).join('')}</div></section>
+<section class="narrow" id="offer" aria-labelledby="offer-h"><p class="kick">Your new website</p><h2 id="offer-h">We build your whole website, ready for AI search. Your first 30 days are $0.</h2>
+<p class="o-intro">You've already seen your new homepage above. When we start, you can ask us to change anything on your new website.</p>
+<div class="offer">
+<div class="o-price"><b>$0</b><span>for the first 30 days</span></div>
+<p class="o-then">Then $99 a month. Cancel anytime.</p>
+<ul class="o-list">${TRIAL_INCLUDED.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>
+<a class="btn js-yes" href="${esc(yesHref)}"${yesAttrs}>Yes, build my website</a>
+<p class="fine">You pay $0 today. Cancel before day 30 and you pay $0.</p>
+<p class="o-limit">We build new websites first come, first served. Save your spot now, and we'll schedule your website build today while we still have open spots this month.</p>
+</div></section>
+<section class="narrow" aria-labelledby="steps-h"><h2 id="steps-h">How your new website gets built</h2>
+<ol class="steps">${TRIAL_STEPS.map(([b, t]) => `<li><div><b>${esc(b)}</b><span>${esc(t)}</span></div></li>`).join('\n')}</ol></section>
+<section class="narrow" aria-labelledby="faq-h"><h2 id="faq-h">Questions</h2>
+<div class="faq">${TRIAL_FAQ.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join('\n')}</div></section>
+<section class="narrow final" aria-labelledby="final-h"><h2 id="final-h">Ready for your new website?</h2>
+<p>$0 for 30 days, then $99 a month. Cancel anytime.</p>
+<div class="cta-pair"><a class="btn js-yes" href="${esc(yesHref)}"${yesAttrs}>Yes, build my website</a></div>
+<p class="o-limit" style="margin-top:14px">First come, first served. Save your spot while we still have open spots this month.</p>
+<p class="reach">Questions? Email me at <a class="js-reply" href="${esc(mailHref)}">${REACH_EMAIL}</a></p>
 <div class="sig"><img src="${PHOTO_URL}" alt="Szilard Gyorfi" width="64" height="64" loading="lazy"><div><b>Szilard Gyorfi</b><span>Founder, BlueFX</span></div></div></section>
 </main>
 <script>(function(){var c=${config};var vid;try{vid=localStorage.getItem('fv_vid')||(Math.random().toString(36).slice(2)+Date.now().toString(36));localStorage.setItem('fv_vid',vid)}catch(e){vid=null}
@@ -456,6 +528,8 @@ document.getElementById('fs').addEventListener('click',function(){try{if(v.reque
 v.addEventListener('play',function(){if(!played){played=true;send('website_play')}});
 v.addEventListener('timeupdate',function(){if(!watched&&v.duration&&v.currentTime/v.duration>=0.6){watched=true;send('website_watched')}});
 [].forEach.call(document.querySelectorAll('.js-reply'),function(a){a.addEventListener('click',function(){send('website_interest','reply')})});
+[].forEach.call(document.querySelectorAll('.js-yes'),function(a){a.addEventListener('click',function(){send('website_interest','trial')})});
+var cmp=document.getElementById('cmp'),cmpr=document.getElementById('cmpr');if(cmp&&cmpr){cmpr.addEventListener('input',function(){cmp.style.setProperty('--pos',cmpr.value+'%')})}
 var lb=document.getElementById('lb');if(lb){var shots=c.shots,lbi=document.getElementById('lbi'),lbs=document.getElementById('lbs');
  function close(){lb.classList.remove('open');document.body.style.overflow=''}
  document.getElementById('lbx').addEventListener('click',close);lbs.addEventListener('click',function(e){if(e.target===lbs)close()});

@@ -113,7 +113,7 @@ export async function recordWebsiteEvent(lead: FreeVideoLead, demo: WebsiteDemo,
   const action: VipAction = plan
     ? { kind: 'checkout', label: `clicked to start the ${plan.name} website` }
     : event === 'website_interest'
-      ? { kind: 'talk', label: byEmail ? 'clicked Email me' : "clicked Let's talk" }
+      ? { kind: 'talk', label: planKey === 'trial' ? 'clicked Yes, build my website ($0 for 30 days, then $99/mo)' : byEmail ? 'clicked Email me' : "clicked Let's talk" }
       : { kind: 'watched', label: 'watched their website video' };
   const { mark, promoted } = await vipAfterAction(lead, action);
   const tag = mark?.vip ? 'VIP lead' : 'Website lead';
