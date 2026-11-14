@@ -408,7 +408,7 @@ details ul{margin-top:10px!important}
  * anytime, no calls. Card taken at checkout with a 30-day $0 trial. TRIAL_PRODUCT is the FastSpring product path once the
  * owner has made it (it must contain WEBSITE_PLAN_MARKER); while it is empty, "Yes, build my website" is a "yes" email.
  */
-const TRIAL_PRODUCT = '';
+const TRIAL_PRODUCT = 'new-website-99'; // FastSpring: $99/mo, 30-day free trial, card required (made 2026-11-14)
 /** Owner 2026-11-14: AI search ready is the speciality; modern design second; never how they edit the site later. */
 const TRIAL_INCLUDED = [
   'Built for AI search, so ChatGPT and other AI tools can read your website and recommend your business',

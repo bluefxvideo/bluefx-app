@@ -179,16 +179,20 @@ export async function handleWebsitePlanOrder(eventType: string, data: unknown): 
     if (lead && !(test && isLive())) {
       await recordEvent({ event: 'website_purchase', leadId: lead.id, placement: 'website', ref: lead.ref, meta: { order: order.id, plan: plan?.key ?? null, amount: order.amount, currency: order.currency } });
     }
+    // The $0-for-30-days offer (owner 2026-11-14): FastSpring product new-website-99, card taken, $99/mo after the trial.
+    const trial = order.products.some((path) => path.toLowerCase() === 'new-website-99');
     await emailOwner(
-      `${test ? '[TEST ORDER] ' : ''}Website SOLD: ${name}${business ? ` (${business})` : ''} bought ${plan?.name ?? 'a website plan'}`,
+      trial
+        ? `${test ? '[TEST ORDER] ' : ''}Website TRIAL started: ${name}${business ? ` (${business})` : ''} ($0 for 30 days, then $99/mo)`
+        : `${test ? '[TEST ORDER] ' : ''}Website SOLD: ${name}${business ? ` (${business})` : ''} bought ${plan?.name ?? 'a website plan'}`,
       [
-        `${name}${business ? ` (${business})` : ''} paid for ${plan ? `${plan.name}, ${planPriceLine(plan)}` : order.products.join(', ')}.`,
+        trial ? `${name}${business ? ` (${business})` : ''} started the free month of Your New Website. FastSpring charges $99 on day 30, then monthly.` : `${name}${business ? ` (${business})` : ''} paid for ${plan ? `${plan.name}, ${planPriceLine(plan)}` : order.products.join(', ')}.`,
         `FastSpring order: ${order.id ?? '?'}${order.amount !== null ? `, ${order.amount} ${order.currency ?? ''}` : ''}`,
         `Buyer email: ${order.email ?? lead?.email ?? '?'}`,
         lead ? `Their website: https://${lead.website_domain}` : 'No free video lead matches this order (no tag, no lead with the buyer\'s email).',
         lead ? `Their page: ${SITE_URL}/v/${lead.view_token}/website?internal=1` : '',
         '',
-        'Next: welcome them and start the full website (What happens next, step 2).',
+        trial ? 'Next: welcome them, ask for logo, photos and changes, and build the full website within 7 days.' : 'Next: welcome them and start the full website (What happens next, step 2).',
       ].filter((line, i, all) => line !== '' || all[i - 1] !== '').join('\n'),
     );
     console.log(`✅ [website-demo] Website plan order ${order.id} (${plan?.key ?? order.products.join(',')})${lead ? ` for ${lead.website_domain}` : ''}: owner emailed`);
