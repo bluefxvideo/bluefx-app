@@ -4,6 +4,7 @@ import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
 import { liftSuspensionAfterPurchase } from '@/lib/credits/subscription-entitlement'
 import { insertBuyerProfile } from '@/lib/credits/buyer-profile'
 import { grantCreditBankIfLaunched, lookupCreditBank } from '@/lib/credits/credit-bank'
+import { clickBankVideoAdIn, handleClickBankVideoAdPost } from '@/lib/free-video/clickbank-video-ad'
 
 // Credit allocation constants - match FastSpring trial handling
 const TRIAL_CREDITS = 100;  // Trial users get limited credits (~$3-5 cost if fully used)
@@ -38,6 +39,15 @@ export async function POST(request: NextRequest) {
   const zapierSecret = request.headers.get('x-zapier-secret')
   if (process.env.ZAPIER_WEBHOOK_SECRET && zapierSecret !== process.env.ZAPIER_WEBHOOK_SECRET) {
     return NextResponse.json({ error: 'Invalid webhook secret' }, { status: 401 })
+  }
+
+  // The ClickBank affiliate funnel's $49 clean video ad (bluefx02 item 12, docs/cb-affiliate-funnel.md §5) is handled by
+  // lib/free-video/clickbank-video-ad.ts before anything below reads the post: it never creates an account, never
+  // touches credits and never writes a SALE row. Only a receipt that also holds another item goes on below, as today.
+  const videoAd = clickBankVideoAdIn(payload)
+  if (videoAd) {
+    const result = await handleClickBankVideoAdPost(payload, request.headers.get('content-type'))
+    if (videoAd === 'only') return NextResponse.json(result.body, { status: result.status })
   }
 
   // Handle both direct ClickBank format and Zapier-formatted data

@@ -113,6 +113,13 @@ export const ML_GROUP_NAMES = {
   bought: 'Free Video - Bought',
   /** Joined when the clean (unlocked) video ad is ready; the owner's 1-email automation sends free_video_clean_url. */
   unlocked: 'Free Video - Unlocked',
+  /** The ClickBank affiliate funnel's own groups (ML_GROUP_CB_* below), created 2026-11-14. */
+  cbLeads: 'CB Funnel - Leads',
+  cbReady: 'CB Funnel - Ready',
+  cbPaid: 'CB Funnel - Paid $49',
+  cbUnlocked: 'CB Funnel - Unlocked',
+  cbBought: 'CB Funnel - Bought AIMM',
+  cbNoVideo: 'CB Funnel - No video',
 } as const;
 
 // The ids MailerLite returned when the groups were created (2026-10-06, main account). Empty = not created.
@@ -149,6 +156,24 @@ export const ML_GROUP_SERVICE_JOINED: string = '202278615316956617';
  * 'Website follow-up (3 emails)' excludes this group and exits on it, so a watcher never gets both.
  */
 export const ML_GROUP_WEBSITE_WATCHED: string = '203677733710989023';
+
+// The ClickBank affiliate funnel's own groups (owner 2026-11-14, docs/cb-affiliate-funnel.md §6; created 2026-11-14).
+// A lead whose ref starts with 'cbaff-' (funnel.ts) joins ONLY these, never the groups above: their automations carry
+// affiliate=bluefx01 links (ClickBank pays the newest HopLink, so the outside affiliate would lose the sale), FastSpring
+// prices and the owner's own offers. notify.ts picks the group. Empty = not created: nothing is joined, and a finished
+// cb lead waits for its email (deliverLead), like the groups above.
+/** A queued cb signup, at submit (in place of 'Free Video - Leads'). */
+export const ML_GROUP_CB_LEADS: string = '204061356175918577';
+/** The cb lead's free video ad is done (in place of Ready / $49 Ready); the CB follow-up starts here. */
+export const ML_GROUP_CB_READY: string = '204061357236029079';
+/** ClickBank item 12 ($49) paid, at once: the CB follow-up's exit (Unlocked comes only after the clean render). */
+export const ML_GROUP_CB_PAID: string = '204061358258390128';
+/** The cb buyer's clean video ad is ready (in place of 'Free Video - Unlocked' and 'Free Video - Bought'). */
+export const ML_GROUP_CB_UNLOCKED: string = '204061359500952970';
+/** A cb lead bought the AI Media Machine (sweep.ts attributeSales, in place of 'Free Video - Bought'). */
+export const ML_GROUP_CB_BOUGHT: string = '204061360723592767';
+/** A rejected cb signup (in place of 'No video (auto)', whose rescue email links affiliate=bluefx01); never a blocked affiliate's lead. */
+export const ML_GROUP_CB_NO_VIDEO: string = '204061361743857319';
 
 /** True once all four group ids are filled in. */
 export function mailerLiteGroupsReady(): boolean {

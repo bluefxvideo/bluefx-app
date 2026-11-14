@@ -1,5 +1,5 @@
 import { eventsTable } from '@/lib/free-video/leads';
-import { UNLOCK } from '@/lib/free-video/offer';
+import { CB_UNLOCK, UNLOCK } from '@/lib/free-video/offer';
 import { offerSwitchOf } from '@/lib/free-video/offer-switch';
 
 /** The unlock price one lead sees now: the launch price until its clock runs out, then the regular price. */
@@ -39,4 +39,15 @@ export async function unlockPriceOf(leadId: string, now = Date.now()): Promise<U
   return now < ends
     ? { launch: true, price: UNLOCK.price, regular: UNLOCK.regularPrice, product: UNLOCK.launchProduct, endsAt: new Date(ends).toISOString() }
     : { launch: false, price: UNLOCK.regularPrice, regular: UNLOCK.regularPrice, product: UNLOCK.product, endsAt: null };
+}
+
+/** The product a ClickBank funnel price names. Never a FastSpring path: that page opens no FastSpring popup. */
+export const CB_UNLOCK_PRODUCT = 'clickbank-item-12';
+
+/**
+ * The ClickBank funnel's price (spec 2026-11-14 §4): ClickBank item 12 always charges $49, so there is no launch clock,
+ * no "$99", no strike-through and no timer. The FastSpring clock (unlockPriceOf) is never read for these leads.
+ */
+export function clickBankUnlockPrice(): UnlockPrice {
+  return { launch: false, price: CB_UNLOCK.price, regular: CB_UNLOCK.price, product: CB_UNLOCK_PRODUCT, endsAt: null };
 }

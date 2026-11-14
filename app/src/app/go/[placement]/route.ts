@@ -2,14 +2,15 @@ import { after, type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/app/supabase/server';
 import { claimFreeVideo } from '@/lib/free-video/claim';
 import { hopFromSearchParams, withHop } from '@/lib/free-video/clickbank';
-import { savedHopByToken } from '@/lib/free-video/clickbank-hops';
+import { savedHop, savedHopByToken } from '@/lib/free-video/clickbank-hops';
 import { SITE_URL } from '@/lib/free-video/config';
 import { unlockOpen } from '@/lib/free-video/cleanup';
+import { isClickBankRef } from '@/lib/free-video/funnel';
 import { clientIp, getLeadByToken, isActiveCustomerId, markClicked } from '@/lib/free-video/leads';
 import { rememberCheckoutIds, requestFacts, trackCheckout } from '@/lib/free-video/meta';
 import { serviceClockStart, servicePhaseAt } from '@/lib/free-video/service-page';
 import { unlockPriceOf } from '@/lib/free-video/unlock-price';
-import { checkoutUrl, isEmailPlacement, isPlacement, isResultPagePlacement, isSalesPagePlacement, PLAN_PLACEMENT, PLAN_TRIAL_PRODUCT, resultCheckoutUrl, salesPageUrl, SERVICE, serviceCheckoutUrl, UNLOCK, unlockCheckoutUrl, unlockPagePath } from '@/lib/free-video/offer';
+import { cbUnlockCheckoutUrl, checkoutUrl, isEmailPlacement, isPlacement, isResultPagePlacement, isSalesPagePlacement, PLAN_PLACEMENT, PLAN_TRIAL_PRODUCT, resultCheckoutUrl, salesPageUrl, SERVICE, serviceCheckoutUrl, UNLOCK, unlockCheckoutUrl, unlockPagePath } from '@/lib/free-video/offer';
 import { CLICK_VISITOR_PARAM, VISITOR_ID_PATTERN } from '@/lib/free-video/internal-visit';
 import { CHECKOUT_EVENT_PARAM } from '@/lib/free-video/pixel';
 import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
@@ -25,7 +26,8 @@ import { FREE_VIDEO_TOKEN_PATTERN } from '@/types/free-video';
  * - 'fvunlock' (Offer 1, the $99 clean video ad) → 302 to the lead's FastSpring checkout, ONLY for a valid token of an
  *   existing lead (404 otherwise). A lead that has already paid, whose video ad will never exist, or whose unlock
  *   closed (30 days, cleanup.ts) is sent to its video ad page instead, so nobody pays twice or pays for nothing. The
- *   click saves the browser's Facebook ids on the lead, for the Purchase the payment sends later.
+ *   click saves the browser's Facebook ids on the lead, for the Purchase the payment sends later. A lead of the ClickBank
+ *   affiliate funnel (ref 'cbaff-...') goes to ClickBank item 12 instead (offer.ts cbUnlockCheckoutUrl), with its hop.
  * - 'fvplan' (the Weekly Video Plan offered on the unlock page) → 302 to the $99 plan's FastSpring checkout, click logged.
  * - 'claim' ("Open this video ad in the AI Media Machine") → a signed-in customer gets a copy of the finished video ad
  *   in their Phantom videos (claim.ts) and lands on it; signed out → the login page, back here after; not a customer
@@ -78,6 +80,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plac
     if (lead.status === 'rejected' || lead.status === 'failed') return redirect(page);
     // 30 days after the video ad: the working files the clean version is made from are about to go (cleanup.ts).
     if (lead.status === 'done' && !unlockOpen(lead)) return redirect(page);
+    // The ClickBank affiliate funnel (docs/cb-affiliate-funnel.md §3): ClickBank item 12 instead of FastSpring, with the
+    // affiliate's hop (this browser's, else the one saved at opt-in) so ClickBank credits the affiliate.
+    if (isClickBankRef(lead.ref)) return redirect(withHop(cbUnlockCheckoutUrl(token, lead.id), hopFromSearchParams(req.nextUrl.searchParams) ?? (await savedHop(lead.id))));
     return redirect(unlockCheckoutUrl(token, (await unlockPriceOf(lead.id)).product));
   }
 

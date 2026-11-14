@@ -15,7 +15,7 @@
  */
 import { createAdminClient } from '@/app/supabase/server';
 import { ML_FIELDS, ML_GROUP_READY, ML_GROUP_SERVICE_READY, ML_GROUP_VIDEO_READY, SITE_URL } from '@/lib/free-video/config';
-import { isServiceRef } from '@/lib/free-video/funnel';
+import { isClickBankRef, isServiceRef } from '@/lib/free-video/funnel';
 import { cleanCopyEarned } from '@/lib/free-video/offer';
 import { displayDomain } from '@/lib/free-video/website';
 import { subscribeToMailerLite } from '@/lib/mailerlite/subscribe';
@@ -71,10 +71,11 @@ export async function offerSwitchesOf(leadIds: string[]): Promise<Map<string, Of
 /**
  * The offer a lead sees: the owner's newest switch, else the funnel it came from. Funnel 2 (the 'svc-' tags, /free-ad)
  * sells the $49 video ad since 2026-10-27 (owner: "turn funnel 2 into the $49 funnel"; the $99 a month plan is sold
- * only after the $49).
+ * only after the $49). The ClickBank funnel (the 'cbaff-' tags, /your-video-ad) sells the same $49 video ad, so it gets
+ * the same offer; where it differs (ClickBank checkout, its own emails) the code asks funnelOf(lead.ref) === 'cb'.
  */
 export const offerOf = (lead: Pick<FreeVideoLead, 'ref'>, sw: OfferSwitch | null | undefined): FreeVideoOffer =>
-  sw ? sw.offer : isServiceRef(lead.ref) ? 'video' : 'machine';
+  sw ? sw.offer : isClickBankRef(lead.ref) || isServiceRef(lead.ref) ? 'video' : 'machine';
 
 export const OFFER_NAMES: Record<FreeVideoOffer, string> = { machine: 'AI Media Machine', service: 'Unlimited Video Ads', video: '$49 video ad' };
 

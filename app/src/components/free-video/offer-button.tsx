@@ -16,6 +16,11 @@ interface OfferButtonProps {
    * opens in the same tab and sends no InitiateCheckout or begin_checkout. The affiliate's hop still goes on the link.
    */
   checkout?: boolean;
+  /**
+   * false: no browser pixel InitiateCheckout on the click (the ClickBank affiliate funnel sends Facebook nothing, spec
+   * 2026-11-14 §4). The link, the ?e= event id, the click's browser id and begin_checkout stay exactly the same.
+   */
+  pixel?: boolean;
 }
 
 /**
@@ -27,7 +32,7 @@ interface OfferButtonProps {
  * ran (the video ad just finished) asks the script for its hop again (finishHop). data-fv-bar-hide: the buy bar on
  * phones (buy-bar.tsx) steps aside while one of these buttons is on screen.
  */
-export function OfferButton({ href, className, children, checkout = true }: OfferButtonProps) {
+export function OfferButton({ href, className, children, checkout = true, pixel = true }: OfferButtonProps) {
   useEffect(() => {
     try {
       (window as Window & { finishHop?: () => void }).finishHop?.();
@@ -51,7 +56,7 @@ export function OfferButton({ href, className, children, checkout = true }: Offe
       rel="noopener noreferrer"
       onClick={(event) => {
         const eventId = newCheckoutEventId();
-        trackPixel('InitiateCheckout', PIXEL_DATA.checkout, eventId);
+        if (pixel) trackPixel('InitiateCheckout', PIXEL_DATA.checkout, eventId);
         trackCheckout(href);
         const current = new URL(event.currentTarget.href, window.location.href);
         current.searchParams.delete(CHECKOUT_EVENT_PARAM);

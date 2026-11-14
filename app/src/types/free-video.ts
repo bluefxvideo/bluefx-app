@@ -315,6 +315,15 @@ export interface FreeVideoView {
   service?: boolean;
   /** Funnel 2 (or a lead switched to it): the finished video ad opens on the $49 page, /v/<token>/unlock. */
   videoOffer?: boolean;
+  /** The funnel the lead came from, by its ref (funnel.ts funnelOf): 'cb' = the ClickBank affiliate funnel. Always set by toView. */
+  funnel?: 'app' | 'service' | 'cb';
+  /** A ClickBank funnel lead's affiliate nickname (lowercase), only when its link named a valid one. */
+  affiliate?: string;
+  /**
+   * unreadable only: a ClickBank funnel lead turned away because its affiliate is blocked (cb-affiliates.ts), not a
+   * website that could not be read. The page shows the form's "all taken" answer and no retry link.
+   */
+  closed?: boolean;
   /** Offer 1, the $99 unlock. */
   unlock: FreeVideoUnlockView;
   /** P1 */

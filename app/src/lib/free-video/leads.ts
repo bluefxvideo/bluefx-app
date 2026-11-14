@@ -22,8 +22,9 @@ import { createAdminClient } from '@/app/supabase/server';
 import { INTAKE, IP_ROWS_PER_DAY, JOB_MINUTES, OWNER_TEST_EMAILS, SETTINGS_CACHE_MS, UNREADABLE } from '@/lib/free-video/config';
 import { unlockOpen } from '@/lib/free-video/cleanup';
 import { isCreditBankLive } from '@/lib/credits/credit-bank-launch';
+import { CB_BLOCKED_REASON_PREFIX, isAffiliateBlocked } from '@/lib/free-video/cb-affiliates';
 import { ERRORS } from '@/lib/free-video/copy';
-import { isServiceRef } from '@/lib/free-video/funnel';
+import { affiliateOfRef, funnelOf, isClickBankRef, isServiceRef } from '@/lib/free-video/funnel';
 import { cleanCopyUntil, isPlacement, unlockGoUrl } from '@/lib/free-video/offer';
 import { offerOf, offerSwitchOf } from '@/lib/free-video/offer-switch';
 import { displayDomain, emailKeyOf, normalizeWebsite, precheckSite } from '@/lib/free-video/website';
@@ -248,6 +249,8 @@ export const RETIRED_OWNER_TEST = 'replaced by a new owner test';
  * 3. the caps → 429 tooMany (per IP, per address), and a refused host (marketplace, social network,
  *    Google) is stored as 'rejected' so the email is kept (review F11) → 400 refused.
  * 4. the daily cap → 503 closed; an existing lead for the email key or the domain → 409.
+ * 4b. a ClickBank funnel lead whose affiliate is blocked (cb-affiliates.ts) → stored as 'rejected' with the
+ *    blocked reason, no pre-check → 503 closed.
  * 5. the website pre-check (at most INTAKE.precheckSlots at once, else 503 generic) → 400 notFound or
  *    refused; unreadable → a 'rejected' row (the email is captured, both keys stay free) and 422.
  * 6. is_customer: an ACTIVE AI Media Machine subscription (review F1).
@@ -327,6 +330,22 @@ export async function createLead(input: FreeVideoLeadInput, meta: LeadMeta): Pro
     if (!ownerTest && meta.source !== 'test' && dailyLeads >= settings.daily_leads) return fail(503, 'closed', ERRORS.closed);
     if (emailTaken) return fail(409, 'duplicateEmail', ERRORS.duplicateEmail);
     if (siteTaken) return fail(409, 'duplicateSite', ERRORS.duplicateSite(displayDomain(domain)));
+
+    // 4b. A blocked ClickBank affiliate's visitor: no video ad and no pre-check; they read "all taken, come back tomorrow".
+    // The request is kept as rejected only so the affiliate report can count it (the POST route sends it to no email list).
+    const affiliate = isClickBankRef(input.ref) ? affiliateOfRef(input.ref) : null;
+    if (affiliate && (await isAffiliateBlocked(affiliate))) {
+      const stored = await insertLead({
+        ...base,
+        website_url: url,
+        view_token: newViewToken(),
+        status: 'rejected',
+        reason: `${CB_BLOCKED_REASON_PREFIX}${affiliate}`,
+        is_customer: false,
+      });
+      console.log(`⚠️ [free-video] Affiliate ${affiliate} is blocked: no video ad for ${domain}${stored.lead ? `; lead ${stored.lead.id} kept as rejected` : ` (not stored: ${stored.outcome})`}`);
+      return fail(503, 'closed', ERRORS.closed, stored.lead);
+    }
 
     // 5 + 6. The website pre-check (one light GET through safeFetch) and the customer check, in parallel.
     if (prechecksRunning >= INTAKE.precheckSlots) return fail(503, 'generic', ERRORS.generic);
@@ -655,6 +674,8 @@ export function unlockViewOf(lead: FreeVideoLead): FreeVideoUnlockView {
 export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | null): Promise<FreeVideoView> {
   // The owner may have switched this lead to the other offer (offer-switch.ts); that offer's clock starts at the switch.
   const sw = lead.status === 'done' ? await offerSwitchOf(lead.id) : null;
+  const funnel = funnelOf(lead.ref);
+  const affiliate = funnel === 'cb' ? affiliateOfRef(lead.ref) : null;
   // A lead whose email bought the AI Media Machine since (bought_at) counts as a customer: its video ad goes into the account.
   const base = {
     firstName: lead.first_name,
@@ -664,6 +685,9 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
     // The service funnel (funnel.ts), or a lead the owner switched to it: its finished video ad lives on the Unlimited Video Ads page.
     ...(offerOf(lead, sw) === 'service' ? { service: true } : {}),
     ...(offerOf(lead, sw) === 'video' ? { videoOffer: true } : {}),
+    // The funnel it came from (funnel.ts) and a ClickBank lead's affiliate: the pages pick the checkout, copy and links by them.
+    funnel,
+    ...(affiliate ? { affiliate } : {}),
   };
   switch (lead.status) {
     case 'queued': {
@@ -723,7 +747,13 @@ export async function toView(lead: FreeVideoLead, settings: FreeVideoSettings | 
       return { ...base, state: 'failed' };
     case 'rejected':
     default:
-      return { ...base, state: 'unreadable' };
+      // An affiliate block (cb-affiliates.ts) is not an unreadable website: that page says "all taken" and offers no
+      // retry. Only a boolean leaves the server; the reason stays private.
+      return {
+        ...base,
+        state: 'unreadable',
+        ...(funnel === 'cb' && lead.reason?.startsWith(CB_BLOCKED_REASON_PREFIX) ? { closed: true } : {}),
+      };
   }
 }
 

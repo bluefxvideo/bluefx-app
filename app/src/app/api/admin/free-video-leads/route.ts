@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient, createClient } from '@/app/supabase/server';
+import { CB_BLOCKED_REASON_PREFIX } from '@/lib/free-video/cb-affiliates';
 import { hopLabel } from '@/lib/free-video/clickbank';
 import { savedHops } from '@/lib/free-video/clickbank-hops';
 import { OWNER_TEST_EMAILS } from '@/lib/free-video/config';
-import { isServiceRef } from '@/lib/free-video/funnel';
+import { affiliateOfRef, isClickBankRef, isOwnerTestRef, isServiceRef } from '@/lib/free-video/funnel';
 import { isLive } from '@/lib/free-video/config';
 import { getLead } from '@/lib/free-video/leads';
 import { OFFERS, offerOf, offerSwitchesOf, switchOffer, type FreeVideoOffer } from '@/lib/free-video/offer-switch';
@@ -11,7 +12,7 @@ import { OFFERS, offerOf, offerSwitchesOf, switchOffer, type FreeVideoOffer } fr
 /**
  * The free video ads people asked for, newest first, for the admin panel (owner 2026-10-07: "where can I see these
  * ads being created/requested?" "and who made it etc"). Admins only. ?status= narrows the list; the summary counts
- * the last 24 hours and the last 7 days.
+ * the last 24 hours and the last 7 days (the ClickBank funnel's leads only as one count, cb: they have their own tab).
  */
 const STATUSES = ['queued', 'running', 'done', 'held', 'failed', 'rejected'] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -117,19 +118,25 @@ export async function GET(request: NextRequest) {
       .gt('created_at', weekAgo)
       .limit(5000);
     if (weekError) throw new Error(weekError.message);
-    const summarize = (rows: Pick<LeadRow, 'id' | 'status' | 'ref' | 'est_cost_usd' | 'bought_at' | 'unlock_status'>[]) => ({
-      requests: rows.length,
-      done: rows.filter((row) => row.status === 'done').length,
-      waiting: rows.filter((row) => row.status === 'queued' || row.status === 'running').length,
-      problems: rows.filter((row) => row.status === 'held' || row.status === 'failed').length,
-      refused: rows.filter((row) => row.status === 'rejected').length,
-      bought: rows.filter((row) => row.bought_at).length,
-      // A service member's clean video ad also sets unlock_status; only a $99 unlock purchase counts here.
-      unlocked: rows.filter((row) => row.unlock_status !== 'none' && !servicePaid.has(row.id)).length,
-      joined: rows.filter((row) => servicePaid.has(row.id)).length,
-      serviceRequests: rows.filter((row) => isServiceRef(row.ref)).length,
-      costUsd: Math.round(rows.reduce((sum, row) => sum + (Number(row.est_cost_usd) || 0), 0) * 100) / 100,
-    });
+    const summarize = (all: Pick<LeadRow, 'id' | 'status' | 'ref' | 'est_cost_usd' | 'bought_at' | 'unlock_status'>[]) => {
+      // The ClickBank funnel has its own admin tab (clickbank-funnel): its leads stay out of these numbers and only show
+      // as one count, cb (without the owner's own tests from its page).
+      const rows = all.filter((row) => !isClickBankRef(row.ref));
+      return {
+        requests: rows.length,
+        done: rows.filter((row) => row.status === 'done').length,
+        waiting: rows.filter((row) => row.status === 'queued' || row.status === 'running').length,
+        problems: rows.filter((row) => row.status === 'held' || row.status === 'failed').length,
+        refused: rows.filter((row) => row.status === 'rejected').length,
+        bought: rows.filter((row) => row.bought_at).length,
+        // A service member's clean video ad also sets unlock_status; only a $99 unlock purchase counts here.
+        unlocked: rows.filter((row) => row.unlock_status !== 'none' && !servicePaid.has(row.id)).length,
+        joined: rows.filter((row) => servicePaid.has(row.id)).length,
+        serviceRequests: rows.filter((row) => isServiceRef(row.ref)).length,
+        costUsd: Math.round(rows.reduce((sum, row) => sum + (Number(row.est_cost_usd) || 0), 0) * 100) / 100,
+        cb: all.filter((row) => isClickBankRef(row.ref) && !isOwnerTestRef(row.ref)).length,
+      };
+    };
     const real = ((week ?? []) as (LeadRow & { email: string })[]).filter((row) => row.source !== 'test' && !OWNER_TEST_EMAILS.includes(row.email));
     const dayAgo = Date.now() - DAY_MS;
 
@@ -143,8 +150,11 @@ export async function GET(request: NextRequest) {
         ...lead,
         test: lead.source === 'test' || OWNER_TEST_EMAILS.includes(lead.email),
         inAccount: copied.has(lead.id),
-        affiliate: hopLabel(hops.get(lead.id)),
-        funnel: isServiceRef(lead.ref) ? 'service' : 'app',
+        // A ClickBank funnel lead's affiliate is the one its link named (the ref, funnel.ts), null without a valid one.
+        affiliate: isClickBankRef(lead.ref) ? affiliateOfRef(lead.ref) : hopLabel(hops.get(lead.id)),
+        funnel: isClickBankRef(lead.ref) ? 'cb' : isServiceRef(lead.ref) ? 'service' : 'app',
+        // Turned away because the owner blocked its affiliate (cb-affiliates.ts), not for its website.
+        blocked: isClickBankRef(lead.ref) && Boolean(lead.reason?.startsWith(CB_BLOCKED_REASON_PREFIX)),
         offer: offerOf(lead, switches.get(lead.id)),
         switchedAt: switches.get(lead.id)?.at.toISOString() ?? null,
         servicePaid: servicePaid.has(lead.id) ? { amount: servicePaid.get(lead.id) ?? null } : null,
@@ -159,7 +169,8 @@ export async function GET(request: NextRequest) {
 /**
  * Switch offer (offer-switch.ts): POST { leadId, to: 'machine' | 'service', followUp: boolean }. Moves one finished
  * lead's page to the other offer, starts that offer's clock now, stops the old offer's emails and, with followUp,
- * starts the new offer's follow-up emails. Admins only. Off the live server MailerLite is left alone.
+ * starts the new offer's follow-up emails. Admins only. Off the live server MailerLite is left alone. A ClickBank funnel
+ * lead answers 409 (it can't be switched).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -173,6 +184,11 @@ export async function POST(request: NextRequest) {
     }
     const lead = await getLead(leadId);
     if (!lead) return NextResponse.json({ success: false, error: 'Lead not found' }, { status: 404 });
+    // The ClickBank funnel sells one offer (the $49 video ad on ClickBank, with the affiliate's hop): no switch out of it,
+    // and no offer value switches a lead into it.
+    if (isClickBankRef(lead.ref)) {
+      return NextResponse.json({ success: false, error: "ClickBank funnel leads can't be switched" }, { status: 409 });
+    }
     if (lead.status !== 'done' || !lead.video_url) {
       return NextResponse.json({ success: false, error: 'Only a finished video ad can switch offer' }, { status: 409 });
     }

@@ -3,7 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
-import { DOWNLOAD, LAYOUT, LIVE, PLAYER, STATUS, SUPPORT_EMAIL, UNLOCK_COPY } from '@/lib/free-video/copy';
+import { DOWNLOAD, ERRORS, LAYOUT, LIVE, PLAYER, STATUS, SUPPORT_EMAIL, UNLOCK_COPY } from '@/lib/free-video/copy';
+import { CB_LANDING_PATH } from '@/lib/free-video/funnel';
 import { servicePagePath, unlockGoUrl, unlockPagePath, type PagePlacement } from '@/lib/free-video/offer';
 import { cn } from '@/lib/utils';
 import type { FreeVideoUnlockState, FreeVideoUnlockView, FreeVideoView } from '@/types/free-video';
@@ -311,7 +312,27 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
     );
   }
 
+  // A ClickBank funnel lead turned away by an affiliate block (cb-affiliates.ts): the answer the form gives that
+  // affiliate's new visitors, and no retry link. The state stays 'unreadable', so polling stops as it does there.
+  if (view.state === 'unreadable' && view.closed) {
+    return (
+      <>
+        <Band narrow title={domain} />
+        <section className={styles.sectionLight}>
+          <div className={cn(styles.wrap, styles.narrow)}>
+            <div className={styles.box}>
+              <p className={styles.boxText}>{ERRORS.closed}</p>
+            </div>
+          </div>
+        </section>
+      </>
+    );
+  }
+
   if (view.state === 'unreadable') {
+    // A ClickBank funnel lead tries again on its affiliate's page, so the new request stays in that funnel (funnel.ts).
+    const retryHref =
+      view.funnel === 'cb' ? (view.affiliate ? `${CB_LANDING_PATH}?affiliate=${encodeURIComponent(view.affiliate)}` : CB_LANDING_PATH) : '/free-video-ad';
     return (
       <>
         <Band narrow title={STATUS.unreadableTitle(domain)} />
@@ -320,7 +341,7 @@ export function FreeVideoStatus({ token, initial, placement, demo }: FreeVideoSt
             <div className={styles.box}>
               <p className={styles.boxText}>{STATUS.unreadable}</p>
               <p className={styles.boxText}>{STATUS.unreadableNote}</p>
-              <a className={cn(styles.btn, styles.boxAction)} href="/free-video-ad">
+              <a className={cn(styles.btn, styles.boxAction)} href={retryHref}>
                 {STATUS.retryButton}
               </a>
             </div>

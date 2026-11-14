@@ -15,6 +15,8 @@
  * - order.canceled, return.created and refund events → unlock_status 'refunded' plus an owner alert.
  * A payment that arrives before the video ad is done waits as 'paid': settleLead starts the render when the
  * video ad is done, and the cron sweep retries renders that failed or died.
+ * - The ClickBank affiliate funnel sells the same unlock as ClickBank item 12 (clickbank-video-ad.ts): its sale goes
+ *   through applyUnlockPayment too (no Facebook Purchase), its refunds through refundUnlock.
  *
  * Server only. NEVER re-export anything from here in a server-action file.
  */
@@ -198,13 +200,23 @@ export function freeVideoUnlockIn(data: unknown): 'only' | 'mixed' | null {
 // Records and alerts
 // ---------------------------------------------------------------------------------------------
 
-/** A webhook_events row for the owner's records, written once per event id. Throws on a database error (FastSpring then retries). */
-async function recordUnlockEvent(eventId: string, eventType: string, payload: Record<string, unknown>): Promise<void> {
+/**
+ * A webhook_events row for the owner's records, written once per event id and processor. Throws on a database error
+ * (FastSpring then retries). processor 'clickbank': the ClickBank funnel's item-12 rows (clickbank-video-ad.ts).
+ */
+export async function recordUnlockEvent(
+  eventId: string,
+  eventType: string,
+  payload: Record<string, unknown>,
+  processor: 'fastspring' | 'clickbank' = 'fastspring'
+): Promise<void> {
+  // attributeSales, the reconcile cron and the entitlement code read every clickbank SALE row as an AI Media Machine purchase.
+  if (processor === 'clickbank' && eventType === 'SALE') throw new Error('A free video unlock is never recorded as a ClickBank SALE');
   const admin = createAdminClient() as any;
-  const { data: existing, error: readError } = await admin.from('webhook_events').select('id').eq('event_id', eventId).eq('processor', 'fastspring').limit(1);
+  const { data: existing, error: readError } = await admin.from('webhook_events').select('id').eq('event_id', eventId).eq('processor', processor).limit(1);
   if (readError) throw new Error(`webhook_events not read: ${readError.message}`);
   if (existing?.length) return;
-  const { error } = await admin.from('webhook_events').insert({ event_id: eventId, event_type: eventType, processor: 'fastspring', payload });
+  const { error } = await admin.from('webhook_events').insert({ event_id: eventId, event_type: eventType, processor, payload });
   if (error && error.code !== '23505') throw new Error(`webhook_events not written: ${error.message}`);
 }
 
@@ -213,7 +225,7 @@ const alertLater = (items: AlertItem[], subject: string) => inBackground('unlock
 const dayKey = () => new Date().toISOString().slice(0, 10);
 
 /** The SQL that unlocks a lead by hand, for alerts about a payment the code could not apply. */
-const manualUnlockSql = (orderId: string) =>
+export const manualUnlockSql = (orderId: string) =>
   `update free_video_leads set unlock_status = 'paid', unlock_order_id = '${orderId.replace(/'/g, "''")}', unlocked_at = now(), updated_at = now() where view_token = '<the lead token>' and unlock_status = 'none';`;
 
 // ---------------------------------------------------------------------------------------------
@@ -257,8 +269,8 @@ async function confirmOrder(orderId: string): Promise<{ verdict: 'confirmed' | '
   }
 }
 
-/** The lead an order id was already applied to. Throws on a database error. */
-async function leadByOrder(orderIds: string[]): Promise<FreeVideoLead | null> {
+/** The lead an order id was already applied to (a ClickBank receipt as 'cb:<receipt>'). Throws on a database error. */
+export async function leadByOrder(orderIds: string[]): Promise<FreeVideoLead | null> {
   if (!orderIds.length) return null;
   const { data, error } = await leadsTable().select('*').in('unlock_order_id', orderIds).limit(1);
   if (error) throw new Error(`Could not read the unlocked leads: ${error.message}`);
@@ -329,9 +341,49 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
     return 'unmatched';
   }
 
-  // 4. Paid. The unique unlock_order_id makes a parallel delivery of the same order a no-op. A lead whose
-  // earlier unlock was refunded is offered the unlock again (unlockViewOf), so it may be paid again: that
-  // starts the clean version from scratch.
+  // 4 on. The payment applied to the lead: the same steps as a ClickBank item-12 sale (clickbank-video-ad.ts), plus
+  // Facebook's Purchase.
+  const buyerIp = typeof raw.ipAddress === 'string' && net.isIP(raw.ipAddress.trim()) ? raw.ipAddress.trim() : null;
+  return applyUnlockPayment(
+    lead,
+    { orderId: order.id, amount: order.amount, currency: order.currency, email: order.email, ip: buyerIp, data: raw, live: order.live },
+    { facebook: true, processor: 'fastspring' }
+  );
+}
+
+/** The payment applyUnlockPayment applies: the processor's order id (a ClickBank receipt as 'cb:<receipt>'), what was paid, and for the records the event itself. */
+export interface UnlockPayment {
+  orderId: string;
+  amount: number | null;
+  currency: string | null;
+  email: string | null;
+  ip?: string | null;
+  /** The webhook's data, kept on the record of a second payment. */
+  data?: Record<string, unknown>;
+  /** FastSpring's live flag: false only for a FastSpring test order (the log says so). */
+  live?: boolean | null;
+}
+
+/**
+ * A confirmed payment applied to its lead, whichever processor took it: the FastSpring $49 (handleFreeVideoUnlock) and
+ * the ClickBank funnel's item 12 (clickbank-video-ad.ts, docs/cb-affiliate-funnel.md §5).
+ * 1. Paid. The unique unlock_order_id makes a parallel delivery of the same order a no-op (23505 → 'duplicate'). A lead
+ *    whose earlier unlock was refunded is offered the unlock again (unlockViewOf), so it may be paid again: that starts
+ *    the clean version from scratch. A lead already paid by another order → 'second-payment' and an owner alert.
+ * 2. Facebook's Purchase only when opts.facebook (the ClickBank funnel sends none), the VIP ping, the change plan as
+ *    the first change, and the clean render (or an owner alert when no video ad will exist).
+ * Throws only on a database error, so the processor retries. Never creates a user and never touches credits.
+ */
+export async function applyUnlockPayment(
+  lead: FreeVideoLead,
+  payment: UnlockPayment,
+  opts: { facebook: boolean; processor: 'fastspring' | 'clickbank' }
+): Promise<UnlockOutcome> {
+  const { orderId } = payment;
+  // The alerts name the processor: FastSpring's wording stays exactly as it was, a ClickBank receipt reads as ClickBank shows it.
+  const cb = opts.processor === 'clickbank';
+  const receipt = orderId.replace(/^cb:/, '');
+  const named = cb ? `ClickBank receipt ${receipt}` : `order ${orderId}`;
   const again = lead.unlock_status === 'refunded';
   let updated: FreeVideoLead | null = null;
   try {
@@ -341,9 +393,9 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
         { from: [lead.unlock_status], strict: true },
         {
           unlock_status: 'paid',
-          unlock_order_id: order.id,
-          unlock_amount: order.amount,
-          unlock_currency: order.currency,
+          unlock_order_id: orderId,
+          unlock_amount: payment.amount,
+          unlock_currency: payment.currency,
           unlocked_at: new Date().toISOString(),
           ...(again ? { clean_attempts: 0, clean_claimed_at: null, clean_ready_at: null, clean_video_url: null, unlock_emailed_at: null } : {}),
         }
@@ -355,27 +407,27 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
   }
   if (!updated) {
     // The same order delivered twice at once: the other delivery applied it a moment ago.
-    if ((await leadByOrder([order.id]))?.id === lead.id) return 'duplicate';
-    await recordUnlockEvent(`free_video_unlock_${order.id}_second`, 'FREE_VIDEO_UNLOCK_DUPLICATE', { data: raw, lead: lead.id, unlockStatus: lead.unlock_status });
+    if ((await leadByOrder([orderId]))?.id === lead.id) return 'duplicate';
+    await recordUnlockEvent(`free_video_unlock_${orderId}_second`, 'FREE_VIDEO_UNLOCK_DUPLICATE', { data: payment.data ?? {}, lead: lead.id, unlockStatus: lead.unlock_status }, opts.processor);
     alertLater(
-      [{ key: `unlock-duplicate:${order.id}`, line: `A second ${UNLOCK.price} unlock payment (order ${order.id}) arrived for ${displayDomain(lead.website_domain)} (lead ${lead.id}, unlock already ${lead.unlock_status} by order ${lead.unlock_order_id || '?'}). Refund order ${order.id} in FastSpring.` }],
+      [{ key: `unlock-duplicate:${orderId}`, line: `A second ${UNLOCK.price} unlock payment (${named}) arrived for ${displayDomain(lead.website_domain)} (lead ${lead.id}, unlock already ${lead.unlock_status} by order ${lead.unlock_order_id || '?'}). ${cb ? `Refund receipt ${receipt} in ClickBank.` : `Refund order ${orderId} in FastSpring.`}` }],
       'a second unlock payment'
     );
     return 'second-payment';
   }
-  console.log(`✅ [free-video] Lead ${lead.id} (${lead.website_domain}) unlocked by order ${order.id}${order.live === false ? ' (a FastSpring test order)' : ''}`);
-  // Facebook's Purchase, once per order: only this first application of the order gets here.
+  console.log(`✅ [free-video] Lead ${lead.id} (${lead.website_domain}) unlocked by order ${orderId}${payment.live === false ? ' (a FastSpring test order)' : ''}`);
   const paidLead = updated;
-  const orderId = order.id;
-  const buyerIp = typeof raw.ipAddress === 'string' && net.isIP(raw.ipAddress.trim()) ? raw.ipAddress.trim() : null;
-  inBackground(
-    'Meta Purchase',
-    () => trackPurchase(paidLead, { id: orderId, amount: order.amount, currency: order.currency, email: order.email, ip: buyerIp }),
-    true
-  );
+  // Facebook's Purchase, once per order: only this first application of the order gets here.
+  if (opts.facebook) {
+    inBackground(
+      'Meta Purchase',
+      () => trackPurchase(paidLead, { id: orderId, amount: payment.amount, currency: payment.currency, email: payment.email, ip: payment.ip ?? null }),
+      true
+    );
+  }
   // A VIP's payment emails the owner, and a payment can make a lead VIP (vip.ts, owner 2026-11-07).
-  const paid = order.amount ? `${!order.currency || order.currency === 'USD' ? '$' : ''}${Math.round(order.amount)}${order.currency && order.currency !== 'USD' ? ` ${order.currency}` : ''}` : UNLOCK.price;
-  inBackground('VIP ping', () => vipPing(paidLead, { kind: 'paid', amount: order.amount, label: `paid ${paid} for their clean video` }, `vip-paid:${orderId}`), true);
+  const paid = payment.amount ? `${!payment.currency || payment.currency === 'USD' ? '$' : ''}${Math.round(payment.amount)}${payment.currency && payment.currency !== 'USD' ? ` ${payment.currency}` : ''}` : UNLOCK.price;
+  inBackground('VIP ping', () => vipPing(paidLead, { kind: 'paid', amount: payment.amount, label: `paid ${paid} for their clean video` }, `vip-paid:${orderId}`), true);
   // The change list the buyer confirmed in the change chat before paying becomes the first change request: the owner's
   // email with the list, and the ready page shows the changes being made (change-chat.ts).
   inBackground(
@@ -416,11 +468,20 @@ export async function handleFreeVideoUnlock(orderData: unknown): Promise<UnlockO
   if (updated.status === 'done') startCleanRender(updated.id, true);
   else if (updated.status === 'failed' || updated.status === 'rejected') {
     alertLater(
-      [{ key: `unlock-novideo:${lead.id}:${order.id}`, line: `${UNLOCK.price} unlock paid (order ${order.id}) for ${displayDomain(lead.website_domain)}, but that free video ad ${updated.status === 'rejected' ? 'could not be made (website not readable)' : 'failed'}. Make a new one (it is rendered clean as soon as it is done) or refund the order: update free_video_leads set status = 'queued', attempts = 0, reason = null, not_before = null, updated_at = now() where id = '${lead.id}';` }],
+      [{ key: `unlock-novideo:${lead.id}:${orderId}`, line: `${UNLOCK.price} unlock paid (${named}) for ${displayDomain(lead.website_domain)}, but that free video ad ${updated.status === 'rejected' ? 'could not be made (website not readable)' : 'failed'}. Make a new one (it is rendered clean as soon as it is done) or refund the order${cb ? ' in ClickBank' : ''}: update free_video_leads set status = 'queued', attempts = 0, reason = null, not_before = null, updated_at = now() where id = '${lead.id}';` }],
       'an unlock paid for a video ad that does not exist'
     );
   }
   return 'paid';
+}
+
+/**
+ * The guarded refund step of an applied unlock: paid / rendering / ready / failed → refunded (the clean file stays). The
+ * updated lead, or null when the unlock was already elsewhere. Throws on a database error. FastSpring's refunds below and
+ * the ClickBank funnel's ('cb:<receipt>', clickbank-video-ad.ts) both go through it.
+ */
+export async function refundUnlock(leadId: string): Promise<FreeVideoLead | null> {
+  return transitionUnlock(leadId, { from: ['paid', 'rendering', 'ready', 'failed'], strict: true }, { unlock_status: 'refunded' });
 }
 
 /**
@@ -448,7 +509,7 @@ async function handleUnlockRefund(eventType: string, order: UnlockOrder, raw: Re
     }
     return;
   }
-  const updated = await transitionUnlock(lead.id, { from: ['paid', 'rendering', 'ready', 'failed'], strict: true }, { unlock_status: 'refunded' });
+  const updated = await refundUnlock(lead.id);
   if (!updated) {
     console.log(`ℹ️ [free-video] ${eventType} for lead ${lead.id}: the unlock is already ${lead.unlock_status}`);
     return;

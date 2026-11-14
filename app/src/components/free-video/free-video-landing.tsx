@@ -19,7 +19,7 @@ import { refTagFromUrl, useFreeVideoBeacon } from '@/hooks/use-free-video-beacon
 import { trackFormStart, trackLead } from '@/lib/free-video/analytics';
 import { hopFromBrowser } from '@/lib/free-video/clickbank';
 import { ERRORS, EXAMPLES, FORM, type ExampleVideoAd } from '@/lib/free-video/copy';
-import { isServiceLandingPath } from '@/lib/free-video/funnel';
+import { isClickBankLandingPath, isServiceLandingPath } from '@/lib/free-video/funnel';
 import { clickIdFromUrl, PIXEL_DATA, trackPixel } from '@/lib/free-video/pixel';
 import { cn } from '@/lib/utils';
 import type { FreeVideoLeadBody, FreeVideoSubmitData } from '@/types/free-video';
@@ -122,8 +122,11 @@ interface FreeVideoLandingProps {
  */
 export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
   const router = useRouter();
+  const pathname = usePathname() ?? '';
   // The service funnel's copy of this page (funnel.ts) never shows the AI Media Machine offer.
-  const servicePage = isServiceLandingPath(usePathname() ?? '');
+  const servicePage = isServiceLandingPath(pathname);
+  // Neither does the ClickBank affiliate funnel's copy, and it fires no browser pixel Lead (its traffic is an affiliate's, not our ads').
+  const cbPage = isClickBankLandingPath(pathname);
   const beacon = useFreeVideoBeacon();
   const mountedAt = useRef(0);
   const sentView = useRef(false);
@@ -348,7 +351,7 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
       if (data?.token && VIEW_TOKEN.test(data.token)) {
         leaving = true;
         // The Lead, with the id the server sends to the Conversions API too, so Facebook counts it once.
-        if (data.eventId) trackPixel('Lead', PIXEL_DATA.lead, data.eventId);
+        if (data.eventId && !cbPage) trackPixel('Lead', PIXEL_DATA.lead, data.eventId);
         // Google Analytics' generate_lead, then Google Analytics stops before the address carries the token; Clarity keeps recording (analytics.ts).
         trackLead();
         router.push(`/free-video-ad/thanks/${data.token}`);
@@ -425,9 +428,11 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
   );
 
   const refusal = problems.form?.upgrade ? problems.form : null;
-  // The service page has no AI Media Machine offer under the refusal, so its pointer to one goes too.
+  // The service page (and the ClickBank page) has no AI Media Machine offer under the refusal, so its pointer to one goes too.
   const upgrade =
-    refusal && servicePage ? { ...refusal, message: refusal.message.replace(/\s*To make more video ads, get the AI Media Machine below\./, '') } : refusal;
+    refusal && (servicePage || cbPage)
+      ? { ...refusal, message: refusal.message.replace(/\s*To make more video ads, get the AI Media Machine below\./, '') }
+      : refusal;
   const firstNameError = problems.firstName ? 'fv-first-name-error' : undefined;
   const emailError = problems.email ? 'fv-email-error' : undefined;
 
@@ -462,7 +467,7 @@ export function FreeVideoLanding({ children }: FreeVideoLandingProps) {
           ) : upgrade ? (
             <>
               <FormMessage problem={upgrade} website={website} variant="note" />
-              {!servicePage && <LifetimeOffer placement="fvland" token="" isCustomer={false} variant="upgrade" />}
+              {!servicePage && !cbPage && <LifetimeOffer placement="fvland" token="" isCustomer={false} variant="upgrade" />}
             </>
           ) : (
             <>

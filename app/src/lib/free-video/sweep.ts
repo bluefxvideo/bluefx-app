@@ -20,6 +20,12 @@ import {
   EMAIL_MAX_ATTEMPTS,
   EMAIL_RECLAIM_MINUTES,
   isLive,
+  ML_GROUP_CB_BOUGHT,
+  ML_GROUP_CB_LEADS,
+  ML_GROUP_CB_NO_VIDEO,
+  ML_GROUP_CB_PAID,
+  ML_GROUP_CB_READY,
+  ML_GROUP_CB_UNLOCKED,
   ML_GROUP_READY,
   ML_GROUP_UNLOCKED,
   staleMinutes,
@@ -33,6 +39,7 @@ import { isoMinutesAgo, leadsTable, readSettings, settingsTable } from '@/lib/fr
 import { addToBoughtGroup, deliverLead, deliverUnlock, sendCheckoutReminders, viewUrl } from '@/lib/free-video/notify';
 import { type SettleOutcome, settleLead } from '@/lib/free-video/runner';
 import { cleanRendersRunning, startCleanRender } from '@/lib/free-video/unlock';
+import { retryPendingClickBankSales } from '@/lib/free-video/clickbank-video-ad';
 import { copyLeadsToAccounts } from '@/lib/free-video/claim';
 import { writeMissingNextAds } from '@/lib/free-video/next-ads';
 import { cleanWorkingFiles } from '@/lib/free-video/cleanup';
@@ -161,7 +168,8 @@ function emptyReport(dry: boolean): SweepReport {
  *    stale (in the background, at most CLEAN_RENDER.maxParallel at once), and the clean email retried.
  * 5. P1: sales from webhook_events → bought_at and the Bought group, then a copy of each bought video ad in the
  *    buyer's AI Media Machine account (claim.ts); once an hour (the sweep at minute 0 to 2) the working files of
- *    free video ads FILES_KEEP_DAYS old whose clean version nobody bought (cleanup.ts).
+ *    free video ads FILES_KEEP_DAYS old whose clean version nobody bought (cleanup.ts). The ClickBank funnel's $49
+ *    sales that matched no lead yet are matched again (clickbank-video-ad.ts retryPendingClickBankSales).
  * 6. The circuit breaker.
  * 7. One batched alert: breaker, held, failed, rejected during the job, email, unlock, stuck, cap; plus any
  *    earlier alert that could not be sent.
@@ -231,6 +239,15 @@ export async function sweepFreeVideos({ dry }: { dry: boolean }): Promise<SweepR
 
   // 5. P1: sales; once an hour, the old working files.
   if (!dry) report.bought = await attributeSales();
+  // The ClickBank funnel's $49 sales still waiting for their lead (clickbank-video-ad.ts), before the missed-payment
+  // emails look at who has not paid. Its own try: it never stops the steps after it.
+  if (!dry) {
+    try {
+      await retryPendingClickBankSales();
+    } catch (error) {
+      console.error('❌ [free-video] Sweep: pending ClickBank sales failed:', error);
+    }
+  }
   if (!dry) report.checkoutReminders = await sendCheckoutReminders();
   if (!dry) report.claimed = await copyLeadsToAccounts(own);
   if (!dry) report.nextAds = await writeMissingNextAds(own);
@@ -445,7 +462,7 @@ async function collectAlerts(
     add(
       'unlock',
       `unlock-failed:${lead.id}:${lead.unlock_order_id || 'manual'}:${lead.clean_attempts}`,
-      `The ${UNLOCK.price} clean video of ${who(lead)} failed ${lead.clean_attempts} times (order ${lead.unlock_order_id || '?'}). Render it again: ${RERENDER_SQL(lead.id)} Or refund the order in FastSpring.`
+      `The ${UNLOCK.price} clean video of ${who(lead)} failed ${lead.clean_attempts} times (order ${lead.unlock_order_id || '?'}). Render it again: ${RERENDER_SQL(lead.id)} Or refund the order in ${lead.unlock_order_id?.startsWith('cb:') ? 'ClickBank' : 'FastSpring'}.`
     );
   }
   for (const lead of unlockEmail) {
@@ -476,6 +493,13 @@ async function collectAlerts(
   }
   if (isLive() && !ML_GROUP_UNLOCKED && owedUnlockEmails > 0) {
     add('setup', `unlock-setup:${dayKey()}`, `${owedUnlockEmails} clean ${UNLOCK.price} video ads wait for their email: ML_GROUP_UNLOCKED in lib/free-video/config.ts is still empty (the pages show the downloads).`);
+  }
+  // The ClickBank funnel's own groups (docs/cb-affiliate-funnel.md §6): an empty id means its leads and buyers miss those emails.
+  const cbGroupsEmpty = Object.entries({ ML_GROUP_CB_LEADS, ML_GROUP_CB_READY, ML_GROUP_CB_PAID, ML_GROUP_CB_UNLOCKED, ML_GROUP_CB_BOUGHT, ML_GROUP_CB_NO_VIDEO })
+    .filter(([, id]) => !id)
+    .map(([name]) => name);
+  if (isLive() && cbGroupsEmpty.length) {
+    add('setup', `cb-email-setup:${dayKey()}`, `The ClickBank funnel's MailerLite group ids ${cbGroupsEmpty.join(', ')} in lib/free-video/config.ts are still empty, so its leads and buyers miss those emails.`);
   }
 
   // An AI provider out of credits (owner 2026-10-27: Gemini's prepaid credits ran out, 3 free video ads failed and the
@@ -561,11 +585,12 @@ async function attributeSales(): Promise<number> {
       .filter((sale) => sale.email.includes('@'));
     if (!sales.length) return 0;
 
-    const leads = await rows<{ id: string; email: string; created_at: string }>(
-      own(leadsTable().select('id, email, created_at').in('email', [...new Set(sales.map((s) => s.email))]).is('bought_at', null)).limit(500),
+    // ref rides along only for the Bought group: a ClickBank funnel lead joins its own (notify.ts addToBoughtGroup).
+    const leads = await rows<{ id: string; email: string; created_at: string; ref: string | null }>(
+      own(leadsTable().select('id, email, created_at, ref').in('email', [...new Set(sales.map((s) => s.email))]).is('bought_at', null)).limit(500),
       'leads of buyers'
     );
-    const matches: { lead: { id: string; email: string }; sale: (typeof sales)[number] }[] = [];
+    const matches: { lead: { id: string; email: string; ref: string | null }; sale: (typeof sales)[number] }[] = [];
     for (const lead of leads) {
       const sale = sales.find((s) => s.email === lead.email && Date.parse(s.at) > Date.parse(lead.created_at));
       if (sale) matches.push({ lead, sale });
@@ -575,10 +600,10 @@ async function attributeSales(): Promise<number> {
     for (const sale of sales) {
       if (!sale.leadPrefix || matches.some((m) => m.sale.ref === sale.ref)) continue;
       const fits = (
-        await rows<{ id: string; email: string; created_at: string }>(
+        await rows<{ id: string; email: string; created_at: string; ref: string | null }>(
           own(
             leadsTable()
-              .select('id, email, created_at')
+              .select('id, email, created_at, ref')
               .gte('id', `${sale.leadPrefix}-0000-0000-0000-000000000000`)
               .lte('id', `${sale.leadPrefix}-ffff-ffff-ffff-ffffffffffff`)
               .is('bought_at', null)
@@ -599,7 +624,7 @@ async function attributeSales(): Promise<number> {
       if (error || !data?.length) continue;
       bought++;
       console.log(`✅ [free-video] Lead ${lead.id} bought (${sale.ref}${sale.email === lead.email ? '' : `, by its tracking id, paid as ${sale.email}`})`);
-      await addToBoughtGroup(lead.email);
+      await addToBoughtGroup(lead.email, lead.ref);
       // A VIP's purchase emails the owner, and buying makes a lead VIP unless it is on the never-list (vip.ts).
       await vipBought(lead.id);
     }

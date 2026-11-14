@@ -1,6 +1,7 @@
 import { after, NextResponse } from 'next/server';
 import { isLive, LIMITS, PROD_SITE_URL, SITE_URL } from '@/lib/free-video/config';
 import { ERRORS } from '@/lib/free-video/copy';
+import { CB_BLOCKED_REASON_PREFIX } from '@/lib/free-video/cb-affiliates';
 import { saveHop } from '@/lib/free-video/clickbank-hops';
 import { blockedCountry } from '@/lib/free-video/geo';
 import { hasInternalCookie } from '@/lib/free-video/internal-visit';
@@ -133,7 +134,8 @@ export async function POST(req: Request) {
 
     // 5. An opt-in from a browser marked internal (the owner testing with any address, internal-visit.ts) is stored with
     // ref 'owner-test', which the admin numbers leave out (funnel-stats.ts) and the Conversions API skips (meta.ts). From the
-    // service funnel's page it is 'svc-owner-test', so the owner's test still ends on the Unlimited Video Ads page (funnel.ts).
+    // service funnel's page it is 'svc-owner-test', so the owner's test still ends on the Unlimited Video Ads page (funnel.ts),
+    // and from the ClickBank funnel's page 'cbaff-owner-test', so it stays in that funnel (never blocked: no affiliate).
     const input = internal ? { ...parsed.data, ref: ownerTestRef(parsed.data.ref) } : parsed.data;
     const result = await createLead(input, {
       source: isLive() ? 'landing' : 'test',
@@ -145,6 +147,8 @@ export async function POST(req: Request) {
     // one rescue email an hour later (owner 2026-10-31). Never to Facebook: a Lead is a request the AI Media Machine is going to make.
     const queued = result.ok ? result.lead : null;
     const rejected = !result.ok && result.lead?.status === 'rejected' ? result.lead : null;
+    // A blocked ClickBank affiliate's lead (cb-affiliates.ts) joins no list at all: it is kept only for the affiliate report.
+    const blockedAffiliate = Boolean(rejected?.reason?.startsWith(CB_BLOCKED_REASON_PREFIX));
     const facts = requestFacts(req, ip, parsed.data.fbclid);
     after(async () => {
       if (queued) {
@@ -157,7 +161,7 @@ export async function POST(req: Request) {
           })(),
         ]);
       }
-      if (rejected) await joinNoVideoGroup(rejected);
+      if (rejected && !blockedAffiliate) await joinNoVideoGroup(rejected);
       await sweepWatchdog();
     });
 

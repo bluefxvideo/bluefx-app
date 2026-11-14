@@ -13,14 +13,27 @@
  * (auto)', whose automation sends the one rescue email (joinNoVideoGroup).
  *
  * Off the live server nobody is mailed except FREE_VIDEO_TEST_EMAIL (the owner's inbox, plus-tags allowed).
+ *
+ * ClickBank affiliate funnel (ref 'cbaff-…', funnel.ts; docs/cb-affiliate-funnel.md §6): every group choice and both
+ * Brevo emails below check it first. Its leads join only the CB Funnel groups (config.ts ML_GROUP_CB_*), never the older
+ * ones: their automations carry affiliate=bluefx01 links (ClickBank pays the newest HopLink, so the affiliate would lose
+ * the sale), FastSpring prices and the owner's own offers. joinWebsiteWatchedGroup (the owner's website offer) has no
+ * cb branch.
  */
 
+import { createAdminClient } from '@/app/supabase/server';
 import {
   EMAIL_MAX_ATTEMPTS,
   EMAIL_RECLAIM_MINUTES,
   isLive,
   ML_FIELDS,
   ML_GROUP_BOUGHT,
+  ML_GROUP_CB_BOUGHT,
+  ML_GROUP_CB_LEADS,
+  ML_GROUP_CB_NO_VIDEO,
+  ML_GROUP_CB_PAID,
+  ML_GROUP_CB_READY,
+  ML_GROUP_CB_UNLOCKED,
   ML_GROUP_LEADS,
   ML_GROUP_NO_VIDEO,
   ML_GROUP_READY,
@@ -32,7 +45,8 @@ import {
   testInbox,
 } from '@/lib/free-video/config';
 import { alertOwner } from '@/lib/free-video/alerts';
-import { isOwnerTestRef, isServiceRef } from '@/lib/free-video/funnel';
+import { CB_BLOCKED_REASON_PREFIX } from '@/lib/free-video/cb-affiliates';
+import { isClickBankRef, isOwnerTestRef, isServiceRef } from '@/lib/free-video/funnel';
 import { unlockPagePath } from '@/lib/free-video/offer';
 import { offerOf, offerSwitchOf } from '@/lib/free-video/offer-switch';
 import { eventsTable, getLead, leadsTable } from '@/lib/free-video/leads';
@@ -83,10 +97,25 @@ async function nameFor(lead: Pick<FreeVideoLead, 'email' | 'first_name'>): Promi
 /**
  * A queued signup joins 'Free Video - Leads' (no automation hangs on this group). A rejected lead (an
  * unreadable or refused website) never does; it goes to joinNoVideoGroup instead. Called from the POST's
- * after(). Returns true when MailerLite took the subscriber.
+ * after(). Returns true when MailerLite took the subscriber. A ClickBank funnel lead joins 'CB Funnel - Leads' instead.
  */
-export async function joinLeadsGroup(lead: Pick<FreeVideoLead, 'email' | 'first_name' | 'website_domain' | 'status'>): Promise<boolean> {
+export async function joinLeadsGroup(lead: Pick<FreeVideoLead, 'email' | 'first_name' | 'website_domain' | 'status' | 'ref'>): Promise<boolean> {
   try {
+    // ClickBank funnel (spec §6): its own Leads group, never 'Free Video - Leads'.
+    if (isClickBankRef(lead.ref)) {
+      if (lead.status === 'rejected' || !mailAllowed(lead.email)) return false;
+      if (!ML_GROUP_CB_LEADS) {
+        console.warn('⚠️ [free-video] ML_GROUP_CB_LEADS is not set yet; the ClickBank funnel lead was not added to MailerLite');
+        return false;
+      }
+      const joined = await subscribeToMailerLite({
+        email: lead.email,
+        fullName: await nameFor(lead),
+        groups: [ML_GROUP_CB_LEADS],
+        fields: { [ML_FIELDS.site]: displayDomain(lead.website_domain) },
+      });
+      return joined.ok;
+    }
     if (lead.status === 'rejected' || !mailAllowed(lead.email)) return false;
     if (!ML_GROUP_LEADS) {
       console.warn('⚠️ [free-video] ML_GROUP_LEADS is not set yet; the lead was not added to MailerLite');
@@ -109,12 +138,27 @@ export async function joinLeadsGroup(lead: Pick<FreeVideoLead, 'email' | 'first_
  * A rejected signup (a refused or unreadable website, owner 2026-10-31: "once they fill it out, they fill it
  * out") joins 'Free Video - No video (auto)'. Its automation waits 1 hour and sends the rescue email, unless the
  * person joined 'Free Video - Leads' by then (a retry with a working link). The owner's own tests never join.
- * Called from the POST's after(). Returns true when MailerLite took the subscriber.
+ * Called from the POST's after(). Returns true when MailerLite took the subscriber. A ClickBank funnel lead joins
+ * 'CB Funnel - No video' instead, and a blocked affiliate's lead joins nothing.
  */
 export async function joinNoVideoGroup(
-  lead: Pick<FreeVideoLead, 'email' | 'first_name' | 'website_domain' | 'status' | 'ref' | 'source'>
+  lead: Pick<FreeVideoLead, 'email' | 'first_name' | 'website_domain' | 'status' | 'ref' | 'source' | 'reason'>
 ): Promise<boolean> {
   try {
+    // ClickBank funnel (spec §6): never 'No video (auto)' (its rescue email links affiliate=bluefx01), and no MailerLite
+    // at all for a lead of a blocked affiliate (the visitor was told today's free video ads are all taken).
+    if (isClickBankRef(lead.ref)) {
+      if (lead.status !== 'rejected' || lead.source === 'test' || isOwnerTestRef(lead.ref) || !mailAllowed(lead.email)) return false;
+      if (lead.reason?.startsWith(CB_BLOCKED_REASON_PREFIX)) return false;
+      if (!ML_GROUP_CB_NO_VIDEO) return false;
+      const joined = await subscribeToMailerLite({
+        email: lead.email,
+        fullName: await nameFor(lead),
+        groups: [ML_GROUP_CB_NO_VIDEO],
+        fields: { [ML_FIELDS.site]: displayDomain(lead.website_domain) },
+      });
+      return joined.ok;
+    }
     if (lead.status !== 'rejected' || lead.source === 'test' || isOwnerTestRef(lead.ref) || !mailAllowed(lead.email)) return false;
     if (!ML_GROUP_NO_VIDEO) return false;
     const result = await subscribeToMailerLite({
@@ -179,13 +223,15 @@ export async function deliverLead(leadId: string): Promise<DeliverResult> {
     if (!claimable) return 'none';
 
     const allowed = mailAllowed(lead.email);
+    // ClickBank funnel leads (spec §6) join only 'CB Funnel - Ready': never Ready, $49 Ready or Bought.
+    const cb = isClickBankRef(lead.ref);
     // Funnel 2's leads (funnel.ts, the $49 video ad since 2026-10-27) join its own Ready group, never the AI Media Machine one.
     const service = isServiceRef(lead.ref);
-    const readyGroup = service ? ML_GROUP_VIDEO_READY : ML_GROUP_READY;
+    const readyGroup = cb ? ML_GROUP_CB_READY : service ? ML_GROUP_VIDEO_READY : ML_GROUP_READY;
     // The Ready group is what sends the email: without its id there is nothing to deliver yet.
     // Not claiming keeps the attempts for when the id is in config.ts (the sweep raises an alert).
     if (allowed && !readyGroup) {
-      console.error(`❌ [free-video] ${service ? 'ML_GROUP_VIDEO_READY' : 'ML_GROUP_READY'} is not set: lead ${lead.id} waits for its email`);
+      console.error(`❌ [free-video] ${cb ? 'ML_GROUP_CB_READY' : service ? 'ML_GROUP_VIDEO_READY' : 'ML_GROUP_READY'} is not set: lead ${lead.id} waits for its email`);
       return 'none';
     }
 
@@ -226,10 +272,11 @@ export async function deliverLead(leadId: string): Promise<DeliverResult> {
 
     // 3. One upsert: the fields and the groups travel together. An existing AI Media Machine customer also joins Bought:
     // 'Free Video Ad 1' (the video link) has no exclusion, 'Free Video Ad 2' (the sales follow-up) excludes Bought.
+    // A cb lead gets the $49 funnel's fields: free_video_url is /v/<token>, which opens its unlock page.
     const result = await subscribeToMailerLite({
       email: lead.email,
       fullName: await nameFor(lead),
-      groups: service ? [readyGroup] : lead.is_customer && ML_GROUP_BOUGHT ? [ML_GROUP_READY, ML_GROUP_BOUGHT] : [ML_GROUP_READY],
+      groups: cb ? [ML_GROUP_CB_READY] : service ? [readyGroup] : lead.is_customer && ML_GROUP_BOUGHT ? [ML_GROUP_READY, ML_GROUP_BOUGHT] : [ML_GROUP_READY],
       fields: {
         [ML_FIELDS.url]: viewUrl(lead.view_token),
         [ML_FIELDS.site]: displayDomain(lead.website_domain),
@@ -260,8 +307,9 @@ export async function deliverLead(leadId: string): Promise<DeliverResult> {
   }
 }
 
-/** A lead of the service funnel, or any lead whose Unlimited Video Ads order was paid (service-order.ts). */
+/** A lead of the service funnel, or any lead whose Unlimited Video Ads order was paid (service-order.ts). Never a ClickBank funnel lead (spec §6). */
 async function isServiceMember(lead: FreeVideoLead): Promise<boolean> {
+  if (isClickBankRef(lead.ref)) return false;
   if (offerOf(lead, await offerSwitchOf(lead.id)) === 'service') return true;
   const { data } = await eventsTable().select('id').eq('lead_id', lead.id).eq('event', 'service_paid').limit(1);
   return Boolean(data?.length);
@@ -302,6 +350,9 @@ export async function deliverUnlock(leadId: string): Promise<DeliverResult> {
   try {
     const lead = await getLead(leadId);
     if (!lead || lead.unlock_status !== 'ready' || !lead.clean_video_url || lead.unlock_emailed_at) return 'none';
+    // A ClickBank funnel buyer (spec §6) joins only 'CB Funnel - Unlocked', never 'Free Video - Unlocked' or 'Free Video -
+    // Bought' (the FastSpring $49 buyers' sequences). Never a service member.
+    const cb = isClickBankRef(lead.ref);
     // An Unlimited Video Ads member (service funnel, funnel.ts): no automatic email (it speaks of the AI Media
     // Machine); the owner's team gets the clean file, checks it and sends it to the member (owner 2026-10-25).
     if (await isServiceMember(lead)) return await handOverMemberClean(lead);
@@ -309,8 +360,9 @@ export async function deliverUnlock(leadId: string): Promise<DeliverResult> {
       console.log(`⚠️ [free-video] Lead ${lead.id}: clean video email skipped (not the live server, not the test inbox)`);
       return 'skipped';
     }
-    if (!ML_GROUP_UNLOCKED) {
-      console.error(`❌ [free-video] ML_GROUP_UNLOCKED is not set: the clean video of lead ${lead.id} waits for its email (the page shows it)`);
+    const unlockedGroup = cb ? ML_GROUP_CB_UNLOCKED : ML_GROUP_UNLOCKED;
+    if (!unlockedGroup) {
+      console.error(`❌ [free-video] ${cb ? 'ML_GROUP_CB_UNLOCKED' : 'ML_GROUP_UNLOCKED'} is not set: the clean video of lead ${lead.id} waits for its email (the page shows it)`);
       return 'none';
     }
     // The buyer also joins 'Free Video - Bought': the AI Media Machine follow-ups exit on it (owner 2026-10-27: an unlock
@@ -318,7 +370,7 @@ export async function deliverUnlock(leadId: string): Promise<DeliverResult> {
     const result = await subscribeToMailerLite({
       email: lead.email,
       fullName: await nameFor(lead),
-      groups: [ML_GROUP_UNLOCKED, ...(ML_GROUP_BOUGHT ? [ML_GROUP_BOUGHT] : [])],
+      groups: cb ? [ML_GROUP_CB_UNLOCKED] : [ML_GROUP_UNLOCKED, ...(ML_GROUP_BOUGHT ? [ML_GROUP_BOUGHT] : [])],
       fields: {
         [ML_FIELDS.cleanUrl]: lead.clean_video_url,
         [ML_FIELDS.url]: `${SITE_URL}${unlockPagePath(lead.view_token)}`,
@@ -347,9 +399,58 @@ export async function deliverUnlock(leadId: string): Promise<DeliverResult> {
   }
 }
 
-/** P1: a buyer joins 'Free Video - Bought', the automation's exit condition, so upsell emails stop. Returns true when MailerLite took it. */
-export async function addToBoughtGroup(email: string): Promise<boolean> {
+/**
+ * ClickBank funnel (spec §6): the moment item 12 ($49) is paid, the buyer joins 'CB Funnel - Paid $49', the CB
+ * follow-up's exit, so its sales emails stop at once ('CB Funnel - Unlocked' comes only when the clean render is done).
+ * free_video_url becomes the unlock page, as deliverUnlock sets it later. Called by clickbank-video-ad.ts after
+ * applyUnlockPayment. Never throws.
+ */
+export async function joinCbPaidGroup(lead: FreeVideoLead): Promise<void> {
   try {
+    // A FastSpring $49 buyer's emails still stop on 'Free Video - Unlocked', as before.
+    if (!isClickBankRef(lead.ref)) {
+      console.warn(`⚠️ [free-video] Lead ${lead.id} is not a ClickBank funnel lead: not added to the CB Paid group`);
+      return;
+    }
+    if (!mailAllowed(lead.email)) {
+      console.log(`⚠️ [free-video] Lead ${lead.id}: CB Paid group skipped (not the live server, not the test inbox)`);
+      return;
+    }
+    if (!ML_GROUP_CB_PAID) {
+      console.error(`❌ [free-video] ML_GROUP_CB_PAID is not set: lead ${lead.id} paid but stays in the CB follow-up`);
+      return;
+    }
+    const result = await subscribeToMailerLite({
+      email: lead.email,
+      fullName: await nameFor(lead),
+      groups: [ML_GROUP_CB_PAID],
+      fields: {
+        [ML_FIELDS.url]: `${SITE_URL}${unlockPagePath(lead.view_token)}`,
+        [ML_FIELDS.site]: displayDomain(lead.website_domain),
+        [ML_FIELDS.token]: lead.view_token,
+      },
+    });
+    if (!result.ok) {
+      console.error(`❌ [free-video] Lead ${lead.id}: CB Paid group not joined: ${result.reason || result.status}`);
+      return;
+    }
+    console.log(`✅ [free-video] Lead ${lead.id}: joined the CB Paid group, the CB follow-up stops`);
+  } catch (error) {
+    console.error(`❌ [free-video] joinCbPaidGroup ${lead.id} failed:`, error);
+  }
+}
+
+/**
+ * P1: a buyer joins 'Free Video - Bought', the automation's exit condition, so upsell emails stop. Returns true when
+ * MailerLite took it. With a ClickBank funnel lead's ref (spec §6) it joins 'CB Funnel - Bought AIMM' instead.
+ */
+export async function addToBoughtGroup(email: string, ref?: string | null): Promise<boolean> {
+  try {
+    if (isClickBankRef(ref)) {
+      if (!mailAllowed(email) || !ML_GROUP_CB_BOUGHT) return false;
+      const joined = await subscribeToMailerLite({ email, groups: [ML_GROUP_CB_BOUGHT] });
+      return joined.ok;
+    }
     if (!mailAllowed(email) || !ML_GROUP_BOUGHT) return false;
     const result = await subscribeToMailerLite({ email, groups: [ML_GROUP_BOUGHT] });
     return result.ok;
@@ -404,7 +505,9 @@ export async function sendFreeChangeReady(lead: FreeVideoLead): Promise<'sent' |
     const apiKey = process.env.BREVO_API_KEY;
     if (!apiKey) return 'failed';
     const { offerOf, offerSwitchOf } = await import('@/lib/free-video/offer-switch');
-    const machine = offerOf(lead, await offerSwitchOf(lead.id).catch(() => null)) === 'machine';
+    // A ClickBank funnel lead (spec §6) always gets the $49 wording and its unlock page (ClickBank's checkout is there).
+    const cb = isClickBankRef(lead.ref);
+    const machine = !cb && offerOf(lead, await offerSwitchOf(lead.id).catch(() => null)) === 'machine';
     const email = machine ? FREE_CHANGE_EMAIL_MACHINE : FREE_CHANGE_EMAIL;
     const link = `${SITE_URL}${machine ? `/v/${lead.view_token}` : unlockPagePath(lead.view_token)}`;
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -451,14 +554,70 @@ export const CHECKOUT_REMINDER_EMAIL = {
     ].join('\n'),
 } as const;
 
+/**
+ * The same email for a ClickBank funnel lead (spec §6): no FastSpring wording (no "$49 price is still there", which leans
+ * on the FastSpring price clock, no PayPal promise), and it never says the payment failed, because a ClickBank order can
+ * take a while to reach us. New wording: the owner reads it before the funnel goes live.
+ */
+export const CHECKOUT_REMINDER_EMAIL_CB = {
+  subject: (firstName: string | null) => (firstName ? `${firstName}, did something go wrong?` : 'Did something go wrong?'),
+  text: (firstName: string | null, site: string, link: string) =>
+    [
+      `Hi ${firstName || 'there'},`,
+      '',
+      `I saw you started getting your video ad for ${site}, but I don't see your order yet.`,
+      '',
+      `Here's your page again: ${link}`,
+      '',
+      "If you already paid, just reply with your ClickBank order number and I'll sort it out. If something didn't work, reply to this email and I'll help you.",
+      '',
+      'Szilard',
+    ].join('\n'),
+} as const;
+
 /** How long after the buy tap the email waits, and how far back a tap still counts. */
 const CHECKOUT_REMINDER_AFTER_MS = 30 * 60_000;
 const CHECKOUT_REMINDER_WINDOW_MS = 24 * 60 * 60_000;
 
+/** What the ClickBank funnel's recent sale rows name: lead ids, view tokens (the fvt seller variable) and buyer emails. */
+interface CbSaleMarks {
+  ids: Set<string>;
+  tokens: Set<string>;
+  emails: Set<string>;
+}
+
+/**
+ * The CB_VIDEO_AD_SALE rows of the last 2 days (clickbank-video-ad.ts writes them, spec §5). A matched sale flips the
+ * lead's unlock_status at once; these marks also catch a sale still waiting for its match (the sweep retries it, then
+ * alerts the owner), whose buyer must not hear that something went wrong. null when the read failed. Never throws.
+ */
+async function readCbSaleMarks(): Promise<CbSaleMarks | null> {
+  try {
+    const { data, error } = await (createAdminClient() as any)
+      .from('webhook_events')
+      .select('lead_id:payload->>leadId, fvt:payload->>fvt, email:payload->>email')
+      .eq('processor', 'clickbank')
+      .eq('event_type', 'CB_VIDEO_AD_SALE')
+      .gt('created_at', new Date(Date.now() - 2 * CHECKOUT_REMINDER_WINDOW_MS).toISOString())
+      .limit(1000);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as Array<{ lead_id: string | null; fvt: string | null; email: string | null }>;
+    const marks = (values: Array<string | null>) => new Set(values.map((value) => (value ?? '').trim()).filter(Boolean));
+    return {
+      ids: marks(rows.map((row) => row.lead_id)),
+      tokens: marks(rows.map((row) => row.fvt)),
+      emails: marks(rows.map((row) => row.email?.toLowerCase() ?? null)),
+    };
+  } catch (error) {
+    console.warn('⚠️ [free-video] ClickBank funnel sales not read; no missed-payment email to its leads this round:', error);
+    return null;
+  }
+}
+
 /**
  * Sends CHECKOUT_REMINDER_EMAIL to every lead whose $49 buy tap ('cta_click' fvunlock) is 30 minutes to 24 hours old,
  * who has not paid or bought, and who never got it (a 'checkout_reminder_email' event marks it). Returns how many
- * were sent. Never throws.
+ * were sent. Never throws. A ClickBank funnel lead gets CHECKOUT_REMINDER_EMAIL_CB, and nothing once a sale row names it.
  */
 export async function sendCheckoutReminders(): Promise<number> {
   let sent = 0;
@@ -478,6 +637,8 @@ export async function sendCheckoutReminders(): Promise<number> {
     const { data: done } = await eventsTable().select('lead_id').eq('event', 'checkout_reminder_email').in('lead_id', ids);
     const already = new Set(((done ?? []) as Array<{ lead_id: string }>).map((row) => row.lead_id));
     const apiKey = process.env.BREVO_API_KEY;
+    // Read once, at the first ClickBank funnel lead; null = the read failed.
+    let cbSales: CbSaleMarks | null | undefined;
     for (const id of ids) {
       if (already.has(id)) continue;
       const lead = await getLead(id).catch(() => null);
@@ -485,6 +646,14 @@ export async function sendCheckoutReminders(): Promise<number> {
       // The owner's own test taps get no email (he read the wording in chat).
       if (STATS_EXCLUDED_EMAILS.includes(lead.email.trim().toLowerCase())) continue;
       if (!mailAllowed(lead.email) || !apiKey) continue;
+      // ClickBank funnel (spec §6): nothing when a sale row already names this lead (by id, token or email), and
+      // nothing this round when the rows cannot be read. The others get the ClickBank wording.
+      const cb = isClickBankRef(lead.ref);
+      if (cb) {
+        if (cbSales === undefined) cbSales = await readCbSaleMarks();
+        if (!cbSales || cbSales.ids.has(lead.id) || cbSales.tokens.has(lead.view_token) || cbSales.emails.has(lead.email.trim().toLowerCase())) continue;
+      }
+      const reminder = cb ? CHECKOUT_REMINDER_EMAIL_CB : CHECKOUT_REMINDER_EMAIL;
       const first = lead.first_name?.trim() || null;
       const site = lead.website_domain ? displayDomain(lead.website_domain) : 'your business';
       const link = `${SITE_URL}${unlockPagePath(lead.view_token)}`;
@@ -494,8 +663,8 @@ export async function sendCheckoutReminders(): Promise<number> {
         body: JSON.stringify({
           sender: { email: 'support@bluefx.net', name: 'Szilard Gyorfi' },
           to: [{ email: lead.email }],
-          subject: CHECKOUT_REMINDER_EMAIL.subject(first),
-          textContent: CHECKOUT_REMINDER_EMAIL.text(first, site, link),
+          subject: reminder.subject(first),
+          textContent: reminder.text(first, site, link),
         }),
         signal: AbortSignal.timeout(10_000),
       }).catch(() => null);
@@ -504,7 +673,7 @@ export async function sendCheckoutReminders(): Promise<number> {
         continue;
       }
       await recordEvent({ event: 'checkout_reminder_email', leadId: id, ref: lead.ref });
-      console.log(`✅ [free-video] Lead ${id}: missed-payment email sent`);
+      console.log(`✅ [free-video] Lead ${id}: missed-payment email sent${cb ? ' (ClickBank funnel)' : ''}`);
       sent++;
     }
   } catch (error) {

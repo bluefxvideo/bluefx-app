@@ -30,10 +30,15 @@ interface FreeVideoLeadRow {
   unlock_status: string;
   test: boolean;
   inAccount: boolean;
-  /** The ClickBank affiliate who sent the lead (nickname, or "shield" for an encrypted link); null without one. */
+  /**
+   * The ClickBank affiliate who sent the lead (nickname, or "shield" for an encrypted link); null without one. For a
+   * ClickBank funnel lead, the affiliate its link named (null: no valid nickname on the link).
+   */
   affiliate: string | null;
-  /** Which funnel: 'service' (the /free-ad page, Unlimited Video Ads offer) or 'app' (the AI Media Machine offer). */
-  funnel: 'service' | 'app';
+  /** Which funnel: 'service' (the /free-ad page, Unlimited Video Ads offer), 'app' (the AI Media Machine offer) or 'cb' (the ClickBank affiliate funnel, /your-video-ad). */
+  funnel: 'service' | 'app' | 'cb';
+  /** A ClickBank funnel lead turned away because its affiliate is blocked (the ClickBank funnel tab). */
+  blocked: boolean;
   /** A paid Unlimited Video Ads order of this lead (amount in dollars when known); null without one. */
   servicePaid: { amount: number | null } | null;
   /** The offer the lead's page shows now: the funnel it came from, or the owner's switch (offer-switch.ts). */
@@ -55,6 +60,8 @@ interface Summary {
   /** Leads who joined Unlimited Video Ads. */
   joined: number;
   costUsd: number;
+  /** Leads of the ClickBank funnel, which none of the other numbers include (it has its own tab). */
+  cb: number;
 }
 
 interface FreeVideoLeadsResponse {
@@ -82,6 +89,9 @@ const STATUS_LOOK: Record<string, { label: string; className: string }> = {
   failed: { label: 'Failed', className: 'bg-red-500/15 text-red-500 border-red-500/30' },
   rejected: { label: 'Refused', className: 'bg-muted text-muted-foreground' },
 };
+
+/** A ClickBank funnel lead refused because its affiliate is blocked (status 'rejected', but not for its website). */
+const BLOCKED_LOOK = { label: 'Blocked', className: 'bg-red-600/10 text-red-700 border-red-600/40' };
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -175,7 +185,7 @@ export function FreeVideoLeadsPanel() {
                 </thead>
                 <tbody>
                   {data.leads.map((lead) => {
-                    const look = STATUS_LOOK[lead.status] ?? { label: lead.status, className: '' };
+                    const look = lead.blocked ? BLOCKED_LOOK : (STATUS_LOOK[lead.status] ?? { label: lead.status, className: '' });
                     const took = lead.status === 'done' ? minutes(lead.created_at, lead.finished_at) : null;
                     const did = [lead.first_viewed_at && 'opened the page', lead.played_at && 'played', lead.clicked_at && 'clicked an offer'].filter(Boolean);
                     return (
@@ -214,15 +224,39 @@ export function FreeVideoLeadsPanel() {
                                 Joined service{lead.servicePaid.amount ? ` $${lead.servicePaid.amount}/mo` : ''}
                               </Badge>
                             )}
-                            {lead.unlock_status !== 'none' && !lead.servicePaid && <Badge className="bg-green-600 hover:bg-green-600">$99 version</Badge>}
+                            {lead.unlock_status !== 'none' &&
+                              !lead.servicePaid &&
+                              (lead.funnel === 'cb' ? (
+                                // The ClickBank funnel's clean video ad is the $49 ClickBank order (item 12).
+                                lead.unlock_status === 'refunded' ? (
+                                  <Badge variant="outline">$49 refunded</Badge>
+                                ) : (
+                                  <Badge className="bg-green-600 hover:bg-green-600">Paid $49 on ClickBank</Badge>
+                                )
+                              ) : (
+                                <Badge className="bg-green-600 hover:bg-green-600">$99 version</Badge>
+                              ))}
                             {lead.inAccount && <Badge variant="outline">In their account</Badge>}
                           </div>
                         </td>
                         <td className="py-2 pr-2 max-w-[130px] break-all text-xs text-muted-foreground">
-                          <Badge variant="outline" className={cn('mb-1', lead.funnel === 'service' ? 'border-indigo-500 text-indigo-600' : 'text-muted-foreground')}>
-                            {lead.funnel === 'service' ? '$49 funnel' : 'App funnel'}
-                          </Badge>
-                          <div>{lead.affiliate ? <Badge variant="outline">Affiliate {lead.affiliate}</Badge> : lead.ref || lead.source}</div>
+                          {lead.funnel === 'cb' ? (
+                            <>
+                              <Badge variant="outline" className="mb-1 border-amber-500 text-amber-600">
+                                ClickBank funnel
+                              </Badge>
+                              <div>
+                                <Badge variant="outline">{lead.affiliate ? `Affiliate ${lead.affiliate}` : 'No affiliate'}</Badge>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <Badge variant="outline" className={cn('mb-1', lead.funnel === 'service' ? 'border-indigo-500 text-indigo-600' : 'text-muted-foreground')}>
+                                {lead.funnel === 'service' ? '$49 funnel' : 'App funnel'}
+                              </Badge>
+                              <div>{lead.affiliate ? <Badge variant="outline">Affiliate {lead.affiliate}</Badge> : lead.ref || lead.source}</div>
+                            </>
+                          )}
                         </td>
                         <td className="py-2 pr-2 text-right whitespace-nowrap">${(Number(lead.est_cost_usd) || 0).toFixed(2)}</td>
                         <td className="py-3">
@@ -234,7 +268,8 @@ export function FreeVideoLeadsPanel() {
                           >
                             Video ad page <ExternalLink className="w-3 h-3" />
                           </a>
-                          {lead.status === 'done' && <SwitchOffer lead={lead} onSwitched={loadData} />}
+                          {/* A ClickBank funnel lead has one offer, so no switch (the API answers 409 too). */}
+                          {lead.status === 'done' && lead.funnel !== 'cb' && <SwitchOffer lead={lead} onSwitched={loadData} />}
                           {/* /go/claim copies the free video ad into the signed-in admin's own Phantom videos (claim.ts)
                               and opens it there to edit; the client's original stays as it is (owner 2026-10-24). */}
                           {lead.status === 'done' && (
@@ -273,6 +308,8 @@ function SummaryCard({ title, summary }: { title: string; summary: Summary }) {
     { label: 'Service funnel', value: summary.serviceRequests },
     { label: 'Joined service', value: summary.joined },
     { label: 'AI cost', value: `$${summary.costUsd.toFixed(2)}` },
+    // Not in any number above: the ClickBank funnel has its own tab.
+    { label: 'ClickBank funnel', value: summary.cb ?? 0 },
   ];
   return (
     <Card>

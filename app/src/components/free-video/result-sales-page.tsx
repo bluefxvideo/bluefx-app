@@ -44,6 +44,8 @@ interface ResultSalesPageProps {
   onComplete: () => void;
   /** On the $49 thank-you page (owner 2026-10-28): their clean video ad is already above, so the video ad block becomes a headline and the P.S. drops the free-sample lines. */
   afterUnlock?: boolean;
+  /** false: the buttons fire no browser pixel InitiateCheckout (a ClickBank affiliate funnel buyer, spec 2026-11-14 §4). Same buttons, placements and links. */
+  pixel?: boolean;
 }
 
 /** The tutorial plays where the sales video was, and the bottom walkthrough goes (owner 2026-11-02). */
@@ -54,7 +56,7 @@ const SALES_VIDEO_IS_TUTORIAL = true;
  * Every button opens ClickBank's checkout through /go (fvres1 price box, fvresads bonus, fvres2 how, fvrestools the 4
  * tool groups, fvres4 old way, fvres5 value table, fvres6 still thinking, fvres3 walkthrough, fvresbar the phone bar).
  */
-export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound, onComplete, afterUnlock = false }: ResultSalesPageProps) {
+export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound, onComplete, afterUnlock = false, pixel = true }: ResultSalesPageProps) {
   const { domain, firstName } = view;
   // Today's words, or the credit bank's once it is launched (view.bankCopy, set by the server).
   const { copy: C, groups } = salesCopy(view.bankCopy);
@@ -213,7 +215,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
             <p className={s.freeSampleText}>{FT.sample.text}</p>
             <p className={s.freeSamplePrice}>{FT.sample.price}</p>
           </div>
-          <TutorialWindow token={token} at={tutorialAt} onOpen={openTutorial} onClose={closeTutorial} />
+          <TutorialWindow token={token} at={tutorialAt} onOpen={openTutorial} onClose={closeTutorial} pixel={pixel} />
         </div>
         {/* The offer, full width above the styles (owner 2026-11-02). */}
         <div className={s.freeOffer}>
@@ -318,7 +320,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           </div>
           <p className={s.payOnce}>{price.payOnce}</p>
           <p className={s.priceLine}>{price.line}</p>
-          <SalesBuy token={token} placement="fvres1" note={button.guarantee} split="full" />
+          <SalesBuy token={token} placement="fvres1" note={button.guarantee} split="full" pixel={pixel} />
         </div>
         <ul className={cn(rp.reviews, s.priceProof)}>
           <li className={rp.review}>
@@ -376,7 +378,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
               </li>
             ))}
           </ul>
-          <SalesBuy token={token} placement="fvresads" note={`${button.guarantee} ${button.written}`} />
+          <SalesBuy token={token} placement="fvresads" note={`${button.guarantee} ${button.written}`} pixel={pixel} />
         </section>
       )}
 
@@ -411,7 +413,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           <Image src={how.leadsImage} alt={how.leadsAlt} width={1320} height={192} sizes="(min-width: 760px) 712px, 100vw" />
           <figcaption>{how.leads}</figcaption>
         </figure>
-        <SalesBuy token={token} placement="fvres2" note={button.guarantee} />
+        <SalesBuy token={token} placement="fvres2" note={button.guarantee} pixel={pixel} />
       </section>
 
       {/* The most important section (owner 2026-10-22): its own dark band and a headline as big as the hero's. */}
@@ -435,7 +437,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
                 number += 1;
                 return <ToolCard key={tool.name} n={number} tool={tool} domain={domain} />;
               })}
-              {(index === 1 || index === groups.length - 1) && <SalesBuy token={token} placement="fvrestools" />}
+              {(index === 1 || index === groups.length - 1) && <SalesBuy token={token} placement="fvrestools" pixel={pixel} />}
             </div>
           ));
         })()}
@@ -478,7 +480,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           ))}
         </div>
         <p className={s.strongLine}>{oldWay.after(domain)}</p>
-        <SalesBuy token={token} placement="fvres4" />
+        <SalesBuy token={token} placement="fvres4" pixel={pixel} />
       </section>
 
       <div className={s.band}>
@@ -572,7 +574,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           <p className={s.finaleGrab}>{own.grab}</p>
           <p className={s.finaleOff}>{own.off}</p>
         </div>
-        <SalesBuy token={token} placement="fvres5" note={button.guarantee} />
+        <SalesBuy token={token} placement="fvres5" note={button.guarantee} pixel={pixel} />
         <p className={s.small}>{own.source}</p>
       </section>
       </div>
@@ -608,7 +610,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
           </p>
         ))}
         <BirthdayTimer label={bonus ? price.timerBonus : price.timer} until={timerUntil} external={afterUnlock} />
-        <SalesBuy token={token} placement="fvres6" note={button.guarantee} />
+        <SalesBuy token={token} placement="fvres6" note={button.guarantee} pixel={pixel} />
       </section>
 
       <div className={s.band}>
@@ -633,7 +635,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
 
       {!SALES_VIDEO_IS_TUTORIAL && <Walkthrough token={token} video={C.walkthroughVideo} />}
       <div className={cn(rp.wrap, rp.narrow, s.sectionTight)}>
-        <SalesBuy token={token} placement="fvres3" />
+        <SalesBuy token={token} placement="fvres3" pixel={pixel} />
       </div>
 
       <section className={cn(rp.wrap, rp.narrow, s.section)} aria-label="P.S.">
@@ -658,7 +660,7 @@ export function ResultSalesPage({ view, token, bonus, deadline, onPlayWithSound,
 
       <Legal />
       {chatOn && <ChatLauncher token={token} firstName={firstName} domain={domain} raised={barShown} />}
-      <SalesBar token={token} watch={priceRef} onShown={setBarShown} />
+      <SalesBar token={token} watch={priceRef} onShown={setBarShown} pixel={pixel} />
       {viewing && <Viewer item={viewing} onClose={() => setViewing(null)} />}
     </div>
   );
@@ -713,12 +715,15 @@ function TutorialWindow({
   at,
   onOpen,
   onClose,
+  pixel = true,
 }: {
   token: string;
   /** Where the full tutorial starts (seconds), 'quick' for the short cut, null when closed. */
   at: number | 'quick' | null;
   onOpen: (at: number | 'quick', from: TutorialOpenSource) => void;
   onClose: () => void;
+  /** false: its buy button fires no browser pixel InitiateCheckout (ResultSalesPage's pixel). */
+  pixel?: boolean;
 }) {
   const { tutorial, change } = RESULT_SALES.top;
   const beacon = useFreeVideoBeacon(token);
@@ -775,7 +780,7 @@ function TutorialWindow({
         </div>
         {quick && ended && (
           <div className={s.tutorialEnd}>
-            <SalesBuy token={token} placement="fvrestut" split="short" />
+            <SalesBuy token={token} placement="fvrestut" split="short" pixel={pixel} />
             <button type="button" className={s.tutorialAgain} onClick={again}>
               {change.again}
             </button>
@@ -802,6 +807,7 @@ function SalesBuy({
   withPrice = true,
   note = RESULT_SALES.button.guarantee,
   split = 'short',
+  pixel = true,
 }: {
   token: string;
   placement: ResultPagePlacement;
@@ -810,11 +816,13 @@ function SalesBuy({
   note?: string;
   /** The 3 x $100 link under the button: 'full' in the price box (the schedule spelled out), 'short' elsewhere. */
   split?: 'full' | 'short' | false;
+  /** false: no browser pixel InitiateCheckout on these buttons (ResultSalesPage's pixel). */
+  pixel?: boolean;
 }) {
   const { button } = RESULT_SALES;
   return (
     <div className={rp.buy}>
-      <OfferButton className={rp.buyButton} href={goUrl(placement, token)}>
+      <OfferButton className={rp.buyButton} href={goUrl(placement, token)} pixel={pixel}>
         {label}
         {withPrice && <span className={rp.buyPrice}>{button.price}</span>}
       </OfferButton>
@@ -824,14 +832,14 @@ function SalesBuy({
       {split === 'full' && (
         <div className={s.split}>
           <p className={s.splitLowest}>{button.splitLowest}</p>
-          <OfferButton className={s.splitLink} href={goUrl('fvsplit', token)}>
+          <OfferButton className={s.splitLink} href={goUrl('fvsplit', token)} pixel={pixel}>
             {button.splitLink} &rarr;
           </OfferButton>
           <p className={s.splitSchedule}>{button.splitSchedule}</p>
         </div>
       )}
       {split === 'short' && (
-        <OfferButton className={cn(s.splitLink, s.splitShort)} href={goUrl('fvsplit', token)}>
+        <OfferButton className={cn(s.splitLink, s.splitShort)} href={goUrl('fvsplit', token)} pixel={pixel}>
           {button.splitShort} &rarr;
         </OfferButton>
       )}
@@ -1085,7 +1093,7 @@ function Slides({ slides }: { slides: readonly { from: string | null; to: string
 }
 
 /** The bar at the bottom of a phone's screen once the price box has scrolled up, away while a buy button is on screen. */
-function SalesBar({ token, watch, onShown }: { token: string; watch: React.RefObject<HTMLElement | null>; onShown: (shown: boolean) => void }) {
+function SalesBar({ token, watch, onShown, pixel = true }: { token: string; watch: React.RefObject<HTMLElement | null>; onShown: (shown: boolean) => void; pixel?: boolean }) {
   const [past, setPast] = useState(false);
   const [blocked, setBlocked] = useState(false);
   useEffect(() => {
@@ -1124,7 +1132,7 @@ function SalesBar({ token, watch, onShown }: { token: string; watch: React.RefOb
   useEffect(() => onShown(shown), [shown, onShown]);
   return (
     <aside className={cn(rp.bar, shown && rp.barOn, s.bar)} aria-label={RESULT_SALES.button.bar} aria-hidden={!shown} inert={!shown} data-fv-bar="">
-      <OfferButton className={cn(rp.buyButton, rp.barButton)} href={goUrl('fvresbar', token)}>
+      <OfferButton className={cn(rp.buyButton, rp.barButton)} href={goUrl('fvresbar', token)} pixel={pixel}>
         {RESULT_SALES.button.bar}
       </OfferButton>
     </aside>

@@ -6,14 +6,14 @@ import { ArrowUp, Download, Maximize2, Paperclip, Sparkles, X } from 'lucide-rea
 import { type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFreeVideoBeacon } from '@/hooks/use-free-video-beacon';
 import { DOWNLOAD, PLAYER } from '@/lib/free-video/copy';
-import { PLAN_INFO_PATH, planGoUrl, unlockGoUrl } from '@/lib/free-video/offer';
+import { CB_UNLOCK, PLAN_INFO_PATH, planGoUrl, unlockGoUrl } from '@/lib/free-video/offer';
 import { RESULT_SALES } from '@/lib/free-video/result-sales';
 import { SALES_PAGE } from '@/lib/free-video/sales-page';
 import { UNLOCK_PAGE } from '@/lib/free-video/unlock-page';
 import type { UnlockPrice } from '@/lib/free-video/unlock-price';
 import { cn } from '@/lib/utils';
 import type { FreeVideoView } from '@/types/free-video';
-import { LoopVideo, PayCards, ResultScene, Shield, Stars, Tick, VideoReview, videoReviewsOf } from './result-page';
+import { Legal, LoopVideo, PayCards, ResultScene, Shield, Stars, Tick, VideoReview, videoReviewsOf } from './result-page';
 import { ResultSalesPage } from './result-sales-page';
 import { SaveToPhotos } from './save-to-photos';
 import { VideoAdPlayer } from './video-ad-player';
@@ -39,28 +39,41 @@ interface UnlockPageProps {
   changesLeft: number;
   /** The free-month Weekly Video Plan offer is on (its FastSpring product exists, or a local preview). */
   trial: boolean;
-  /** FastSpring's popup storefront (the live one on the live site, the test one elsewhere). */
-  storefront: string;
+  /**
+   * FastSpring's popup storefront (the live one on the live site, the test one elsewhere). null for a ClickBank funnel
+   * lead: no popup, so the button's own link opens ClickBank's order form (through /go/fvunlock) in a new tab.
+   */
+  storefront: string | null;
   /** A local preview of one display: the page never asks for news. */
   preview?: boolean;
+  /** ClickBank funnel only: back from ClickBank's thank-you page (?paid=cb), so the payment is on its way. */
+  paidReturn?: boolean;
+  /** ClickBank funnel only: the receipt that page passed on (?r=, checked on the server), or null. */
+  receipt?: string | null;
 }
 
 /** How often the page asks for news while the payment or the clean video ad is on its way. */
 const POLL_MS = 4000;
 /** A checkout click keeps the page asking on a timer for 30 minutes; after that it still asks whenever the page is shown again. */
 const CLICK_WINDOW_MS = 30 * 60_000;
+/** A buyer back from ClickBank's thank-you page waits on the timer for 10 minutes, then sees the "taking a little longer" note. */
+const CONFIRM_WINDOW_MS = 10 * 60_000;
 
 /**
  * The unlock page (owner 2026-10-27): offer → "unlocking" (paid, the clean render runs) → ready (download, change box,
  * the Weekly Video Plan). The checkout opens in a new tab through /go/fvunlock; this page polls the lead's view, and asks
  * again every time the visitor comes back to this tab (no time limit), or taps "Paid? Tap here" in the phone bar.
  */
-export function UnlockPage({ token, initial, price, filesUntil, plan, freeChange = null, requested, changesLeft, trial, storefront, preview = false }: UnlockPageProps) {
+export function UnlockPage({ token, initial, price, filesUntil, plan, freeChange = null, requested, changesLeft, trial, storefront, preview = false, paidReturn = false, receipt = null }: UnlockPageProps) {
   const [view, setView] = useState(initial);
   const [clickedAt, setClickedAt] = useState<number | null>(null);
   const beacon = useFreeVideoBeacon(token);
   const unlock = view.unlock;
   const working = unlock.state === 'paid' || unlock.state === 'rendering';
+  // The ClickBank affiliate funnel (spec 2026-11-14 §4): ClickBank's words on the page, and a buyer back from ClickBank's
+  // thank-you page sees "confirming" instead of the offer until the sale arrives, so nobody pays twice.
+  const cb = view.funnel === 'cb';
+  const confirming = cb && paidReturn && unlock.state === 'available';
 
   useEffect(() => {
     beacon('unlock_view');
@@ -94,6 +107,8 @@ export function UnlockPage({ token, initial, price, filesUntil, plan, freeChange
     };
   }, [ask, working, clickedAt, unlock.state, preview]);
 
+  const slow = useClickBankConfirm(token, confirming && !preview, receipt, ask);
+
   // FastSpring's popup cart (owner 2026-10-27: "use the FastSpring pop-up, so when they finish it goes to the thank-you
   // page"): the checkout opens over this page; a finished order closes it and this page turns into the thank-you page.
   const popup = useFastSpringPopup(storefront, useCallback(() => {
@@ -104,7 +119,7 @@ export function UnlockPage({ token, initial, price, filesUntil, plan, freeChange
   const onCheckout = useCallback(
     (e?: ReactMouseEvent<HTMLAnchorElement>) => {
       setClickedAt(Date.now());
-      if (!popup.open(price.product, token)) return; // no popup yet: the link opens the hosted checkout in a new tab
+      if (!popup.open(price.product, token)) return; // no popup yet (never one for a ClickBank funnel lead): the link opens the hosted checkout in a new tab
       e?.preventDefault();
       // The click still goes through /go/fvunlock for the funnel's numbers and Facebook's checkout event (no redirect followed).
       void fetch(unlockGoUrl(token), { redirect: 'manual', credentials: 'same-origin' }).catch(() => undefined);
@@ -114,10 +129,11 @@ export function UnlockPage({ token, initial, price, filesUntil, plan, freeChange
 
   return (
     <div className={cn(rp.page, s.page)}>
-      {unlock.state === 'available' && (
-        <Offer view={view} token={token} price={price} filesUntil={filesUntil} initialPlan={plan} initialFree={freeChange} clicked={clickedAt !== null} onCheckout={onCheckout} onCheck={ask} />
+      {unlock.state === 'available' && !confirming && (
+        <Offer view={view} token={token} price={price} filesUntil={filesUntil} initialPlan={plan} initialFree={freeChange} clicked={clickedAt !== null} onCheckout={onCheckout} onCheck={ask} cb={cb} />
       )}
-      {working && <Unlocking view={view} token={token} requested={requested} preview={preview} />}
+      {confirming && <Confirming slow={slow} />}
+      {working && <Unlocking view={view} token={token} requested={requested} preview={preview} receipt={receipt} />}
       {unlock.state === 'ready' && <Ready view={view} token={token} requested={requested} trial={trial} preview={preview} changesLeft={changesLeft} onDownload={() => beacon('download')} />}
       {unlock.state === 'failed' && <Note title={UNLOCK_PAGE.failed.title} text={UNLOCK_PAGE.failed.text} />}
       {unlock.state === 'unavailable' && <Note title={UNLOCK_PAGE.closed.title} text={UNLOCK_PAGE.closed.text} link={{ href: `/v/${token}`, label: UNLOCK_PAGE.closed.button }} />}
@@ -136,13 +152,15 @@ declare global {
 /**
  * FastSpring's popup cart on this page (the Store Builder script with the popup storefront, as the Weekly Video Plan page
  * uses). The app's root layout loads an older Store Builder for the web storefront; this page swaps it for the popup one.
- * open() returns false while the script is not ready, so the link's hosted checkout is the fallback.
+ * open() returns false while the script is not ready, so the link's hosted checkout is the fallback. Without a storefront
+ * (a ClickBank funnel lead) nothing is swapped or loaded and open() always returns false.
  */
-function useFastSpringPopup(storefront: string, onPaid: () => void) {
+function useFastSpringPopup(storefront: string | null, onPaid: () => void) {
   const ready = useRef(false);
   const paid = useRef(onPaid);
   paid.current = onPaid;
   useEffect(() => {
+    if (!storefront) return;
     window.onFSPopupClosed = (order) => {
       if (order && (order.reference || order.id)) {
         try {
@@ -187,6 +205,52 @@ function useFastSpringPopup(storefront: string, onPaid: () => void) {
   );
 }
 
+/**
+ * A buyer back from ClickBank's thank-you page (?paid=cb) whose sale has not reached us yet (spec 2026-11-14 §4): the
+ * receipt goes to the server once (cb-confirm checks it with ClickBank when it can), then the page asks for news every
+ * POLL_MS for up to 10 minutes, and again whenever it is shown. True once the 10 minutes are over.
+ */
+function useClickBankConfirm(token: string, active: boolean, receipt: string | null, ask: () => Promise<void>): boolean {
+  const [slow, setSlow] = useState(false);
+  const since = useRef<number | null>(null);
+  const sent = useRef(false);
+  useEffect(() => {
+    if (!active) return;
+    if (since.current === null) since.current = Date.now();
+    if (receipt && !sent.current) {
+      sent.current = true;
+      void fetch(`/api/free-video/${encodeURIComponent(token)}/cb-confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receipt }),
+        cache: 'no-store',
+      })
+        .then((res) => res.json().catch(() => null))
+        .then((answer) => {
+          // ClickBank confirmed it: the paid page shows now instead of on the next round. Any other answer keeps asking.
+          if (answer?.success && answer.data?.status === 'paid') void ask();
+        })
+        .catch(() => undefined);
+    }
+    const ends = since.current + CONFIRM_WINDOW_MS;
+    const timer = window.setInterval(() => {
+      if (Date.now() > ends) return;
+      void ask();
+    }, POLL_MS);
+    const late = window.setTimeout(() => setSlow(true), Math.max(0, ends - Date.now()));
+    const onShow = () => document.visibilityState === 'visible' && void ask();
+    document.addEventListener('visibilitychange', onShow);
+    window.addEventListener('focus', onShow);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(late);
+      document.removeEventListener('visibilitychange', onShow);
+      window.removeEventListener('focus', onShow);
+    };
+  }, [active, receipt, token, ask]);
+  return slow;
+}
+
 interface OfferProps {
   view: FreeVideoView;
   token: string;
@@ -197,6 +261,8 @@ interface OfferProps {
   clicked: boolean;
   onCheckout: (e?: ReactMouseEvent<HTMLAnchorElement>) => void;
   onCheck: () => void;
+  /** A ClickBank funnel lead: ClickBank's checkout, refund and phone bar lines, and ClickBank's retailer notice at the bottom. */
+  cb?: boolean;
 }
 
 /** The milliseconds until the launch price ends, ticking every second; null without a deadline, before the page runs or after it ends. */
@@ -349,7 +415,7 @@ function useBar(boxes: RefObject<HTMLDivElement | null>[]): boolean {
   return on;
 }
 
-function Offer({ view, token, price, filesUntil, initialPlan, initialFree, clicked, onCheckout, onCheck }: OfferProps) {
+function Offer({ view, token, price, filesUntil, initialPlan, initialFree, clicked, onCheckout, onCheck, cb = false }: OfferProps) {
   const [plan, setPlanState] = useState<string[] | null>(initialPlan);
   const free = useFreeChange(token, initialFree);
   const [shown, setShown] = useState<'before' | 'after'>('after');
@@ -382,6 +448,8 @@ function Offer({ view, token, price, filesUntil, initialPlan, initialFree, click
     setPending((p) => ({ text, n: p.n + 1 }));
   }, []);
   const F = UNLOCK_PAGE;
+  /** The ClickBank funnel's own lines (refunds through ClickBank, 60 days), or null on the FastSpring page. */
+  const C = cb ? UNLOCK_PAGE.clickbank : null;
   const beacon = useFreeVideoBeacon(token);
   const topBuy = useRef<HTMLDivElement>(null);
   const midBuy = useRef<HTMLDivElement>(null);
@@ -391,7 +459,7 @@ function Offer({ view, token, price, filesUntil, initialPlan, initialFree, click
   const barOn = useBar(boxes);
   const checkout = unlockGoUrl(token);
   const left = useTimeLeft(price.endsAt);
-    const action = <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} />;
+    const action = <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} cb={cb} />;
 
   return (
     <>
@@ -495,7 +563,7 @@ function Offer({ view, token, price, filesUntil, initialPlan, initialFree, click
             <PriceBlock price={price} left={left} />
           </div>
           <div ref={topBuy} className={s.heroAction}>
-            <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} only="button" pulse={pulse} />
+            <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} only="button" pulse={pulse} cb={cb} />
           </div>
           <div className={s.heroStyles}>
             <p className={s.heroStylesTitle}>{F.styles.title}</p>
@@ -513,7 +581,7 @@ function Offer({ view, token, price, filesUntil, initialPlan, initialFree, click
             <p className={s.heroStylesText}>{F.styles.more}</p>
           </div>
           <div className={s.heroTrust}>
-            <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} only="trust" />
+            <Action href={checkout} price={price} changed={Boolean(plan)} clicked={clicked} onCheckout={onCheckout} only="trust" cb={cb} />
           </div>
         </div>
       </section>
@@ -668,8 +736,8 @@ function Offer({ view, token, price, filesUntil, initialPlan, initialFree, click
             <Shield />
             <div>
               <h2>{F.guaranteeTitle}</h2>
-              <p className={s.guaranteeSub}>{F.guaranteeSub}</p>
-              <p>{F.guarantee(price.price)}</p>
+              <p className={s.guaranteeSub}>{C ? C.guaranteeSub : F.guaranteeSub}</p>
+              <p>{C ? C.guarantee(price.price) : F.guarantee(price.price)}</p>
             </div>
           </div>
           <div ref={lateBuy}>
@@ -682,7 +750,7 @@ function Offer({ view, token, price, filesUntil, initialPlan, initialFree, click
         <div className={s.narrow}>
           <h2 className={s.h2}>{F.faqTitle}</h2>
           <dl className={s.faq}>
-            {F.faq(price.price, filesUntil).map((item) => (
+            {F.faq(price.price, filesUntil, C?.refund(price.price)).map((item) => (
               <div key={item.q}>
                 <dt>{item.q}</dt>
                 <dd>{item.a}</dd>
@@ -703,10 +771,13 @@ function Offer({ view, token, price, filesUntil, initialPlan, initialFree, click
         </div>
       </section>
 
+      {/* ClickBank sells this $49 (item 12), so its retailer notice closes the offer, as on the AI Media Machine's pages. */}
+      {cb && <Legal />}
+
       <div className={cn(s.bar, barOn && s.barOn)} aria-hidden={!barOn}>
         {clicked ? (
           <>
-            <p className={s.barWaiting}>{F.barWaiting}</p>
+            <p className={s.barWaiting}>{C ? C.barWaiting : F.barWaiting}</p>
             <button type="button" className={s.barCheck} onClick={onCheck} tabIndex={barOn ? 0 : -1}>
               {F.barCheck}
             </button>
@@ -763,10 +834,12 @@ interface ActionProps {
   pulse?: number;
   clicked: boolean;
   onCheckout: (e?: ReactMouseEvent<HTMLAnchorElement>) => void;
+  /** A ClickBank funnel lead: ClickBank's checkout line and after-click note. */
+  cb?: boolean;
 }
 
 /** The button, the promise and the payment logos. */
-function Action({ href, price, changed, clicked, onCheckout, only, pulse = 0 }: ActionProps) {
+function Action({ href, price, changed, clicked, onCheckout, only, pulse = 0, cb = false }: ActionProps) {
   const F = UNLOCK_PAGE;
   return (
     <div className={s.buy}>
@@ -778,7 +851,7 @@ function Action({ href, price, changed, clicked, onCheckout, only, pulse = 0 }: 
       </a>
       {clicked && (
         <p className={s.clicked} role="status">
-          {F.afterClick}
+          {cb ? F.clickbank.afterClick : F.afterClick}
         </p>
       )}
         </>
@@ -789,7 +862,7 @@ function Action({ href, price, changed, clicked, onCheckout, only, pulse = 0 }: 
         <Shield /> {F.promiseShort(price.price)}
       </p>
       <div className={s.trust}>
-        <p>{F.trust}</p>
+        <p>{cb ? F.clickbank.trust : F.trust}</p>
         <PayCards />
       </div>
         </>
@@ -1081,8 +1154,10 @@ function Clock() {
   );
 }
 
-function Unlocking({ view, token, requested, preview }: { view: FreeVideoView; token: string; requested: string[]; preview: boolean }) {
+function Unlocking({ view, token, requested, preview, receipt = null }: { view: FreeVideoView; token: string; requested: string[]; preview: boolean; receipt?: string | null }) {
   const F = UNLOCK_PAGE.thanks;
+  // A ClickBank funnel buyer also reads who processed the order, its statement name and, when known, the order number.
+  const C = view.funnel === 'cb' ? UNLOCK_PAGE.clickbank : null;
   const ai = useAiChanges(token, !preview);
   const running = ai.changes.find((c) => c.status === 'working');
   return (
@@ -1096,6 +1171,8 @@ function Unlocking({ view, token, requested, preview }: { view: FreeVideoView; t
             <div>
               <h1>{F.paidTitle(view.firstName)}</h1>
               <p>{F.paidNote}</p>
+              {C && <p>{C.paidNote(CB_UNLOCK.descriptor)}</p>}
+              {C && receipt && <p>{C.orderNumber(orderNumberOf(receipt))}</p>}
               {running && (
                 <div className={s.makingChanges}>
                   <b>{UNLOCK_PAGE.changes.working(running.text)}</b>
@@ -1131,7 +1208,28 @@ function AimmUpsell({ view, token }: { view: FreeVideoView; token: string }) {
   const none = useCallback(() => undefined, []);
   // A buyer who already owns the AI Media Machine (Tim, Lucky) sees no offer for it.
   if (view.isCustomer) return null;
-  return <ResultSalesPage view={view} token={token} bonus={false} deadline={null} onPlayWithSound={none} onComplete={none} afterUnlock />;
+  // A ClickBank funnel buyer gets the same buttons and placements (the affiliate's hop rides along through /go), but no
+  // browser pixel InitiateCheckout: that funnel sends Facebook nothing (spec 2026-11-14 §4).
+  return <ResultSalesPage view={view} token={token} bonus={false} deadline={null} onPlayWithSound={none} onComplete={none} afterUnlock pixel={view.funnel !== 'cb'} />;
+}
+
+/** The order number a buyer knows from ClickBank: the receipt without a '__' tail, in capitals (the server reads it the same way). */
+const orderNumberOf = (receipt: string) => receipt.split('__')[0].trim().toUpperCase();
+
+/**
+ * Back from ClickBank's thank-you page before the sale has reached us (spec 2026-11-14 §4): no offer and no buy button,
+ * so nobody pays twice. The paid page takes over by itself the moment the sale arrives (useClickBankConfirm asks).
+ */
+function Confirming({ slow }: { slow: boolean }) {
+  const F = UNLOCK_PAGE.clickbank.confirming;
+  return (
+    <section className={s.section}>
+      <div className={cn(s.narrow, s.center)} role="status" aria-live="polite">
+        <h1 className={cn(s.title, s.readyTitle)}>{F.title}</h1>
+        <p className={s.p}>{slow ? F.slow : F.text}</p>
+      </div>
+    </section>
+  );
 }
 
 /** The Weekly Video Plan offer after the $49 payment (owner 2026-10-27, rebuilt after the 3-expert review): the offer names itself first. Off the page since 2026-10-28 (AimmUpsell); kept to switch back. */
@@ -1295,6 +1393,9 @@ interface ReadyProps {
 
 function Ready({ view, token, requested, trial, preview, changesLeft, onDownload }: ReadyProps) {
   const F = UNLOCK_PAGE.ready;
+  // The small video and the quiet download leave room for the offer below. A ClickBank funnel buyer never gets the trial
+  // flag (no FastSpring offer), but the same AI Media Machine offer sits below, so the page looks the same as the $49 one.
+  const compact = trial || view.funnel === 'cb';
   const ai = useAiChanges(token, !preview);
   const newest = [...ai.changes].reverse().find((c) => c.status === 'done' && c.videoUrl);
   const [picked, setPicked] = useState<string | null>(null);
@@ -1310,7 +1411,7 @@ function Ready({ view, token, requested, trial, preview, changesLeft, onDownload
           {/* Owner 2026-10-29: on a computer the video and the change tool sit side by side, so the offer below shows sooner. */}
           <div className={s.readyGrid}>
             <div className={s.readyLeft}>
-              <div className={cn(s.readyVideo, trial && s.readyVideoSmall)}>
+              <div className={cn(s.readyVideo, compact && s.readyVideoSmall)}>
                 <VideoAdPlayer key={clean} src={clean} label={PLAYER.label(view.domain)} className={rp.heroPlayerFrame} tapToPlay />
               </div>
               {versions.length > 1 && (
@@ -1323,8 +1424,8 @@ function Ready({ view, token, requested, trial, preview, changesLeft, onDownload
                   ))}
                 </p>
               )}
-              <a className={trial ? s.downloadQuiet : s.button} href={download} onClick={onDownload} download>
-                {trial && <Download size={17} strokeWidth={2.5} aria-hidden="true" />} {F.button}
+              <a className={compact ? s.downloadQuiet : s.button} href={download} onClick={onDownload} download>
+                {compact && <Download size={17} strokeWidth={2.5} aria-hidden="true" />} {F.button}
               </a>
               <SaveToPhotos url={clean} fileName={DOWNLOAD.cleanFileName(view.domain)} onSaved={onDownload} variant="link" />
             </div>

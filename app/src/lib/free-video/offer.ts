@@ -267,6 +267,35 @@ export const unlockCheckoutUrl = (token: string, product: string = UNLOCK.launch
 export const unlockGoUrl = (token: string) => `/go/${UNLOCK.placement}?t=${encodeURIComponent(token)}`;
 
 /**
+ * The ClickBank affiliate funnel's $49 (docs/cb-affiliate-funnel.md §3): the same clean video ad as UNLOCK, sold as
+ * ClickBank item 12 of vendor bluefx02 to leads whose ref starts with 'cbaff-' (funnel.ts). /go/fvunlock opens it for
+ * those leads only; the sale comes back through api/webhooks/clickbank (clickbank-video-ad.ts).
+ * - tokenParam: a seller variable; ClickBank hands it back in the sale's vendorVariables and on the thank-you page.
+ * - vtidPrefix: the vtid is fvcb49_<lead id first 8 hex>. Deliberately NOT a placement and NOT in leadPrefixOfVtid, so
+ *   an item-12 sale can never read as an AI Media Machine sale (sweep.ts attributeSales) and never sets clicked_at.
+ * - No cbfid and no template: the AI Media Machine's upsell flow 55851 must not follow this order.
+ */
+export const CB_UNLOCK = {
+  vendor: 'bluefx02',
+  item: '12',
+  price: '$49',
+  priceUsd: 49,
+  payUrl: 'https://bluefx02.pay.clickbank.net/?cbitems=12',
+  tokenParam: 'fvt',
+  vtidPrefix: 'fvcb49',
+  descriptor: 'CLKBANK*AIVideoAd',
+  productName: 'AI Video Ad',
+  thankYouUrl: 'https://bluefx.net/ai-stock-image-bundle-2-no-prompts-ty/',
+} as const;
+
+/** One ClickBank funnel lead's order link: ...?cbitems=12&vtid=fvcb49_<lead8>&fvt=<token> (15 of ClickBank's 24 vtid characters). */
+export function cbUnlockCheckoutUrl(token: string, leadId: string): string {
+  const short = String(leadId ?? '').toLowerCase().replace(/[^0-9a-f]/g, '').slice(0, 8);
+  const vtid = short.length === 8 ? `${CB_UNLOCK.vtidPrefix}_${short}` : CB_UNLOCK.vtidPrefix;
+  return `${CB_UNLOCK.payUrl}&vtid=${vtid}&${CB_UNLOCK.tokenParam}=${encodeURIComponent(token)}`;
+}
+
+/**
  * Unlimited Video Ads (owner 2026-10-25): the done-for-you video ad service, sold on its own page per lead
  * (/v/<token>/unlimited, service-page.ts) with the lead's free video ad on top. FastSpring subscriptions fulfilled by
  * the owner's team: the webhook only logs their events (the done-for-you branch of the FastSpring webhook: every path

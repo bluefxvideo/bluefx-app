@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { cache } from 'react';
 import { STATUS } from '@/lib/free-video/copy';
+import { isClickBankRef } from '@/lib/free-video/funnel';
 import { hasInternalCookie } from '@/lib/free-video/internal-visit';
 import { getLeadByToken, markViewed, readSettings, toView } from '@/lib/free-video/leads';
 import { servicePagePath, unlockPagePath, type PAGE_PLACEMENTS } from '@/lib/free-video/offer';
@@ -56,7 +57,17 @@ export async function FreeVideoStatusPage({ token, placement, internal = false }
   if (view.service && view.state === 'ready' && view.videoUrl) redirect(`${servicePagePath(token)}${internal ? '?internal=1' : ''}`);
   // Funnel 2 since 2026-10-27: a finished video ad opens on the $49 page.
   if (view.videoOffer && view.state === 'ready' && view.videoUrl) redirect(`${unlockPagePath(token)}${internal ? '?internal=1' : ''}`);
-  return <FreeVideoStatus token={token} initial={view} placement={placement} />;
+  const page = <FreeVideoStatus token={token} initial={view} placement={placement} />;
+  // A ClickBank funnel lead's page is marked in the server HTML so the BlueFX Meta pixel stays off (meta-pixel.tsx):
+  // a reloaded thanks page or an emailed /v/ link before the video ad is ready. Every other lead's page is unchanged.
+  return isClickBankRef(lead.ref) ? (
+    <>
+      <span data-fv-no-pixel hidden />
+      {page}
+    </>
+  ) : (
+    page
+  );
 }
 
 interface LoadErrorProps {

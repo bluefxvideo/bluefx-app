@@ -1,6 +1,6 @@
 import { alertsTable, sendBrevoTo } from '@/lib/free-video/alerts';
 import { FREE_DIRECTOR, SITE_URL, STATS_EXCLUDED_EMAILS, VIP_ALERT_FROM_NAME, VIP_ALERT_TO } from '@/lib/free-video/config';
-import { isServiceRef } from '@/lib/free-video/funnel';
+import { affiliateOfRef, isClickBankRef, isOwnerTestRef, isServiceRef } from '@/lib/free-video/funnel';
 import { eventsTable, getLead, recordEvent } from '@/lib/free-video/leads';
 import { safeFetchWith } from '@/lib/free-video/safe-fetch';
 import { displayDomain } from '@/lib/free-video/website';
@@ -391,6 +391,11 @@ export async function saveMark(lead: Pick<FreeVideoLead, 'id' | 'ref'>, mark: Vi
 /** Where the lead came from, in the owner's words. */
 function funnelOf(lead: Pick<FreeVideoLead, 'ref' | 'source'>): string {
   const ref = lead.ref || '';
+  // The ClickBank affiliate funnel (spec §6): the affiliate's nickname, so the owner sees whose lead it is.
+  if (isClickBankRef(ref)) {
+    const nick = affiliateOfRef(ref);
+    return nick ? `ClickBank funnel (${nick})` : 'ClickBank funnel';
+  }
   if (isServiceRef(ref)) return `$49 funnel (${ref})`;
   if (ref.startsWith('fb-')) return `AI Media Machine funnel (${ref})`;
   if (ref === 'bfxhome') return 'bluefx.net homepage';
@@ -468,9 +473,9 @@ export async function sendVipAlert(key: string, subject: string, text: string): 
 // Entry points
 // ---------------------------------------------------------------------------------------------
 
-/** The owner's own test videos (his addresses, an owner-test ref, a test lead) are never scored. */
+/** The owner's own test videos (his addresses, any funnel's owner-test ref, a test lead) are never scored. */
 export function isOwnTest(lead: Pick<FreeVideoLead, 'source' | 'ref' | 'email'>): boolean {
-  return lead.source === 'test' || lead.ref === 'owner-test' || STATS_EXCLUDED_EMAILS.includes(lead.email.trim().toLowerCase());
+  return lead.source === 'test' || isOwnerTestRef(lead.ref) || STATS_EXCLUDED_EMAILS.includes(lead.email.trim().toLowerCase());
 }
 
 /**

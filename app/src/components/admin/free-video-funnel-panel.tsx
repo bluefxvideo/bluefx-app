@@ -10,7 +10,8 @@ import type { FunnelChoice, FunnelCounts, FunnelRates, FunnelSourceRow, FunnelSt
 
 type Preset = 'today' | '7d' | '30d' | 'all' | 'custom';
 
-const PRESETS: { value: Exclude<Preset, 'custom'>; label: string; daysBack: number | null }[] = [
+/** The range buttons (the ClickBank funnel panel uses the same ones). */
+export const PRESETS: { value: Exclude<Preset, 'custom'>; label: string; daysBack: number | null }[] = [
   { value: 'today', label: 'Today', daysBack: 0 },
   { value: '7d', label: '7 days', daysBack: 6 },
   { value: '30d', label: '30 days', daysBack: 29 },
@@ -87,19 +88,19 @@ const share = (part: number, whole: number) => (whole > 0 ? part / whole : null)
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 /** YYYY-MM-DD of a local date (for the date inputs). */
-function dateValue(date: Date): string {
+export function dateValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 /** Local midnight of a YYYY-MM-DD date, plus `addDays` days; null for a bad value. */
-function localMidnight(value: string, addDays = 0): Date | null {
+export function localMidnight(value: string, addDays = 0): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;
   return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + addDays);
 }
 
-function daysAgoMidnight(days: number): Date {
+export function daysAgoMidnight(days: number): Date {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
   date.setDate(date.getDate() - days);
@@ -111,7 +112,7 @@ const dayLabel = (day: string) => {
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 };
 
-const browserTimeZone = () => {
+export const browserTimeZone = () => {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Bucharest';
   } catch {
@@ -136,9 +137,11 @@ interface FreeVideoFunnelPanelProps {
  * Days are the admin's own (the browser's time zone). lib/free-video/funnel-stats.ts defines every number.
  */
 const FUNNELS: { value: FunnelChoice; label: string; hint: string }[] = [
-  { value: 'all', label: 'Both funnels', hint: 'Everyone' },
+  // 'all' is the two Facebook funnels together; the ClickBank funnel is only under its own button (funnel-stats.ts refInFunnel).
+  { value: 'all', label: 'Both funnels', hint: 'The App offer and the $49 video ad together (not the ClickBank funnel)' },
   { value: 'app', label: 'App offer', hint: 'The AI Media Machine offer: app.bluefx.net/free-video-ad' },
   { value: 'service', label: '$49 video ad', hint: 'Funnel 2, the $49 video ad: app.bluefx.net/free-ad' },
+  { value: 'cb', label: 'ClickBank funnel', hint: 'The ClickBank affiliate funnel: app.bluefx.net/your-video-ad' },
 ];
 
 export function FreeVideoFunnelPanel({ preview }: FreeVideoFunnelPanelProps) {
@@ -481,6 +484,7 @@ const REASON_LABELS: Record<string, string> = {
 const CHECK_LABELS: Record<string, string> = {
   honeypot: 'hidden field filled in',
   tooFast: 'sent within 1.5 seconds',
+  affiliateBlocked: 'really an affiliate you blocked',
 };
 
 const reasonLabel = (code: string, check: string | null) => `${REASON_LABELS[code] ?? code}${check ? ` (${CHECK_LABELS[check] ?? check})` : ''}`;

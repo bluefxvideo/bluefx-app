@@ -159,8 +159,10 @@ async function usedReply(lead: FreeVideoLead, lifetime: boolean): Promise<string
     return RESULT_SALES.freeTop.free.usedReply;
   }
   const { UNLOCK_PAGE } = await import('@/lib/free-video/unlock-page');
-  const { unlockPriceOf } = await import('@/lib/free-video/unlock-price');
-  const price = await unlockPriceOf(lead.id).catch(() => null);
+  const { clickBankUnlockPrice, unlockPriceOf } = await import('@/lib/free-video/unlock-price');
+  const { isClickBankRef } = await import('@/lib/free-video/funnel');
+  // A ClickBank funnel lead always pays $49 (item 12 has one price), never the FastSpring clock's $99.
+  const price = isClickBankRef(lead.ref) ? clickBankUnlockPrice() : await unlockPriceOf(lead.id).catch(() => null);
   return UNLOCK_PAGE.chat.free.usedReply(price?.price ?? '$49');
 }
 

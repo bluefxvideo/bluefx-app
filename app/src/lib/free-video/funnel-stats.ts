@@ -1,5 +1,6 @@
-import { isOwnerTestRef, isServiceRef, SERVICE_REF_PREFIX } from '@/lib/free-video/funnel';
+import { CB_NO_AFFILIATE, CB_REF_PREFIX, isClickBankRef, isOwnerTestRef, isServiceRef, SERVICE_REF_PREFIX } from '@/lib/free-video/funnel';
 import { createAdminClient } from '@/app/supabase/server';
+import { CB_BLOCKED_REASON_PREFIX } from '@/lib/free-video/cb-affiliates';
 import { STATS_EXCLUDED_EMAILS, STATS_EXCLUDED_VISITS } from '@/lib/free-video/config';
 import { isCardPlacement, OFFER_BUTTON_PLACEMENTS, SERVICE } from '@/lib/free-video/offer';
 import { REFUSAL_EVENT } from '@/lib/free-video/refusals';
@@ -49,13 +50,18 @@ import { emailKeyOf } from '@/lib/free-video/website';
  * (fv_internal) are never stored by the event route, so they need nothing here.
  * Leads made another way (email replies, by hand, a Facebook lead form) never saw the page: they are counted apart
  * (notFromPage, and their own rows in the source tables), never in the page's totals and rates.
+ *
+ * Funnels (refInFunnel): 'app' and 'service' as their refs say, 'all' ("Both funnels") the two Facebook funnels
+ * together, 'cb' the ClickBank affiliate funnel (refs 'cbaff-', owner 2026-11-14) alone. ClickBank funnel leads and page
+ * events are only ever counted under 'cb'; its per-affiliate money report is cb-funnel-stats.ts.
  */
 
 export const DEFAULT_STATS_TZ = 'Europe/Bucharest';
 /** The ref of the owner's own leads (leads.ts createLead) and of an opt-in from a browser marked internal. */
 /** PostgREST's row cap on this project (max rows 1,000): a shorter page is the last one. */
 const PAGE_ROWS = 1000;
-const ID_CHUNK = 100;
+/** Lead ids per `.in('lead_id', ...)` read (cb-funnel-stats.ts uses the same). */
+export const ID_CHUNK = 100;
 const MAX_DAYS = 400;
 /** An open is the owner's when one of his browsers sent an event on the lead in this window around first_viewed_at. */
 const OPEN_BEFORE_MS = 5_000;
@@ -159,7 +165,7 @@ export interface TurnedAwayRow {
   at: string;
   /** RefusalCode: the form's error code, 'bot' or 'error'. */
   code: string;
-  /** RefusalCheck, when the code has more than one cause. */
+  /** RefusalCheck, when the code has more than one cause; 'affiliateBlocked' on a blocked ClickBank affiliate's 'closed' send. */
   check: string | null;
   firstName: string | null;
   email: string | null;
@@ -187,12 +193,26 @@ export interface FunnelStatsInput {
   to: string;
   /** IANA time zone for the day rows. */
   tz: string;
-  /** Which funnel (funnel.ts): 'app' = the AI Media Machine offer (/free-video-ad), 'service' = Unlimited Video Ads (/free-ad); default both. */
+  /**
+   * Which funnel (funnel.ts): 'app' = the AI Media Machine offer (/free-video-ad), 'service' = Unlimited Video Ads (/free-ad),
+   * 'cb' = the ClickBank affiliate funnel (/your-video-ad); default both Facebook funnels ('all', never the ClickBank one).
+   */
   funnel?: FunnelChoice;
 }
 
-export type FunnelChoice = 'all' | 'app' | 'service';
-export const FUNNEL_CHOICES: readonly FunnelChoice[] = ['all', 'app', 'service'];
+export type FunnelChoice = 'all' | 'app' | 'service' | 'cb';
+export const FUNNEL_CHOICES: readonly FunnelChoice[] = ['all', 'app', 'service', 'cb'];
+
+/**
+ * True when a lead's or a page event's ref belongs to the chosen funnel (the service page tags everything 'svc-', the
+ * ClickBank page 'cbaff-'). A ClickBank funnel ref counts under 'cb' only: 'all' stays the two Facebook funnels, so
+ * every number of 'app', 'service' and 'all' is what it was before the ClickBank funnel existed.
+ */
+export function refInFunnel(funnel: FunnelChoice, ref: string | null | undefined): boolean {
+  if (funnel === 'cb') return isClickBankRef(ref);
+  if (isClickBankRef(ref)) return false;
+  return funnel === 'service' ? isServiceRef(ref) : funnel === 'app' ? !isServiceRef(ref) : true;
+}
 
 interface LeadRow {
   id: string;
@@ -251,7 +271,8 @@ export function isStatsExcludedEmail(email: string | null | undefined): boolean 
   return Boolean(email) && EXCLUDED_KEYS.has(emailKeyOf(email ?? ''));
 }
 
-const isExcludedLead = (lead: Pick<LeadRow, 'email' | 'source' | 'ref'>) =>
+/** A lead the statistics leave out: source 'test', an owner test ref, or one of STATS_EXCLUDED_EMAILS (cb-funnel-stats.ts uses the same rule). */
+export const isExcludedLead = (lead: { email: string | null; source: string; ref: string | null }) =>
   lead.source === 'test' || isOwnerTestRef(lead.ref) || isStatsExcludedEmail(lead.email);
 
 /** The time zone when the runtime knows it, else null. */
@@ -320,14 +341,22 @@ function addCounts(into: FunnelCounts, add: FunnelCounts): void {
   for (const key of Object.keys(into) as (keyof FunnelCounts)[]) into[key] += add[key];
 }
 
-/** A clean tag from a ref, or null (empty, or the owner's test tag). */
+/** A clean tag from a ref, or null (empty, the owner's test tag, or a funnel page's own "no tag" ref). */
 function tagOf(ref: string | null | undefined): string | null {
   const tag = ref?.trim();
-  return tag && !isOwnerTestRef(tag) && tag !== `${SERVICE_REF_PREFIX}direct` ? tag : null;
+  return tag &&
+    !isOwnerTestRef(tag) &&
+    tag !== `${SERVICE_REF_PREFIX}direct` &&
+    tag !== `${CB_REF_PREFIX}${CB_NO_AFFILIATE}` &&
+    tag !== `${CB_REF_PREFIX}owner-test`
+    ? tag
+    : null;
 }
 
 /** The channel a ref tag belongs to (the funnel's link conventions: yt-/ytc- YouTube, fb- Facebook ads, bfx bluefx.net). */
 function channelOfTag(fullTag: string): FunnelChannel {
+  // The ClickBank funnel tags everything 'cbaff-<affiliate>' (funnel.ts): always an affiliate's link.
+  if (isClickBankRef(fullTag)) return 'clickbank';
   // The service funnel's tags are the same links with 'svc-' in front (funnel.ts).
   const tag = fullTag.startsWith(SERVICE_REF_PREFIX) ? fullTag.slice(SERVICE_REF_PREFIX.length) : fullTag;
   if (/^ytc?-/i.test(tag)) return 'youtube';
@@ -354,7 +383,7 @@ type PageQuery = PromiseLike<{ data: unknown; error: { message: string } | null 
  * Every row a query matches, a page at a time by id (keyset: each page starts after the last id of the one before, so
  * no row is skipped or read twice and a page costs the same however far in). `page` builds the query for one page.
  */
-async function readAll<T extends { id: string | number }>(page: (afterId: T['id'] | null) => PageQuery): Promise<T[]> {
+export async function readAll<T extends { id: string | number }>(page: (afterId: T['id'] | null) => PageQuery): Promise<T[]> {
   const rows: T[] = [];
   let afterId: T['id'] | null = null;
   for (;;) {
@@ -367,7 +396,26 @@ async function readAll<T extends { id: string | number }>(page: (afterId: T['id'
   }
 }
 
-const chunks = <T>(list: T[], size: number): T[][] => Array.from({ length: Math.ceil(list.length / size) }, (_, i) => list.slice(i * size, (i + 1) * size));
+export const chunks = <T>(list: T[], size: number): T[][] => Array.from({ length: Math.ceil(list.length / size) }, (_, i) => list.slice(i * size, (i + 1) * size));
+
+/** One keyset page of a query for readAll: the rows after afterId, by id, at most PAGE_ROWS. */
+export const keysetPage = (query: any, afterId: string | number | null) =>
+  (afterId === null ? query : query.gt('id', afterId)).order('id', { ascending: true }).limit(PAGE_ROWS);
+
+/**
+ * The owner's browsers: every browser (visitor id) that sent an event about one of the left-out leads (isExcludedLead,
+ * his own tests), all time. None of their views, plays or clicks count anywhere.
+ */
+export async function ownerBrowsersOf(excludedLeadIds: string[], db: Db = createAdminClient()): Promise<Set<string>> {
+  const rows = await Promise.all(
+    chunks(excludedLeadIds, ID_CHUNK).map((ids) =>
+      readAll<{ id: number; visitor_id: string }>((afterId) =>
+        keysetPage((db as any).from('free_video_events').select('id, visitor_id').in('lead_id', ids).not('visitor_id', 'is', null), afterId)
+      )
+    )
+  );
+  return new Set(rows.flat().map((row) => row.visitor_id));
+}
 
 /** One person in the range: their leads (oldest first) and the steps any of them reached. */
 interface Person {
@@ -378,12 +426,12 @@ interface Person {
 
 /** The funnel for one range. Reads free_video_leads and free_video_events with the service key; writes nothing. */
 export async function computeFunnelStats({ from, to, tz: tzInput, funnel = 'all' }: FunnelStatsInput, db: Db = createAdminClient()): Promise<FunnelStats> {
-  /** The chosen funnel: a lead's or a page event's ref says which (the service page tags everything 'svc-'). */
-  const inFunnel = (ref: string | null) => (funnel === 'service' ? isServiceRef(ref) : funnel === 'app' ? !isServiceRef(ref) : true);
+  /** The chosen funnel: a lead's or a page event's ref says which (the service page tags everything 'svc-', the ClickBank page 'cbaff-'). */
+  const inFunnel = (ref: string | null) => refInFunnel(funnel, ref);
   const tz = validTimeZone(tzInput) ?? DEFAULT_STATS_TZ;
   const dayOf = dayFormatter(tz);
   const table = (name: string) => (db as any).from(name);
-  const keyset = (query: any, afterId: string | number | null) => (afterId === null ? query : query.gt('id', afterId)).order('id', { ascending: true }).limit(PAGE_ROWS);
+  const keyset = keysetPage;
   const fromMs = from ? Date.parse(from) : -Infinity;
   const toMs = Date.parse(to);
   const inRange = (iso: string) => {
@@ -404,12 +452,8 @@ export async function computeFunnelStats({ from, to, tz: tzInput, funnel = 'all'
     if (start) query = query.gte('at', start);
     return keyset(query, afterId);
   };
-  const [ownerRows, leadEventChunks, pageEvents, checkWindows] = await Promise.all([
-    Promise.all(
-      chunks(excludedLeadIds, ID_CHUNK).map((ids) =>
-        readAll<{ id: number; visitor_id: string }>((afterId) => keyset(table('free_video_events').select('id, visitor_id').in('lead_id', ids).not('visitor_id', 'is', null), afterId))
-      )
-    ),
+  const [ownerBrowsers, leadEventChunks, allPageEvents, checkWindows] = await Promise.all([
+    ownerBrowsersOf(excludedLeadIds, db),
     Promise.all(
       chunks(
         leads.map((lead) => lead.id),
@@ -423,7 +467,9 @@ export async function computeFunnelStats({ from, to, tz: tzInput, funnel = 'all'
     readAll<PageEventRow>(pageEventsOf(from, to)),
     Promise.all(STATS_EXCLUDED_VISITS.map((visit) => readAll<PageEventRow>(pageEventsOf(visit.from, visit.to)))),
   ]);
-  const ownerBrowsers = new Set(ownerRows.flat().map((row) => row.visitor_id));
+  // The ClickBank funnel's page events stay out of every other choice entirely (also out of the review bursts and the
+  // footer's counts), so those numbers are exactly what they were before it existed; 'cb' sees only its own.
+  const pageEvents = allPageEvents.filter((row) => isClickBankRef(row.ref) === (funnel === 'cb'));
   const isOwner = (visitorId: string | null) => Boolean(visitorId && ownerBrowsers.has(visitorId));
 
   const linkCheckBrowsers = new Set<string>();
@@ -630,7 +676,7 @@ export async function computeFunnelStats({ from, to, tz: tzInput, funnel = 'all'
       return { day, counts, rates: ratesOf(counts) };
     });
 
-  const turnedAway = await turnedAwayOf(from, to, table, keyset);
+  const turnedAway = await turnedAwayOf(from, to, table, keyset, funnel);
 
   return {
     from,
@@ -667,24 +713,43 @@ interface RefusalEventRow {
 
 const textOf = (value: unknown): string | null => (typeof value === 'string' && value ? value : null);
 
-/** The range's refused form sends (refusals.ts), without the owner's: ref 'owner-test', a local dev server's, his addresses. */
+/**
+ * The check a turned-away row gets when the send was a blocked affiliate's (cb-affiliates.ts): the visitor read the
+ * 'closed' answer ("all taken today"), but the funnel was not full.
+ */
+const AFFILIATE_BLOCKED_CHECK = 'affiliateBlocked';
+
+/**
+ * The range's refused form sends (refusals.ts), without the owner's: ref 'owner-test', a local dev server's, his addresses.
+ * The ClickBank funnel's sends (ref 'cbaff-') show under 'cb' only; every other send shows under the three other choices,
+ * as before.
+ */
 async function turnedAwayOf(
   from: string | null,
   to: string,
   table: (name: string) => any,
-  keyset: (query: any, afterId: string | number | null) => any
+  keyset: (query: any, afterId: string | number | null) => any,
+  funnel: FunnelChoice
 ): Promise<TurnedAway> {
-  const rows = await readAll<RefusalEventRow>((afterId) => {
-    let query = table('free_video_events').select('id, at, placement, ref, meta').eq('event', REFUSAL_EVENT).lt('at', to);
-    if (from) query = query.gte('at', from);
-    return keyset(query, afterId);
-  });
+  const [rows, blockedLeads] = await Promise.all([
+    readAll<RefusalEventRow>((afterId) => {
+      let query = table('free_video_events').select('id, at, placement, ref, meta').eq('event', REFUSAL_EVENT).lt('at', to);
+      if (from) query = query.gte('at', from);
+      return keyset(query, afterId);
+    }),
+    // A blocked affiliate's lead is kept (rejected, with the blocked reason) and its refusal row names it in meta.lead_id.
+    funnel === 'cb'
+      ? readAll<{ id: string }>((afterId) => keyset(table('free_video_leads').select('id').like('reason', `${CB_BLOCKED_REASON_PREFIX}%`), afterId))
+      : Promise.resolve([] as { id: string }[]),
+  ]);
+  const blockedLeadIds = new Set(blockedLeads.map((lead) => lead.id));
+  const inList = (ref: string | null) => (funnel === 'cb' ? isClickBankRef(ref) : !isClickBankRef(ref));
   const kept: TurnedAwayRow[] = rows
-    .filter((row) => !isOwnerTestRef(row.ref) && row.meta?.test !== true && !isStatsExcludedEmail(textOf(row.meta?.email)))
+    .filter((row) => inList(row.ref) && !isOwnerTestRef(row.ref) && row.meta?.test !== true && !isStatsExcludedEmail(textOf(row.meta?.email)))
     .map((row) => ({
       at: row.at,
       code: row.placement ?? 'unknown',
-      check: textOf(row.meta?.check),
+      check: blockedLeadIds.has(textOf(row.meta?.lead_id) ?? '') ? AFFILIATE_BLOCKED_CHECK : textOf(row.meta?.check),
       firstName: textOf(row.meta?.first_name),
       email: textOf(row.meta?.email),
       website: textOf(row.meta?.website),

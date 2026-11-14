@@ -38,13 +38,14 @@ export function visitorId(): string {
 
 /**
  * The newsletter or campaign tag of the current address (?ref= or ?utm_campaign=), when it is a clean one. On the
- * service funnel's landing page it always starts with 'svc-', on the first landing page never (funnel.ts).
+ * service funnel's landing page it always starts with 'svc-', on the first landing page never (funnel.ts). On the
+ * ClickBank funnel's page it is 'cbaff-' plus the address's ?affiliate= (funnel.ts cbRefFor); other pages ignore ?affiliate=.
  */
 export function refTagFromUrl(): string | undefined {
   try {
     const params = new URLSearchParams(window.location.search);
     const value = (params.get('ref') || params.get('utm_campaign') || '').trim();
-    return funnelRef(REF_PATTERN.test(value) ? value : undefined, window.location.pathname);
+    return funnelRef(REF_PATTERN.test(value) ? value : undefined, window.location.pathname, params.get('affiliate'));
   } catch {
     return undefined;
   }

@@ -10,8 +10,9 @@ import { TopOffersSyncPanel } from '@/components/admin/top-offers-sync-panel';
 import { PlatformUsagePanel } from '@/components/admin/platform-usage-panel';
 import { FreeVideoLeadsPanel } from '@/components/admin/free-video-leads-panel';
 import { FreeVideoFunnelPanel } from '@/components/admin/free-video-funnel-panel';
+import { ClickBankFunnelPanel } from '@/components/admin/clickbank-funnel-panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Activity, Database, BarChart3, Clapperboard } from 'lucide-react';
+import { Users, Activity, Database, BarChart3, Clapperboard, Handshake } from 'lucide-react';
 
 /**
  * Admin Page
@@ -141,6 +142,10 @@ export default function AdminPage() {
               <Clapperboard className="w-4 h-4" />
               Free Video Ads
             </TabsTrigger>
+            <TabsTrigger value="cb-funnel" className="flex items-center gap-2">
+              <Handshake className="w-4 h-4" />
+              ClickBank funnel
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="usage">
@@ -162,6 +167,11 @@ export default function AdminPage() {
           <TabsContent value="free-video-ads" className="space-y-4">
             <FreeVideoFunnelPanel />
             <FreeVideoLeadsPanel />
+          </TabsContent>
+
+          {/* The ClickBank affiliate funnel (/your-video-ad): one row per affiliate, with the block switch. */}
+          <TabsContent value="cb-funnel">
+            <ClickBankFunnelPanel />
           </TabsContent>
         </Tabs>
       )}

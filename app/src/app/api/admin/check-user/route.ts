@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/app/supabase/server'
 import { findAuthUserByEmail } from '@/lib/auth-user-lookup'
+import { requireAdminAuthApi } from '@/lib/admin-auth'
 
 export async function GET(request: NextRequest) {
+  // Admins only: the answer lists webhook rows and account details.
+  const auth = await requireAdminAuthApi()
+  if (!auth.success) return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
   const { searchParams } = new URL(request.url)
   const email = searchParams.get('email')
 
@@ -29,6 +33,9 @@ export async function GET(request: NextRequest) {
         .from('webhook_events')
         .select('*')
         .eq('processor', 'clickbank')
+        // The ClickBank funnel's item-12 rows (clickbank-video-ad.ts) are not AI Media Machine purchases.
+        .not('event_type', 'like', 'CB_VIDEO_AD_%')
+        .not('event_id', 'like', 'free_video_unlock_%')
         .order('created_at', { ascending: false })
         .limit(10)
 
@@ -106,6 +113,9 @@ export async function GET(request: NextRequest) {
       .from('webhook_events')
       .select('*')
       .eq('processor', 'clickbank')
+      // The ClickBank funnel's item-12 rows (clickbank-video-ad.ts) are not AI Media Machine purchases.
+      .not('event_type', 'like', 'CB_VIDEO_AD_%')
+      .not('event_id', 'like', 'free_video_unlock_%')
       .order('created_at', { ascending: false })
       .limit(50)
 

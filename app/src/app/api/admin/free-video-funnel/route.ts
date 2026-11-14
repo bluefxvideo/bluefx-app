@@ -6,7 +6,8 @@ import { computeFunnelStats, DEFAULT_STATS_TZ, FUNNEL_CHOICES, type FunnelChoice
  * GET /api/admin/free-video-funnel?from=<ISO>&to=<ISO>&tz=<IANA zone>: the free video ad funnel's conversion numbers
  * for the admin panel (owner 2026-10-11: "i want to know the conversion rate, except my test accounts"). Admins only.
  * from: inclusive, left out = all time. to: exclusive, default now. tz: the admin's time zone for the day rows
- * (default Europe/Bucharest). funnel-stats.ts defines every number.
+ * (default Europe/Bucharest). funnel: all (default, both Facebook funnels), app, service or cb (the ClickBank affiliate
+ * funnel). funnel-stats.ts defines every number.
  */
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +37,8 @@ export async function GET(request: NextRequest) {
     if (from !== null && from >= to) return NextResponse.json({ success: false, error: 'from must be before to' }, { status: 400 });
     const tz = validTimeZone(params.get('tz')) ?? DEFAULT_STATS_TZ;
 
-    // funnel: all (default), app (the AI Media Machine offer) or service (Unlimited Video Ads, /free-ad).
+    // funnel: all (default: the two Facebook funnels), app (the AI Media Machine offer), service (Unlimited Video Ads,
+    // /free-ad) or cb (the ClickBank affiliate funnel, /your-video-ad; never part of 'all').
     const asked = params.get('funnel');
     const funnel: FunnelChoice = (FUNNEL_CHOICES as readonly string[]).includes(asked ?? '') ? (asked as FunnelChoice) : 'all';
     const stats = await computeFunnelStats({ from: from === null ? null : new Date(from).toISOString(), to: new Date(to).toISOString(), tz, funnel });

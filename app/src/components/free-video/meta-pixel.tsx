@@ -2,6 +2,7 @@
 
 import Script from 'next/script';
 import { useEffect, useState } from 'react';
+import { isClickBankLandingPath } from '@/lib/free-video/funnel';
 import { isInternalVisit } from '@/lib/free-video/internal-visit';
 import { META_PIXEL_ID, pixelMode } from '@/lib/free-video/pixel';
 
@@ -15,12 +16,18 @@ const DEBUG_CODE = `window.fbq=window.fbq||function(){console.log('[fbq]',...arg
  * The BlueFx pixel on every funnel page (the layout renders it). Decided after mount, in the browser: only on
  * app.bluefx.net and never for a visitor whose time zone is in Europe (see pixel.ts); the localStorage flag
  * fv_pixel_debug=1 logs the calls instead (local checks). Never for the owner's own browser (internal-visit.ts).
+ * Never for the ClickBank affiliate funnel (its visitors are an affiliate's, not our ads'): not on its landing page
+ * (funnel.ts), and not on a page whose server HTML carries the data-fv-no-pixel mark (a ClickBank funnel lead's thanks,
+ * /v/ and $49 pages, reached by a full page load: a reload, an emailed link, the bluefx.net thank-you page's forward).
+ * The choice is made once, when the layout mounts, so the thanks page reached from the landing page in the same visit
+ * stays without it.
  */
 export function MetaPixel() {
   const [mode, setMode] = useState<'live' | 'debug' | null>(null);
 
   useEffect(() => {
-    setMode(isInternalVisit() ? null : pixelMode());
+    const affiliateTraffic = isClickBankLandingPath(window.location.pathname) || document.querySelector('[data-fv-no-pixel]') !== null;
+    setMode(isInternalVisit() || affiliateTraffic ? null : pixelMode());
   }, []);
 
   if (!mode) return null;

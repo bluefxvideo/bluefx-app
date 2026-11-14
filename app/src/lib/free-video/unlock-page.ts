@@ -212,7 +212,8 @@ export const UNLOCK_PAGE = {
     `If your video ad doesn't feel right for your business, tell us, and my team changes your video ad until it does. Still not happy? Email support@bluefx.net within 30 days, and you get every cent of your ${price} back.`,
 
   faqTitle: 'Questions',
-  faq: (price: string, filesUntil: string | null) => [
+  /** `refund`: the last answer for another way of paying (UNLOCK_PAGE.clickbank.refund); left out, the FastSpring answer. */
+  faq: (price: string, filesUntil: string | null, refund?: string) => [
     { q: 'Is this a monthly plan?', a: `No. You pay ${price} once for your video ad. Nothing renews.` },
     { q: 'How many revisions do I get?', a: 'As many as you need, within reason, until your video ad is just right. Send them in the 30 days after you pay.' },
     { q: 'Who makes my changes?', a: 'A real person on my team. Your new version comes back by email within 24 hours.' },
@@ -221,7 +222,7 @@ export const UNLOCK_PAGE = {
     { q: 'Will Facebook run my video ad as a paid ad?', a: 'Facebook checks every paid ad before it runs. Some products, like CBD or supplements, need Facebook’s approval first. Posting your video ad on your own Facebook page, your website or YouTube works for every business.' },
     { q: 'Who owns my video ad?', a: 'You do. Post your video ad anywhere you like, as often as you like, paid ads included.' },
     ...(filesUntil ? [{ q: 'How long can I unlock my video ad?', a: `Until ${longDate(filesUntil)}. The working files of your video ad are deleted 30 days after your video ad was made, and after that your video ad can't be unlocked.` }] : []),
-    { q: 'What if I don’t like my video ad?', a: `Tell us what to change first. Still not happy? Email support@bluefx.net within 30 days, and you get your ${price} back.` },
+    { q: 'What if I don’t like my video ad?', a: refund ?? `Tell us what to change first. Still not happy? Email support@bluefx.net within 30 days, and you get your ${price} back.` },
   ],
   bottomTitle: (domain: string) => `Get your video ad for ${domain} without the watermark`,
   filesLine: (iso: string) => `Your video ad can be unlocked until ${longDate(iso)}.`,
@@ -387,5 +388,30 @@ export const UNLOCK_PAGE = {
     priceUnit: 'a month, cancel any time',
     button: 'Start My Weekly Video Plan',
     more: 'See how the Weekly Video Plan works',
+  },
+  /**
+   * The ClickBank affiliate funnel (spec 2026-11-14 §4): its leads pay the $49 through ClickBank (item 12), so the
+   * checkout, refund and statement lines name ClickBank, and refunds follow ClickBank's 60 days. The rest of the page
+   * is the same words. The owner's rules for anything ClickBank sees: plain simple English, no em dashes.
+   */
+  clickbank: {
+    trust: 'Secure checkout by ClickBank.',
+    afterClick: 'Finish the payment on the ClickBank order page in the new tab. This page updates by itself as soon as the payment arrives.',
+    barWaiting: 'Waiting for your ClickBank payment...',
+    guaranteeSub: '60-day money-back guarantee through ClickBank',
+    guarantee: (price: string) =>
+      `If your video ad doesn't feel right for your business, tell us, and my team changes your video ad until it does. Still not happy? Email support@bluefx.net or contact ClickBank within 60 days, and you get every cent of your ${price} back.`,
+    /** The FAQ's last answer (faq's third argument). */
+    refund: (price: string) => `Tell us what to change first. Still not happy? Email support@bluefx.net or contact ClickBank within 60 days, and you get your ${price} back.`,
+    /** Back from ClickBank's thank-you page (?paid=cb) before the sale has reached us: no offer, so nobody pays twice. */
+    confirming: {
+      title: "Payment received. We're confirming it with ClickBank...",
+      text: "This takes a minute or two. Keep this page open, your clean video ad starts the moment it's confirmed.",
+      /** After 10 minutes of asking. */
+      slow: "It's taking a little longer than usual. We'll email you the moment your clean video ad is ready. Questions: support@bluefx.net",
+    },
+    /** In the paid strip: the statement name (CB_UNLOCK.descriptor), so nobody disputes a charge they don't recognize. */
+    paidNote: (descriptor: string) => `Your order was processed by ClickBank. It shows on your statement as ${descriptor}.`,
+    orderNumber: (receipt: string) => `Your order number: ${receipt}`,
   },
 } as const;
